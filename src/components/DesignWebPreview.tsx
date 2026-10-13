@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { parseDesignSpec } from '../lib/designSpec'
 import { Segmented } from '../ui'
 import { useT } from '../i18n'
+import { findFontIn, registerSpecimens, specimenStack } from '../lib/fonts'
 
 /**
  * The two ways to read a recorded design: as the page it would make, first,
@@ -50,17 +51,18 @@ export function DesignViews({ markdown, title, spec }: { markdown: string; title
  * concept line as the headline, the first layout rules as the cards. A design
  * with none of that gets neutral placeholder copy, never invented claims.
  *
- * Nothing loads a webfont (the shell's CSP fetches no font), so a declared face
- * renders when the machine has it and falls back to a system face otherwise;
- * the legend says which face was ASKED for, which is what the document says.
+ * A declared face that Mocky serves (lib/fonts) is drawn in that face — the
+ * one the screens are really set in. Any other renders when the machine has
+ * it and falls back to a system face otherwise; the legend says which face was
+ * ASKED for, which is what the document says.
  */
 export default function DesignWebPreview({ markdown, title }: { markdown: string; title: string }) {
   const t = useT()
   const spec = useMemo(() => parseDesignSpec(markdown), [markdown])
   const r = spec.system.roles
   const radius = spec.system.radius
-  const display = fontStack(spec.typography.display)
-  const body = fontStack(spec.typography.body)
+  const display = useServedStack(spec.typography.display)
+  const body = useServedStack(spec.typography.body)
   const name = spec.productName || title
   const host = `${slug(name) || 'design'}.example`
 
@@ -369,6 +371,17 @@ function Legend({ spec }: { spec: ReturnType<typeof parseDesignSpec> }) {
  * kept — the same charset `theme.ts` allows — so a document cannot write CSS
  * into a style attribute through its typography line.
  */
+/**
+ * The stack a declared face is drawn in here: the catalogue's own copy when
+ * there is one, registered in this document under its specimen alias so
+ * Mocky's own interface — which asks for `Inter` by name — is left alone.
+ */
+function useServedStack(declared: string | undefined): string {
+  const served = useMemo(() => findFontIn(declared), [declared])
+  useMemo(() => served && registerSpecimens([served]), [served])
+  return served ? specimenStack(served) : fontStack(declared)
+}
+
 export function fontStack(declared: string | undefined): string {
   const fallback = 'ui-sans-serif, system-ui, sans-serif'
   const family = (declared || '').split(/,|\(|\s[—–-]\s/)[0].trim()

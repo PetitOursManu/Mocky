@@ -2799,6 +2799,43 @@ const mcpServer = createMcpServerRoutes({
 })
 mcpServer.mount(app)
 
+// ---- the typefaces generated screens are set in (src/lib/fonts) ----
+//
+// Mounted on its own, before the frontend, for three reasons the generic
+// static mount cannot serve:
+//  - A font is always fetched in CORS mode, and every preview is a sandboxed
+//    frame with an OPAQUE origin, so the request says `Origin: null`. Without
+//    `Access-Control-Allow-Origin` the browser refuses the face and the screen
+//    falls back in silence — the same failure as not shipping the file. `*` is
+//    safe here for the reason /vendor needs no session: these are public,
+//    licence-redistributable files, identical for everyone.
+//  - Every file name carries a hash of its bytes (scripts/vendor-fonts.mjs), so
+//    unlike /vendor they can be cached as immutable.
+//  - A missing face must be a 404. The SPA fallback below answers any unknown
+//    path with index.html and a 200, which a browser then fails to parse as a
+//    font, slowly.
+// dist/fonts after a build; public/fonts when the server runs beside `vite`.
+{
+  const fontsDir = [path.join(dist, 'fonts'), path.join(ROOT_DIR, 'public', 'fonts')].find((d) => fs.existsSync(d))
+  if (fontsDir) {
+    app.use(
+      '/fonts',
+      express.static(fontsDir, {
+        fallthrough: false,
+        index: false,
+        setHeaders(res, filePath) {
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+          res.setHeader(
+            'Cache-Control',
+            filePath.endsWith('.woff2') ? 'public, max-age=31536000, immutable' : 'no-cache',
+          )
+        },
+      }),
+    )
+  }
+}
+
 // ---- serve the built frontend (production) ----
 if (fs.existsSync(dist)) {
   app.use(

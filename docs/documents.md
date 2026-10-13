@@ -70,14 +70,16 @@ any conflict, and the look stays your direction's.
 
 | Type | Starts on | What it asks for |
 |---|---|---|
-| `Flyer` | A4 | One striking page: a huge headline, the key facts (date, place, price) as their own block, highlights, a call to action printed as words beside a QR-code placeholder, colourful shapes bleeding off the edges. A tear-off coupon of fields only when the request is a sign-up. |
+| `Flyer` | A4 (A6 to A3, DL, square) | Flat or [folded](#flyers-sizes-and-folds). One striking page: a huge headline, the key facts (date, place, price) as their own block, highlights, a call to action printed as words beside a QR-code placeholder, colourful shapes bleeding off the edges. A tear-off coupon of fields only when the request is a sign-up. |
 | `Poster` | A3 | One page read from three metres away: one dominant element, the essential facts in one block, no body text. |
 | `Report` | A4 | A cover, a contents block, an executive summary of key figures, body pages with numbered sections, charts and a table, running headers and page numbers. Figures consistent from page to page. |
 | `Documentation` | A4 | A title page with a version, a table of contents, numbered sections, procedures as numbered steps, note / tip / warning callouts, a reference table. |
 | `Résumé / CV` | A4 | One page in two columns: profile, experience with achievements, education, skills, languages. Sober and legible. |
 | `Invoice / quote` | A4 | The issuer, the client, a line-item table with VAT, totals that add up exactly, payment terms. A quote gets an acceptance block made of fillable fields. |
 | `Certificate` | A4 landscape | A decorative border, the recipient's name as the most prominent text, signatures and a seal. Name and date become fields when you ask for a blank template. |
-| `Menu` | A4 | Starters, mains, desserts and drinks, prices aligned, dietary markers with a legend, one framed special. |
+| `Menu` | A4 (A5 to A3, DL) | Flat or [folded](#flyers-sizes-and-folds). Starters, mains, desserts and drinks, prices aligned, dietary markers with a legend, one framed special. |
+| `Magazine` | A4 (A5, Letter) | A [publication](#magazines-and-books): front cover, two inside pages, back cover — then pages added one by one. Editorial hierarchy, columns, pull quotes, folios and running heads. |
+| `Book` | A5 (A6, A4, Letter) | A [publication](#magazines-and-books): front cover, two inside pages, back cover — then pages added one by one. Book setting, running heads, even folios on the left. |
 | `Instagram post` | 4:5 | One big idea per image; a carousel when there is more to say (the first image is the hook, the last the call to action). |
 | `Facebook post` | 1.91:1 | The visual of an announcement or an event, little text — the post's own text carries the detail. |
 | `LinkedIn post` | 1:1 | A professional insight or result; a carousel exported as a PDF is LinkedIn's document post. |
@@ -87,14 +89,21 @@ any conflict, and the look stays your direction's.
 ## Page formats
 
 The format chips show only the formats of the type's family: paper and slides
-for a document, social sizes for a post. A post laid out for a phone is not the
+for a document, social sizes for a post — and a type with sizes of its own shows
+those: a flyer is offered A6, A5, A4, A3, DL, a 21 cm square and US Letter; a
+poster A4 to A2. A post laid out for a phone is not the
 same piece at A4, so the composer never offers the jump — and a format picked for
 a report does not follow you to the Instagram post typed next.
 
 | Family | Format | Page size |
 |---|---|---|
 | Paper | `A4` · `A4 landscape` | 794 × 1 123 px (210 × 297 mm), and turned |
-| Paper | `A3` | 1 123 × 1 587 px (297 × 420 mm) |
+| Paper | `A3` · `A3 landscape` | 1 123 × 1 587 px (297 × 420 mm), and turned |
+| Paper | `A2` | 1 587 × 2 245 px (420 × 594 mm), a shop-window poster |
+| Paper | `A5` · `A5 landscape` | 559 × 794 px (148 × 210 mm), and turned |
+| Paper | `A6` | 397 × 559 px (105 × 148 mm), postcard size |
+| Paper | `DL` | 374 × 794 px (99 × 210 mm), the third of an A4 that fits a rack |
+| Paper | `Square 21` | 794 × 794 px (210 × 210 mm) |
 | Paper | `US Letter` · `US landscape` | 816 × 1 056 px (8.5 × 11 in), and turned |
 | Paper | `Presentation 16:9` | 1 280 × 720 px — PowerPoint's and Google Slides' "Widescreen" |
 | Social | `Square 1:1` | 1 080 × 1 080 px |
@@ -109,6 +118,94 @@ pixels, so the exported image is the file they ask for, as it is.
 The model is told the margins that must stay clear: 40 px on paper, past what an
 office printer cannot reach; 64 px on a post; and on a story, the top and bottom
 bands where the app draws its own bars.
+
+---
+
+## Flyers: sizes and folds
+
+A flyer (or a menu) is chosen by two things in the composer: its **size** — the
+chips — and its **fold**, the `Fold` menu beside them. `Flat sheet` is a single
+page, as before. The folds:
+
+| Fold | Panels | Offered on |
+|---|---|---|
+| `Bi-fold` | 2 per face, folded in half like a card | A5, A4, A3, Letter |
+| `Tri-fold (roll)` | 3 per face; the panel that tucks in is 3 mm narrower | A4, A3, Letter |
+| `Z-fold` | 3 per face, an accordion | A4, A3, Letter |
+| `Gate fold` | 2 flaps closing like doors on a double centre panel | A4, A3, Letter |
+| `4-panel accordion` | 4 per face | A4, A3 |
+
+The size is the **flat sheet**: an A4 folded in three is an A4 landscape sheet
+of three DL panels, printed on both sides. So a folded leaflet is always two
+pages — the outside face and the inside face — and each page is a row of
+panels, drawn by the page kit at their exact widths, with the fold lines dashed
+on the canvas (never in an export).
+
+:::why
+Which panel ends up as the front cover is geometry, not reading order. On a
+roll fold the front cover is the RIGHT-hand panel of the outside face; on a
+gate fold the cover is split across both ends, its right half printed on the
+left. A model asked for "a tri-fold" lays the outside face out as a reading
+order — cover first, on the left — and the sheet that comes back from the
+printer folds with its back cover in front. So Mocky computes the order once
+(`lib/folds.ts`) and tells the model which slot is which, with its width.
+:::
+
+Words that run across a fold are reported like words past the page edge, and
+**Fit to page** wins them back the same way. The PDF has the two faces at the
+sheet's size: the file a print shop asks for.
+
+---
+
+## Several pages in a row: Parcours
+
+The composer's `Flows` switch (Parcours) is about screens that open one another
+in a prototype — and, on a document, about the **pages that follow one
+another**:
+
+- a **flyer or a menu** gets a **recto and a verso**: the front stops someone,
+  the back carries the detail, the practical information and the coupon;
+- a **post** becomes a **carousel** — five images unless your request names
+  another number: the hook, one idea per image, the call to action, with a page
+  counter and the same wordmark on each;
+- a **story** becomes a sequence of stories.
+
+A folded leaflet already has its two faces, a poster has no back, a report
+runs to several pages by its own brief: on those the switch changes nothing.
+Off, nothing is added to the prompt (invariant V7).
+
+---
+
+## Magazines and books
+
+`Magazine` and `Book` are not one screen but a **publication**: sheets that
+share **one art direction of their own**. It starts small — **four pages**:
+
+1. Mocky plans what they say (one model call): the **front cover**, **two
+   inside pages** (an editorial and the opening of a feature for a magazine, a
+   title page and the first page of a chapter for a book), the **back cover**.
+2. The **front cover** runs Muse on the publication's request; its dossier
+   becomes the publication's direction.
+3. **The three others** are generated under that direction, with Muse off —
+   the same type, palette, grid, folio and running head.
+
+Then you grow it **one page at a time**: generate again with the same type
+(`Magazine` or `Book`) in the same project, describing the page you want — it
+is added as an inside page **before the back cover**, under the same direction,
+told its page number and the whole table of contents.
+
+:::why
+One component of forty designed pages is a call that runs out of tokens at page
+eleven and leaves the whole issue to be regenerated for one bad spread. A page
+is a part a model writes well in one go, and redoes alone — and four of them
+are enough to judge a look before spending on the rest. And the direction is
+the publication's, not the project's: an issue of a magazine and a flyer for its
+launch party can live in the same project without one restyling the other.
+:::
+
+The progress line says which sheet is being made. Each sheet is an ordinary
+document on the canvas — edit it, fit it, download it — and its pages print in
+order with the others.
 
 ---
 

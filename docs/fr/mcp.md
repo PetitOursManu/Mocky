@@ -1,5 +1,5 @@
 ---
-source_hash: d85a97b40507
+source_hash: 60e96fa471a3
 ---
 
 # Connecter un assistant (MCP)
@@ -20,6 +20,8 @@ instance servie en HTTPS.
 | `mocky_guide` | Le guide écrit pour l'assistant lui-même : les étapes d'une demande à un design, quel outil quand, les types d'écran, les images, ce qu'il ne doit jamais faire. Il a pour consigne de le lire avant son premier design ; aussi servi comme ressource `mocky://guide`. |
 | `create_design` | Génère un nouvel écran à partir d'une description, toujours dans un **nouveau projet**, et renvoie **une image du résultat et un lien** vers lui dans Mocky. |
 | `add_screen` | La même chose, dans un **projet existant** — où l'écran suit la direction artistique de ce projet. Seulement quand la personne nomme ce projet : un assistant ne doit jamais en choisir un parce qu'il semble proche, et la réponse dit dans quel projet l'écran est allé. |
+| `create_campaign` | Un brief décliné en plusieurs créations — affiche A3, flyer A4, post et story Instagram, visuels LinkedIn et Facebook (`formats`) — dans un nouveau projet qui est la [campagne](campaign.md). Les infos clés sont d’abord lues dans le brief ; la réponse liste chaque création avec son lien. |
+| `create_publication` | Un [magazine ou un livre](documents.md#magazines-et-livres) (`publication`) : quatre pages — première de couverture, deux pages intérieures, quatrième — sous une direction artistique à lui, dans un nouveau projet. `add_screen` avec le `screen_type` `magazine` ou `book` dans ce projet ajoute ensuite une page intérieure par appel, avant la quatrième. |
 | `get_design` | Attend un design encore en cours, puis renvoie la même chose. |
 | `list_projects` | Les projets du compte, chacun avec un lien. |
 | `get_project` | Les écrans d'un projet : nom, appareil, la demande qui l'a créé, un lien. |
@@ -76,6 +78,19 @@ rien remplir, un prompt démarre quand même une conversation sensée.
   images fournies, Muse regarde la première avant d'écrire son dossier et les
   place dans ses emplacements au lieu d'en créer — la palette est donc choisie
   avec la photo, pas à côté.
+- **Parcours et plis.** `flows: true` sur `create_design` ou `add_screen`,
+  c’est le Parcours du composeur : un écran web devient un prototype qui
+  fonctionne et Mocky fabrique les pages (jusqu’à trois) auxquelles il mène ; un
+  flyer ou un menu reçoit un recto et un verso ; un post devient un carrousel.
+  `fold` fait d’un flyer ou d’un menu un [dépliant](documents.md#flyers-tailles-et-plis),
+  `page_format` nommant alors la feuille à plat. La réponse liste chaque écran
+  fabriqué, avec son lien.
+- **Plusieurs écrans, un seul travail.** Une campagne, une publication ou un
+  écran avec son parcours sont UN travail : il compte une fois dans le quota du
+  jour, il reçoit le temps d’autant de générations (`jobBudgetFactor`), et il est
+  toujours écrit par le modèle de Mocky — le moteur « client » passe un composant
+  à la fois à l’assistant, et douze allers-retours pour un magazine, personne ne
+  les a demandés.
 - **Une passe par outil.** `edit_design`, `polish_design` et
   `fix_accessibility` exécutent chacun UNE des passes de Mocky, avec sa propre
   consigne — une modification fait ce qu'on lui dit, un polissage peut

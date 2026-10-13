@@ -18,6 +18,10 @@ only a picture of a page: it is a page of a **prototype that works** in
 
 And the screens a flow leads to are **created automatically**.
 
+On a **document** the same switch means the pages that follow one another — a
+flyer's recto and verso, a post's carousel — see
+[Documents](documents.md#several-pages-in-a-row-parcours).
+
 ## The screens created for you
 
 Ask for "a sign-in page for an online bank". The model writes the form, and

@@ -43,6 +43,18 @@ import crypto from 'node:crypto'
 /** A generation (Muse included) plus its picture. Past this the page is closed. */
 export const JOB_TIMEOUT_MS = 10 * 60 * 1000
 /**
+ * How many generations' worth of time a job may take: a campaign is up to six
+ * pieces, a publication four sheets, a screen with Parcours on up to
+ * three more pages. Ten minutes for six generations is a campaign stopped at
+ * its third piece with the first two kept and nothing said.
+ */
+export function jobBudgetFactor(request) {
+  if (request?.kind === 'publication') return 4
+  if (request?.kind === 'campaign') return 4
+  if (request?.flows) return 3
+  return 1
+}
+/**
  * How long a "client" job — the assistant's model writes the code (phase 4) —
  * waits for that code, per round, before giving up. An assistant writing a
  * whole component takes a minute or two; ten is the page's patience, not a
@@ -390,7 +402,8 @@ export function createRunner(d) {
   async function execute(job) {
     const client = job.request.engine === 'client'
     // A client job spends most of its life waiting for somebody else's model.
-    const budget = client ? JOB_TIMEOUT_MS + (CLIENT_FIX_ROUNDS + 1) * AWAIT_CODE_MS : JOB_TIMEOUT_MS
+    const generating = JOB_TIMEOUT_MS * jobBudgetFactor(job.request)
+    const budget = client ? generating + (CLIENT_FIX_ROUNDS + 1) * AWAIT_CODE_MS : generating
     const token = d.auth.issue(job.userId, job.id, budget + 60_000)
     let context = null
     const timeout = setTimeout(() => {
@@ -425,6 +438,17 @@ export function createRunner(d) {
         ...(result.polish ? { polish: result.polish } : {}),
         ...(result.audit ? { audit: result.audit } : {}),
         ...(result.auditFix ? { auditFix: result.auditFix } : {}),
+        // Several screens made by one job: ids, names and roles — never code.
+        ...(Array.isArray(result.screens) && result.screens.length
+          ? {
+              collection: ['flow', 'campaign', 'publication'].includes(result.collection) ? result.collection : 'flow',
+              screens: result.screens.slice(0, 16).map((x) => ({
+                screenId: String(x?.screenId || '').slice(0, 64),
+                name: String(x?.name || '').slice(0, 120),
+                role: String(x?.role || '').slice(0, 60),
+              })),
+            }
+          : {}),
       }
 
       // A pass that changed nothing has nothing new to show: the screen's picture

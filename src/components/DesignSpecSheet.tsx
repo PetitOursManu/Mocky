@@ -9,6 +9,8 @@ import {
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
 import { Button, Icon } from '../ui'
 import { useT } from '../i18n'
+import { findFontIn, registerSpecimens, specimenStack, type FontFamily } from '../lib/fonts'
+import FontBrowser from './FontBrowser'
 
 /**
  * A DESIGN.md, presented as a specification sheet — and edited as one.
@@ -422,33 +424,66 @@ function Colors({ spec, ctx }: { spec: DesignSpec; ctx: Ctx }) {
 }
 
 /**
- * The specimen says DECLARED, not rendered.
+ * The specimen is drawn in the document's own faces when Mocky serves them.
  *
- * Nothing in Mocky loads a webfont, so drawing "Aa" in the document's display
- * face is not possible — the browser would substitute, and a specimen that
- * silently shows the wrong typeface is worse than none.
+ * It used to say DECLARED and draw nothing: no webfont loaded anywhere, so an
+ * "Aa" in the display face would have been the browser's substitute, and a
+ * specimen that silently shows the wrong typeface is worse than none. The faces
+ * in the catalogue (lib/fonts) are now what the screens are really set in, so
+ * those are drawn; a face outside it still is not, and the line under the names
+ * says which of the two the reader is looking at.
  */
 function Typography({ spec, ctx }: { spec: DesignSpec; ctx: Ctx }) {
   const { display, body, scale } = spec.typography
+  const [browsing, setBrowsing] = useState(false)
+  const displayFont = findFontIn(display)
+  const bodyFont = findFontIn(body)
+  // Registered before the paint that uses them: idempotent, CSS only.
+  useMemo(() => registerSpecimens([displayFont, bodyFont].filter((f): f is FontFamily => !!f)), [displayFont, bodyFont])
+  const served = (display ? !!displayFont : true) && (body ? !!bodyFont : true) && !!(display || body)
   return (
     <div className="flex items-start gap-4">
-      <span className={`font-serif leading-none text-ink ${ctx.compact ? 'text-h2' : 'text-display'}`} aria-hidden>
+      <span
+        className={`${displayFont ? '' : 'font-serif '}leading-none text-ink ${ctx.compact ? 'text-h2' : 'text-display'}`}
+        style={displayFont ? { fontFamily: specimenStack(displayFont) } : undefined}
+        aria-hidden
+      >
         Aa
       </span>
       <div className="min-w-0 flex-1">
         {display && (
-          <p className="truncate text-body text-ink" title={display}>
+          <p
+            className="truncate text-body text-ink"
+            title={display}
+            style={displayFont ? { fontFamily: specimenStack(displayFont) } : undefined}
+          >
             {display}
           </p>
         )}
         {body && (
-          <p className="truncate text-body-sm text-ink-muted" title={body}>
+          <p
+            className="truncate text-body-sm text-ink-muted"
+            title={body}
+            style={bodyFont ? { fontFamily: specimenStack(bodyFont) } : undefined}
+          >
             {body}
           </p>
         )}
-        <p className="mt-1 font-mono text-caption text-ink-faint">{ctx.t('design.spec.declared')}</p>
+        <p className="mt-1 font-mono text-caption text-ink-faint">
+          {served ? ctx.t('fonts.served') : display || body ? ctx.t('fonts.notServed') : ctx.t('design.spec.declared')}
+        </p>
         {!ctx.compact && scale && <p className="measure mt-2 text-body-sm text-ink-muted">{scale}</p>}
+        {!ctx.compact && (
+          <button
+            type="button"
+            onClick={() => setBrowsing(true)}
+            className="mt-2 font-mono text-caption text-ink underline-offset-2 hover:underline"
+          >
+            {ctx.t('fonts.browse')}
+          </button>
+        )}
       </div>
+      {browsing && <FontBrowser onClose={() => setBrowsing(false)} />}
     </div>
   )
 }

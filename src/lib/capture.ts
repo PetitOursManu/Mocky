@@ -3,6 +3,7 @@ import { buildPrelude } from './capabilities/prelude'
 import type { Capability } from './capabilities/types'
 import { compileJsx } from './compile'
 import { legibilityVerdict, type LegibilityFinding } from './legibility'
+import { fontFaceCssFor } from './fonts'
 
 /**
  * The legibility probe, as source for the capture frame.
@@ -170,6 +171,15 @@ export const STILL_ANIMATIONS_CSS =
  */
 export const EXPORT_NO_TRANSITIONS_CSS = '*,*::before,*::after{transition:none !important}'
 
+/** The inverse of utf8ToBase64, for reading back the source a shell was handed. */
+function base64ToUtf8(b64: string): string {
+  try {
+    return new TextDecoder().decode(Uint8Array.from(window.atob(b64), (c) => c.charCodeAt(0)))
+  } catch {
+    return ''
+  }
+}
+
 function utf8ToBase64(str: string): string {
   return window.btoa(
     encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
@@ -223,6 +233,13 @@ function buildCaptureShell(
   // origin: whatever unpkg served could read localStorage (the provider API key)
   // and call the API with the session cookie.
   const babelScript = useBabel ? '<script src="/vendor/babel.min.js"></script>' : ''
+  /*
+   * The typefaces the screen names, as in the preview (lib/fonts) — a thumbnail
+   * or an exported flyer set in the fallback face is a picture of a different
+   * design. Read off the same source the frame runs, compiled or not: a class
+   * name or a style is a string either way, and survives Babel untouched.
+   */
+  const fontCss = fontFaceCssFor(base64ToUtf8(b64), location.origin)
   const runner = useBabel
     ? `var raw = window.atob(document.getElementById('mocky-b64').textContent);
     var src = decodeURIComponent(Array.prototype.map.call(raw, function(c){ return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join(''));
@@ -342,6 +359,7 @@ ${capScripts}
 ${babelScript}
 <script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
+${fontCss ? `<style data-mocky-fonts>${fontCss}</style>` : ''}
 ${mode === 'document' ? `<style>${STILL_ANIMATIONS_CSS}${EXPORT_NO_TRANSITIONS_CSS}</style>` : ''}
 </head><body><div id="root"></div>
 <script type="text/plain" id="mocky-b64">${b64}</script>
@@ -386,8 +404,18 @@ ${mode === 'probe' ? PROBE_SOURCE : ''}
      owes its frame is waited for, briefly, and then the picture is taken
      anyway: a capture that degrades is this file's contract, a capture that
      never arrives is not. window.__mockyStillPending is that count. */
-  var owed = 0;
+  var owed = 0, fontsOwed = 0;
   setTimeout(function wait(){
+    /* The faces too (lib/fonts): html2canvas sets each run of text with the
+       font the document has NOW, so a face still on its way is drawn as the
+       fallback. Local files, so this is usually nothing; bounded, because a
+       face that never arrives must cost the picture its typeface, not the
+       picture. A document export waits on document.fonts.ready itself
+       (docExport/render.ts), so this only spares it a wasted first wait. */
+    if (document.fonts && document.fonts.status === 'loading' && fontsOwed < 3000) {
+      fontsOwed += 60;
+      return setTimeout(wait, 60);
+    }
     if (!window.__mockyStillPending || owed >= 600) return ${mode === 'probe' ? 'probe' : mode === 'document' ? 'ready' : 'shoot'}();
     owed += 60;
     setTimeout(wait, 60);

@@ -41,7 +41,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { registerPrompts } from './prompts.js'
 import { parseProjects } from '../merge.js'
-import { SCREEN_TYPES, PAGE_FORMATS, inferPageFormat } from './screen-types.js'
+import { SCREEN_TYPES, PAGE_FORMATS, FOLDS, CAMPAIGN_FORMATS, PUBLICATION_KINDS, inferPageFormat } from './screen-types.js'
 import { buildGuide } from './guide.js'
 import { buildViewHtml, VIEW_MIME, VIEW_URI } from './view.js'
 
@@ -321,6 +321,7 @@ export function buildMcpServer(deps) {
         : '',
       r.shot ? (lang === 'fr' ? `Image : ${deps.shotLink(r.shot)}` : `Picture: ${deps.shotLink(r.shot)}`) : '',
       notes.length ? (lang === 'fr' ? 'Remarques : ' : 'Notes: ') + notes.join(' ') : '',
+      ...collectionLines(r, lang),
     ].filter(Boolean)
     return {
       content: [...(jpeg ? [{ type: 'image', data: jpeg.toString('base64'), mimeType: 'image/jpeg' }] : []), text(lines.join('\n'))],
@@ -333,9 +334,26 @@ export function buildMcpServer(deps) {
         picture: r.shot ? deps.shotLink(r.shot) : null,
         pictureSource: r.picture || 'none',
         notes,
+        ...(r.screens ? { collection: r.collection, screens: r.screens.map((x) => ({ ...x, link: linkFor(r.projectId, x.screenId) })) } : {}),
         view: liveView(r.shot, r, lang),
       },
     }
+  }
+
+  /**
+   * The screens a campaign, a publication or a flow made, one line each with
+   * its link: the picture is of the first, and the person should know there
+   * are others to open.
+   */
+  function collectionLines(r, lang) {
+    if (!Array.isArray(r.screens) || r.screens.length < 2) return []
+    const fr = lang === 'fr'
+    const head = {
+      campaign: fr ? `Campagne : ${r.screens.length} créations, mêmes infos clés et même direction.` : `Campaign: ${r.screens.length} pieces, same key facts and direction.`,
+      publication: fr ? `Publication : ${r.screens.length} feuilles sous une même direction artistique (l’image montre la première).` : `Publication: ${r.screens.length} sheets under one art direction (the picture shows the first).`,
+      flow: fr ? `Parcours : ${r.screens.length} écrans reliés, à essayer dans la démo de Mocky.` : `Flow: ${r.screens.length} linked screens, to try in Mocky's demo.`,
+    }[r.collection] || ''
+    return [head, ...r.screens.map((x, i) => `${i + 1}. ${x.name || x.role} — ${linkFor(r.projectId, x.screenId)}`)]
   }
 
   /**
@@ -668,6 +686,9 @@ export function buildMcpServer(deps) {
       muse: project ? args.muse === true : args.muse !== false,
       engine,
       lang,
+      ...(args.flows === true ? { flows: true } : {}),
+      ...(FOLDS[args.fold] ? { fold: args.fold } : {}),
+      ...(!project && args.use_brand === true ? { useBrand: true } : {}),
     })
     const waited = await runner.wait(job.id, user.id, WAIT_MS)
     const out = jobResult(waited, lang)
@@ -744,6 +765,29 @@ export function buildMcpServer(deps) {
           Object.entries(PAGE_FORMATS).map(([id, what]) => `${id} = ${what}`).join('; ') +
           '. Omit it to use the screen type\'s own size.',
       ),
+    flows: z
+      .boolean()
+      .optional()
+      .describe(
+        'Mocky\'s "Parcours". For a web screen: a working prototype — its links and buttons open other screens, and Mocky also makes the (up to three) pages it leads to. ' +
+          'For a flyer or a menu: a recto AND a verso. For a social post: a carousel (five images unless the brief names another number). ' +
+          'Pass true when the person asks for a flow, a prototype, a recto-verso, both sides or a carousel.',
+      ),
+    fold: z
+      .enum(Object.keys(FOLDS))
+      .optional()
+      .describe(
+        'Only for a flyer or a menu that is a FOLDED leaflet (dépliant): ' +
+          Object.entries(FOLDS).map(([id, what]) => `${id} = ${what}`).join('; ') +
+          '. page_format is then the size of the flat sheet (a4 folded in three = three DL panels). Omit it for a flat sheet.',
+      ),
+    use_brand: z
+      .boolean()
+      .optional()
+      .describe(
+        'Make the NEW project in the person\'s own brand identity, kept in Mocky (Settings → My brand): their logo, colours, typefaces and tone. ' +
+          'Pass true when the person asks for "my logo", "my brand", "my company\'s colours". In an existing project (add_screen) the project\'s own setting decides and this is ignored.',
+      ),
     device: z.enum(DEVICES).optional().describe('desktop (default), mobile or tablet.'),
     kind: z.string().max(200).optional().describe('The type of screen: home page, dashboard, sign-in, pricing…'),
     audience: z.string().max(300).optional().describe('Who it is for, and for which product or service.'),
@@ -816,6 +860,142 @@ export function buildMcpServer(deps) {
       if (!project) return refuse(briefLanguage(args.brief) === 'fr' ? 'Aucun projet de ce compte ne porte cet identifiant.' : 'No such project in this account.')
       return startDesign(args, project, 'add_screen')
     },
+  )
+
+  /**
+   * A job that makes SEVERAL screens in a new project — a campaign, a
+   * publication. Same doors as a design (clarification, availability, the
+   * account's pictures), and always Mocky's own model: the "client" engine
+   * hands one component at a time to the assistant, and a magazine of twelve
+   * sheets is twelve round trips the person did not ask to sit through.
+   */
+  async function startCollection(kind, args, toolName, extra) {
+    const lang = briefLanguage(args.brief)
+    if (needsClarification(args)) {
+      return {
+        content: [
+          text(
+            (lang === 'fr'
+              ? `Avant de générer, il me faut un peu plus de contexte. Pose ces questions à la personne, puis rappelle ${toolName} avec ses réponses (kind, audience, style) :\n`
+              : `Before generating, I need a little more context. Ask the person these questions, then call ${toolName} again with the answers (kind, audience, style):\n`) +
+              QUESTIONS[lang].map((q, i) => `${i + 1}. ${q}`).join('\n'),
+          ),
+        ],
+        structuredContent: { status: 'needs_clarification', questions: QUESTIONS[lang] },
+      }
+    }
+    const blocked = cannotRun(lang)
+    if (blocked) return blocked
+    const images = Array.isArray(args.images) ? args.images : []
+    const stranger = images.find((p) => !deps.pictures?.owns(user, p.image_id))
+    if (stranger) {
+      return refuse(
+        lang === 'fr'
+          ? `L’image « ${stranger.image_id} » n’est pas dans la bibliothèque de ce compte : ajoute-la d’abord avec add_image.`
+          : `Image "${stranger.image_id}" is not in this account's library: add it first with add_image.`,
+      )
+    }
+    const { job, existing } = runner.enqueue(user.id, {
+      kind,
+      brief: composeBrief(args, lang),
+      pictures: images.length ? images.map((p) => ({ hash: p.image_id, use: p.use })) : undefined,
+      pictureSource: ['auto', 'free', 'generated', 'none'].includes(args.picture_source) ? args.picture_source : 'auto',
+      pictureSubject: typeof args.picture_subject === 'string' && args.picture_subject.trim() ? args.picture_subject.trim() : undefined,
+      projectName: args.project_name || undefined,
+      device: 'desktop',
+      muse: args.muse !== false,
+      engine: 'mocky',
+      lang,
+      ...(args.use_brand === true ? { useBrand: true } : {}),
+      ...extra,
+    })
+    const out = jobResult(await runner.wait(job.id, user.id, WAIT_MS), lang)
+    if (existing) {
+      out.content.unshift(
+        text(
+          lang === 'fr'
+            ? 'Un travail est déjà en cours pour ce compte : voici celui-là. Un seul à la fois.'
+            : 'Work is already running for this account: here is that one. One at a time.',
+        ),
+      )
+    }
+    return out
+  }
+
+  const collectionFields = {
+    brief: designFields.brief,
+    images: designFields.images,
+    picture_source: designFields.picture_source,
+    picture_subject: designFields.picture_subject,
+    kind: designFields.kind,
+    audience: designFields.audience,
+    style: designFields.style,
+    project_name: z.string().max(120).optional().describe('A short name for the new project.'),
+    use_brand: designFields.use_brand,
+    muse: z
+      .boolean()
+      .optional()
+      .describe('Mocky\'s art direction (Muse) writes ONE direction first, shared by every screen made — on by default. Pass false only when the person wants it fast.'),
+  }
+
+  server.registerTool(
+    'create_campaign',
+    {
+      title: 'Create a campaign in a new Mocky project',
+      description:
+        'One brief, several pieces composed for their own format — an A3 poster, an A4 flyer, an Instagram post and story, LinkedIn and Facebook visuals — in a NEW project that IS the campaign. ' +
+        'Mocky first reads the key facts out of the brief (dates, place, price, URL) and every piece writes them verbatim; the pieces share one art direction and one key visual. ' +
+        'Use it when the person asks for a campaign, or for the same announcement in several formats at once. It takes several minutes (one generation per piece): when it answers that it is still running, call get_design with the job id. ' +
+        'The answer lists every piece with its link.',
+      inputSchema: {
+        ...collectionFields,
+        formats: z
+          .array(z.enum(Object.keys(CAMPAIGN_FORMATS)))
+          .min(1)
+          .max(Object.keys(CAMPAIGN_FORMATS).length)
+          .optional()
+          .describe(
+            'The pieces to make: ' +
+              Object.entries(CAMPAIGN_FORMATS).map(([id, what]) => `${id} = ${what}`).join('; ') +
+              '. Omit for poster, flyer, instagram and story.',
+          ),
+      },
+      _meta: VIEW_META,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async (args) =>
+      startCollection('campaign', args, 'create_campaign', {
+        formats: Array.isArray(args.formats) ? [...new Set(args.formats.filter((f) => CAMPAIGN_FORMATS[f]))] : undefined,
+      }),
+  )
+
+  server.registerTool(
+    'create_publication',
+    {
+      title: 'Create a magazine or a book in a new Mocky project',
+      description:
+        'A printed publication of many pages — a magazine issue or a book — made as several SHEETS (cover, contents, features or chapters, back cover) in a NEW project. ' +
+        'It starts with FOUR one-page sheets — front cover, two inside pages, back cover: Mocky plans what they say, writes ONE art direction of the publication\'s own with the cover, and designs the others under it. ' +
+        'To add pages afterwards, call add_screen in that project with screen_type "magazine" or "book" and the page\'s content in brief: each call adds ONE inside page before the back cover, under the same direction. ' +
+        'Put the subject and the tone in brief. It takes a few minutes (four generations): when it answers that it is still running, call get_design with the job id. The answer lists every sheet with its link.',
+      inputSchema: {
+        ...collectionFields,
+        publication: z
+          .enum(Object.keys(PUBLICATION_KINDS))
+          .describe(Object.entries(PUBLICATION_KINDS).map(([id, what]) => `${id} = ${what}`).join('; ') + '.'),
+        page_format: z
+          .enum(['a4', 'a5', 'a6', 'letter'])
+          .optional()
+          .describe('The page size: a4 (a magazine by default), a5 (a book by default), a6 (a pocket book) or letter.'),
+      },
+      _meta: VIEW_META,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async (args) =>
+      startCollection('publication', args, 'create_publication', {
+        screenType: PUBLICATION_KINDS[args.publication] ? args.publication : 'magazine',
+        ...(PAGE_FORMATS[args.page_format] ? { pageFormat: args.page_format } : {}),
+      }),
   )
 
   /*

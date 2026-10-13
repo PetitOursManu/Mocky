@@ -7,6 +7,14 @@ import type { SiteRefMode } from './siteReference'
 import { normalizePageFormat, type PageFormatId } from './pageFormats'
 import { normalizeBranch, restoreProject, MAIN_BRANCH, type VersionFull } from './versions'
 import { normalizeScenarios, slugRoute, type DemoScenario } from './flows'
+import { normalizeFold, type FoldId } from './folds'
+import {
+  normalizePublications,
+  normalizeScreenPublication,
+  upsertPublication,
+  type Publication,
+  type ScreenPublication,
+} from './publication'
 import { normalizeCampaign, normalizeScreenCampaign, type Campaign, type ScreenCampaign } from './campaign'
 
 /** A link from an element (or region) of a screen to another screen. */
@@ -150,6 +158,13 @@ export interface Screen {
    */
   page?: PageFormatId
   /**
+   * The fold of a folded leaflet (lib/folds.ts): `page` is then the FLAT sheet,
+   * printed on both sides, and each of its two pages is a row of panels. Kept
+   * for the reason `page` is — an edit rebuilds the panel list from the screen —
+   * and followed from the code's `<Doc fold>` like the format. Absent: flat.
+   */
+  fold?: FoldId
+  /**
    * What the person wrote about this screen, for themselves. Never read by
    * anything that builds a prompt — see `lib/screenNotes.ts` for why, and
    * `tests/screen-notes-private.test.js` for what holds it. Absent means none.
@@ -180,6 +195,12 @@ export interface Screen {
    * carries its own answer. Absent on every screen that is not a piece.
    */
   campaign?: ScreenCampaign
+  /**
+   * A publication sheet's place (lib/publication.ts): which magazine or book,
+   * which sheet of its plan, the folio it starts at. On the screen for the
+   * reason `campaign` is. Absent on every screen that is not a sheet.
+   */
+  publication?: ScreenPublication
 }
 
 /**
@@ -383,6 +404,20 @@ export interface Project {
    * On Project for the reason `folder` is.
    */
   campaign?: Campaign
+  /**
+   * The magazines and books made in this project (lib/publication.ts), each
+   * with its plan and its OWN direction — not the project's, which a flyer for
+   * the launch party beside the issue goes on using. On Project for the reason
+   * `folder` is.
+   */
+  publications?: Publication[]
+  /**
+   * This project is made in the account's brand identity (lib/brand.ts): its
+   * logo, colours, typefaces and tone reach every generation and edit. Off by
+   * default — a person's own company and a client's project are not the same
+   * brand. On Project for the reason `folder` is.
+   */
+  useBrand?: boolean
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -845,6 +880,8 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // Same rule as `theme`: a format this build does not know reads as "not a
     // document" rather than as a guess at one.
     page: normalizePageFormat(s.page),
+    // Only on a document: a fold without a sheet is a fold of nothing.
+    fold: normalizePageFormat(s.page) ? normalizeFold(s.fold) : undefined,
     // Rebuilt field by field rather than passed through: this record is written
     // from a server response, and everything on a Screen survives a reload only
     // if it is named here.
@@ -853,6 +890,7 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     userNotes: normalizeNotes(s.userNotes),
     route: typeof s.route === 'string' && slugRoute(s.route) ? slugRoute(s.route) : undefined,
     campaign: normalizeScreenCampaign(s.campaign),
+    publication: normalizeScreenPublication(s.publication),
   }
 }
 
@@ -1250,6 +1288,33 @@ export function useProjects() {
     )
   }, [])
 
+  /** Switch the account's brand identity on or off for one project. */
+  const setProjectUseBrand = useCallback((projectId: string, on: boolean) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId || !!p.useBrand === on) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (on) next.useBrand = true
+        else delete next.useBrand
+        return next
+      }),
+    )
+  }, [])
+
+  /** Add or replace one publication of a project, by id. */
+  const setProjectPublication = useCallback((projectId: string, pub: Publication) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p
+        const list = normalizePublications(upsertPublication(p.publications, pub))
+        const next = { ...p, updatedAt: Date.now() }
+        if (list) next.publications = list
+        else delete next.publications
+        return next
+      }),
+    )
+  }, [])
+
   /** Replace a project's campaign brief (undefined, or nothing worth keeping, clears it). */
   const setProjectCampaign = useCallback((projectId: string, campaign: Campaign | undefined) => {
     const clean = normalizeCampaign(campaign)
@@ -1281,5 +1346,7 @@ export function useProjects() {
     restoreProjectVersion,
     setProjectScenarios,
     setProjectCampaign,
+    setProjectPublication,
+    setProjectUseBrand,
   }
 }

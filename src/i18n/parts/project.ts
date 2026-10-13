@@ -64,6 +64,13 @@ export const project = {
     'project.autoLinkWhyContent': 'le libellé se retrouve dans le contenu de l’écran cible',
     'project.demoFlow': 'Dérouler',
     'project.demoFlowTitle': 'Parcourir les écrans dans l’ordre, sans avoir à les relier',
+    'project.webExportPng': 'Exporter en image PNG (page entière)',
+    'project.webExportPptx': 'Exporter en PowerPoint',
+    'project.webExporting': 'Export de « {name} »…',
+    'project.webExportingSlide': 'Diapositive {n} sur {total}…',
+    'project.webExportedPng': 'Image téléchargée : {file}.',
+    'project.webExportedPptx': 'PowerPoint téléchargé : {file} ({count} diapositives, texte modifiable).',
+    'project.webExportFailed': 'L’export n’a pas abouti : {error}',
     'project.exportTitle': 'Exporter un projet Vite + React + Tailwind prêt à lancer',
 
     // ---- export menu ----
@@ -409,6 +416,13 @@ export const project = {
     'project.autoLinkWhyContent': 'the label appears in the target screen’s content',
     'project.demoFlow': 'Walk through',
     'project.demoFlowTitle': 'Step through the screens in order, with nothing to wire up',
+    'project.webExportPng': 'Export as a PNG image (whole page)',
+    'project.webExportPptx': 'Export as PowerPoint',
+    'project.webExporting': 'Exporting “{name}”…',
+    'project.webExportingSlide': 'Slide {n} of {total}…',
+    'project.webExportedPng': 'Image downloaded: {file}.',
+    'project.webExportedPptx': 'PowerPoint downloaded: {file} ({count} slides, editable text).',
+    'project.webExportFailed': 'The export failed: {error}',
     'project.exportTitle': 'Export a runnable Vite + React + Tailwind project',
 
     // ---- export menu ----

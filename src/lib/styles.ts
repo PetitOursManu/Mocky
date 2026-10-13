@@ -224,7 +224,7 @@ export const STYLE_PRESETS: StylePreset[] = [
 - Border: #d6c3a5
 
 ## Typography
-- Font: Source Serif Pro / Lora, serif headings
+- Font: Source Serif 4 / Lora, serif headings
 - Body: Inter, sans-serif 15px
 - Headings: medium weight, warm
 

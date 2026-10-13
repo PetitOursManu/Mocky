@@ -8,6 +8,7 @@ import { AnimateSource, ANIMATE_EXPORTS } from './snippets/Animate'
 import { Scene3DSource, SCENE3D_EXPORTS, SCENE3D_PRESETS } from './snippets/Scene3D'
 import { UltraSource, ULTRA_EXPORTS, ULTRA_CLASSES, BACKDROP_PRESETS } from './snippets/Ultra'
 import { DocumentSource, DOCUMENT_EXPORTS } from './snippets/Document'
+import { FOLD_IDS } from '../folds'
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from './snippets/ShapeFrame'
 import { FlowSource, FLOW_EXPORTS } from './snippets/Flow'
 import { FRAME_FAMILIES, FRAME_SHAPES } from '../frameShapes'
@@ -373,7 +374,7 @@ export const CAPABILITIES: Capability[] = [
       {
         name: 'Doc',
         signature: '<Doc format="a4">{pages}</Doc>',
-        description: `The root of the document — the one element App returns. \`format\` is exactly the one named in FORMAT (${PAGE_FORMAT_IDS.map((id) => `"${id}"`).join(', ')}). Its children are <Page> elements and nothing else. It stacks the pages for the canvas and tells the exporter where each one is; it takes no className — style the pages, not the document.`,
+        description: `The root of the document — the one element App returns. \`format\` is exactly the one named in FORMAT (${PAGE_FORMAT_IDS.map((id) => `"${id}"`).join(', ')}). Its children are <Page> elements and nothing else. It stacks the pages for the canvas and tells the exporter where each one is; it takes no className — style the pages, not the document. A folded leaflet adds \`fold\` (${FOLD_IDS.map((id) => `"${id}"`).join(', ')}) only when FOLDED LEAFLET names one.`,
         tags: ['document', 'print', 'pdf', 'flyer'],
       },
       {
@@ -385,6 +386,13 @@ export const CAPABILITIES: Capability[] = [
         description:
           'One page, EXACTLY the format\'s size, with overflow hidden: absolutely positioned shapes may bleed off its edges and are cut at the trim like a printed sheet. Style it freely with className — a background in the palette of the direction, padding, flex or grid layout — but never give it a width, a height, a min-h-screen or a margin: the kit sets them and ignores yours. Words taller than the page are CLIPPED on paper and reported as an overflow: cut copy or add a <Page>.',
         tags: ['page', 'document', 'print', 'sheet', 'slide'],
+      },
+      {
+        name: 'Panel',
+        signature: '<Panel className="p-[32px] flex flex-col">…</Panel>',
+        description:
+          'One panel of a FOLDED leaflet, used only when FOLDED LEAFLET says so: a direct child of a <Page>, in the order the list gives. The kit sizes it to its exact width between two folds and the full height of the sheet, with overflow hidden; style it freely with className but never give it a width, a height or a margin. Words that run past a fold are reported as an overflow, like words past the page edge.',
+        tags: ['panel', 'fold', 'leaflet', 'brochure', 'trifold'],
       },
       {
         name: 'Field',

@@ -112,6 +112,7 @@ so the next dependency is checked against it rather than assumed.
 | Mocky's npm dependencies (382 packages in `package-lock.json`) | MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, CC0-1.0, MIT AND Zlib; CC-BY-4.0 for one data package; MPL-2.0 for `lightningcss`, a build-time tool | Yes |
 | Browser bundles in `public/vendor/` | React, ReactDOM, Babel standalone, html2canvas, Tailwind, daisyUI, Motion, three.js — all MIT | Yes |
 | Quality detection | `impeccable`, Apache-2.0 | Yes: Apache-2.0 code may be included in a GPLv3 work |
+| Typefaces served to generated screens (`public/fonts/`, [Fonts](fonts.md)) | About 200 families from `@fontsource`: OFL-1.1, a few Apache-2.0, one under the Ubuntu Font Licence — read from each package, anything else refused. Shipped as separate font files, unmodified, with every licence in `fonts/LICENSES.txt` | Yes: a font is not combined with the program, and all three licences allow bundling it with software |
 | Video worker | `three`, `@react-three/fiber`, `express`, `lottie-web`, `react-useanimations`: MIT. Typefaces from `@fontsource`: OFL-1.1, shipped as separate font files | Yes |
 | Video worker | `remotion`, `@remotion/*` | No — covered by [the section 7 permission](#remotion) |
 | External programs | `ffmpeg`, the headless Chrome the worker renders with | Not combined: they run as separate programs |

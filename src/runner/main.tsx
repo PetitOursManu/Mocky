@@ -34,8 +34,17 @@ import { documentPictureSource, imageGenerationAvailable, type DocumentImageChoi
 import { stockImageStatus, stockUsable } from '../lib/stockImages'
 import { imageUrl } from '../lib/imageLibrary'
 import { defaultDesign, extractProductName, isDesignActive } from '../lib/design'
-import { DEFAULT_PROJECT_NAME, designForProject, newId, placeScreen, type Project, type Screen } from '../lib/project'
-import { runNewScreen, type NewScreenPhase, type ScreenWriter } from '../lib/pipeline/newScreen'
+import { DEFAULT_PROJECT_NAME, deriveName, designForProject, newId, placeScreen, type Project, type Screen } from '../lib/project'
+import { runNewScreen, type NewScreenHooks, type NewScreenPhase, type NewScreenRequest, type ScreenWriter } from '../lib/pipeline/newScreen'
+import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
+import { readCampaignFacts, runCampaign } from '../lib/pipeline/campaign'
+import { addPublicationPage, planPublication, runPublication } from '../lib/pipeline/publication'
+import { flowScreenName } from '../lib/flows'
+import { isFoldId } from '../lib/folds'
+import { brandSection, hasBrand, normalizeBrand, type BrandIdentity } from '../lib/brand'
+import { composerPageFormat } from '../lib/documentMode'
+import { isCampaignFormatId, normalizeCampaign, sortFormats, type CampaignFormatId } from '../lib/campaign'
+import { isPublicationKind, latestPublication, upsertPublication, type Publication } from '../lib/publication'
 import { buildGenerationMessages, detectComponentName, finishGeneratedCode } from '../lib/generate'
 import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
@@ -51,7 +60,14 @@ import Preview, { previewDocument } from '../components/Preview'
  * "four independent correction passes"): an edit, the quality pass, the
  * SEO/accessibility report, or that report followed by its own correction.
  */
-export type RunnerKind = 'new' | 'edit' | 'polish' | 'audit' | 'auditFix'
+export type RunnerKind = 'new' | 'edit' | 'polish' | 'audit' | 'auditFix' | 'campaign' | 'publication'
+
+/**
+ * The kinds that MAKE screens rather than work on one: a screen (and the pages
+ * of its flow), a campaign's pieces, a publication's sheets. All three run the
+ * composer's own functions on the same request and hooks.
+ */
+const MAKING: readonly RunnerKind[] = ['new', 'campaign', 'publication']
 
 /** What the server asks for. Validated there; read defensively here anyway. */
 export interface RunnerJob {
@@ -86,6 +102,18 @@ export interface RunnerJob {
    * (`client`, phase 4) — then the page waits for it (`__mockyRunnerAwaitCode`).
    */
   engine?: 'mocky' | 'client'
+  /**
+   * The composer's "Parcours": a web screen gets the flow kit and the pages it
+   * leads to (lib/pipeline/flowCompanions.ts); a document gets its sequence of
+   * pages (lib/docSequence.ts). Absent builds the request it always built.
+   */
+  flows?: boolean
+  /** A folded leaflet's fold (lib/folds.ts), for a type that folds. */
+  fold?: string
+  /** A campaign's formats (lib/campaign.ts), for `kind: 'campaign'`. */
+  formats?: string[]
+  /** A NEW project made in the account's brand identity (`Project.useBrand`). */
+  useBrand?: boolean
 }
 
 export interface RunnerResult {
@@ -105,6 +133,14 @@ export interface RunnerResult {
   audit?: RunnerAudit
   /** What the accessibility correction resolved and left. */
   auditFix?: { fixed: string[]; residual: string[]; stopped: string }
+  /**
+   * Every screen the job made, in order, when it made more than one: a
+   * campaign's pieces, a publication's sheets, a screen and the pages of its
+   * flow. `screenId` is the first of them, the one photographed.
+   */
+  screens?: Array<{ screenId: string; name: string; role: string }>
+  /** What made `screens`. */
+  collection?: 'flow' | 'campaign' | 'publication'
 }
 
 /** The SEO / accessibility report as it leaves the page: scores and named findings, no source. */
@@ -159,8 +195,19 @@ function globalDesignFrom(raw: string | null | undefined): string | undefined {
   }
 }
 
+/** The account's brand, from its synced design blob (lib/brand.ts), or none. */
+function brandFrom(raw: string | null | undefined): BrandIdentity | undefined {
+  if (!raw) return undefined
+  try {
+    const b = normalizeBrand((JSON.parse(raw) as { brand?: unknown }).brand)
+    return hasBrand(b) ? b : undefined
+  } catch {
+    return undefined
+  }
+}
+
 async function run(job: RunnerJob): Promise<RunnerResult> {
-  if (job.kind && job.kind !== 'new') return runOnScreen(job)
+  if (job.kind && !MAKING.includes(job.kind)) return runOnScreen(job)
   const lang = job.lang === 'en' ? 'en' : 'fr'
   const t = (key: TranslationKey, vars?: Record<string, string | number>) => translate(lang, key, vars)
   const brief = String(job.brief || '').trim()
@@ -175,7 +222,16 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
   // the server already refused it, and a new project is not what was asked.
   if (job.projectId && !project) throw new Error('project not found')
   if (!project) {
-    project = { id: newId(), name: String(job.projectName || '').trim().slice(0, 120) || DEFAULT_PROJECT_NAME, createdAt: now, updatedAt: now, screens: [] }
+    project = {
+      id: newId(),
+      name: String(job.projectName || '').trim().slice(0, 120) || DEFAULT_PROJECT_NAME,
+      createdAt: now,
+      updatedAt: now,
+      screens: [],
+      // The assistant asked for the person's brand: the new project keeps it on,
+      // as the composer's "Marque" button would.
+      ...(job.useBrand ? { useBrand: true } : {}),
+    }
   }
 
   // The working copy every hook writes into. Only THIS project goes back to the
@@ -229,97 +285,113 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
               : 'none'
   const docPictureSource = documentPictureSource(choice, { generation: generationOk, stock: stockOk })
 
-  const outcome = await runNewScreen(
-    {
-      text: brief,
-      settings,
-      project: working,
-      screens: working.screens,
-      images: [],
-      annotationCount: 0,
-      site: null,
-      globalMd: globalDesignFrom(data.design),
-      presetId,
-      themeId: isScreenThemeId(job.screenType) ? job.screenType : null,
-      pageFormatId: isPageFormat(job.pageFormat) ? job.pageFormat : null,
-      redesign: false,
-      museConfig,
-      museAvail: job.muse ? await museAvailable().catch(() => false) : false,
-      museVision: vision,
-      /*
-       * With Muse on, the assistant's pictures are PINS: Muse looks at the
-       * first one before writing its dossier and fills its slots with them
-       * instead of painting its own. Passed only as a page section, they met a
-       * dossier written blind and a hero Muse had generated anyway — a cosy
-       * pumpkin photo under a palette and a picture chosen for another mood.
-       */
-      pinnedImages: job.muse ? provided.map((p) => ({ hash: p.hash, url: p.url, label: p.use })) : [],
-      pinnedVideo: null,
-      videoAvail: null,
-      motionAvail: null,
-      ultraActive: false,
-      ultraCount: 3,
-      effectiveImageSource: docPictureSource ?? (stockOk ? 'stock' : 'ai'),
-      docPictureSource,
-      docImageChoice: choice,
-      imageGenOk: generationOk,
-      stockImagesUsable: stockOk,
-      providedPictures: provided,
-      pictureSubject: typeof job.pictureSubject === 'string' ? job.pictureSubject.slice(0, 300) : undefined,
-      ...(job.engine === 'client' ? { writer: assistantWriter(say) } : {}),
+  const request: NewScreenRequest = {
+    text: brief,
+    settings,
+    project: working,
+    screens: working.screens,
+    images: [],
+    annotationCount: 0,
+    site: null,
+    globalMd: globalDesignFrom(data.design),
+    presetId,
+    themeId: isScreenThemeId(job.screenType) ? job.screenType : null,
+    pageFormatId: isPageFormat(job.pageFormat) ? job.pageFormat : null,
+    redesign: false,
+    museConfig,
+    museAvail: job.muse ? await museAvailable().catch(() => false) : false,
+    museVision: vision,
+    /*
+     * With Muse on, the assistant's pictures are PINS: Muse looks at the
+     * first one before writing its dossier and fills its slots with them
+     * instead of painting its own. Passed only as a page section, they met a
+     * dossier written blind and a hero Muse had generated anyway — a cosy
+     * pumpkin photo under a palette and a picture chosen for another mood.
+     */
+    pinnedImages: job.muse ? provided.map((p) => ({ hash: p.hash, url: p.url, label: p.use })) : [],
+    pinnedVideo: null,
+    videoAvail: null,
+    motionAvail: null,
+    ultraActive: false,
+    ultraCount: 3,
+    effectiveImageSource: docPictureSource ?? (stockOk ? 'stock' : 'ai'),
+    docPictureSource,
+    docImageChoice: choice,
+    imageGenOk: generationOk,
+    stockImagesUsable: stockOk,
+    providedPictures: provided,
+    pictureSubject: typeof job.pictureSubject === 'string' ? job.pictureSubject.slice(0, 300) : undefined,
+    ...(job.engine === 'client' ? { writer: assistantWriter(say) } : {}),
+    ...(job.flows ? { flows: true } : {}),
+    ...(isFoldId(job.fold) ? { foldId: job.fold } : {}),
+    // The account's brand, when this project uses it — read from the same
+    // design blob the composer reads it from (lib/brand.ts).
+    ...(working.useBrand && brandFrom(data.design) ? { brand: brandFrom(data.design) } : {}),
+  }
+  const hooks: NewScreenHooks = {
+    signal: controller.signal,
+    t,
+    setPhase: (p: NewScreenPhase | null) => p && progress(p),
+    setMuseStage: (label) => label && progress(`muse: ${label}`),
+    setUltraStage: () => {},
+    replaceNotice: (line) => {
+      notices.length = 0
+      say(line)
     },
-    {
-      signal: controller.signal,
-      t,
-      setPhase: (p: NewScreenPhase | null) => p && progress(p),
-      setMuseStage: (label) => label && progress(`muse: ${label}`),
-      setUltraStage: () => {},
-      replaceNotice: (line) => {
-        notices.length = 0
-        say(line)
-      },
-      notice: say,
-      setMuseResult: () => {},
-      setMuseImages: () => {},
-      setMuseImageError: (m) => m && say(m),
-      setImageGenOk: () => {},
-      addScreen: (s) => {
-        const w = typeof s.w === 'number' ? s.w : 1440
-        const h = typeof s.h === 'number' ? s.h : 900
-        working = { ...working, screens: [...working.screens, { ...s, ...placeScreen(working.screens, w, h) } as Screen], updatedAt: Date.now() }
-      },
-      updateScreen: (id, patch) => {
-        working = { ...working, screens: working.screens.map((s) => (s.id === id ? { ...s, ...patch } : s)), updatedAt: Date.now() }
-      },
-      removeScreen: (id) => {
-        working = {
-          ...working,
-          screens: working.screens.filter((s) => s.id !== id),
-          removedScreens: { ...(working.removedScreens || {}), [id]: Date.now() },
-          updatedAt: Date.now(),
-        }
-      },
-      currentScreens: () => working.screens,
-      renameProject: (name) => {
-        working = { ...working, name: name.trim() || working.name, updatedAt: Date.now() }
-      },
-      setDesign: (markdown) => {
-        const clean = markdown && markdown.trim() ? markdown : undefined
-        const productName = clean ? extractProductName(clean) : null
-        working = { ...working, design: clean, ...(productName ? { productName } : {}), updatedAt: Date.now() }
-      },
-      rememberSiteRef: () => {},
-      screenStarted: () => progress('generating'),
-      screenWritten: () => progress('checking'),
-      motionStage: () => {},
-      motionStageDone: () => {},
+    notice: say,
+    setMuseResult: () => {},
+    setMuseImages: () => {},
+    setMuseImageError: (m) => m && say(m),
+    setImageGenOk: () => {},
+    addScreen: (s) => {
+      const w = typeof s.w === 'number' ? s.w : 1440
+      const h = typeof s.h === 'number' ? s.h : 900
+      working = { ...working, screens: [...working.screens, { ...s, ...placeScreen(working.screens, w, h) } as Screen], updatedAt: Date.now() }
     },
-  )
+    updateScreen: (id, patch) => {
+      working = { ...working, screens: working.screens.map((s) => (s.id === id ? { ...s, ...patch } : s)), updatedAt: Date.now() }
+    },
+    removeScreen: (id) => {
+      working = {
+        ...working,
+        screens: working.screens.filter((s) => s.id !== id),
+        removedScreens: { ...(working.removedScreens || {}), [id]: Date.now() },
+        updatedAt: Date.now(),
+      }
+    },
+    currentScreens: () => working.screens,
+    renameProject: (name) => {
+      working = { ...working, name: name.trim() || working.name, updatedAt: Date.now() }
+    },
+    setDesign: (markdown) => {
+      const clean = markdown && markdown.trim() ? markdown : undefined
+      const productName = clean ? extractProductName(clean) : null
+      working = { ...working, design: clean, ...(productName ? { productName } : {}), updatedAt: Date.now() }
+    },
+    rememberSiteRef: () => {},
+    screenStarted: () => progress('generating'),
+    screenWritten: () => progress('checking'),
+    motionStage: () => {},
+    motionStageDone: () => {},
+  }
+
+  const made = await makeScreens(job, request, hooks, {
+    settings,
+    brief,
+    lang,
+    t,
+    say,
+    project: () => working,
+    patchProject: (patch) => {
+      working = { ...working, ...patch, updatedAt: Date.now() }
+    },
+  })
+  const outcome = made.outcome
 
   // The name the assistant chose, rather than the first words of its brief —
   // which, written as an instruction, read "Créer directement dans Mocky le…".
   const name = typeof job.screenName === 'string' ? job.screenName.replace(/\s+/g, ' ').trim().slice(0, 80) : ''
-  if (name) working = { ...working, screens: working.screens.map((s) => (s.id === outcome.screenId ? { ...s, name } : s)) }
+  if (name && !made.screens) working = { ...working, screens: working.screens.map((s) => (s.id === outcome.screenId ? { ...s, name } : s)) }
 
   progress('saving')
   working = { ...working, updatedAt: Date.now() }
@@ -346,8 +418,140 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     // post without one is a fact it can repeat rather than a surprise.
     picture: provided.length ? 'provided' : screen.imageHash ? (docPictureSource === 'stock' ? 'free' : 'generated') : 'none',
     ...(outcome.error ? { error: outcome.error } : {}),
+    ...(made.screens
+      ? {
+          collection: made.collection,
+          screens: made.screens.map((m) => ({ ...m, name: working.screens.find((s) => s.id === m.screenId)?.name || m.name })),
+        }
+      : {}),
   }
 }
+
+/** The campaign an assistant gets when it names no format: the four a launch needs. */
+const DEFAULT_CAMPAIGN_FORMATS: CampaignFormatId[] = ['poster', 'flyer', 'instagram', 'story']
+
+/**
+ * What a making job produces: one screen and, when asked, the pages of its
+ * flow; or a campaign's pieces; or a publication's sheets. Each is the
+ * composer's own function on the composer's own request — `runFlowCompanions`,
+ * `runCampaign`, `runPublication` — so a campaign asked for from Claude is the
+ * campaign the panel would have made (X5).
+ */
+async function makeScreens(
+  job: RunnerJob,
+  request: NewScreenRequest,
+  hooks: NewScreenHooks,
+  ctx: {
+    settings: NewScreenRequest['settings']
+    brief: string
+    lang: 'fr' | 'en'
+    t: (key: TranslationKey, vars?: Record<string, string | number>) => string
+    say: (line: string) => void
+    project: () => Project
+    patchProject: (patch: Partial<Project>) => void
+  },
+): Promise<{
+  outcome: { screenId: string; error?: string }
+  screens?: Array<{ screenId: string; name: string; role: string }>
+  collection?: 'flow' | 'campaign' | 'publication'
+}> {
+  const { t } = ctx
+  if (job.kind === 'campaign') {
+    const formats = sortFormats((job.formats || []).filter(isCampaignFormatId))
+    const chosen = formats.length ? formats : DEFAULT_CAMPAIGN_FORMATS
+    progress('campaign-facts')
+    // The facts are a help, not a condition: a campaign without them is the
+    // brief written once per format, which is still the campaign (Q1).
+    const facts = await readCampaignFacts(ctx.settings, ctx.brief, hooks.signal).catch((err) => {
+      if (err instanceof Error && err.name === 'AbortError') throw err
+      return []
+    })
+    const campaign = normalizeCampaign({ brief: ctx.brief, facts, formats: chosen })
+    if (campaign) ctx.patchProject({ campaign })
+    const pieces = await runCampaign(request, hooks, { brief: ctx.brief, facts }, chosen, {
+      getProject: ctx.project,
+      nameFor: (f) => t(`campaign.format.${f}` as TranslationKey),
+      all: chosen,
+      onPiece: (f, n, total) => progress(`piece ${n}/${total}: ${f}`),
+    })
+    if (!pieces.length) throw new Error('the campaign made no piece')
+    return {
+      outcome: { screenId: pieces[0].screenId },
+      collection: 'campaign',
+      screens: pieces.map((p) => ({ screenId: p.screenId, name: t(`campaign.format.${p.format}` as TranslationKey), role: p.format })),
+    }
+  }
+  if (job.kind === 'publication') {
+    const kind = isPublicationKind(job.screenType) ? job.screenType : 'magazine'
+    const page = composerPageFormat(kind, isPageFormat(job.pageFormat) ? job.pageFormat : null)
+    if (!page) throw new Error('no page format for this publication')
+    progress('planning')
+    let pub: Publication = await planPublication(ctx.settings, kind, ctx.brief, page, {
+      lang: ctx.lang,
+      fallbackTitle: t(`composer.themes.${kind}` as TranslationKey),
+      signal: hooks.signal,
+    })
+    const keep = () => ctx.patchProject({ publications: upsertPublication(ctx.project().publications, pub) })
+    keep()
+    const sheets = await runPublication({ ...request, themeId: kind, pageFormatId: page }, hooks, pub, {
+      getProject: ctx.project,
+      onDirection: (direction) => {
+        pub = { ...pub, direction }
+        keep()
+      },
+      onSheet: (title, n, total) => progress(`sheet ${n}/${total}: ${title.slice(0, 40)}`),
+    })
+    if (!sheets.length) throw new Error('the publication made no sheet')
+    return {
+      outcome: { screenId: sheets[0].screenId },
+      collection: 'publication',
+      screens: sheets.map((p) => {
+        const sheet = pub.sheets.find((s) => s.id === p.sheet)
+        return { screenId: p.screenId, name: sheet?.title || p.sheet, role: sheet?.role || 'sheet' }
+      }),
+    }
+  }
+  /*
+   * A magazine or a book asked for in a project that already has one GROWS it
+   * by one inside page, as the composer does: `add_screen` is how an assistant
+   * adds pages after `create_publication`.
+   */
+  const growing = isPublicationKind(job.screenType) ? latestPublication(ctx.project().publications, job.screenType) : undefined
+  if (growing) {
+    const page = await addPublicationPage(request, hooks, growing, ctx.brief, {
+      getProject: ctx.project,
+      onPublication: (pub) => ctx.patchProject({ publications: upsertPublication(ctx.project().publications, pub) }),
+      title: job.screenName?.trim() || deriveName(ctx.brief),
+    })
+    if (!page) throw new Error('the page was not made')
+    return { outcome: { screenId: page.screenId } }
+  }
+  const outcome = await runNewScreen(request, hooks)
+  const made = ctx.project().screens.find((s) => s.id === outcome.screenId)
+  // The pages a web screen leads to, as the composer makes them with Parcours
+  // on — never for a document, never after a broken screen.
+  if (!job.flows || outcome.error || !made || made.page) return { outcome }
+  try {
+    const companions = await runFlowCompanions(request, hooks, outcome.screenId, outcome.code ?? '', {
+      getProject: ctx.project,
+      nameFor: (route) => flowScreenName(route, (k) => t(k as TranslationKey)),
+    })
+    if (!companions.length) return { outcome }
+    return {
+      outcome,
+      collection: 'flow',
+      screens: [
+        { screenId: outcome.screenId, name: made.name, role: made.route || 'home' },
+        ...companions.map((c) => ({ screenId: c.screenId, name: flowScreenName(c.route, (k) => t(k as TranslationKey)), role: c.route })),
+      ],
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw err
+    ctx.say(t('flows.failed', { error: err instanceof Error ? err.message : String(err) }))
+    return { outcome }
+  }
+}
+
 
 /** How long a written screen may take to show itself before it is taken as rendering. */
 const RENDER_CHECK_MS = 15_000
@@ -476,7 +680,11 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
   // Not this account's reads as missing (X4); the server already checked.
   if (!project || !screen || !screen.code.trim()) throw new Error('screen not found')
   setUsageProject(project.id)
-  const designMd = designForProject(project, globalDesignFrom(data.design))
+  // A project in the account's brand keeps it through an edit, as in the composer.
+  const projectDirection = designForProject(project, globalDesignFrom(data.design))
+  const brand = project.useBrand ? brandFrom(data.design) : undefined
+  const brandText = brand ? brandSection(brand, brand.logo ? absoluteUrl(imageUrl(brand.logo.hash)) : undefined) : undefined
+  const designMd = brandText ? (projectDirection ? `${projectDirection}\n\n${brandText}` : brandText) : projectDirection
   const settings = defaultSettings()
   const signal = new AbortController().signal
   const codeAtStart = screen.code

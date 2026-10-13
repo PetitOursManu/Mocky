@@ -33,7 +33,10 @@ describe('the web preview of a DESIGN.md', () => {
     expect(html).toContain('Grille asymétrique, marges généreuses.')
     expect(html).toContain('background:#fdfcf8')
     expect(html).toContain('background:#c0392b')
-    expect(html).toContain('&quot;Cormorant Garamond&quot;')
+    // A face Mocky serves is drawn in the served copy, under the specimen alias
+    // that leaves Mocky's own interface alone (lib/fonts).
+    expect(html).toContain('&#x27;Mocky Specimen Cormorant Garamond&#x27;, serif')
+    expect(html).toContain('&#x27;Mocky Specimen Instrument Sans&#x27;, sans-serif')
     // The surface was not stated: the legend must not pass the fallback off as the document's.
     expect(html).toMatch(/#f8fafc[^<]*·/)
   })

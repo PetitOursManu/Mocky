@@ -9,6 +9,7 @@ import {
   PAGE_FORMATS,
   PAGE_GAP_PX,
 } from '../../pageFormats'
+import { FOLDS } from '../../folds'
 
 /**
  * The page kit — `<Doc>`, `<Page>`, `<Field>` — for DOCUMENT screens.
@@ -53,6 +54,17 @@ import {
  * Range is available, because a sticker's box may bleed while its word does
  * not.
  *
+ * FOLDS
+ *
+ * A folded leaflet (`<Doc fold="roll">`, lib/folds.ts) is two faces of one
+ * sheet, and each face is a row of `<Panel>`s. The page becomes a grid whose
+ * columns are the panels' exact widths — the same arithmetic as `panelWidths`,
+ * rounded the same way, from the same shares interpolated below — so a fold
+ * line is where the paper creases. Overflow is then measured per PANEL: a word
+ * that runs across a fold is cut by it as surely as one past the trim. The
+ * dashed fold lines are drawn on the canvas only, never in a capture
+ * (`__mockyStill`), so no export prints them.
+ *
  * WHAT A PAGE LOOKS LIKE OFF THE CANVAS
  *
  * The shadow and the grey backdrop are the canvas's; `@media print` drops both,
@@ -62,6 +74,10 @@ import {
  * to save ink.
  */
 const FORMATS = Object.fromEntries(PAGE_FORMATS.map((f) => [f.id, { w: f.w, h: f.h, size: f.cssSize }]))
+const FOLD_SHARES = Object.fromEntries(FOLDS.map((f) => [f.id, f.faces.map((face) => face.map((p) => p.share))]))
+
+/** On each panel of a folded face; the value is its 0-based index on the face. */
+export const PANEL_ATTR = 'data-mocky-panel'
 
 /** The grey between pages on the canvas — neutral, so no palette argues with it. */
 export const DOC_BACKDROP = '#e4e4e7'
@@ -77,6 +93,8 @@ var MOCKY_DOC_GAP = ${JSON.stringify(PAGE_GAP_PX)};
 var MOCKY_DOC_MESSAGE = ${JSON.stringify(DOC_PAGES_MESSAGE)};
 var MOCKY_DOC_BACKDROP = ${JSON.stringify(DOC_BACKDROP)};
 var MOCKY_DOC_TOLERANCE = 2;
+var MOCKY_DOC_FOLDS = ${JSON.stringify(FOLD_SHARES)};
+var MOCKY_PANEL_ATTR = ${JSON.stringify(PANEL_ATTR)};
 var MockyDocContext = React.createContext(null);
 
 function mockyDocFormat(id) {
@@ -89,7 +107,33 @@ function mockyDocOutside(r, box) {
   return r.bottom > box.bottom + t || r.right > box.right + t || r.top < box.top - t || r.left < box.left - t;
 }
 
+// The panel widths of one face, in px: rounded, the last one taking the
+// remainder — lib/folds.ts's panelWidths, line for line.
+function mockyFoldWidths(fold, face, w) {
+  var faces = MOCKY_DOC_FOLDS[fold];
+  if (!faces) return null;
+  var shares = faces[face % 2];
+  var out = [];
+  var used = 0;
+  for (var i = 0; i < shares.length; i++) {
+    var px = i === shares.length - 1 ? w - used : Math.round(shares[i] * w);
+    out.push(px);
+    used += px;
+  }
+  return out;
+}
+
 function mockyPageOverflows(page) {
+  // A folded face: every panel is a page of its own for this question.
+  var panels = page.querySelectorAll('[' + MOCKY_PANEL_ATTR + ']');
+  if (panels.length) {
+    for (var q = 0; q < panels.length; q++) if (mockyBoxOverflows(panels[q])) return true;
+    return false;
+  }
+  return mockyBoxOverflows(page);
+}
+
+function mockyBoxOverflows(page) {
   var box = page.getBoundingClientRect();
   var els = page.querySelectorAll('*');
   var range = null;
@@ -189,13 +233,59 @@ var Page = function (props) {
     WebkitPrintColorAdjust: 'exact',
     printColorAdjust: 'exact'
   });
-  attrs[MOCKY_PAGE_ATTR] = String(props.__mockyIndex == null ? 0 : props.__mockyIndex);
-  return React.createElement('section', attrs, props.children);
+  var index = props.__mockyIndex == null ? 0 : props.__mockyIndex;
+  attrs[MOCKY_PAGE_ATTR] = String(index);
+  var widths = ctx && ctx.fold ? mockyFoldWidths(ctx.fold, index, f.w) : null;
+  if (!widths) return React.createElement('section', attrs, props.children);
+  attrs.style.display = 'grid';
+  attrs.style.gridTemplateColumns = widths.map(function (px) { return px + 'px'; }).join(' ');
+  attrs.style.gridTemplateRows = f.h + 'px';
+  var n = 0;
+  var kids = React.Children.map(props.children, function (c) {
+    if (c && c.type === Panel) return React.cloneElement(c, { __mockyPanel: n++ });
+    return c;
+  });
+  var guides = null;
+  if (!window.__mockyStill) {
+    var x = 0;
+    guides = widths.slice(0, -1).map(function (px, i) {
+      x += px;
+      return React.createElement('div', {
+        key: 'fold-' + i,
+        'aria-hidden': 'true',
+        'data-mocky-guide': 'fold',
+        style: { position: 'absolute', top: 0, bottom: 0, left: x + 'px', width: 0, borderLeft: '1px dashed rgba(120,120,120,0.55)', pointerEvents: 'none', zIndex: 2147483647 }
+      });
+    });
+  }
+  return React.createElement('section', attrs, kids, guides);
+};
+
+// One panel of a folded face: its cell of the page's grid, full height, its
+// own clipping box. The width is the grid's — never the model's.
+var Panel = function (props) {
+  var attrs = {};
+  for (var k in props) {
+    if (k === 'children' || k === 'style' || k === '__mockyPanel') continue;
+    attrs[k] = props[k];
+  }
+  attrs.style = Object.assign({}, props.style || {}, {
+    position: 'relative',
+    overflow: 'hidden',
+    minWidth: 0,
+    height: '100%',
+    width: 'auto',
+    margin: 0,
+    boxSizing: 'border-box'
+  });
+  attrs[MOCKY_PANEL_ATTR] = String(props.__mockyPanel == null ? 0 : props.__mockyPanel);
+  return React.createElement('div', attrs, props.children);
 };
 
 var Doc = function (props) {
   var id = mockyDocFormat(props.format);
   var f = MOCKY_DOC_FORMATS[id];
+  var fold = Object.prototype.hasOwnProperty.call(MOCKY_DOC_FOLDS, props.fold) ? props.fold : null;
   var ref = React.useRef(null);
   var last = React.useRef('');
   React.useEffect(function () {
@@ -207,14 +297,14 @@ var Doc = function (props) {
       if (stopped || !ref.current) return;
       var m;
       try { m = mockyDocMeasure(ref.current); } catch (e) { return; }
-      var key = id + ':' + m.count + ':' + m.overflow.join(',');
+      var key = id + ':' + (fold || '') + ':' + m.count + ':' + m.overflow.join(',');
       if (key === last.current) return;
       last.current = key;
       // The format LAID OUT goes with the count: the canvas sizes the frame
       // and records Screen.page from it, so an edit that rewrote the format
       // (or wrote one the kit did not know, laid out as the default) is not
       // drawn at one width inside a frame of another.
-      try { if (window.__mockyPost) window.__mockyPost(MOCKY_DOC_MESSAGE, { count: m.count, overflow: m.overflow, format: id }); } catch (e) {}
+      try { if (window.__mockyPost) window.__mockyPost(MOCKY_DOC_MESSAGE, { count: m.count, overflow: m.overflow, format: id, fold: fold }); } catch (e) {}
     }
     [0, 80, 300, 800, 1600, 3200].forEach(function (ms) { timers.push(setTimeout(run, ms)); });
     var ro = null;
@@ -250,7 +340,7 @@ var Doc = function (props) {
   attrs[MOCKY_DOC_ATTR] = id;
   return React.createElement(
     MockyDocContext.Provider,
-    { value: { id: id, f: f } },
+    { value: { id: id, f: f, fold: fold } },
     React.createElement('div', attrs, React.createElement('style', null, mockyDocCss(f)), children)
   );
 };
@@ -316,4 +406,4 @@ var Field = function (props) {
   );
 };`
 
-export const DOCUMENT_EXPORTS = ['Doc', 'Page', 'Field'] as const
+export const DOCUMENT_EXPORTS = ['Doc', 'Page', 'Panel', 'Field'] as const

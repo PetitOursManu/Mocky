@@ -5,6 +5,7 @@ import { stripForbiddenMotion } from './stripMotion'
 import { ULTRA_CLASSES } from './capabilities/snippets/Ultra'
 import { FLOW_RULES } from './capabilities/snippets/Flow'
 import { DOCUMENT_CAP, DOCUMENT_RULES } from './documentMode'
+import { FONTS_PROMPT } from './fonts'
 
 /**
  * Last gate before generated code becomes a screen.
@@ -159,7 +160,7 @@ export function stripDataUrl(dataUrl: string): string {
  * polishing a screen" rather than "Alice called the model"; nothing else changes
  * with it, and the header is never forwarded to the provider.
  */
-export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts'
+export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan'
 
 export async function chat(
   s: Settings,
@@ -415,8 +416,11 @@ export function buildGenerationMessages(
 ): { system: string; user: string } {
   const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
   const baseSystem = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
+  // The typefaces, after the capabilities and before the plan: the plan is
+  // about THIS screen and reads best last, the list is the same on every call.
+  // Which paths carry it, and why not the others, is on FONTS_PROMPT.
   return {
-    system: [baseSystem, capsPrompt, planSection].filter(Boolean).join('\n'),
+    system: [baseSystem, capsPrompt, `\n${FONTS_PROMPT}`, planSection].filter(Boolean).join('\n'),
     user: withImageNote(userPrompt, images),
   }
 }
@@ -704,7 +708,9 @@ export async function editComponent(
 ): Promise<GeneratedComponent> {
   const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
   const baseSystem = [extraSystem, SYSTEM_PROMPT, EDIT_RULES].filter(Boolean).join('\n\n')
-  const system = capsPrompt ? `${baseSystem}\n${capsPrompt}` : baseSystem
+  // "Set the titles in something more retro" is an edit, and it can only be
+  // answered from the list of faces that will actually load.
+  const system = `${capsPrompt ? `${baseSystem}\n${capsPrompt}` : baseSystem}\n\n${FONTS_PROMPT}`
   const user = [
     'Here is the current complete source of the screen to edit:',
     '',
@@ -985,7 +991,11 @@ export async function polishComponent(
   caps?: Capability[],
 ): Promise<GeneratedComponent> {
   const capsPrompt = caps && caps.length ? buildCapabilitiesPrompt(caps) : ''
-  const system = capsPrompt ? `${POLISH_PROMPT}\n${capsPrompt}` : POLISH_PROMPT
+  // `overused-font` is enforced when a project has no direction (policy.js), and
+  // the finding asks for ANOTHER face: without the list the model reaches for
+  // one it remembers — Satoshi, Söhne — and the screen falls back to the system
+  // font, which is the overused look the finding was about.
+  const system = `${capsPrompt ? `${POLISH_PROMPT}\n${capsPrompt}` : POLISH_PROMPT}\n\n${FONTS_PROMPT}`
   const user = [
     'Correct the following component.',
     '',

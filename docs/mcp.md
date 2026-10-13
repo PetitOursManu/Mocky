@@ -15,6 +15,8 @@ for the accounts they choose, and only on an instance served over HTTPS.
 | `mocky_guide` | The guide written for the assistant itself: the steps from a request to a design, which tool when, the screen types, the pictures, what never to do. It is told to read it before its first design; also served as the resource `mocky://guide`. |
 | `create_design` | Generates a new screen from a description, always in a **new project**, and returns **a picture of it and a link** to it in Mocky. |
 | `add_screen` | The same, into an **existing project** — where the screen follows that project's art direction. Only when the person names that project: an assistant must never pick one because it looks related, and the answer says which project the screen went into. |
+| `create_campaign` | One brief made into several pieces — an A3 poster, an A4 flyer, Instagram post and story, LinkedIn and Facebook visuals (`formats`) — in a new project that is the [campaign](campaign.md). The key facts are read from the brief first; the answer lists every piece with its link. |
+| `create_publication` | A [magazine or a book](documents.md#magazines-and-books) (`publication`): four pages — front cover, two inside pages, back cover — under one art direction of its own, in a new project. `add_screen` with `screen_type` `magazine` or `book` in that project then adds one inside page per call, before the back cover. |
 | `get_design` | Waits for a design that is still being made, then returns the same. |
 | `list_projects` | The account's projects, each with a link. |
 | `get_project` | One project's screens: name, device, the request that made it, a link. |
@@ -68,6 +70,17 @@ a prompt still starts a sensible conversation.
   Muse looks at the first one before writing its dossier and uses them in its
   slots instead of making its own — so the palette is chosen with the photo,
   not beside it.
+- **Parcours and folds.** `flows: true` on `create_design` or `add_screen` is
+  the composer's Parcours: a web screen becomes a working prototype and Mocky
+  makes the (up to three) pages it leads to; a flyer or a menu gets a recto and
+  a verso; a post becomes a carousel. `fold` makes a flyer or a menu a
+  [folded leaflet](documents.md#flyers-sizes-and-folds), `page_format` then
+  naming the flat sheet. The answer lists every screen made, with its link.
+- **Several screens, one job.** A campaign, a publication or a screen with its
+  flow is ONE job: it counts once in the daily quota, it is given the time of
+  as many generations (`jobBudgetFactor`), and it is always written by Mocky's
+  own model — the "client" engine hands one component at a time to the
+  assistant, and twelve round trips for a magazine is not what anyone asked for.
 - **One pass per tool.** `edit_design`, `polish_design` and `fix_accessibility`
   each run ONE of Mocky's passes, with its own instruction — an edit does what
   it is told, a polish may restyle, an accessibility fix must leave the screen

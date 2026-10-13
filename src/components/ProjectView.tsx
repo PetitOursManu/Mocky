@@ -1,8 +1,9 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
-import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
+import { buildDesignPreamble, isDesignActive, loadBrand, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
+import { brandSection, hasBrand, type BrandIdentity } from '../lib/brand'
 import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
+import { deriveName, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import type { Plan } from '../lib/api'
 import { usePhone } from '../lib/usePhone'
@@ -29,6 +30,8 @@ import { type QualityFinding } from '../lib/quality'
 import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import { downloadZip, downloadTsx } from '../lib/export'
+import { downloadBlob } from '../lib/docExport/files'
+import type { WebExportKind } from '../lib/docExport/web'
 import type { StackTarget } from '../lib/export/project'
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
 import Welcome from './Welcome'
@@ -44,9 +47,15 @@ import {
   getScreenTheme,
   promptForThemeChange,
   projectScreenType,
+  themeFolds,
+  themePublication,
   withScreenTheme,
   type ScreenThemeId,
 } from '../lib/screenThemes'
+import FoldControl from './FoldControl'
+import { foldsFor, type FoldId } from '../lib/folds'
+import { addPublicationPage, planPublication, runPublication } from '../lib/pipeline/publication'
+import { latestPublication, type Publication, type PublicationKind } from '../lib/publication'
 import DemoPlayer from './DemoPlayer'
 import ProposedLinks from './ProposedLinks'
 import CodeView from './CodeView'
@@ -108,6 +117,7 @@ import {
   type StockImageStatus,
 } from '../lib/stockImages'
 import {
+  absoluteUrl,
   loadMuseConfig,
   saveMuseConfig,
   museAvailable,
@@ -249,6 +259,8 @@ export default function ProjectView({
   onReviewChanged,
   onSetScenarios,
   onSetCampaign,
+  onSetPublication,
+  onSetUseBrand,
   initialFocusScreenId,
   plan = 'standard',
 }: {
@@ -279,6 +291,10 @@ export default function ProjectView({
   onSetScenarios?: (scenarios: DemoScenario[]) => void
   /** Replace the project's campaign brief (lib/campaign.ts); undefined clears it. */
   onSetCampaign?: (campaign: Campaign | undefined) => void
+  /** Add or replace one of this project's publications (lib/publication.ts). */
+  onSetPublication?: (publication: Publication) => void
+  /** Use the account's brand identity in this project, or stop (lib/brand.ts). */
+  onSetUseBrand?: (on: boolean) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -545,6 +561,12 @@ export default function ProjectView({
    * beside it.
    */
   const [pageFormatId, setPageFormatId] = useState<PageFormatId | null>(() => projectScreenType(project.screens).page)
+  /**
+   * Flat sheet or folded leaflet, for a type that folds (lib/folds.ts) —
+   * remembered from the latest screen like the size, and offered only on the
+   * sizes that can take it (`foldsFor`).
+   */
+  const [foldId, setFoldId] = useState<FoldId | null>(() => projectScreenType(project.screens).fold)
   /** The document whose download dialog is open, or null. */
   const [downloadDocId, setDownloadDocId] = useState<string | null>(null)
   /**
@@ -575,6 +597,8 @@ export default function ProjectView({
    * Stable, so the panel's save-after-typing timer is not reset by every render
    * of this view: App hands a new arrow each time.
    */
+  const onSetPublicationRef = useRef(onSetPublication)
+  onSetPublicationRef.current = onSetPublication
   const onSetCampaignRef = useRef(onSetCampaign)
   onSetCampaignRef.current = onSetCampaign
   const saveCampaign = useCallback((c: Campaign) => onSetCampaignRef.current?.(c), [])
@@ -852,6 +876,9 @@ export default function ProjectView({
    * document and the chips must not say it will be.
    */
   const composerPage = composerPageFormat(siteShots.length > 0 && siteMode === 'reproduce' ? null : themeId, pageFormatId)
+  /** The folds the composer offers right now: none unless the type folds and the size can take one. */
+  const composerFolds = composerPage && themeFolds(themeId) ? foldsFor(composerPage) : []
+  const composerFold = foldId && composerFolds.includes(foldId) ? foldId : null
   /** Decoding and cutting a large capture takes a moment; the thumbnail row says so. */
   const [siteReading, setSiteReading] = useState(0)
   const [siteDragOver, setSiteDragOver] = useState(false)
@@ -1057,10 +1084,40 @@ export default function ProjectView({
    * leaves this view mounted underneath; a value captured at render would be the
    * document as it stood before the user changed it.
    */
+  /**
+   * The project's brand, when it uses the account's (lib/brand.ts). Read fresh:
+   * the brand is edited in Settings, which leaves this view mounted.
+   */
+  /**
+   * Whether the account has a brand to offer — read when the view mounts and
+   * whenever the design blob changes (`designNonce`), so a brand saved in
+   * Settings shows its button on the way back.
+   */
+  const brandAvailable = useMemo(() => hasBrand(loadBrand()), [designNonce])
+  const projectBrand = useCallback((): BrandIdentity | undefined => {
+    if (!project.useBrand) return undefined
+    const b = loadBrand()
+    return hasBrand(b) ? b : undefined
+  }, [project.useBrand])
+  /**
+   * The direction an EXISTING screen is reworked under: the project's, and the
+   * brand's section after it when the project uses one, so an edit or a repair
+   * keeps the logo and the colours a new screen was given.
+   */
+  const withBrand = useCallback(
+    (md: string | undefined): string | undefined => {
+      const b = projectBrand()
+      if (!b) return md
+      const section = brandSection(b, b.logo ? absoluteUrl(imageUrl(b.logo.hash)) : undefined)
+      return md ? `${md}\n\n${section}` : section
+    },
+    [projectBrand],
+  )
+
   const activeDirection = useCallback((): string | undefined => {
     const d = loadDesign()
-    return designForProject(project, isDesignActive(d) ? d.markdown : undefined)
-  }, [project])
+    return withBrand(designForProject(project, isDesignActive(d) ? d.markdown : undefined))
+  }, [project, withBrand])
 
   /**
    * The same resolution, as the render sees it.
@@ -1561,7 +1618,7 @@ export default function ProjectView({
       // leaves this view mounted underneath.
       const globalDesign = loadDesign()
       const globalMd = isDesignActive(globalDesign) ? globalDesign.markdown : undefined
-      const designMd = designForProject(project, globalMd)
+      const designMd = withBrand(designForProject(project, globalMd))
 
       if (targets.length > 0) {
         // Edit mode: apply the instruction to each selected screen in place,
@@ -1660,6 +1717,8 @@ export default function ProjectView({
             // Absent rather than false when off, so the request is the one it
             // always was (snippets/Flow.ts).
             ...(flowsOn ? { flows: true } : {}),
+            ...(composerFold ? { foldId: composerFold } : {}),
+            ...(projectBrand() ? { brand: projectBrand() } : {}),
           }
         const hooks: NewScreenHooks = {
             signal: ac.signal,
@@ -1691,6 +1750,50 @@ export default function ProjectView({
             motionStage,
             motionStageDone,
           }
+        /*
+         * A magazine or a book is not one screen but a PUBLICATION: a plan of
+         * sheets, the first of which writes the publication's own direction,
+         * and every later one is generated under it (lib/publication.ts). Not
+         * on site screenshots, whose intent is one page of that site.
+         */
+        const publicationKind: PublicationKind | null =
+          composerPage && !site && themePublication(themeId) ? (themeId as PublicationKind) : null
+        /*
+         * A publication starts as four sheets and grows one page at a time:
+         * with one of this kind already in the project, generating again ADDS
+         * an inside page to it, before its back cover, under its direction.
+         */
+        const growing = publicationKind ? latestPublication(projectRef.current.publications, publicationKind) : undefined
+        if (publicationKind && growing) {
+          setNotice(t('publication.adding', { title: growing.title }))
+          await addPublicationPage(request, hooks, growing, text, {
+            getProject: () => projectRef.current,
+            onPublication: (pub) => onSetPublicationRef.current?.(pub),
+            title: deriveName(text),
+          })
+          setNotice(t('publication.added', { title: growing.title }))
+          return
+        }
+        if (publicationKind && composerPage) {
+          setPhase('planning')
+          setNotice(t('publication.planning'))
+          let pub: Publication = await planPublication(settings, publicationKind, text, composerPage, {
+            lang: getLang() === 'en' ? 'en' : 'fr',
+            fallbackTitle: t(`composer.themes.${publicationKind}`),
+            signal: ac.signal,
+          })
+          onSetPublicationRef.current?.(pub)
+          const made = await runPublication(request, hooks, pub, {
+            getProject: () => projectRef.current,
+            onDirection: (direction) => {
+              pub = { ...pub, direction }
+              onSetPublicationRef.current?.(pub)
+            },
+            onSheet: (title, n, total) => setNotice(t('publication.making', { n, total, name: title })),
+          })
+          setNotice(t('publication.made', { count: made.length, title: pub.title }))
+          return
+        }
         const outcome = await runNewScreen(request, hooks)
         if (outcome.slop) setSlopAdvisory(outcome.slop)
         if (outcome.error) setError(outcome.error)
@@ -1700,7 +1803,7 @@ export default function ProjectView({
          * Not for a document, and not when the run left an error to read: a
          * screen that came back broken has no flow worth following yet.
          */
-        if (flowsOn && !outcome.error && !pageFormatId) {
+        if (flowsOn && !outcome.error && !composerPage) {
           try {
             const made = await runFlowCompanions(request, hooks, outcome.screenId, outcome.code ?? '', {
               getProject: () => projectRef.current,
@@ -1795,18 +1898,63 @@ export default function ProjectView({
    * to render, and FIX_PROMPT ("fix only the error, do not restyle") has no
    * error to fix. Shortening copy is an edit, and the person's to ask for.
    */
-  function onDocPages(screenId: string, count: unknown, overflow: unknown, format: unknown) {
+  function onDocPages(screenId: string, count: unknown, overflow: unknown, format: unknown, fold?: unknown) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen) return
-    const update = docFrameUpdate(screen, count, overflow, format)
+    const update = docFrameUpdate(screen, count, overflow, format, fold)
     if (!update) return
-    // The format follows the code (an edit asked for landscape): see docFrameUpdate.
-    if (update.page || update.size) onUpdateScreen(screenId, { ...(update.page ? { page: update.page } : {}), ...(update.size ?? {}) })
+    // The format and the fold follow the code (an edit asked for landscape, or
+    // unfolded the leaflet): see docFrameUpdate.
+    if (update.page || update.size || update.fold !== undefined) {
+      onUpdateScreen(screenId, {
+        ...(update.page ? { page: update.page } : {}),
+        ...(update.fold !== undefined ? { fold: update.fold ?? undefined } : {}),
+        ...(update.size ?? {}),
+      })
+    }
     if (docOverflowSaid.current[screenId] === update.overflowKey) return
     docOverflowSaid.current[screenId] = update.overflowKey
     if (update.overflow.length) {
       const pages = update.overflow.join(', ')
       setNotice(t(update.overflow.length > 1 ? 'project.docOverflowMany' : 'project.docOverflow', { name: screen.name, pages }))
+    }
+  }
+
+  /**
+   * An ordinary screen exported as a PNG of the whole page or a PowerPoint cut
+   * into slides (lib/docExport/web.ts). Same conventions as any long task: one
+   * at a time, an AbortController the Stop button reaches, progress and the
+   * outcome said in the notice line.
+   */
+  async function exportWeb(screenId: string, kind: WebExportKind) {
+    if (busy) return
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen || !screen.code.trim()) return
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(t('project.webExporting', { name: screen.name }))
+    try {
+      const { exportWebScreen } = await import('../lib/docExport/web')
+      const res = await exportWebScreen(screen, kind, {
+        signal: ac.signal,
+        lang: getLang() === 'en' ? 'en' : 'fr',
+        onProgress: (p) => {
+          if (p.phase === 'page') setNotice(t('project.webExportingSlide', { n: p.page, total: p.total }))
+        },
+      })
+      downloadBlob(res.blob, res.filename)
+      setNotice(t(kind === 'png' ? 'project.webExportedPng' : 'project.webExportedPptx', { file: res.filename, count: res.pages }))
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setNotice(null)
+        return
+      }
+      setError(t('project.webExportFailed', { error: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
     }
   }
 
@@ -2989,6 +3137,9 @@ export default function ProjectView({
         onPresetChange={setPresetId}
         pageFormat={composerPage}
         onPageFormatChange={setPageFormatId}
+        fold={composerFold}
+        folds={composerFolds}
+        onFoldChange={setFoldId}
         onOpenSettings={onOpenSettings}
         onOpenDesign={onOpenDesign}
         onApplyStyle={applyStyleMarkdown}
@@ -2996,6 +3147,8 @@ export default function ProjectView({
         onMuseChange={updateMuse}
         flowsOn={flowsOn}
         onToggleFlows={toggleFlows}
+        brandOn={!!project.useBrand}
+        onToggleBrand={brandAvailable && onSetUseBrand ? () => onSetUseBrand(!project.useBrand) : undefined}
         onOpenCampaign={() => setRightSlot('campaign')}
         museAvail={museAvail}
         museResult={museResult}
@@ -3857,6 +4010,7 @@ export default function ProjectView({
                 onChange={setPresetId}
                 pageFormat={composerPage}
                 onPageFormatChange={setPageFormatId}
+                themeId={themeId}
                 disabled={enhancer.running}
               />
               <ScreenThemePicker
@@ -3940,6 +4094,23 @@ export default function ProjectView({
                 {t('flows.toggle')}
               </button>
             )}
+            {/* The account's brand, for this project (lib/brand.ts): offered once
+                a brand exists, remembered on the project, read by every
+                generation and edit until switched off. */}
+            {!editing && brandAvailable && (
+              <button
+                type="button"
+                onClick={() => onSetUseBrand?.(!project.useBrand)}
+                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
+                  project.useBrand ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
+                }`}
+                title={t(project.useBrand ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
+                aria-pressed={!!project.useBrand}
+              >
+                <Icon name="star" size={14} />
+                {t('brand.toggle')}
+              </button>
+            )}
             {/* New screens only: an edit reworks a screen that already is, or
                 is not, Motion Ultra — the pass that builds one is a storyboard
                 and a series of pictures, not an instruction to an edit. */}
@@ -3958,6 +4129,16 @@ export default function ProjectView({
                 whenever a page format is active: it is where a paid picture is
                 decided, so no other condition may hide it
                 (lib/documentPictures.ts). */}
+            {/* Flat sheet or folded leaflet, for a type that folds and a size
+                that can take it (lib/folds.ts). */}
+            {!editing && composerFolds.length > 0 && (
+              <FoldControl
+                value={composerFold}
+                folds={composerFolds}
+                onChange={setFoldId}
+                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+              />
+            )}
             {!editing && composerPage ? (
               <DocumentImageControl
                 value={docImageShown}
@@ -4406,6 +4587,24 @@ export default function ProjectView({
                     icon="pin"
                     label={t(isRef ? 'project.unpinReference' : 'project.pinReference')}
                     onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
+                  />
+                )}
+                {/* An ordinary screen as files a person can send: the whole page
+                    as a picture, or cut into slides (lib/docExport/web.ts). */}
+                {!s.page && (
+                  <MenuItem
+                    icon="image"
+                    label={t('project.webExportPng')}
+                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
+                    onClick={() => { close(); void exportWeb(s.id, 'png') }}
+                  />
+                )}
+                {!s.page && (
+                  <MenuItem
+                    icon="download"
+                    label={t('project.webExportPptx')}
+                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
+                    onClick={() => { close(); void exportWeb(s.id, 'pptx') }}
                   />
                 )}
                 <MenuItem icon="download" label={t('canvas.download')} onClick={() => { close(); downloadTsx(s) }} />

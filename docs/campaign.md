@@ -124,6 +124,11 @@ reuses the campaign's pictures.
 
 ---
 
+## From an assistant
+
+`create_campaign` makes the same campaign from Claude or ChatGPT
+([MCP](mcp.md)): the brief, the formats, and the key facts read the same way.
+
 ## What it costs
 
 | | |

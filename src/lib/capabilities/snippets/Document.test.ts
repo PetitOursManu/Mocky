@@ -156,7 +156,7 @@ describe('<Doc>', () => {
     }
     effects[0]()
     vi.advanceTimersByTime(100)
-    expect(post).toHaveBeenLastCalledWith(DOC_PAGES_MESSAGE, { count: 1, overflow: [], format: 'a4-landscape' })
+    expect(post).toHaveBeenLastCalledWith(DOC_PAGES_MESSAGE, { count: 1, overflow: [], format: 'a4-landscape', fold: null })
   })
 
   it('reads an unknown format as the default one', () => {
@@ -181,13 +181,13 @@ describe('<Doc>', () => {
     const cleanup = effects[0]()
     vi.advanceTimersByTime(100)
     expect(post).toHaveBeenCalledTimes(1)
-    expect(post).toHaveBeenLastCalledWith(DOC_PAGES_MESSAGE, { count: 1, overflow: [], format: 'a4' })
+    expect(post).toHaveBeenLastCalledWith(DOC_PAGES_MESSAGE, { count: 1, overflow: [], format: 'a4', fold: null })
     // Tailwind's runtime writes its CSS a task after mount: a later
     // measurement that sees more is what makes the frame right.
     pages = [page(0, []), page(1, [])]
     vi.advanceTimersByTime(4000)
     expect(post).toHaveBeenCalledTimes(2)
-    expect(post).toHaveBeenLastCalledWith(DOC_PAGES_MESSAGE, { count: 2, overflow: [], format: 'a4' })
+    expect(post).toHaveBeenLastCalledWith(DOC_PAGES_MESSAGE, { count: 2, overflow: [], format: 'a4', fold: null })
     if (typeof cleanup === 'function') cleanup()
   })
 

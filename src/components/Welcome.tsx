@@ -19,6 +19,8 @@ import { EnhanceNotice, PromptEnhanceButton } from './PromptEnhancer'
 import type { PromptEnhancer } from '../lib/usePromptEnhancer'
 import type { ScreenThemeId } from '../lib/screenThemes'
 import type { PageFormatId } from '../lib/pageFormats'
+import type { FoldId } from '../lib/folds'
+import FoldControl from './FoldControl'
 
 type Props = {
   prompt: string
@@ -33,6 +35,10 @@ type Props = {
   /** The page format while a DOCUMENT type is chosen, null otherwise — see PresetPicker. */
   pageFormat: PageFormatId | null
   onPageFormatChange: (id: PageFormatId) => void
+  /** Flat sheet or folded leaflet, and the folds the chosen size can take (empty: none offered). */
+  fold?: FoldId | null
+  folds?: FoldId[]
+  onFoldChange?: (fold: FoldId | null) => void
   onOpenSettings: () => void
   onOpenDesign: () => void
   onApplyStyle: (markdown: string) => void
@@ -41,6 +47,9 @@ type Props = {
   /** The composer's "Parcours" (lib/flows.ts), shown here too: the first screen is often the one a flow starts from. */
   flowsOn?: boolean
   onToggleFlows?: () => void
+  /** The account's brand for this project (lib/brand.ts): drawn only when a brand exists. */
+  brandOn?: boolean
+  onToggleBrand?: () => void
   /** Open Campaign Studio: a brief made into several formats at once (lib/campaign.ts). */
   onOpenCampaign?: () => void
   museAvail: boolean | null
@@ -104,6 +113,9 @@ export default function Welcome({
   onPresetChange,
   pageFormat,
   onPageFormatChange,
+  fold = null,
+  folds = [],
+  onFoldChange,
   onOpenSettings,
   onOpenDesign,
   onApplyStyle,
@@ -111,6 +123,8 @@ export default function Welcome({
   onMuseChange,
   flowsOn,
   onToggleFlows,
+  brandOn,
+  onToggleBrand,
   onOpenCampaign,
   museAvail,
   museResult,
@@ -259,6 +273,20 @@ export default function Welcome({
                   {t('flows.toggle')}
                 </button>
               )}
+              {onToggleBrand && (
+                <button
+                  type="button"
+                  onClick={onToggleBrand}
+                  className={`inline-flex items-center gap-1.5 text-body-sm transition ${
+                    brandOn ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink'
+                  }`}
+                  title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
+                  aria-pressed={!!brandOn}
+                >
+                  <Icon name="star" size={15} />
+                  {t('brand.toggle')}
+                </button>
+              )}
               {/* A campaign starts from a brief, not from this composer: on an
                   empty project there is no toolbar to reach its panel from. */}
               {onOpenCampaign && (
@@ -286,6 +314,9 @@ export default function Welcome({
               />
               {/* A document decides its picture here, and it is never hidden:
                   it is the one choice that may cost a paid generation. */}
+              {folds.length > 0 && onFoldChange && (
+                <FoldControl value={fold} folds={folds} onChange={onFoldChange} size={15} className="text-body-sm" />
+              )}
               {pageFormat ? (
                 <DocumentImageControl
                   value={documentImage.value}
@@ -367,6 +398,7 @@ export default function Welcome({
             onChange={onPresetChange}
             pageFormat={pageFormat}
             onPageFormatChange={onPageFormatChange}
+            themeId={themeId}
             disabled={enhancer.running}
           />
           <ScreenThemePicker
