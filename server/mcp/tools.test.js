@@ -122,3 +122,31 @@ describe('page sizes', () => {
     expect(inferPageFormat('Un post Instagram pour la fête de la science')).toBeNull()
   })
 })
+
+describe('the lists an assistant picks from for several screens at once', () => {
+  it('mirror the composer: folds, campaign formats, publication kinds', async () => {
+    const { FOLDS, CAMPAIGN_FORMATS, PUBLICATION_KINDS } = await import('./screen-types.js')
+    const { FOLD_IDS } = await import('../../src/lib/folds.ts')
+    const { CAMPAIGN_FORMAT_IDS } = await import('../../src/lib/campaign.ts')
+    const pub = await import('../../src/lib/publication.ts')
+    expect(Object.keys(FOLDS).sort()).toEqual([...FOLD_IDS].sort())
+    expect(Object.keys(CAMPAIGN_FORMATS).sort()).toEqual([...CAMPAIGN_FORMAT_IDS].sort())
+    expect(Object.keys(PUBLICATION_KINDS).sort()).toEqual([...pub.PUBLICATION_KINDS].sort())
+  })
+
+  it('give a job that makes several screens the time to make them', async () => {
+    const { jobBudgetFactor } = await import('./runner.js')
+    expect(jobBudgetFactor({})).toBe(1)
+    expect(jobBudgetFactor({ flows: true })).toBeGreaterThan(1)
+    expect(jobBudgetFactor({ kind: 'campaign' })).toBeGreaterThanOrEqual(4)
+    expect(jobBudgetFactor({ kind: 'publication' })).toBeGreaterThanOrEqual(4)
+  })
+
+  it('tells the assistant how to ask for a flow, a fold, a campaign and a publication', () => {
+    const guide = buildGuide()
+    expect(guide).toContain('`flows: true`')
+    expect(guide).toMatch(/front cover of a tri-fold is on the\s+RIGHT/)
+    expect(guide).toContain('`create_campaign`')
+    expect(guide).toContain('`create_publication`')
+  })
+})

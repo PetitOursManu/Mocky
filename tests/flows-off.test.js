@@ -40,7 +40,10 @@ describe('Parcours off leaves generation unchanged (V7)', () => {
 
   it('passes flows from the composer only when the switch is on, and makes companions only then', () => {
     expect(composer).toContain('...(flowsOn ? { flows: true } : {}),')
-    expect(composer).toContain('if (flowsOn && !outcome.error && !pageFormatId) {')
+    // `composerPage`, not the remembered `pageFormatId`: a format remembered
+    // from an earlier flyer while the type is now a web page used to skip the
+    // companions of a screen that IS a page of a site.
+    expect(composer).toContain('if (flowsOn && !outcome.error && !composerPage) {')
     expect(composer.match(/runFlowCompanions\(/g)).toHaveLength(1)
   })
 

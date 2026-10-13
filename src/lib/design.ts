@@ -20,6 +20,11 @@ export interface DesignConfig {
    * reconcile path all taught about it.
    */
   library?: DesignEntry[]
+  /**
+   * The account's brand identity (lib/brand.ts) — inside this blob for the
+   * reason `library` is: it syncs with nothing new to teach the server.
+   */
+  brand?: BrandIdentity
 }
 
 /** One saved design system. `markdown` is the whole document, verbatim. */
@@ -37,6 +42,7 @@ export interface DesignEntry {
 }
 
 import { scheduleSync, reportStorageFailure } from './sync'
+import { normalizeBrand, type BrandIdentity } from './brand'
 
 const STORAGE_KEY = 'mocky.design.v1'
 
@@ -61,13 +67,55 @@ export function saveDesign(d: DesignConfig): void {
   // ErrorBoundary: on an instance with no room left, merely opening the Design
   // tab replaced the entire interface with the crash screen. Everywhere else in
   // the codebase a quota error is an ordinary, reported condition.
+  /*
+   * The brand is edited in Settings and nowhere else (`saveBrand`); this blob's
+   * other fields in the DESIGN.md panel — which saves ITS copy, read when the
+   * panel opened, on every change. So a save keeps the brand that is STORED,
+   * whatever the caller's copy says: a panel left open cannot put back a logo
+   * removed in Settings a minute ago.
+   */
+  const next: DesignConfig = { ...d }
+  const stored = storedBrand()
+  if (stored) next.brand = stored
+  else delete next.brand
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(d))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch (err) {
     reportStorageFailure(err)
     return
   }
   scheduleSync()
+}
+
+function storedBrand(): BrandIdentity | undefined {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? normalizeBrand((JSON.parse(raw) as Partial<DesignConfig>).brand) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** The account's brand identity, or none. */
+export function loadBrand(): BrandIdentity | undefined {
+  return storedBrand()
+}
+
+/** Replace the account's brand identity (null removes it) — the one writer of `DesignConfig.brand`. */
+export function saveBrand(brand: BrandIdentity | null): boolean {
+  const d = loadDesign()
+  const clean = brand ? normalizeBrand({ ...brand, updatedAt: Date.now() }) : undefined
+  const next: DesignConfig = { ...d }
+  if (clean) next.brand = clean
+  else delete next.brand
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch (err) {
+    reportStorageFailure(err)
+    return false
+  }
+  scheduleSync()
+  return true
 }
 
 /** True when a design system is configured and switched on. */

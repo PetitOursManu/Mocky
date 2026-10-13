@@ -12,6 +12,7 @@
 // back to a deterministic pattern-based dossier — a Muse run never blocks.
 import { z } from 'zod'
 import { filmJsonSchema, filmPromptLines, settleFilm } from './film.js'
+import { fontCatalogueLines, settleTypography, typographyFromDescription } from '../../fonts/index.js'
 
 const ColorSchema = z.object({
   label: z.string(),
@@ -167,6 +168,12 @@ function buildSystem(ctx = {}) {
     '- Product name: invent ONE short, memorable name for this product — the wordmark that will appear in the header of every screen. One or two words, no tagline, no explanation, no generic placeholder like "Brand" or "Acme". Write it in the SAME LANGUAGE as the user request. If the user already named the product, use their name exactly as they spelled it.',
     '- Concept: 2–3 sentences of specific art direction. NEVER generic ("modern, clean, professional" is banned).',
     '- Tokens: a coherent palette (6–8 colors, each with `label` + `hex`). Coherent is not timid: when the request is playful, graphic or loud (manga, retro, kids, music, games…), commit to saturated colour — the clichés below are specific treatments, not colour itself. `tokens.radius` MUST be a single string like "rounded-xl" (NOT an object).',
+    // The faces a screen can actually load (server/fonts). A direction that
+    // names "Freight" or "a refined serif" is followed exactly by the screen —
+    // and drawn in the system font. Asked for by name, then settled after the
+    // answer (settleTypography) because asking is not a guarantee.
+    '- Typography: `tokens.typography.display` (headings) and `tokens.typography.body` (running text) MUST each be ONE family name copied exactly from the list below — the only typefaces the screens can load. Choose them for THIS subject and tone; a pairing with character beats a safe default. Decorative, script, handwriting, blackletter and retro faces only ever go in `display`. If the user named a typeface, use it when it is listed, otherwise its closest listed relative.',
+    ...fontCatalogueLines().map((l) => `  ${l}`),
     '- Voice & Copy: write REAL, specific copy — headline, subheadline, exactly 3 value props, CTA labels, footer line. CRITICAL: write ALL copy in the SAME LANGUAGE as the user request. Never use Lorem ipsum or filler.',
     '- Imagery Plan: an ARRAY that is NEVER EMPTY — it MUST contain AT LEAST ONE item, the "hero" image. Returning `"imageryPlan": []` is a failure: the screen would be generated with no image at all.',
     '  EACH item MUST include a short string `id` (e.g. "hero", "product-1") plus subject/style/lighting/aspectRatio/negative and a final ready-to-use generation prompt ending with "high quality, no text, no watermark".',
@@ -485,6 +492,7 @@ export async function buildDossier(llm, ctx, opts = {}) {
           options: { num_predict: 4096, num_ctx: 16384, temperature: attempt === 0 ? 0.7 : 0.4 },
         })
         const dossier = DossierSchema.parse(normalizeDossierRaw(raw))
+        dossier.tokens.typography = settleTypography(dossier.tokens.typography, ctx.patternHints?.[0]?.tokenSeeds?.typography)
         dossier.film = settleFilm(raw?.film, ctx.motion)
         dossier.forbidden = mergedForbidden(ctx, dossier.forbidden)
         ensureHeroImagery(dossier, ctx)
@@ -517,7 +525,10 @@ export function buildFallbackDossier(ctx) {
     references: pattern ? [{ note: `Pattern: ${pattern.name}` }] : [],
     tokens: {
       colors,
-      typography: { display: seeds.typography || 'Modern sans display', body: 'Readable humanist sans', scaleFeel: 'airy' },
+      // Real faces read off the pattern's description, never the description
+      // itself: "Modern sans display" told the screen to use a font that does
+      // not exist, and it obeyed.
+      typography: { ...typographyFromDescription(seeds.typography), scaleFeel: 'airy' },
       radius: seeds.radius || 'rounded-xl',
     },
     layoutGrammar: ['Distinctive hero anchored on the core offer', 'Clear vertical rhythm', 'One deliberate focal accent per section'],

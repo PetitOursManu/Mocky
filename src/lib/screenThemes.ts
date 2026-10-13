@@ -1,4 +1,5 @@
 import type { IconName } from '../ui'
+import { portraitOf, type FoldId } from './folds'
 import type { PageFormatId } from './pageFormats'
 
 /**
@@ -53,6 +54,8 @@ export const SCREEN_THEME_IDS = [
   'invoice',
   'certificate',
   'menu',
+  'magazine',
+  'book',
   'instagram',
   'facebook',
   'linkedin',
@@ -74,7 +77,22 @@ export interface ScreenTheme {
    * can pick another among the page formats, never among the app presets,
    * because a flyer at 1440 × 900 is a web page wearing a flyer's name.
    */
-  document?: { page: PageFormatId }
+  document?: {
+    page: PageFormatId
+    /**
+     * The sizes this type is offered in, when they are not the everyday office
+     * ones (`pageFormatChips`): a flyer is printed from A6 to A3, in DL and
+     * square; a poster from A4 to A2.
+     */
+    formats?: readonly PageFormatId[]
+    /** The type can be a folded leaflet (lib/folds.ts): the composer offers the folds. */
+    folds?: true
+    /**
+     * The type is made as a PUBLICATION — several sheets sharing one art
+     * direction (lib/publication.ts) — rather than as one screen.
+     */
+    publication?: true
+  }
 }
 
 /*
@@ -262,7 +280,7 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
     id: 'flyer',
     icon: 'sparkle',
     name: 'printed flyer',
-    document: { page: 'a4' },
+    document: { page: 'a4', formats: ['a6', 'a5', 'a4', 'a3', 'dl', 'square-21', 'letter'], folds: true },
     brief: `A FLYER: one striking printed page that stops someone in the street and tells them everything in five seconds. ONE <Page>, unless the request asks for a recto-verso or several pages (then the back carries the detail and any coupon).
 - A bold headline set HUGE — the single biggest thing on the page — with a short sub-headline under it. Three clear levels (headline, key facts, detail), readable from across a room.
 - The KEY FACTS as a scannable block of their own: date, time, place, price or offer — each with a small icon or a label, never buried in a sentence.
@@ -280,7 +298,7 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
     id: 'poster',
     icon: 'crop',
     name: 'printed poster',
-    document: { page: 'a3' },
+    document: { page: 'a3', formats: ['a4', 'a3', 'a3-landscape', 'a2'] },
     brief: `A POSTER: one page seen on a wall or in a window, understood in three seconds from three metres away. ONE <Page>.
 - ONE dominant element — a headline of a few words set enormous, or a striking picture with the headline over it — taking at least half of the page.
 - A short line under it saying what it is, and the essential facts (date, place, price or where to find out more) grouped in one block, readable from a distance.
@@ -365,7 +383,7 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
     id: 'menu',
     icon: 'note',
     name: 'restaurant menu',
-    document: { page: 'a4' },
+    document: { page: 'a4', formats: ['a5', 'a4', 'a3', 'dl', 'letter'], folds: true },
     brief: `A RESTAURANT MENU: the printed card a guest reads at the table.
 - The restaurant's name as a wordmark, a short tagline, and the service (lunch, dinner, brunch) or the season when it matters.
 - Sections in the order of a meal — starters, mains, desserts, drinks — each with a clear heading and a decorative divider.
@@ -373,6 +391,33 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - One highlight: a set menu or the chef's special in a framed box with its price.
 - A footer with the allergen information, the address, the opening hours and a phone number or website.
 - Prices consistent with the kind of restaurant; real dish names and descriptions for the cuisine requested, never placeholders.`,
+  },
+  {
+    id: 'magazine',
+    icon: 'library',
+    name: 'magazine',
+    document: { page: 'a4', formats: ['a4', 'a5', 'letter'], publication: true },
+    brief: `A MAGAZINE: an editorial publication of many pages — this screen is ONE SHEET of it (a cover, a contents spread, a feature, a section), designed so it sits beside the others as one issue.
+- Strong editorial hierarchy: confident display headlines, body text set in two or three columns at a comfortable size, drop caps, pull quotes set large, standfirsts, bylines and captions.
+- A grid used with intent: full-bleed pictures, pictures across a column and a half, generous white space, one dominant element per page.
+- On every page but the cover: a folio (the page number) and the magazine's name or the section in a running line at the top or the foot.
+- The COVER: the masthead set huge, the issue number and date, the cover line of the main story and three or four smaller cover lines, a dominant picture or a bold typographic composition, a barcode placeholder box.
+- A CONTENTS page: the section names with page numbers and a one-line teaser each, an editor's letter with a signature.
+- A FEATURE: a headline spread, a standfirst, long real prose with subheads, at least one pull quote and one captioned picture, and its pages continue the same article.
+- Real copy for the magazine and the stories described; never placeholders.`,
+  },
+  {
+    id: 'book',
+    icon: 'note',
+    name: 'book',
+    document: { page: 'a5', formats: ['a5', 'a6', 'a4', 'letter'], publication: true },
+    brief: `A BOOK: a printed book of many pages — this screen is ONE SHEET of it (the cover, the opening pages, a chapter, the back cover), designed so it sits beside the others as one volume.
+- Book setting: text made for long reading, body text around 11–12pt on paper, a measure of 60–70 characters, justified or ragged with care, generous inner margins.
+- A FRONT COVER: the title set large, the author's name, an evocative picture or typographic composition, the publisher's mark.
+- The OPENING PAGES: a half-title, a title page (title, author, publisher), a copyright page in small print, an epigraph or dedication, a table of contents with page numbers.
+- A CHAPTER: an opening page with the chapter number and title, sunk down the page, a drop cap or small caps on the first line, then running text with running heads (book title on the left page, chapter on the right) and folios.
+- A BACK COVER: a blurb, two short review quotes, an ISBN barcode placeholder box and a price.
+- Real prose for the book described, never lorem ipsum.`,
   },
   {
     id: 'instagram',
@@ -436,6 +481,21 @@ export function screenThemeSection(id: string | null | undefined): string | unde
  */
 export function themeDocumentPage(id: string | null | undefined): PageFormatId | undefined {
   return getScreenTheme(id)?.document?.page
+}
+
+/** The sizes a document type is offered in, when it has a list of its own. */
+export function themeDocumentFormats(id: string | null | undefined): readonly PageFormatId[] | undefined {
+  return getScreenTheme(id)?.document?.formats
+}
+
+/** Whether the composer offers folds for this type. */
+export function themeFolds(id: string | null | undefined): boolean {
+  return !!getScreenTheme(id)?.document?.folds
+}
+
+/** Whether this type is made as a publication of several sheets (magazine, book). */
+export function themePublication(id: string | null | undefined): boolean {
+  return !!getScreenTheme(id)?.document?.publication
 }
 
 /**
@@ -507,10 +567,14 @@ export function isScreenThemeId(id: unknown): id is ScreenThemeId {
  * rather than what was picked and abandoned.
  */
 export function projectScreenType(
-  screens: readonly { createdAt: number; theme?: string; page?: PageFormatId }[],
-): { theme: ScreenThemeId | null; page: PageFormatId | null } {
+  screens: readonly { createdAt: number; theme?: string; page?: PageFormatId; fold?: FoldId }[],
+): { theme: ScreenThemeId | null; page: PageFormatId | null; fold: FoldId | null } {
   let latest: (typeof screens)[number] | undefined
   for (const s of screens) if (!latest || s.createdAt > latest.createdAt) latest = s
   const theme = isScreenThemeId(latest?.theme) ? latest.theme : null
-  return { theme, page: theme && latest?.page ? latest.page : null }
+  if (!theme || !latest?.page) return { theme, page: null, fold: null }
+  // A folded leaflet is stored as its flat sheet; the composer names the SIZE
+  // ("A4", folded in three), so the chip is the sheet's portrait reading.
+  const fold = latest.fold ?? null
+  return { theme, page: fold ? portraitOf(latest.page) : latest.page, fold }
 }

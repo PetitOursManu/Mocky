@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are nine series:
+There are ten series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
@@ -20,6 +20,7 @@ There are nine series:
 - **F1 to F4**, introduced by the free plan and personal keys.
 - **V1 to V8**, introduced by versions, branches, approval links and working prototypes.
 - **C1 to C3**, introduced by Campaign Studio.
+- **P1 to P3**, introduced by folded leaflets and publications.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1273,6 +1274,51 @@ or a restored version.
 
 **How it is checked.** `src/lib/campaignFacts.test.ts`, and "updating a piece" in
 `src/lib/pipeline/campaign.test.ts`.
+
+---
+
+## Series P — folds and publications
+
+These came with folded leaflets and magazines and books
+([Documents](../documents.md#flyers-sizes-and-folds)).
+
+### P1. A panel has one width, and the prompt says it
+
+**The rule.** A fold's panel widths are computed once, from the shares in
+`lib/folds.ts` (`panelWidths`), and the page kit lays its `<Panel>`s out with
+the same arithmetic, interpolated from the same shares (`mockyFoldWidths`). The
+panel order the model is told is the order the paper folds in — never a
+reading order.
+
+**What it protects.** A cover that ends up on the cover, and a fold line where
+the paper creases rather than where a model guessed it.
+
+**How it is checked.** `src/lib/folds.test.ts` runs the kit's own function and
+compares it with the prompt's, for every fold on every sheet.
+
+### P2. A publication never writes the project's direction
+
+**The rule.** A publication's first sheet may establish a direction, and it is
+the PUBLICATION's (`Publication.direction`, carried back in the run's outcome);
+`runNewScreen` never calls `setDesign` for a sheet. Every later sheet is
+generated under that direction with Muse off.
+
+**What it protects.** One look per volume, and the project's own look for
+everything else in it.
+
+**How it is checked.** `src/lib/pipeline/publication.test.ts`.
+
+### P3. Parcours on a document adds a sequence, and only there
+
+**The rule.** The page sequence (`lib/docSequence.ts`) is appended to the plan
+only when the request says `flows` AND the screen is a document; the flow kit
+is still never given to a document. Off, the prompt is the one it was (V7).
+
+**What it protects.** The cost and shape of every document generation for
+someone who switched Parcours off, and paper from a kit that opens "pages" it
+does not have.
+
+**How it is checked.** `src/lib/docSequence.test.ts`, `tests/flows-off.test.js`.
 
 ---
 

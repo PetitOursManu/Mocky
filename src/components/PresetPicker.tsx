@@ -21,6 +21,7 @@ export default function PresetPicker({
   disabled = false,
   pageFormat = null,
   onPageFormatChange,
+  themeId = null,
 }: {
   value: string
   onChange: (id: string) => void
@@ -38,6 +39,8 @@ export default function PresetPicker({
    */
   pageFormat?: PageFormatId | null
   onPageFormatChange?: (id: PageFormatId) => void
+  /** The document type, whose own list of sizes the chips show when it has one (a flyer: A6 to A3, DL, square). */
+  themeId?: string | null
 }) {
   const t = useT()
   const chip = (key: string, active: boolean, label: string, title: string, onClick: () => void) => (
@@ -70,7 +73,7 @@ export default function PresetPicker({
   if (pageFormat) {
     return (
       <div role="group" aria-label={t('composer.pageFormatsAria')} className={`flex flex-wrap items-center gap-1.5 ${className}`}>
-        {pageFormatChips(pageFormat).map((c) => {
+        {pageFormatChips(pageFormat, themeId).map((c) => {
           const f = getPageFormat(c.id)
           return chip(c.id, c.id === pageFormat, t(c.short), `${t(c.full)} · ${f.w}×${f.h}`, () => onPageFormatChange?.(c.id))
         })}

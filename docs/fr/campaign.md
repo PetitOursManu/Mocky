@@ -1,7 +1,7 @@
 ---
 description: Un brief décliné en affiche, flyer, post et story — chaque création composée pour son format, avec les mêmes infos, la même direction artistique et les mêmes images.
 badge: Nouveau
-source_hash: 4d130a9f1e79
+source_hash: 04f76e446fde
 ---
 
 # Campagne
@@ -130,6 +130,11 @@ manquants`. La nouvelle création est faite avec les infos actuelles, d’après
 direction du projet, et reprend les images de la campagne.
 
 ---
+
+## Depuis un assistant
+
+`create_campaign` fabrique la même campagne depuis Claude ou ChatGPT
+([MCP](mcp.md)) : le brief, les formats, et les infos clés lues de la même façon.
 
 ## Ce que ça coûte
 

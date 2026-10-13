@@ -19,6 +19,13 @@ export type PageFormatId =
   | 'a4'
   | 'a4-landscape'
   | 'a3'
+  | 'a3-landscape'
+  | 'a2'
+  | 'a5'
+  | 'a5-landscape'
+  | 'a6'
+  | 'dl'
+  | 'square-21'
   | 'letter'
   | 'letter-landscape'
   | 'slides'
@@ -50,6 +57,12 @@ export interface PageFormat {
  * model writes class names, not fractions. The points are the exact ones, so a
  * PDF page is the ISO size to the hundredth of a point.
  *
+ * The smaller and larger paper sizes are the ones a print shop quotes for a
+ * flyer or a poster without asking: A6 (a postcard, 105 × 148), A5, DL (99 ×
+ * 210, the third of an A4 that fits a long envelope and a leaflet rack), a
+ * 210 mm square, A3 landscape and A2 (420 × 594, the poster in a shop window).
+ * `@page` names only A3–A5 and Letter, so the others state their millimetres.
+ *
  * The presentation page is 1280 × 720 px, i.e. 13.333 × 7.5 in: the size
  * PowerPoint and Google Slides call "Widescreen 16:9", so a deck exported from
  * here opens there at its own size instead of being letterboxed.
@@ -66,6 +79,13 @@ export const PAGE_FORMATS: readonly PageFormat[] = [
   { id: 'a4', w: 794, h: 1123, widthPt: 595.28, heightPt: 841.89, cssSize: 'A4 portrait', kind: 'print' },
   { id: 'a4-landscape', w: 1123, h: 794, widthPt: 841.89, heightPt: 595.28, cssSize: 'A4 landscape', kind: 'print' },
   { id: 'a3', w: 1123, h: 1587, widthPt: 841.89, heightPt: 1190.55, cssSize: 'A3 portrait', kind: 'print' },
+  { id: 'a3-landscape', w: 1587, h: 1123, widthPt: 1190.55, heightPt: 841.89, cssSize: 'A3 landscape', kind: 'print' },
+  { id: 'a2', w: 1587, h: 2245, widthPt: 1190.55, heightPt: 1683.78, cssSize: '420mm 594mm', kind: 'print' },
+  { id: 'a5', w: 559, h: 794, widthPt: 419.53, heightPt: 595.28, cssSize: 'A5 portrait', kind: 'print' },
+  { id: 'a5-landscape', w: 794, h: 559, widthPt: 595.28, heightPt: 419.53, cssSize: 'A5 landscape', kind: 'print' },
+  { id: 'a6', w: 397, h: 559, widthPt: 297.64, heightPt: 419.53, cssSize: '105mm 148mm', kind: 'print' },
+  { id: 'dl', w: 374, h: 794, widthPt: 280.63, heightPt: 595.28, cssSize: '99mm 210mm', kind: 'print' },
+  { id: 'square-21', w: 794, h: 794, widthPt: 595.28, heightPt: 595.28, cssSize: '210mm 210mm', kind: 'print' },
   { id: 'letter', w: 816, h: 1056, widthPt: 612, heightPt: 792, cssSize: 'letter portrait', kind: 'print' },
   { id: 'letter-landscape', w: 1056, h: 816, widthPt: 792, heightPt: 612, cssSize: 'letter landscape', kind: 'print' },
   { id: 'slides', w: 1280, h: 720, widthPt: 960, heightPt: 540, cssSize: '1280px 720px', kind: 'slides' },

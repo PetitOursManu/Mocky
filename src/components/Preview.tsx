@@ -7,6 +7,7 @@ import { buildPrelude } from '../lib/capabilities/prelude'
 import type { Capability } from '../lib/capabilities/types'
 import { DOC_PAGES_MESSAGE } from '../lib/pageFormats'
 import { flowStateScript } from '../lib/flows'
+import { fontFaceCssFor } from '../lib/fonts'
 
 export interface PickInfo {
   selector: string
@@ -107,6 +108,9 @@ function cspMeta(): string {
     // Mocky's own films are served from this origin by hash — see the mount in
     // server/index.js — so naming the origin is the whole permission.
     `media-src ${origin}`,
+    // Mocky's own /fonts are what a screen is meant to use (lib/fonts), and
+    // they are on this origin; `*` stays for the same reason img-src's does —
+    // a font is a weak beacon, and refusing one breaks a screen to close nothing.
     'font-src * data:',
     "connect-src 'none'",
     "form-action 'none'",
@@ -245,6 +249,23 @@ function buildSrcDoc(
   const prelude = buildPrelude(caps)
   const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
 
+  /*
+   * The typefaces this screen NAMES, declared from Mocky's own /fonts — see
+   * lib/fonts. A screen that names none gets no <style> and no extra report, so
+   * its document is the one it always was.
+   *
+   * The second size report is for the same screen: with font-display: block,
+   * text is laid out in the fallback's metrics until the face arrives, and the
+   * 80 ms report measured THAT page — a headline in a narrower display face
+   * wraps differently, and the canvas sized the frame for lines that no longer
+   * exist.
+   */
+  const fontCss = fontFaceCssFor(sourceCode, typeof window !== 'undefined' ? window.location.origin : '')
+  const fontStyle = fontCss ? `<style data-mocky-fonts>${fontCss}</style>` : ''
+  const fontSizeReport = fontCss
+    ? 'try{if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){if(!self.__f){window.__mockyPost("size",{height:Math.ceil(document.documentElement.scrollHeight)});}});}}catch(e){}'
+    : ''
+
   // Dev diagnostic: only log when NOT generating (avoids console spam during
   // streaming). Log the MESSAGE only — dumping the full prelude + component
   // source made the console unreadable (thousands of lines of icon defs per
@@ -267,6 +288,7 @@ ${cdnLinks.join('\n')}
 ${cdnScripts.join('\n')}
 <script src="/vendor/babel.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}${stillCss}</style>
+${fontStyle}
 </head>
 <body>
 <div id="root"></div>
@@ -334,7 +356,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       // and posts it to the parent (feeding the error box AND fixComponent). It
       // only ever fires on real errors — valid code mounts and posts "ok"
       // (invariant 5: never blocks valid code).
-      var renderCode = out + '\\n;(function(){function EB(p){React.Component.call(this,p);this.state={f:0};this.__f=0;}EB.prototype=Object.create(React.Component.prototype);EB.getDerivedStateFromError=function(){return {f:1};};EB.prototype.componentDidCatch=function(e,info){this.__f=1;var m=(e&&e.message?e.message:String(e));if(/Minified React error #130/.test(m)){m="Element type is invalid (React #130): a component or icon you rendered is undefined — likely a missing or misspelled name (e.g. an icon not in the Icon set). "+m;}if(info&&info.componentStack){m+=info.componentStack;}window.__mockyFail(m);};EB.prototype.componentDidMount=function(){var self=this;Promise.resolve().then(function(){if(!self.__f){window.__mockyPost("ok");setTimeout(function(){try{window.__mockyPost("size",{height:Math.ceil(document.documentElement.scrollHeight)});}catch(e){}},80);}});};EB.prototype.render=function(){return this.state.f?null:this.props.children;};try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(EB,null,React.createElement(' + ${JSON.stringify(componentName)} + ')));}catch(re){window.__mockyFail(re&&re.message?re.message:String(re));}})();';
+      var renderCode = out + '\\n;(function(){function EB(p){React.Component.call(this,p);this.state={f:0};this.__f=0;}EB.prototype=Object.create(React.Component.prototype);EB.getDerivedStateFromError=function(){return {f:1};};EB.prototype.componentDidCatch=function(e,info){this.__f=1;var m=(e&&e.message?e.message:String(e));if(/Minified React error #130/.test(m)){m="Element type is invalid (React #130): a component or icon you rendered is undefined — likely a missing or misspelled name (e.g. an icon not in the Icon set). "+m;}if(info&&info.componentStack){m+=info.componentStack;}window.__mockyFail(m);};EB.prototype.componentDidMount=function(){var self=this;Promise.resolve().then(function(){if(!self.__f){window.__mockyPost("ok");setTimeout(function(){try{window.__mockyPost("size",{height:Math.ceil(document.documentElement.scrollHeight)});}catch(e){}},80);${fontSizeReport}}});};EB.prototype.render=function(){return this.state.f?null:this.props.children;};try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(EB,null,React.createElement(' + ${JSON.stringify(componentName)} + ')));}catch(re){window.__mockyFail(re&&re.message?re.message:String(re));}})();';
       var blob = new Blob([renderCode], { type: 'text/javascript' });
       var blobUrl = URL.createObjectURL(blob);
       var scr = document.createElement('script');
@@ -636,7 +658,7 @@ export default function Preview({
    * the frame sent it — the caller bounds it (`docFrameUpdate`). `format` is
    * the page format the kit actually laid out (the code's `<Doc format>`).
    */
-  onDocPages?: (count: unknown, overflow: unknown, format: unknown) => void
+  onDocPages?: (count: unknown, overflow: unknown, format: unknown, fold?: unknown) => void
   /**
    * This frame is a page of a working prototype (snippets/Flow.ts): it starts
    * with `state`, and reports what its code writes and where it asks to go.
@@ -670,7 +692,7 @@ export default function Preview({
   const onSweptRef = useRef(onSwept)
   const onDocPagesRef = useRef(onDocPages)
   const flowRef = useRef(flow)
-  const lastDocPagesRef = useRef<{ count: unknown; overflow: unknown; format: unknown } | null>(null)
+  const lastDocPagesRef = useRef<{ count: unknown; overflow: unknown; format: unknown; fold?: unknown } | null>(null)
   // Same reasoning applied to a value rather than a callback: the listener needs
   // to KNOW whether generation is running, but must not re-subscribe when that
   // changes — re-subscribing resets `ready` and re-arms the render timeout.
@@ -859,8 +881,8 @@ export default function Preview({
       // and grow with every chunk. The kit posts only when its answer changes,
       // so the last one is replayed when generation ends (effect below).
       if (d.type === DOC_PAGES_MESSAGE) {
-        lastDocPagesRef.current = { count: d.count, overflow: d.overflow, format: d.format }
-        if (!generatingRef.current) onDocPagesRef.current?.(d.count, d.overflow, d.format)
+        lastDocPagesRef.current = { count: d.count, overflow: d.overflow, format: d.format, fold: d.fold }
+        if (!generatingRef.current) onDocPagesRef.current?.(d.count, d.overflow, d.format, d.fold)
       }
       // A fragment pointing at nothing. Reported rather than swallowed: these
       // come from the model's own markup — a nav item written before the
@@ -914,7 +936,7 @@ export default function Preview({
   // would never say it again, and the document would stay one page tall.
   useEffect(() => {
     const last = lastDocPagesRef.current
-    if (!generating && last) onDocPagesRef.current?.(last.count, last.overflow, last.format)
+    if (!generating && last) onDocPagesRef.current?.(last.count, last.overflow, last.format, last.fold)
   }, [generating])
 
   // When a capture is requested, translate the client-space rect into this

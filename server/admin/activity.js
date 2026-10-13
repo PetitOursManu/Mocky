@@ -40,6 +40,7 @@ export const PURPOSES = new Set([
   'stock-pick',
   'enhance',
   'campaign-facts',
+  'publication-plan',
 ])
 
 /** POST routes that are work, mapped to what they are. Everything else is not tracked. */

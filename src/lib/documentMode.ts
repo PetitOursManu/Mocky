@@ -9,7 +9,8 @@ import {
   type PageFormatId,
 } from './pageFormats'
 import { hintForDevice, type DeviceKind } from './presets'
-import { themeDocumentPage } from './screenThemes'
+import { themeDocumentFormats, themeDocumentPage } from './screenThemes'
+import { foldHint, foldSheet, isFoldId, portraitOf, type FoldId } from './folds'
 
 /**
  * DOCUMENT screens — what changes, and only what changes, when a screen is a
@@ -52,12 +53,38 @@ export function composerPageFormat(
 ): PageFormatId | null {
   const byType = themeDocumentPage(themeId)
   if (!byType) return null
-  return isPageFormat(chosen) && formatFamily(chosen) === formatFamily(byType) ? chosen : byType
+  if (!isPageFormat(chosen) || formatFamily(chosen) !== formatFamily(byType)) return byType
+  // A type with a list of its own (a flyer: A6 to A3, DL, a square) keeps a
+  // remembered size only when it is one of them: the A2 chosen for a poster is
+  // not a flyer size, and a chip row with nothing lit cannot say what is used.
+  const own = themeDocumentFormats(themeId)
+  return !own || own.includes(chosen) ? chosen : byType
 }
 
-/** The chips offered beside a format — its own family, in order — with their dictionary keys. */
-export function pageFormatChips(current: PageFormatId): { id: PageFormatId; short: string; full: string }[] {
-  return formatsLike(current).map((f) => ({
+/**
+ * The paper chips a type with no list of its own is offered: the everyday
+ * sizes of an office document, not every sheet a print shop sells — thirteen
+ * chips in a row is a question nobody writing a report wanted to be asked.
+ */
+const DEFAULT_PAPER_CHIPS: readonly PageFormatId[] = ['a4', 'a4-landscape', 'a3', 'a5', 'letter', 'letter-landscape', 'slides']
+
+/**
+ * The chips offered beside a format, with their dictionary keys: the type's own
+ * list when it has one, otherwise the everyday sizes of the format's family.
+ */
+export function pageFormatChips(
+  current: PageFormatId,
+  themeId?: string | null,
+): { id: PageFormatId; short: string; full: string }[] {
+  const own = themeDocumentFormats(themeId)
+  const family = formatFamily(current)
+  const list =
+    own && own.includes(current)
+      ? own.map(getPageFormat)
+      : family === 'paper'
+        ? DEFAULT_PAPER_CHIPS.map(getPageFormat).concat(DEFAULT_PAPER_CHIPS.includes(current) ? [] : [getPageFormat(current)])
+        : formatsLike(current)
+  return list.map((f) => ({
     id: f.id,
     short: `composer.pageFormat.${f.id}`,
     full: `composer.pageFormat.${f.id}.full`,
@@ -71,6 +98,13 @@ const FORMAT_NAMES: Record<PageFormatId, string> = {
   a4: 'A4 portrait (210 × 297 mm)',
   'a4-landscape': 'A4 landscape (297 × 210 mm)',
   a3: 'A3 portrait poster (297 × 420 mm)',
+  'a3-landscape': 'A3 landscape (420 × 297 mm)',
+  a2: 'A2 portrait poster (420 × 594 mm)',
+  a5: 'A5 portrait (148 × 210 mm)',
+  'a5-landscape': 'A5 landscape (210 × 148 mm)',
+  a6: 'A6 portrait card (105 × 148 mm)',
+  dl: 'DL portrait leaflet (99 × 210 mm)',
+  'square-21': 'square sheet (210 × 210 mm)',
   letter: 'US Letter portrait (8.5 × 11 in)',
   'letter-landscape': 'US Letter landscape (11 × 8.5 in)',
   slides: '16:9 presentation slide (13.33 × 7.5 in)',
@@ -122,7 +156,14 @@ export const STORY_SAFE_BOTTOM_PX = 340
  * class names in, and because "A4" alone came back as a 1440-wide web page with
  * the word A4 in its title.
  */
-export function documentHint(format: PageFormat): string {
+export function documentHint(format: PageFormat, fold?: FoldId | null): string {
+  const base = flatDocumentHint(format)
+  return fold && isFoldId(fold) && foldSheet(fold, format.id) === format.id ? `${base}
+
+${foldHint(fold, format.id)}` : base
+}
+
+function flatDocumentHint(format: PageFormat): string {
   const { what, page } = KIND_WORDS[format.kind]
   const social = format.kind === 'social'
   const story = format.id === 'social-story'
@@ -169,7 +210,7 @@ export function documentHint(format: PageFormat): string {
 export const DOCUMENT_RULES = [
   'DOCUMENT MODE — THESE RULES OVERRIDE THE APP-ORIENTED RULES ABOVE:',
   'This is a document of fixed pages (see FORMAT) that will be printed or posted, exported to PDF or PNG and opened in slide software. It is NOT an app screen, and where the rules above speak of an app, a SaaS screenshot or interactive states, they do not apply.',
-  '- The component App returns exactly one <Doc format="…"> whose children are <Page> elements, one per page. Doc, Page and Field are predefined: never declare, import or redefine anything with those names, and never size a Page yourself.',
+  '- The component App returns exactly one <Doc format="…"> whose children are <Page> elements, one per page. Doc, Page, Panel and Field are predefined: never declare, import or redefine anything with those names, and never size a Page or a Panel yourself. <Panel> exists only for a folded leaflet (see FOLDED LEAFLET when there is one).',
   '- Paper has one state: no hover, focus, active or disabled styles, no cursor classes, no onClick, no useState for interaction, no tabs, menus, modals or links styled as buttons. A call to action is printed words (a verb, a URL, a phone number) or a QR-code placeholder box.',
   '- It must look like a finished piece laid out by a graphic designer — a flyer, a poster, a report page, a slide, a social media visual — never like an interface.',
   '- A blank someone fills in (a name, a date, a box to tick, a choice) is a <Field>, never a hand-drawn line or a bare <input>: every Field becomes a real form field in the exported PDF. Give each a unique `name`.',
@@ -186,10 +227,28 @@ export const DOCUMENT_RULES = [
  * current chip is not this screen's format. Everything else keeps
  * `hintForDevice`, which is what every one of those sites called before.
  */
-export function hintForScreen(screen: { page?: PageFormatId; device: DeviceKind }): string {
+export function hintForScreen(screen: { page?: PageFormatId; fold?: FoldId; device: DeviceKind }): string {
   return screen.page && isPageFormat(screen.page)
-    ? documentHint(getPageFormat(screen.page))
+    ? documentHint(getPageFormat(screen.page), screen.fold)
     : hintForDevice(screen.device)
+}
+
+/**
+ * The sheet a new document is printed on and the fold it carries, from the
+ * composer's size and fold. A fold turns the size into its landscape twin (a
+ * fold runs across the long side: "A4 in three" is an A4 landscape sheet of
+ * three DL panels); a fold the size cannot take is dropped rather than drawn
+ * as a guess, and the flyer is made flat.
+ */
+export function foldedSheet(page: PageFormatId, fold: FoldId | null | undefined): { page: PageFormatId; fold?: FoldId } {
+  if (!fold || !isFoldId(fold)) return { page }
+  const sheet = foldSheet(fold, page)
+  return sheet ? { page: sheet, fold } : { page }
+}
+
+/** What the composer's size chip should show for a stored (possibly folded) sheet. */
+export function chipFormatOf(page: PageFormatId, fold?: FoldId | null): PageFormatId {
+  return fold ? portraitOf(page) : page
 }
 
 /**
@@ -359,11 +418,19 @@ export function pagesInFrame(format: PageFormat, h: number): number {
  * rather than on every measurement.
  */
 export function docFrameUpdate(
-  screen: { page?: PageFormatId; w: number; h: number },
+  screen: { page?: PageFormatId; fold?: FoldId; w: number; h: number },
   count: unknown,
   overflow: unknown,
   reported?: unknown,
-): { page: PageFormatId | null; size: { w: number; h: number } | null; overflow: number[]; overflowKey: string } | null {
+  reportedFold?: unknown,
+): {
+  page: PageFormatId | null
+  /** The fold the kit laid out, when it differs from the screen's: an id, or null for "now flat". Undefined: unchanged. */
+  fold?: FoldId | null
+  size: { w: number; h: number } | null
+  overflow: number[]
+  overflowKey: string
+} | null {
   if (!screen.page || !isPageFormat(screen.page)) return null
   if (typeof count !== 'number' || !Number.isFinite(count) || count < 1) return null
   // A frame is a message from generated code: bound it rather than trust it.
@@ -384,8 +451,17 @@ export function docFrameUpdate(
   const pagesOver = Array.isArray(overflow)
     ? [...new Set(overflow.filter((n): n is number => Number.isInteger(n) && n >= 0 && n < pages))].sort((a, b) => a - b).map((n) => n + 1)
     : []
+  /*
+   * The fold follows the code the same way the format does — an edit that
+   * unfolded the leaflet must not leave the prompt describing panels. Only a
+   * kit that REPORTS a fold field (string or null) can change it: an older
+   * message without one says nothing about folds.
+   */
+  const laidFold = isFoldId(reportedFold) ? reportedFold : reportedFold === null ? null : undefined
+  const fold = laidFold !== undefined && laidFold !== (screen.fold ?? null) ? laidFold : undefined
   return {
     page,
+    ...(fold !== undefined ? { fold } : {}),
     size: screen.w === w && screen.h === h ? null : { w, h },
     overflow: pagesOver,
     overflowKey: pagesOver.join(','),

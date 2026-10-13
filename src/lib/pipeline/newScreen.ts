@@ -30,7 +30,11 @@ import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Projec
 import { filmMedia } from '../screenMedia'
 import { resolveDirection } from '../direction'
 import { getPreset } from '../presets'
-import { composerPageFormat, documentHint, documentPipeline, pickReference } from '../documentMode'
+import { composerPageFormat, documentHint, documentPipeline, foldedSheet, pickReference } from '../documentMode'
+import { documentSequenceSection } from '../docSequence'
+import type { FoldId } from '../folds'
+import { brandMuseLine, brandSection, type BrandIdentity } from '../brand'
+import type { ScreenPublication } from '../publication'
 import type { PageFormatId } from '../pageFormats'
 import { checkLegibility } from '../capture'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../capabilities/select'
@@ -43,7 +47,7 @@ import { missingUltraImages, ultraMotionCount, ULTRA_BUDGET } from '../ultra/che
 import { filmSectionOf, plugFilmIntoSlot } from '../ultra/filmSlot'
 import type { ScreenCampaign } from '../campaign'
 import { buildReuseSection, projectPictures } from '../projectPictures'
-import { screenThemeBriefLine, withScreenTheme, type ScreenThemeId } from '../screenThemes'
+import { screenThemeBriefLine, themeFolds, withScreenTheme, type ScreenThemeId } from '../screenThemes'
 import { buildSiteReferenceSection, buildSitePicturesSection, parseSitePictures, siteLanguage, type SiteRefMode } from '../siteReference'
 import { findSitePictures, type SitePictureFound } from '../sitePictures'
 import {
@@ -124,7 +128,13 @@ export interface NewScreenRequest {
   presetId: string
   themeId: ScreenThemeId | null
   pageFormatId: PageFormatId | null
-  /** "Nouvelle direction", ticked for this run. */
+  /**
+   * The composer's fold for a type that offers folds (lib/folds.ts): the size
+   * becomes its landscape sheet, cut into panels. Absent or null — every run of
+   * a type without folds, and every run before folds — is a flat sheet, and the
+   * request builds the prompt it always built.
+   */
+  foldId?: FoldId | null
   redesign: boolean
   museConfig: MuseConfig
   /** null while unknown — Muse then runs and degrades if the server says no (M3). */
@@ -188,6 +198,26 @@ export interface NewScreenRequest {
   campaignContext?: string
   /** What a campaign piece records about itself: its format and the facts it is written with. */
   campaign?: ScreenCampaign
+  /**
+   * A publication sheet's place in its magazine or book (`publicationSection`
+   * in lib/publication.ts), appended to the plan like `campaignContext`.
+   */
+  publicationContext?: string
+  /**
+   * The publication this sheet belongs to. Its `direction` stands where the
+   * project's would (absent on the first sheet, whose Muse dossier then WINS
+   * and becomes the publication's), and nothing this run decides is written to
+   * the project's own direction: the outcome carries it back instead.
+   */
+  publication?: { direction?: string; record: ScreenPublication }
+  /**
+   * The account's brand identity, when the project uses it (`Project.useBrand`,
+   * lib/brand.ts): its section goes AFTER the direction, so the brand's own
+   * colours and logo win, and Muse is told it before it writes a dossier.
+   * Absent — every project that did not switch it on — builds the prompt it
+   * always built.
+   */
+  brand?: BrandIdentity
 }
 
 /** Everything `generateComponent` would have been given, for a writer that is not Mocky's model. */
@@ -256,6 +286,11 @@ export interface NewScreenOutcome {
   error?: string
   /** Set when `error` is the placeholder-text advisory, which the polish path reads back. */
   slop?: string
+  /**
+   * The direction this screen was generated under — on a publication's first
+   * sheet, the one the rest of the publication will follow.
+   */
+  direction?: string
 }
 
 export function joinSystem(parts: Array<string | undefined>): string | undefined {
@@ -357,7 +392,16 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
      * (`documentPipeline`). No document type, and `pipe` changes nothing —
      * `formHint` is the line it always was.
      */
-    const runPage = composerPageFormat(runTheme, pageFormatId)
+    const chosenPage = composerPageFormat(runTheme, pageFormatId)
+    /*
+     * A fold turns the chosen size into the sheet it is printed on (its
+     * landscape twin) and travels with the page hint; only a type that offers
+     * folds takes one, and a fold the size cannot take is dropped rather than
+     * drawn as a guess (`foldedSheet`).
+     */
+    const folded = chosenPage && req.foldId && themeFolds(runTheme) ? foldedSheet(chosenPage, req.foldId) : null
+    const runPage = folded ? folded.page : chosenPage
+    const runFold = folded?.fold
     const pipe = documentPipeline(runPage)
     /*
      * The document's picture source for THIS run. A remembered "Générée"
@@ -389,7 +433,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
      */
     const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff
     const pictureSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
-    const formHint =withScreenTheme(pipe.format ? documentHint(pipe.format) : preset.hint, runTheme)
+    const formHint = withScreenTheme(pipe.format ? documentHint(pipe.format, runFold) : preset.hint, runTheme)
     /** Motion Ultra for THIS run: the project's setting, unless the screen is a document. */
     const runUltra = ultraActive && pipe.motionUltra
     if (ultraActive && !runUltra) hooks.replaceNotice(t('project.docUltraSkipped'))
@@ -473,7 +517,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // The dossier is told WHAT it is dressing — a dashboard wants no hero
     // photograph — and nothing more: the layout is the page's business.
     const museThemeLine = screenThemeBriefLine(runTheme)
-    const museBrief = museThemeLine ? `${museBriefBase}\n\n${museThemeLine}` : museBriefBase
+    const museBrief = [museBriefBase, museThemeLine, req.brand ? brandMuseLine(req.brand) : undefined].filter(Boolean).join('\n\n')
     // A reproduction's direction is the screenshot: a dossier would be a
     // second, contradicting one, and a paid call to write it.
     if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {
@@ -702,14 +746,28 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
      * any other, and it only wins when there is nothing to protect (the
      * project's first screen) or when the user asked for a redesign.
      */
+    /*
+     * A publication sheet answers to its publication's direction, not the
+     * project's: on the first sheet there is none yet, so a fresh dossier wins
+     * (and is carried back in the outcome rather than set on the project), and
+     * without one the project's direction — then DESIGN.md — stands in.
+     */
+    const pub = req.publication
     const dir: { markdown?: string; establish?: string } = reproducing
       ? {}
-      : resolveDirection({
-          established: project.design,
-          fresh: museMarkdown,
-          global: globalMd,
-          redesign: redesigning,
-        })
+      : pub
+        ? resolveDirection({
+            established: pub.direction,
+            fresh: museMarkdown,
+            global: project.design?.trim() ? project.design : globalMd,
+            redesign: false,
+          })
+        : resolveDirection({
+            established: project.design,
+            fresh: museMarkdown,
+            global: globalMd,
+            redesign: redesigning,
+          })
 
     /*
      * Muse's preamble, carrying whichever direction won.
@@ -740,9 +798,10 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // Muse's preamble supersedes DESIGN.md's when present; otherwise the
     // exact pre-Muse composition (M1). Both now carry the same direction.
     const dirPreamble = dir.markdown ? buildDesignPreamble(dir.markdown) : undefined
+    const brandPreamble = req.brand ? brandSection(req.brand, req.brand.logo ? absoluteUrl(imageUrl(req.brand.logo.hash)) : undefined) : undefined
     const extraSystem = musePreamble
-      ? joinSystem([musePreamble, referencePreamble, formHint])
-      : joinSystem([dirPreamble, referencePreamble, formHint])
+      ? joinSystem([musePreamble, brandPreamble, referencePreamble, formHint])
+      : joinSystem([dirPreamble, brandPreamble, referencePreamble, formHint])
 
     // Deterministic shortlist first — this is the guaranteed fallback.
     const shortlist = selectCapabilities(text, dir.markdown)
@@ -957,6 +1016,16 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
     if (req.flowContext) planSection = [planSection, req.flowContext].filter(Boolean).join('\n\n')
     if (req.campaignContext) planSection = [planSection, req.campaignContext].filter(Boolean).join('\n\n')
+    if (req.publicationContext) planSection = [planSection, req.publicationContext].filter(Boolean).join('\n\n')
+    /*
+     * Parcours on a DOCUMENT: not the flow kit, which has no next page to open
+     * on paper, but the sequence of its pages — a recto and a verso, the images
+     * of a carousel (lib/docSequence.ts). Off, nothing is added (V7).
+     */
+    if (req.flows && pipe.document) {
+      const sequence = documentSequenceSection(runTheme, runPage, runFold)
+      if (sequence) planSection = [planSection, sequence].filter(Boolean).join('\n\n')
+    }
     capIds = withAnimations(capIds)
 
     // A sequence exists → the component that plays it must be in scope,
@@ -1014,11 +1083,13 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
       siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined,
       theme: runTheme ?? undefined,
       page: runPage ?? undefined,
+      ...(runFold ? { fold: runFold } : {}),
       // A document holds still: an entrance whose resting state is
       // opacity 0 prints blank. Undefined — the default — otherwise.
       animations: pipe.animations,
       ...(req.route ? { route: req.route } : {}),
       ...(req.campaign ? { campaign: req.campaign } : {}),
+      ...(pub ? { publication: pub.record } : {}),
     })
     if (siteNew) hooks.rememberSiteRef(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
     // Name the project after its FIRST prompt, so it stops being called
@@ -1189,7 +1260,9 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
      * cancelled run deletes its screen, so there would be nothing left to
      * explain why every subsequent screen had changed.
      */
-    if (dir.establish) {
+    if (pub) {
+      // The publication keeps its own direction; the caller stores it.
+    } else if (dir.establish) {
       hooks.setDesign(dir.establish)
     } else if ((redesigning || (reproducing && !project.design?.trim())) && result.code.trim()) {
       /*
@@ -1220,16 +1293,16 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     if (result.truncated) {
       // The code is cut mid-token; the preview would only show a cryptic
       // "Unterminated string constant". Say what actually happened.
-      return { screenId, code: result.code, error: t('project.truncated') }
+      return { screenId, code: result.code, error: t('project.truncated'), direction: dir.markdown }
     } else {
       // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
       const lint = lintSlop(result.code)
       if (!lint.ok) {
         const advisory = t('project.slop', { list: lint.violations.join(', ') })
-        return { screenId, code: result.code, error: advisory, slop: advisory }
+        return { screenId, code: result.code, error: advisory, slop: advisory, direction: dir.markdown }
       }
     }
-    return { screenId, code: result.code }
+    return { screenId, code: result.code, direction: dir.markdown }
   } catch (err) {
     // A screen that was added but never received a single character is not a
     // draft, it is debris: pressing "Stop" one second in used to leave a blank

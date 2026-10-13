@@ -110,7 +110,7 @@ describe('withScreenTheme', () => {
 
 describe('the Flyer, the first DOCUMENT type', () => {
   it('is a document that starts on A4, and the app types are not documents', () => {
-    expect(getScreenTheme('flyer')?.document).toEqual({ page: 'a4' })
+    expect(getScreenTheme('flyer')?.document).toMatchObject({ page: 'a4', folds: true })
     expect(themeDocumentPage('flyer')).toBe('a4')
     expect(themeDocumentPage('landing')).toBeUndefined()
     expect(themeDocumentPage(null)).toBeUndefined()
@@ -123,6 +123,8 @@ describe('the Flyer, the first DOCUMENT type', () => {
       'invoice',
       'certificate',
       'menu',
+      'magazine',
+      'book',
       'instagram',
       'facebook',
       'linkedin',
@@ -219,16 +221,18 @@ describe('projectScreenType', () => {
       { createdAt: 3, theme: 'flyer', page: 'a4-landscape' as const },
       { createdAt: 2, theme: 'pricing' },
     ]
-    expect(projectScreenType(screens)).toEqual({ theme: 'flyer', page: 'a4-landscape' })
+    expect(projectScreenType(screens)).toEqual({ theme: 'flyer', page: 'a4-landscape', fold: null })
+    // A folded leaflet is stored flat; the composer shows the size it was asked in.
+    expect(projectScreenType([{ createdAt: 1, theme: 'flyer', page: 'a4-landscape' as const, fold: 'roll' as const }])).toEqual({ theme: 'flyer', page: 'a4', fold: 'roll' })
   })
 
   it('keeps "no type" when that is what the latest screen was made with', () => {
-    expect(projectScreenType([{ createdAt: 1, theme: 'flyer', page: 'a4' as const }, { createdAt: 2 }])).toEqual({ theme: null, page: null })
+    expect(projectScreenType([{ createdAt: 1, theme: 'flyer', page: 'a4' as const }, { createdAt: 2 }])).toEqual({ theme: null, page: null, fold: null })
   })
 
   it('starts on nothing in an empty project, and ignores a type this build does not know', () => {
-    expect(projectScreenType([])).toEqual({ theme: null, page: null })
-    expect(projectScreenType([{ createdAt: 1, theme: 'brochure-3d' }])).toEqual({ theme: null, page: null })
+    expect(projectScreenType([])).toEqual({ theme: null, page: null, fold: null })
+    expect(projectScreenType([{ createdAt: 1, theme: 'brochure-3d' }])).toEqual({ theme: null, page: null, fold: null })
   })
 })
 

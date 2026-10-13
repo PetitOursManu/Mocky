@@ -40,6 +40,13 @@ backups/
 docs-site/.lumy/
 docs-site/.dist.*
 
+# The typefaces generated screens use. Copied out of the @fontsource
+# devDependencies by `npm run vendor:fonts` (run by predev, prebuild and
+# pretest), which pin them by exact version and lockfile integrity — see the
+# header of scripts/vendor-fonts.mjs for why the files are not committed and
+# their catalogue (src/lib/fonts/catalogue.json) is.
+public/fonts/
+
 # Worktrees that Claude Code sessions create for parallel work: each is a
 # checkout of its own, never part of this one.
 .claude/worktrees/

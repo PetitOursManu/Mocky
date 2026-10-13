@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 25952576843d
+source_hash: ba9846a10c51
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -74,14 +74,16 @@ l’emportent en cas de conflit, et le style reste celui de votre direction.
 
 | Type | Démarre en | Ce qu’il demande |
 |---|---|---|
-| `Flyer` | A4 | Une page frappante : un titre énorme, les infos clés (date, lieu, prix) en bloc à part, des points forts, un appel à l’action imprimé en toutes lettres à côté d’un emplacement de QR code, des formes colorées qui débordent des bords. Un coupon détachable fait de champs seulement quand la demande est une inscription. |
+| `Flyer` | A4 (A6 à A3, DL, carré) | À plat ou [plié](#flyers-tailles-et-plis). Une page frappante : un titre énorme, les infos clés (date, lieu, prix) en bloc à part, des points forts, un appel à l’action imprimé en toutes lettres à côté d’un emplacement de QR code, des formes colorées qui débordent des bords. Un coupon détachable fait de champs seulement quand la demande est une inscription. |
 | `Affiche` | A3 | Une page lue à trois mètres : un seul élément dominant, les infos essentielles en un bloc, aucun texte courant. |
 | `Rapport` | A4 | Une couverture, un sommaire, une synthèse de chiffres clés, des pages de corps aux sections numérotées, des graphiques et un tableau, des en-têtes courants et des numéros de page. Des chiffres cohérents d’une page à l’autre. |
 | `Documentation` | A4 | Une page de titre avec une version, une table des matières, des sections numérotées, des procédures en étapes numérotées, des encadrés note / astuce / attention, un tableau de référence. |
 | `CV` | A4 | Une page en deux colonnes : profil, expériences et réalisations, formation, compétences, langues. Sobre et lisible. |
 | `Facture / devis` | A4 | L’émetteur, le client, un tableau de lignes avec TVA, des totaux qui tombent juste, les conditions de paiement. Un devis reçoit un bloc « bon pour accord » fait de champs à remplir. |
 | `Certificat` | A4 paysage | Un cadre décoratif, le nom du lauréat comme texte le plus visible, des signatures et un sceau. Le nom et la date deviennent des champs quand vous demandez un modèle vierge. |
-| `Menu` | A4 | Entrées, plats, desserts et boissons, prix alignés, pictogrammes de régime avec une légende, une formule mise en valeur. |
+| `Menu` | A4 (A5 à A3, DL) | À plat ou [plié](#flyers-tailles-et-plis). Entrées, plats, desserts et boissons, prix alignés, pictogrammes de régime avec une légende, une formule mise en valeur. |
+| `Magazine` | A4 (A5, Letter) | Une [publication](#magazines-et-livres) : première de couverture, deux pages intérieures, quatrième — puis des pages ajoutées une à une. Hiérarchie éditoriale, colonnes, citations en exergue, folios et titres courants. |
+| `Livre` | A5 (A6, A4, Letter) | Une [publication](#magazines-et-livres) : première de couverture, deux pages intérieures, quatrième — puis des pages ajoutées une à une. Composition de livre, titres courants, folios pairs à gauche. |
 | `Post Instagram` | 4:5 | Une grande idée par image ; un carrousel quand il y a plus à dire (la première image accroche, la dernière appelle à l’action). |
 | `Post Facebook` | 1,91:1 | Le visuel d’une annonce ou d’un événement, peu de texte — le texte du post porte le détail. |
 | `Post LinkedIn` | 1:1 | Une idée ou un résultat professionnel ; un carrousel exporté en PDF est le post document de LinkedIn. |
@@ -91,7 +93,9 @@ l’emportent en cas de conflit, et le style reste celui de votre direction.
 ## Les formats de page
 
 Les puces de format ne montrent que les formats de la famille du type : papier et
-diapositives pour un document, tailles des réseaux pour un post. Un post mis en
+diapositives pour un document, tailles des réseaux pour un post — et un type qui a
+ses propres tailles montre celles-là : un flyer se propose en A6, A5, A4, A3, DL,
+carré de 21 cm et US Letter ; une affiche de l’A4 à l’A2. Un post mis en
 page pour un téléphone n’est pas la même pièce en A4, donc le composeur ne propose
 jamais le saut — et un format choisi pour un rapport ne vous suit pas jusqu’au
 post Instagram tapé ensuite.
@@ -99,7 +103,12 @@ post Instagram tapé ensuite.
 | Famille | Format | Taille de la page |
 |---|---|---|
 | Papier | `A4` · `A4 paysage` | 794 × 1 123 px (210 × 297 mm), et tournée |
-| Papier | `A3` | 1 123 × 1 587 px (297 × 420 mm) |
+| Papier | `A3` · `A3 paysage` | 1 123 × 1 587 px (297 × 420 mm), et tournée |
+| Papier | `A2` | 1 587 × 2 245 px (420 × 594 mm), une affiche de vitrine |
+| Papier | `A5` · `A5 paysage` | 559 × 794 px (148 × 210 mm), et tournée |
+| Papier | `A6` | 397 × 559 px (105 × 148 mm), format carte postale |
+| Papier | `DL` | 374 × 794 px (99 × 210 mm), le tiers d’A4 des présentoirs |
+| Papier | `Carré 21` | 794 × 794 px (210 × 210 mm) |
 | Papier | `US Letter` · `US paysage` | 816 × 1 056 px (8,5 × 11 in), et tournée |
 | Papier | `Présentation 16:9` | 1 280 × 720 px — le « Grand écran » de PowerPoint et Google Slides |
 | Réseaux | `Carré 1:1` | 1 080 × 1 080 px |
@@ -115,6 +124,97 @@ fichier qu’elles demandent, tel quel.
 Le modèle connaît les marges à laisser libres : 40 px sur papier, au-delà de ce
 qu’une imprimante de bureau n’atteint pas ; 64 px sur un post ; et sur une story,
 les bandes du haut et du bas où l’application dessine ses propres barres.
+
+---
+
+## Flyers : tailles et plis
+
+Un flyer (ou un menu) se choisit par deux choses dans le composeur : sa
+**taille** — les puces — et son **pli**, le menu `Pli` à côté. `Feuille simple`
+est une page unique, comme avant. Les plis :
+
+| Pli | Volets | Proposé en |
+|---|---|---|
+| `Dépliant 2 volets` | 2 par face, plié en deux comme une carte | A5, A4, A3, Letter |
+| `3 volets roulé` | 3 par face ; le volet qui rentre est 3 mm plus étroit | A4, A3, Letter |
+| `3 volets accordéon` | 3 par face, en Z | A4, A3, Letter |
+| `Pli fenêtre` | 2 volets qui se referment comme des portes sur un panneau central double | A4, A3, Letter |
+| `4 volets accordéon` | 4 par face | A4, A3 |
+
+La taille est celle de la **feuille à plat** : un A4 plié en trois est une
+feuille A4 paysage de trois volets DL, imprimée recto-verso. Un dépliant a donc
+toujours deux pages — la face extérieure et la face intérieure — et chaque page
+est une rangée de volets, dessinés par le kit de page à leur largeur exacte,
+avec les lignes de pli en pointillés sur le canevas (jamais dans un export).
+
+:::why
+Le volet qui finit en couverture est une affaire de géométrie, pas d’ordre de
+lecture. Sur un pli roulé, la couverture est le volet de DROITE de la face
+extérieure ; sur un pli fenêtre, elle est coupée en deux aux deux bouts, sa
+moitié droite imprimée à gauche. Un modèle à qui l’on demande « un trois
+volets » met la face extérieure en ordre de lecture — la couverture d’abord, à
+gauche — et la feuille qui revient de l’imprimeur se plie avec son dos devant.
+Mocky calcule donc l’ordre une fois (`lib/folds.ts`) et dit au modèle quel
+emplacement est lequel, avec sa largeur.
+:::
+
+Des mots qui passent sur un pli sont signalés comme des mots qui dépassent de la
+page, et **Ajuster à la page** les rattrape de la même façon. Le PDF contient
+les deux faces à la taille de la feuille : le fichier qu’un imprimeur demande.
+
+---
+
+## Plusieurs pages à la suite : le Parcours
+
+Le bouton `Parcours` du composeur concerne des écrans qui s’ouvrent les uns les
+autres dans un prototype — et, sur un document, les **pages qui se suivent** :
+
+- un **flyer ou un menu** reçoit un **recto et un verso** : le recto arrête le
+  regard, le verso porte le détail, les infos pratiques et le coupon ;
+- un **post** devient un **carrousel** — cinq images, sauf si votre demande en
+  nomme un autre nombre : l’accroche, une idée par image, l’appel à l’action,
+  avec un compteur de pages et la même signature sur chacune ;
+- une **story** devient une suite de stories.
+
+Un dépliant a déjà ses deux faces, une affiche n’a pas de dos, un rapport compte
+plusieurs pages par son propre brief : là, le bouton ne change rien. Éteint, rien
+n’est ajouté au prompt (invariant V7).
+
+---
+
+## Magazines et livres
+
+`Magazine` et `Livre` ne sont pas un écran mais une **publication** : des
+feuilles qui partagent **une direction artistique à elles**. Elle commence
+petite — **quatre pages** :
+
+1. Mocky planifie ce qu’elles disent (un appel au modèle) : la **première de
+   couverture**, **deux pages intérieures** (un édito et l’ouverture d’un
+   reportage pour un magazine, une page de titre et la première page d’un
+   chapitre pour un livre), la **quatrième de couverture**.
+2. La **première de couverture** lance Muse sur la demande de la publication ;
+   son dossier devient la direction de la publication.
+3. **Les trois autres** sont générées sous cette direction, Muse éteinte — même
+   typographie, même palette, même grille, même folio et même titre courant.
+
+Ensuite, vous la faites grandir **une page à la fois** : générez à nouveau avec
+le même type (`Magazine` ou `Livre`) dans le même projet, en décrivant la page
+voulue — elle s’ajoute comme page intérieure **avant la quatrième de
+couverture**, sous la même direction, avec son numéro de page et tout le
+sommaire.
+
+:::why
+Un seul composant de quarante pages mises en forme, c’est un appel qui manque de
+jetons à la page onze et fait régénérer tout le numéro pour une double page
+ratée. Une page est une partie qu’un modèle écrit bien d’un coup, et refait
+seule — et quatre suffisent pour juger une allure avant de payer le reste. Et la direction est celle de la publication, pas du projet : le numéro
+d’un magazine et le flyer de sa soirée de lancement vivent dans le même projet
+sans que l’un change l’allure de l’autre.
+:::
+
+La ligne de progression dit quelle feuille est en cours. Chaque feuille est un
+document ordinaire sur le canevas — modifiez-la, ajustez-la, téléchargez-la — et
+ses pages s’impriment dans l’ordre avec les autres.
 
 ---
 

@@ -61,6 +61,8 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 - [Getting started](getting-started.md) Install Mocky and configure a model.
 - [The interface](interface.md) What every control does, which ones get confused, and which ones spend tokens.
 - [Documents and social posts](documents.md) Make a flyer, a report, a résumé or a post, and download it as a PDF, a deck or images.
+- [Fonts](fonts.md) About 200 typefaces any screen can name, served by Mocky itself.
+- [My brand, and exporting a screen](brand.md) Your logo and identity applied to a project; a web screen as a PNG or a PowerPoint.
 - [Campaign Studio](campaign.md) Turn one brief into a poster, a flyer, a post and a story; change a date and update the pieces that say it.
 - [Muse overview](muse/overview.md) See what Muse adds to a generation.
 - [Inspiration engine](muse/inspiration-engine.md) Follow Discover, Distill and Dossier in detail.

@@ -1,7 +1,7 @@
 ---
 description: Des prototypes qui marchent — formulaires qui modifient les données, connexion simulée, vrais filtres, panier partagé entre les écrans — avec les écrans suivants créés pour vous, et des scénarios de démonstration.
 badge: Nouveau
-source_hash: 744d4b97878b
+source_hash: 5778a0b66196
 ---
 
 # Des prototypes qui fonctionnent
@@ -20,6 +20,10 @@ fonctionne** en [mode Démo](interface.md#le-mode-demo).
   compte sur tous les écrans, et l’écran du panier le liste.
 
 Et les écrans vers lesquels mène un parcours sont **créés automatiquement**.
+
+Sur un **document**, le même bouton désigne les pages qui se suivent — le recto
+et le verso d’un flyer, le carrousel d’un post — voir
+[Documents](documents.md#plusieurs-pages-a-la-suite-le-parcours).
 
 ## Les écrans créés pour vous
 

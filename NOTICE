@@ -53,5 +53,14 @@ Third-party components
 
 Deterministic quality detection uses the `impeccable` npm package by Paul
 Bakaus, licensed under the Apache License 2.0
-(https://github.com/pbakaus/impeccable). Other dependencies are listed in
+(https://github.com/pbakaus/impeccable).
+
+The typefaces served to generated screens (`public/fonts/`, copied from the
+`@fontsource` packages by `scripts/vendor-fonts.mjs`) are separate font files,
+distributed unmodified under their own licences: the SIL Open Font License 1.1,
+the Apache License 2.0, or the Ubuntu Font Licence 1.0, as recorded per family
+in `src/lib/fonts/catalogue.json`. Each family's licence and copyright notice
+is reproduced in `fonts/LICENSES.txt`, served next to the files. They are not
+covered by the GNU AGPL or by the exceptions above, and a screen or an export
+that names one of them by name carries no copy of the font. Other dependencies are listed in
 `package.json` and `worker/video/package.json`, each under its own licence.

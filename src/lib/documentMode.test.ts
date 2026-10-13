@@ -38,7 +38,13 @@ describe('the composer’s format chips', () => {
 
   it('start a document type on its own format, then keep the one picked', () => {
     expect(composerPageFormat('flyer', null)).toBe('a4')
-    expect(composerPageFormat('flyer', 'slides')).toBe('slides')
+    expect(composerPageFormat('flyer', 'a5')).toBe('a5')
+    expect(composerPageFormat('report', 'slides')).toBe('slides')
+    // A size the type does not print in gives way to the type's own: a flyer
+    // is not a slide, a report is not an A2.
+    expect(composerPageFormat('flyer', 'slides')).toBe('a4')
+    expect(composerPageFormat('report', 'a2')).toBe('a2')
+    expect(composerPageFormat('poster', 'a2')).toBe('a2')
     // A stored choice from a later version reads as none, not as a guess.
     expect(composerPageFormat('flyer', 'tabloid' as never)).toBe('a4')
   })
@@ -51,7 +57,11 @@ describe('the composer’s format chips', () => {
   })
 
   it('offer a document the formats of its own family only', () => {
-    expect(pageFormatChips('a4').map((c) => c.id)).toEqual(['a4', 'a4-landscape', 'a3', 'letter', 'letter-landscape', 'slides'])
+    expect(pageFormatChips('a4').map((c) => c.id)).toEqual(['a4', 'a4-landscape', 'a3', 'a5', 'letter', 'letter-landscape', 'slides'])
+    // A format outside the everyday list is still shown, lit, at the end.
+    expect(pageFormatChips('a2').map((c) => c.id).slice(-1)).toEqual(['a2'])
+    expect(pageFormatChips('a4', 'flyer').map((c) => c.id)).toEqual(['a6', 'a5', 'a4', 'a3', 'dl', 'square-21', 'letter'])
+    expect(pageFormatChips('a2', 'poster').map((c) => c.id)).toEqual(['a4', 'a3', 'a3-landscape', 'a2'])
     expect(pageFormatChips('social-square').map((c) => c.id)).toEqual([
       'social-square',
       'social-portrait',
@@ -61,8 +71,13 @@ describe('the composer’s format chips', () => {
   })
 
   it('offer every page format somewhere, named in both languages', () => {
-    const chips = [...pageFormatChips('a4'), ...pageFormatChips('social-square')]
-    expect(chips.map((c) => c.id).sort()).toEqual(PAGE_FORMATS.map((f) => f.id).sort())
+    const chips = [
+      ...pageFormatChips('a4'),
+      ...pageFormatChips('social-square'),
+      ...SCREEN_THEMES.filter((th) => th.document).flatMap((th) => pageFormatChips(th.document!.page, th.id)),
+    ]
+    // a5-landscape is never a chip: it is the sheet an A5 leaflet folded in two is printed on.
+    expect([...new Set(chips.map((c) => c.id))].sort()).toEqual(PAGE_FORMATS.map((f) => f.id).filter((id) => id !== 'a5-landscape').sort())
     const missing: string[] = []
     for (const c of chips) {
       for (const key of [c.short, c.full]) {

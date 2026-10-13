@@ -66,6 +66,11 @@ export interface RenderResult {
 
 export interface RenderOptions {
   purpose: RasterPurpose
+  /**
+   * An ORDINARY screen exported whole (web.ts): no page kit, one page as tall
+   * as the content, laid out at the format's height as its viewport.
+   */
+  web?: boolean
   signal?: AbortSignal
   /** Called before each page is rasterised, 1-based. */
   onPage?: (page: number, total: number) => void
@@ -415,7 +420,47 @@ export interface SettledDocument {
   pages: Element[]
   /** Written without the kit's <Page>: the root stands in as the one page. */
   noPages: boolean
+  /** The height the page was laid out at — on a web screen, its whole content's. */
+  height: number
   close(): void
+}
+
+/** Past this a web screen is cut: a 20 000-px page is already forty phone screens. */
+export const WEB_MAX_HEIGHT = 20_000
+
+/**
+ * Classes and inline styles that size an element on the VIEWPORT: `h-screen`,
+ * `min-h-screen`, `h-[80vh]`, `max-h-dvh`, a `style` in vh…
+ */
+const VIEWPORT_CLASS = /(?:^|\s)(?:[\w-]+:)*(?:min-|max-)?h-(?:screen|svh|dvh|lvh)(?=\s|$)|(?:^|\s)(?:[\w-]+:)*(?:min-|max-)?h-\[[^\]]*\d(?:s|d|l)?vh[^\]]*\]/
+const VIEWPORT_STYLE = /\d(?:s|d|l)?vh\b/
+
+/**
+ * Pin every element sized on the viewport to the height it has NOW, before the
+ * frame grows to the content's height.
+ *
+ * A web screen is exported whole by making the frame as tall as its content —
+ * and a hero written `min-h-screen` then becomes as tall as the frame: the
+ * picture of a 900-px hero came back 6 000 px high, with everything below it
+ * pushed off the end. The legibility probe met the same thing and kept its
+ * window small instead (capture.ts); a rasteriser that draws the element in an
+ * SVG image has no window to keep, so the heights are written down instead.
+ */
+export function pinViewportHeights(win: Window, doc: Document): number {
+  let pinned = 0
+  for (const el of Array.from(doc.querySelectorAll<HTMLElement>('#root, #root *'))) {
+    const cls = typeof el.className === 'string' ? el.className : el.getAttribute('class') || ''
+    const style = el.getAttribute('style') || ''
+    if (el.id !== 'root' && !VIEWPORT_CLASS.test(cls) && !VIEWPORT_STYLE.test(style)) continue
+    const h = el.getBoundingClientRect().height
+    if (!(h > 0)) continue
+    const pin = el.id === 'root' ? ['min-height'] : ['height', 'min-height']
+    for (const prop of pin) el.style.setProperty(prop, `${h}px`, 'important')
+    if (el.id !== 'root') el.style.setProperty('max-height', 'none', 'important')
+    pinned++
+  }
+  void win
+  return pinned
 }
 
 /**
@@ -429,6 +474,7 @@ export async function openSettledDocument(
   caps: Capability[],
   format: PageFormat,
   signal?: AbortSignal,
+  web = false,
 ): Promise<SettledDocument> {
   const frame = await openDocumentFrame(code, caps, format.w, format.h, signal)
   // Cancel means NOW: the frame — and the model's code running in it — goes the
@@ -444,6 +490,21 @@ export async function openSettledDocument(
     throwIfAborted(signal)
     loadEverything(frame.doc)
     await raceAbort(settle(frame), signal)
+
+    if (web) {
+      // An ordinary screen: laid out at its viewport, then grown to its content
+      // with whatever was sized on the viewport held at the size it had.
+      pinViewportHeights(frame.win, frame.doc)
+      const body = frame.doc.body
+      const height = Math.max(1, Math.min(WEB_MAX_HEIGHT, Math.ceil(Math.max(body.scrollHeight, frame.doc.documentElement.scrollHeight))))
+      body.setAttribute(PAGE_ATTR, '0')
+      frame.resize(height)
+      await raceAbort(sleep(150), signal)
+      loadEverything(frame.doc)
+      await raceAbort(settle(frame), signal)
+      throwIfAborted(signal)
+      return { frame, pages: [body], noPages: false, height, close }
+    }
 
     let pages = orderPages(Array.from(frame.doc.querySelectorAll(`[${PAGE_ATTR}]`)))
     let noPages = false
@@ -467,7 +528,7 @@ export async function openSettledDocument(
     loadEverything(frame.doc)
     await raceAbort(settle(frame), signal)
     throwIfAborted(signal)
-    return { frame, pages, noPages, close }
+    return { frame, pages, noPages, height: format.h, close }
   } catch (err) {
     close()
     throw err
@@ -481,7 +542,10 @@ export async function renderDocument(
   opts: RenderOptions,
 ): Promise<RenderResult> {
   const { purpose, signal } = opts
-  const { frame, pages, noPages, close } = await openSettledDocument(code, caps, format, signal)
+  const { frame, pages, noPages, height, close } = await openSettledDocument(code, caps, format, signal, opts.web)
+  // A web screen's one page is as tall as its content: the raster and the
+  // measurements below take THAT height, the format having given the viewport.
+  if (opts.web) format = { ...format, h: height, heightPt: height * 0.75 }
   const notices: RenderNotice[] = noPages ? [{ code: 'noPages' }] : []
   try {
 

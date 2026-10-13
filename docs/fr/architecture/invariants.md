@@ -1,5 +1,5 @@
 ---
-source_hash: c497f615493d
+source_hash: b89364568816
 ---
 
 # Invariants
@@ -12,7 +12,7 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a neuf séries :
+Il y a dix séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
@@ -24,6 +24,7 @@ Il y a neuf séries :
 - **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
 - **V1 à V8**, apportés par les versions, les branches, les liens de validation et les prototypes qui fonctionnent.
 - **C1 à C3**, apportés par la Campagne.
+- **P1 à P3**, apportés par les dépliants et les publications.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1368,6 +1369,52 @@ donnerait fausse après une annulation ou une version restaurée.
 
 **Comment c'est vérifié.** `src/lib/campaignFacts.test.ts`, et « updating a
 piece » dans `src/lib/pipeline/campaign.test.ts`.
+
+---
+
+## Série P — plis et publications
+
+Ils sont arrivés avec les dépliants, les magazines et les livres
+([Documents](../documents.md#flyers-tailles-et-plis)).
+
+### P1. Un volet a une seule largeur, et le prompt la dit
+
+**La règle.** Les largeurs des volets d’un pli sont calculées une fois, à partir
+des parts de `lib/folds.ts` (`panelWidths`), et le kit de page dispose ses
+`<Panel>` avec la même arithmétique, interpolée depuis les mêmes parts
+(`mockyFoldWidths`). L’ordre des volets donné au modèle est celui dans lequel le
+papier se plie — jamais un ordre de lecture.
+
+**Ce qu’elle protège.** Une couverture qui finit en couverture, et une ligne de
+pli là où le papier se marque plutôt que là où un modèle l’a devinée.
+
+**Comment c’est vérifié.** `src/lib/folds.test.ts` exécute la fonction du kit et
+la compare à celle du prompt, pour chaque pli sur chaque feuille.
+
+### P2. Une publication n’écrit jamais la direction du projet
+
+**La règle.** La première feuille d’une publication peut établir une direction,
+et c’est celle de la PUBLICATION (`Publication.direction`, rapportée dans le
+résultat du run) ; `runNewScreen` n’appelle jamais `setDesign` pour une feuille.
+Chaque feuille suivante est générée sous cette direction, Muse éteinte.
+
+**Ce qu’elle protège.** Une seule allure par volume, et l’allure du projet pour
+tout le reste.
+
+**Comment c’est vérifié.** `src/lib/pipeline/publication.test.ts`.
+
+### P3. Le Parcours sur un document ajoute une suite de pages, et seulement là
+
+**La règle.** La suite de pages (`lib/docSequence.ts`) n’est ajoutée au plan que
+si la demande dit `flows` ET que l’écran est un document ; le kit de parcours
+n’est toujours jamais donné à un document. Éteint, le prompt est celui qu’il
+était (V7).
+
+**Ce qu’elle protège.** Le coût et la forme de chaque génération de document
+pour qui a éteint le Parcours, et le papier d’un kit qui ouvrirait des « pages »
+qu’il n’a pas.
+
+**Comment c’est vérifié.** `src/lib/docSequence.test.ts`, `tests/flows-off.test.js`.
 
 ---
 

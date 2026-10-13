@@ -36,8 +36,29 @@ function providerProxy(): Plugin {
   }
 }
 
+/**
+ * Dev-only: the CORS header server/index.js puts on /fonts.
+ *
+ * A preview is a sandboxed frame with an opaque origin, and a font is always
+ * fetched in CORS mode, so its request says `Origin: null` — which Vite's own
+ * CORS default (localhost origins only) does not answer. Without this every
+ * catalogue face (src/lib/fonts) loaded in production and fell back in silence
+ * under `npm run dev`, which is where somebody would check that it works.
+ */
+function fontsCors(): Plugin {
+  return {
+    name: 'mocky-fonts-cors',
+    configureServer(server) {
+      server.middlewares.use((req: IncomingMessage, res: ServerResponse, next) => {
+        if (req.url && req.url.startsWith('/fonts/')) res.setHeader('Access-Control-Allow-Origin', '*')
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), providerProxy()],
+  plugins: [react(), tailwindcss(), providerProxy(), fontsCors()],
   build: {
     rollupOptions: {
       // Two pages: the app, and the page the MCP runner's headless Chromium

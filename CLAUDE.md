@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Nine series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Ten series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1047,6 +1047,56 @@ data: URL of the path. Three things:
    the frame's whole box covered the frame all the same. And the page is the
    slide's BACKGROUND (`<p:bg>`), never a full-slide picture: as an element,
    Canva replaced it with the photo meant for a frame a few pixels away.
+
+## Fonts in a generated page
+
+~200 self-hosted families (`src/lib/fonts`, user doc `docs/fonts.md`). Four
+things that will bite you:
+
+1. **The files are generated, the catalogue is committed.** `public/fonts/` is
+   git-ignored and filled by `npm run vendor:fonts` (predev, prebuild, pretest)
+   from exact-version `@fontsource` devDependencies; `src/lib/fonts/catalogue.json`
+   and its server projection `server/fonts/families.json` are committed because
+   `tsc` and the runtime image need them. Add a family in `FAMILIES`
+   (`scripts/vendor-fonts.mjs`), never by editing the JSON.
+2. **A document declares only the faces its code NAMES** (`fontFaceCssFor`):
+   the preview srcDoc and the capture shell. A screen that names none gets the
+   document it always got. The scan errs towards declaring — an unused
+   `@font-face` downloads nothing.
+3. **`/fonts` needs `Access-Control-Allow-Origin: *`** (server/index.js and the
+   Vite plugin): a font is a CORS fetch and a preview's origin is opaque.
+   Without it every face falls back in silence.
+4. **The list reaches generate, edit and polish — not fix, audit-fix or fit**
+   (`FONTS_PROMPT`). Mocky's own document registers faces under
+   `specimenFamily` aliases, or the interface (which asks for `Inter`) would
+   switch to the webfont. Muse's dossier picks from the list and
+   `settleTypography` (server/fonts) maps anything else onto it.
+
+## Folded leaflets, document Parcours, publications
+
+User doc: `docs/documents.md` ("Flyers: sizes and folds", "Several pages in a
+row", "Magazines and books"); invariants P1–P3.
+
+```
+src/lib/folds.ts            five folds, panel shares, the panel order AS THE PAPER FOLDS
+src/lib/docSequence.ts      Parcours on a document: recto/verso, carousel, stories
+src/lib/publication.ts      a magazine or a book: plan, bounds, a sheet's prompt section
+src/lib/pipeline/publication.ts  planPublication + runPublication (one dossier per volume)
+```
+
+Three things that will bite you:
+
+1. **The panel order is not a reading order.** A roll fold's front cover is the
+   RIGHT panel of the outside face; a gate fold's cover is split across both
+   ends. `<Panel>` widths in the kit and in the prompt come from the same shares
+   (`panelWidths` / `mockyFoldWidths`), and `folds.test.ts` runs both (P1).
+2. **A folded sheet is stored flat**: `Screen.page` is the landscape sheet,
+   `Screen.fold` the fold; the composer's chip shows the portrait size
+   (`projectScreenType`, `portraitOf`). Both follow the code's `<Doc>` like the
+   format does (`docFrameUpdate`).
+3. **A publication's direction is its own** (P2): `NewScreenRequest.publication`
+   replaces the project's direction for a sheet, and the outcome carries the
+   first sheet's direction back. Never route a sheet through `setDesign`.
 
 ## Maintenance mode and server migration
 

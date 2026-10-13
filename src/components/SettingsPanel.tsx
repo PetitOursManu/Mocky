@@ -12,6 +12,7 @@ import { api, type AccountPlan, type AuthUser } from '../lib/api'
 import { Banner, Button, Field, Icon, IconButton, Input, Segmented, Select } from '../ui'
 import { LANGS, useLang, useT } from '../i18n'
 import ChimeSetting from './ChimeSetting'
+import BrandSection from './BrandSection'
 
 type TestState =
   | { status: 'idle' }
@@ -464,6 +465,7 @@ export default function SettingsPanel() {
       </div>
 
       <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 lg:grid-cols-2">
+        {account && <BrandSection />}
         <AvatarSection account={account} onChanged={setAccount} />
         <PasswordSection account={account} onChanged={setAccount} />
         {account && <AssistantConnections />}
