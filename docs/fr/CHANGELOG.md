@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | dépliants, magazines et livres, ~200 polices, ma marque, export PNG/PPTX des écrans web | `453f432` |
 | `docexport` | PDF en double résolution — 500 dpi pour le papier, ×4 pour un post (#55) | `40a2991` |
 | `campaign` | un brief décliné en affiche, flyer, post, story (#54) | `7f6c4a6` |
 | — | versions et branches, envoi en validation, prototypes qui fonctionnent (#53) | `659c24e` |
