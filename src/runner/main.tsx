@@ -636,8 +636,12 @@ function assistantWriter(say: (line: string) => void): ScreenWriter {
   }
 }
 
-/** What leaves the page of an audit report: scores, rule ids and names — never a snippet of source. */
-function auditSummary(r: AuditReport): RunnerAudit {
+/**
+ * What leaves the page of an audit report: scores, rule ids and names — never a snippet of source.
+ * A finding's `name` is an i18n KEY (`audit.rule.lowContrast`), which the panel
+ * passes through `t()`; the assistant has no `t()`, so it gets the sentence.
+ */
+function auditSummary(r: AuditReport, t: (key: TranslationKey) => string): RunnerAudit {
   return {
     seo: r.seo.score,
     a11y: r.a11y.score,
@@ -645,7 +649,7 @@ function auditSummary(r: AuditReport): RunnerAudit {
     judged: r.coverage.judged,
     findings: r.findings.map((f) => ({
       rule: f.rule,
-      name: f.name,
+      name: t(f.name as TranslationKey),
       ...(f.dimension ? { dimension: f.dimension } : {}),
       ...(f.priority ? { priority: f.priority } : {}),
       // Only enforceable findings may be spent a correction pass on (Q2).
@@ -737,7 +741,7 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
   } else {
     progress('auditing')
     const report = await auditScreen(codeAtStart, { deep: job.deep === true, settings, signal })
-    result.audit = auditSummary(report)
+    result.audit = auditSummary(report, t)
     const correctable = report.findings.filter((f) => f.disposition !== 'advise')
     if (kind === 'auditFix' && correctable.length) {
       progress('fixing')
@@ -747,7 +751,11 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
       if (outcome.code !== codeAtStart) {
         patch = { code: outcome.code, componentName: detectComponentName(outcome.code), previousCode: codeAtStart }
       }
-      result.auditFix = { fixed: outcome.fixed.map((f) => f.name), residual: outcome.residual.map((f) => f.name), stopped: outcome.stopped }
+      result.auditFix = {
+        fixed: outcome.fixed.map((f) => t(f.name as TranslationKey)),
+        residual: outcome.residual.map((f) => t(f.name as TranslationKey)),
+        stopped: outcome.stopped,
+      }
     }
   }
 
