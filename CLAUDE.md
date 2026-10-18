@@ -1250,8 +1250,12 @@ through `assertSafeTargetResolved`, and that rule replaces Chromium's own Local
 Network Access checks (switched off at launch, because they refused the
 preview's `/vendor` scripts on loopback origins).
 
-Four things that will bite you:
+Five things that will bite you:
 
+0. **The runner's `route.fetch` has `timeout: 0`.** Playwright's default is
+   30 s, shorter than a model call: every edit and polish by Mocky's own model
+   died as "Network error: Failed to fetch" while creations, written by the
+   assistant ("client" engine), worked. The job's budget is the only limit.
 1. **Off is absent.** Unless switched on AND `MOCKY_ORIGIN` is `https://`, every
    MCP path is 404, discovery included. `MOCKY_MCP_INSECURE_LOOPBACK=1` accepts
    `http://localhost` for tests and Claude Code, nothing else.

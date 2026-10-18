@@ -317,6 +317,11 @@ export function createRunner(d) {
           const response = await route.fetch({
             url: `${local}${url.pathname}${url.search}`,
             headers: token ? { ...req.headers(), 'x-mocky-runner': token } : req.headers(),
+            // No timeout of its own: Playwright's default is 30 s, and a model
+            // rewriting a whole screen (/__provider) takes longer — every
+            // edit_design and polish_design died as "Failed to fetch" at 30 s.
+            // The job's own budget (`execute`) closes the context instead.
+            timeout: 0,
           })
           await route.fulfill({ response })
         } catch {
