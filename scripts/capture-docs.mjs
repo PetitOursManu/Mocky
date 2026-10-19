@@ -184,6 +184,7 @@ async function shoot(ctx, name, { clip = null, pad = 0, spots }) {
   let png
   for (let attempt = 1; ; attempt++) {
     try {
+      await page.bringToFront()
       png = await page.screenshot({ clip: rect, timeout: 25_000 })
       break
     } catch (e) {
@@ -211,7 +212,14 @@ async function run(lang) {
   const names = Object.fromEntries(data.projects[0].screens.map((s) => [s.id, s.name]))
   const cafe = data.projects[0].name
 
-  const browser = await chromium.launch({ executablePath: findChromium(), headless: true })
+  // Two tabs (the page, and the one that encodes WebP), so a tab can be the
+  // background one — and a backgrounded renderer stops producing frames, which
+  // is exactly what a screenshot waits for. Neither tab may be throttled.
+  const browser = await chromium.launch({
+    executablePath: findChromium(),
+    headless: true,
+    args: ['--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--disable-background-timer-throttling'],
+  })
   const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: 2, colorScheme: 'dark', locale: lang })
   const [cName, cValue] = cookie.split('=')
   await context.addCookies([{ name: cName, value: cValue, url: server.base }])
