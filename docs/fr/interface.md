@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 7358d62a3062
+source_hash: 4da5a5853a1f
 ---
 
 # L’interface
@@ -145,7 +145,7 @@ barre, comme dans la référence dont la refonte est tirée :
 | **La barre du haut** | Le logotype (retour aux projets), `Projets / nom` (cliquez le nom pour le renommer), puis les outils du projet : les modes de la toile — `Sélectionner`, `Lier`, `Interagir`, `Modifier`, `Annoter` — puis `Démo`, `Partager ▾`, `Exporter ▾` et l’interrupteur de l’inspecteur. La navigation du site (DESIGN.md, Média, Réglages) est à un clic, sur le logotype. |
 | **À gauche : l’atelier de création** | Le composeur en colonne au lieu d’une barre flottante : un titre qui dit ce que fera le prochain message (`Nouvel écran`, ou `Modifier l’écran` quand des écrans sont sélectionnés), le composeur lui-même, `Créer aussi` (`Campagne`, les films `Motion Ultra`), et les quatre derniers écrans créés — cliquez-en un pour le cadrer sur la toile. |
 | **Au centre : la toile** | Toute sa hauteur : plus rien ne flotte sur le bas des écrans. La barre de zoom est en bas à gauche ; `Cadre` (le contour d’iPhone) en bas à droite, et seulement quand le projet a un écran mobile. |
-| **À droite : l’inspecteur** | Les panneaux qui flottaient dans le coin de la toile, en onglets : `Style`, `Versions`, `Audit` ; `⋯` ouvre `Validation`, `Campagne` et `Liens`, qui s’affichent alors en quatrième onglet. Une colonne à partir de `xl` (1280 px), ouverte sur `Style` à l’ouverture d’un projet ; plus étroit, il flotte sur le bord droit de la toile. Une ligne d’état, en bas, dit si Mocky travaille. |
+| **À droite : l’inspecteur** | Une barre de six icônes toujours présente — `Style`, `Versions`, `Audit`, `Validation`, `Campagne`, `Liens` — et le panneau que l’icône allumée ouvre à côté. Cliquez une icône pour ouvrir son panneau, recliquez-la (ou `✕`) pour le replier dans la barre. Le panneau est une colonne à partir de `xl` (1280 px), ouvert sur `Style` à l’ouverture d’un projet ; plus étroit, il flotte sur la toile à côté de la barre. Une ligne d’état, en bas, dit si Mocky travaille. |
 
 **`Partager ▾`** réunit le partage et la validation : `Lien vers l’écran (QR
 code)` pour l’écran sélectionné, et `Envoyer en validation…`, qui ouvre le
@@ -534,12 +534,16 @@ selon ce qui est sélectionné.
 
 Le composeur pose ses questions dans l’ordre où elles viennent : **ce qu’on
 fait** (`Format`, `Type d’écran`, un pli — au-dessus du champ), la demande, puis
-**comment** on le fait — des options sous le champ, en trois groupes séparés par
-un filet : le style (`Nouvelle direction`, `Marque`), ce qui aide à l’écrire
-(`Muse`, `Motion Ultra`, `Parcours`), et d’où viennent les images (`Images`),
-avec `Captures d’un site` en dernier. Chaque option est une puce ; une option
-active prend l’accent. Le premier composeur, sur un projet vide, suit le même
-ordre, avec `DESIGN.md` dans le groupe du style et `Campagne` à côté du format.
+**comment** on le fait — des options en trois groupes nommés : **Style**
+(`Nouvelle direction`, `Marque`), **Aides à la génération** (`Muse`,
+`Motion Ultra`, `Parcours`) et **Images** (d’où viennent les nouvelles images,
+et `Captures d’un site`). Chaque option est une ligne : son nom, une phrase sur
+ce qu’elle fait, et un interrupteur qui dit si elle est active. `Motion Ultra`
+montre ses réglages (×3 / ×6, le fond vidéo) sous sa ligne une fois activé. Dans
+la colonne du projet, les boutons sont juste sous le champ et les options en
+dessous, pour que `Générer` ne défile jamais hors de vue. Le premier composeur,
+sur un projet vide, met les trois groupes côte à côte, avec `DESIGN.md` dans le
+groupe du style et `Campagne` à côté du format.
 
 
 | | Puce | Ce qu’elle fait | Coût |
@@ -564,8 +568,8 @@ plus `tout désélectionner`.
 
 ### Le champ et ses deux boutons
 
-Les boutons ont leur propre rangée sous les options, pour que le champ garde
-toute la largeur : `Améliorer` à gauche, `Générer` (ou `Mettre à jour`) à droite.
+Les boutons ont leur propre rangée, pour que le champ garde toute la largeur :
+`Améliorer` à gauche, `Générer` (ou `Mettre à jour`) à droite.
 
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|

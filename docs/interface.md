@@ -139,7 +139,7 @@ the redesign was drawn from lays it out:
 | **The top bar** | The wordmark (back to the projects), `Projects / name` (click the name to rename), then the project's tools: the canvas modes — `Select`, `Link`, `Interact`, `Modify`, `Annotate` — then `Demo`, `Share ▾`, `Export ▾` and the inspector's switch. The site navigation (DESIGN.md, Media, Settings) is one click away, on the wordmark. |
 | **Left: the creation workshop** | The composer as a column instead of a floating bar: a title that says what the next message does (`New screen`, or `Edit the screen` when screens are selected), the composer itself, `Also make` (`Campaign`, `Motion Ultra` films), and the four screens made last — click one to frame it on the canvas. |
 | **Centre: the canvas** | All of its height: nothing floats over the bottom of the screens any more. The zoom bar is bottom-left; `Frame` (the iPhone bezel) bottom-right, and only when the project has a phone screen. |
-| **Right: the inspector** | The panels that used to float over the canvas' corner, as tabs: `Style`, `Versions`, `Audit`; `⋯` opens `Approval`, `Campaign` and `Links`, which then show as a fourth tab. A column from `xl` (1280px), open on `Style` when a project opens; narrower, it floats over the canvas' right edge. A status line at its foot says whether Mocky is working. |
+| **Right: the inspector** | A rail of six icons that is always there — `Style`, `Versions`, `Audit`, `Approval`, `Campaign`, `Links` — and the panel the lit one opens beside it. Click an icon to open its panel, click it again (or `✕`) to fold the panel back into the rail. The panel is a column from `xl` (1280px), open on `Style` when a project opens; narrower, it floats over the canvas beside the rail. A status line at its foot says whether Mocky is working. |
 
 **`Share ▾`** puts sharing and approval together: `Link to the screen (QR code)`
 for the one selected screen, and `Send for approval…`, which opens the approval
@@ -506,12 +506,16 @@ changes verb depending on what is selected.
 
 The composer asks its questions in the order they come: **what** is made
 (`Format`, `Screen type`, a fold — above the field), the request, then **how**
-it is made — options under the field, in three groups with a hairline between
-them: the style (`New direction`, `Brand`), what helps write it (`Muse`,
-`Motion Ultra`, `Flows`), and where pictures come from (`Images`), with
-`Screenshots of a site` last. Each option is a chip; one that is on takes the
-accent. The first composer, on an empty project, follows the same order, with
-`DESIGN.md` in the style group and `Campaign` beside the format.
+it is made — options in three named groups: **Style** (`New direction`,
+`Brand`), **Generation aids** (`Muse`, `Motion Ultra`, `Flows`) and
+**Pictures** (where new pictures come from, and `Screenshots of a site`). Each
+option is a row: its name, one line of what it does, and a switch that says
+whether it is on. `Motion Ultra` shows its settings (×3 / ×6, the video
+background) under its row once it is on. In the project's column the buttons
+sit right under the field and the options below them, so `Generate` never
+scrolls away. The first composer, on an empty project, lays the three groups
+side by side, with `DESIGN.md` in the style group and `Campaign` beside the
+format.
 
 
 | | Chip | What it does | Cost |
@@ -535,8 +539,8 @@ with `Remove from selection`, plus `clear`.
 
 ### The field and its two buttons
 
-The buttons sit on a row of their own under the options, so the field keeps the
-whole width: `Improve` on the left, `Generate` (or `Update`) on the right.
+The buttons sit on a row of their own, so the field keeps the whole width:
+`Improve` on the left, `Generate` (or `Update`) on the right.
 
 | Control | What it does | Cost |
 |---|---|---|

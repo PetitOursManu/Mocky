@@ -249,7 +249,7 @@ async function run(lang) {
         ['Screen type', btn(column, t('composer.themeLabel'), true)],
         ['The prompt', column.locator('textarea')],
         ['New direction', btn(column, t('project.redesignChip'))],
-        ['Muse', btn(column, t('muse.title'), true)],
+        ['Muse', btn(column, startsWith(t('muse.title')))],
         ['Motion Ultra', btn(column, t('project.ultraChip'))],
         ['Screenshots of a site', btn(column, t('project.siteAttach'))],
         ['Improve', btn(column, t('composer.enhance'))],

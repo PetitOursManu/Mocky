@@ -11,6 +11,7 @@ import { useTimeAgo } from '../lib/timeAgo'
 import { getSyncState, onSyncState, type SyncState } from '../lib/sync'
 import { createPortal } from 'react-dom'
 import Inspector from './Inspector'
+import { OPTION_ROW, OptionAction, OptionGroup, OptionToggle } from './ComposerOptions'
 import { BarMenu, BarMenuItem, BarMenuLabel, BarMenuRule } from './ProjectBar'
 import { useAutoGrow } from '../lib/useAutoGrow'
 import { useWorkChime } from '../lib/useWorkChime'
@@ -3484,7 +3485,7 @@ export default function ProjectView({
   }
 
   /** The column's recent history: the last screens made, newest first. */
-  const recentScreens = [...screens].sort((x, y) => y.createdAt - x.createdAt).slice(0, 4)
+  const recentScreens = [...screens].sort((x, y) => y.createdAt - x.createdAt).slice(0, 3)
 
   return (
     // Three columns from md — the creation column, the canvas, the inspector —
@@ -3899,16 +3900,16 @@ export default function ProjectView({
 
       </main>
 
-      {/* The inspector — see Inspector.tsx. Which panel it shows is still the
-          single RightSlot value (lib/rightSlot.ts); null hides the column. */}
-      {rightSlot && (
+      {/* The inspector — see Inspector.tsx: a rail of the six panels that is
+          always there from md, and the one panel that is open. Which one is
+          still the single RightSlot value (lib/rightSlot.ts); null folds the
+          panel back into the rail. */}
+      {(
         <Inspector<NonNullable<RightSlot>>
           tabs={[
             { id: 'system', label: t('workspace.style'), icon: 'image' },
             { id: 'versions', label: t('versions.toolbar'), icon: 'history' },
             { id: 'audit', label: t('mode.audit'), icon: 'shield' },
-          ]}
-          more={[
             { id: 'review', label: t('review.toolbar'), icon: 'comment', badge: reviewState?.unread },
             { id: 'campaign', label: t('campaign.toolbar'), icon: 'megaphone' },
             { id: 'links', label: t('project.links'), icon: 'link' },
@@ -3917,7 +3918,7 @@ export default function ProjectView({
           onSelect={(id) => {
             // Opening Links is entering Link mode, exactly as the tool does.
             if (id === 'links') toggleLinkMode()
-            else setRightSlot(id)
+            else setRightSlot((s) => toggleSlot(s, id))
           }}
           onClose={() => setRightSlot(null)}
           docked={docked}
@@ -4528,120 +4529,10 @@ export default function ProjectView({
             aria-busy={enhancer.running || undefined}
           />
 
-          {/* HOW, in three groups with a hairline between them — the style the
-              screen follows, what helps write it, where its pictures come from
-              — and the screenshots last. Every chip is `.composer-chip`, the
-              same box as the first composer's. While EDITING only Muse and the
-              screenshots remain: the rest decide what a new screen is. */}
-          <div className={`mt-2 flex-wrap items-center gap-1.5 md:flex ${narrowOptions ? 'flex' : 'hidden'}`}>
-            {/* One direction per project, and this is the only way to change it
-                from the composer: tick it, and THIS prompt writes the design
-                every following screen will follow. Hidden while editing — an
-                edit reworks what a direction produced, and letting it rewrite
-                that direction would reattribute every other screen in the
-                project to a document written for a change to one of them. */}
-            {!editing && (
-              <button
-                type="button"
-                onClick={() => setRedesign((v) => !v)}
-                className="composer-chip"
-                title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
-                aria-pressed={redesign}
-              >
-                <Icon name="wand" size={14} />
-                {t('project.redesignChip')}
-              </button>
-            )}
-            {/* The account's brand, for this project (lib/brand.ts): offered once
-                a brand exists, remembered on the project. */}
-            {!editing && brandAvailable && (
-              <button
-                type="button"
-                onClick={() => onSetUseBrand?.(!project.useBrand)}
-                className="composer-chip"
-                title={t(project.useBrand ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
-                aria-pressed={!!project.useBrand}
-              >
-                <Icon name="star" size={14} />
-                {t('brand.toggle')}
-              </button>
-            )}
-            {!editing && <span aria-hidden className="composer-chip-rule" />}
-            <button
-              type="button"
-              onClick={toggleMuse}
-              className="composer-chip"
-              title={museHint ? t('project.museHint') : t('project.museToggle')}
-              aria-pressed={museConfig.enabled}
-            >
-              <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
-              <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
-            </button>
-            {/* New screens only: an edit reworks a screen that already is, or
-                is not, Motion Ultra — the pass that builds one is a storyboard
-                and a series of pictures, not an instruction to an edit. */}
-            {!editing && (
-              <UltraControl
-                ultra={project.ultra}
-                paused={ultraPaused}
-                onSetUltra={onSetUltra}
-                onTogglePause={() => setUltraPaused((v) => !v)}
-                videoAvailable={ultraVideoAvailable}
-                allowedCounts={ultraCounts}
-                className="composer-chip"
-              />
-            )}
-            {/* New screens only: an edit keeps the flow its screen already has. */}
-            {!editing && (
-              <button
-                type="button"
-                onClick={toggleFlows}
-                className="composer-chip"
-                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
-                aria-pressed={flowsOn}
-              >
-                <Icon name="cable" size={14} />
-                {t('flows.toggle')}
-              </button>
-            )}
-            {!editing && <span aria-hidden className="composer-chip-rule" />}
-            {/* A document has a choice of its own, "Sans image" first, drawn
-                whenever a page format is active: it is where a paid picture is
-                decided, so no other condition may hide it
-                (lib/documentPictures.ts). */}
-            {!editing && composerPage ? (
-              <DocumentImageControl
-                value={docImageShown}
-                choices={docImageChoicesNow}
-                onChange={setDocImageChoice}
-                className="composer-chip"
-              />
-            ) : (
-              !editing &&
-              imageChoiceAvailable && (
-                <ImageSourceControl
-                  value={imageChoiceShown}
-                  choices={imageChoices}
-                  onChange={onImageChoice}
-                  className="composer-chip"
-                />
-              )
-            )}
-            {/* Screenshots of an existing site. The same files also arrive by
-                paste into the field and by a drop anywhere on the bar; the
-                button is the one of the three a phone has. Shown while editing
-                too: there they are references, like the annotations. */}
-            <SiteAttachButton
-              onFiles={(files) => void addSiteFiles(files)}
-              disabled={busy}
-              size={14}
-              labelled
-              className={`composer-chip ${siteShots.length ? 'is-on' : ''}`}
-            />
-          </div>
-
-          {/* The buttons, on a row of their own: the field keeps the width. */}
-          <div className="mt-2 flex items-center justify-between gap-2 border-t border-line-soft pt-2">
+          {/* The buttons, right under the field, as a message box has them: in
+              the column the options below can scroll, and Generate must not
+              scroll away with them. */}
+          <div className="mt-2 flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
             {/* The fold of the sheet, below md only. */}
             <button
@@ -4705,6 +4596,115 @@ export default function ProjectView({
               </button>
             </div>
           </div>
+          {/* HOW the screen is made, in three named groups of rows — what it
+              follows, what helps write it, where its pictures come from. They
+              were chips, and the column's line breaks decided where a group
+              ended (see ComposerOptions). While EDITING only Muse and the
+              screenshots remain: the rest decide what a new screen is. */}
+          <div className={`mt-3 flex-col gap-3 border-t border-line-soft pt-3 md:flex ${narrowOptions ? 'flex' : 'hidden'}`}>
+            {/* One direction per project, and this is the only way to change it
+                from the composer: tick it, and THIS prompt writes the design
+                every following screen will follow. Hidden while editing — an
+                edit reworks what a direction produced, and letting it rewrite
+                that direction would reattribute every other screen in the
+                project to a document written for a change to one of them. */}
+            {!editing && (
+              <OptionGroup label={t('workspace.groupStyle')}>
+                <OptionToggle
+                  icon="wand"
+                  label={t('project.redesignChip')}
+                  hint={t('workspace.hintRedesign')}
+                  on={redesign}
+                  onClick={() => setRedesign((v) => !v)}
+                  title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
+                />
+                {/* The account's brand, for this project (lib/brand.ts): offered
+                    once a brand exists, remembered on the project. */}
+                {brandAvailable && (
+                  <OptionToggle
+                    icon="star"
+                    label={t('brand.toggle')}
+                    hint={t('workspace.hintBrand')}
+                    on={!!project.useBrand}
+                    onClick={() => onSetUseBrand?.(!project.useBrand)}
+                    title={t(project.useBrand ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
+                  />
+                )}
+              </OptionGroup>
+            )}
+            <OptionGroup label={t('workspace.groupHelp')}>
+              <OptionToggle
+                icon="sparkle"
+                label={t('muse.title')}
+                hint={t('workspace.hintMuse')}
+                on={museConfig.enabled}
+                onClick={toggleMuse}
+                sweep={museHint}
+                title={museHint ? t('project.museHint') : t('project.museToggle')}
+              />
+              {/* New screens only: an edit reworks a screen that already is, or
+                  is not, Motion Ultra — the pass that builds one is a storyboard
+                  and a series of pictures, not an instruction to an edit. */}
+              {!editing && (
+                <UltraControl
+                  variant="row"
+                  ultra={project.ultra}
+                  paused={ultraPaused}
+                  onSetUltra={onSetUltra}
+                  onTogglePause={() => setUltraPaused((v) => !v)}
+                  videoAvailable={ultraVideoAvailable}
+                  allowedCounts={ultraCounts}
+                />
+              )}
+              {/* New screens only: an edit keeps the flow its screen already has. */}
+              {!editing && (
+                <OptionToggle
+                  icon="cable"
+                  label={t('flows.toggle')}
+                  hint={t('workspace.hintFlows')}
+                  on={flowsOn}
+                  onClick={toggleFlows}
+                  title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
+                />
+              )}
+            </OptionGroup>
+            <OptionGroup label={t('workspace.groupPictures')}>
+              {/* A document has a choice of its own, "Sans image" first, drawn
+                  whenever a page format is active: it is where a paid picture is
+                  decided, so no other condition may hide it
+                  (lib/documentPictures.ts). */}
+              {!editing && composerPage ? (
+                <DocumentImageControl
+                  value={docImageShown}
+                  choices={docImageChoicesNow}
+                  onChange={setDocImageChoice}
+                  className="flex w-full justify-between px-2 py-1.5 text-body-sm"
+                />
+              ) : (
+                !editing &&
+                imageChoiceAvailable && (
+                  <ImageSourceControl
+                    value={imageChoiceShown}
+                    choices={imageChoices}
+                    onChange={onImageChoice}
+                    className="flex w-full justify-between px-2 py-1.5 text-body-sm"
+                  />
+                )
+              )}
+              {/* Screenshots of an existing site. The same files also arrive by
+                  paste into the field and by a drop anywhere on the composer;
+                  the button is the one of the three a phone has. Shown while
+                  editing too: there they are references, like the annotations. */}
+              <SiteAttachButton
+                onFiles={(files) => void addSiteFiles(files)}
+                disabled={busy}
+                size={16}
+                labelled
+                className={`${OPTION_ROW} text-body-sm font-medium ${siteShots.length ? 'text-ink [&>svg]:text-accent-ink' : 'text-ink-muted [&>svg]:text-ink-faint'}`}
+              />
+            </OptionGroup>
+          </div>
+
         </div>
         {/* The foot of the column: the other things this workshop makes, and
             what was made last. Column only — on a phone the composer is a
@@ -4712,32 +4712,29 @@ export default function ProjectView({
         <div className="hidden max-h-[45%] shrink-0 overflow-y-auto border-t border-line-soft px-4 py-3 md:block">
           {!editing && (
             <>
-              <p className="kicker mb-2">{t('workspace.alsoMake')}</p>
-              <div className="mb-3 flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  className="composer-chip"
-                  aria-pressed={showCampaign}
+              <OptionGroup label={t('workspace.alsoMake')}>
+                <OptionAction
+                  icon="megaphone"
+                  label={t('workspace.alsoCampaign')}
+                  hint={t('workspace.alsoCampaignHint')}
+                  lit={showCampaign}
                   title={t('campaign.toolbarTitle')}
                   onClick={() => setRightSlot((sl) => toggleSlot(sl, 'campaign'))}
-                >
-                  <Icon name="megaphone" size={14} />
-                  {t('campaign.toolbar')}
-                </button>
+                />
                 {/* A film is made from the media library, not from a screen —
-                    which is why it lives here, with what this column makes,
-                    and not in a screen's menu. */}
-                <button
-                  type="button"
-                  className="composer-chip"
-                  aria-pressed={showVideoExport}
+                    which is why it lives here, with what this column makes, and
+                    not in a screen's menu. "A film", because "Motion Ultra" is
+                    also the name of the option above. */}
+                <OptionAction
+                  icon="film"
+                  label={t('workspace.alsoFilm')}
+                  hint={t('workspace.alsoFilmHint')}
+                  lit={showVideoExport}
                   title={t('video.toolbarTitle')}
                   onClick={() => setShowVideoExport((v) => !v)}
-                >
-                  <Icon name="film" size={14} />
-                  {t('video.toolbarLabel')}
-                </button>
-              </div>
+                />
+              </OptionGroup>
+              <div className="mb-3" />
             </>
           )}
           <p className="kicker mb-1.5">{t('workspace.history')}</p>

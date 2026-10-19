@@ -21,6 +21,7 @@ import type { ScreenThemeId } from '../lib/screenThemes'
 import type { PageFormatId } from '../lib/pageFormats'
 import type { FoldId } from '../lib/folds'
 import FoldControl from './FoldControl'
+import { OPTION_ROW, OptionAction, OptionGroup, OptionToggle } from './ComposerOptions'
 
 type Props = {
   prompt: string
@@ -262,96 +263,93 @@ export default function Welcome({
             onMode={onSiteMode}
             onRemove={onRemoveSiteShot}
           />
-          {/* HOW: three groups, a hairline between them — the style the screen
-              follows, what helps write it, where its pictures come from — and
-              the attachments last, as the reference's "+ Ajouter". */}
-          <div className="flex flex-wrap items-center gap-1.5 px-1 pt-1">
-            <button
-              type="button"
-              onClick={onOpenDesign}
-              className={`composer-chip ${designActive ? 'is-on' : ''}`}
-              title={t('auth.welcome.designTitle')}
-            >
-              {designActive ? t('auth.welcome.designOn') : t('auth.welcome.designOff')}
-            </button>
-            {onToggleBrand && (
-              <button
-                type="button"
-                onClick={onToggleBrand}
-                className="composer-chip"
-                title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
-                aria-pressed={!!brandOn}
-              >
-                <Icon name="star" size={15} />
-                {t('brand.toggle')}
-              </button>
-            )}
-            <span aria-hidden className="composer-chip-rule" />
-            <button
-              type="button"
-              onClick={toggleMuse}
-              className="composer-chip"
-              title={museHint ? t('auth.welcome.museHint') : t('auth.welcome.museTitle')}
-              aria-pressed={museConfig.enabled}
-            >
-              <Icon name="sparkle" size={15} className={museHint ? 'muse-sweep-icon' : undefined} />
-              <span className={museHint ? 'muse-sweep' : undefined}>
-                {museConfig.enabled ? t('auth.welcome.museOn') : t('auth.welcome.museOff')}
-              </span>
-            </button>
-            {/* The first screen is the one Motion Ultra matters most for: it
-                is usually the landing page, and it sets the tone. */}
-            <UltraControl
-              ultra={ultra}
-              paused={ultraPaused}
-              onSetUltra={onSetUltra}
-              onTogglePause={onToggleUltraPause}
-              videoAvailable={ultraVideoAvailable}
-              allowedCounts={ultraCounts}
-              size={15}
-              className="composer-chip"
-            />
-            {onToggleFlows && (
-              <button
-                type="button"
-                onClick={onToggleFlows}
-                className="composer-chip"
-                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
-                aria-pressed={!!flowsOn}
-              >
-                <Icon name="cable" size={15} />
-                {t('flows.toggle')}
-              </button>
-            )}
-            <span aria-hidden className="composer-chip-rule" />
-            {/* A document decides its picture here, and it is never hidden:
-                it is the one choice that may cost a paid generation. */}
-            {pageFormat ? (
-              <DocumentImageControl
-                value={documentImage.value}
-                choices={documentImage.choices}
-                onChange={documentImage.onChange}
-                size={15}
-                className="composer-chip"
+          {/* HOW the screen is made: three named groups of rows, side by side —
+              what it follows, what helps write it, where its pictures come from.
+              The same rows as the project's composer (ComposerOptions). */}
+          <div className="grid gap-4 px-1 pt-3 sm:grid-cols-3">
+            <OptionGroup label={t('workspace.groupStyle')}>
+              <OptionAction
+                icon="image"
+                label="DESIGN.md"
+                hint={t('workspace.hintDesign')}
+                status={designActive ? t('workspace.designOn') : t('workspace.designOff')}
+                lit={designActive}
+                onClick={onOpenDesign}
+                title={t('auth.welcome.designTitle')}
               />
-            ) : (
-              imageChoiceAvailable && (
-                <ImageSourceControl
-                  value={imageChoice}
-                  choices={imageChoices}
-                  onChange={onImageChoice}
-                  size={15}
-                  className="composer-chip"
+              {onToggleBrand && (
+                <OptionToggle
+                  icon="star"
+                  label={t('brand.toggle')}
+                  hint={t('workspace.hintBrand')}
+                  on={!!brandOn}
+                  onClick={onToggleBrand}
+                  title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
                 />
-              )
-            )}
-            <SiteAttachButton
-              onFiles={onAddSiteFiles}
-              disabled={busy}
-              size={15}
-              labelled
-              className={`composer-chip ${siteShots.length ? 'is-on' : ''}`}
-            />
+              )}
+            </OptionGroup>
+            <OptionGroup label={t('workspace.groupHelp')}>
+              <OptionToggle
+                icon="sparkle"
+                label={t('muse.title')}
+                hint={t('workspace.hintMuse')}
+                on={museConfig.enabled}
+                onClick={toggleMuse}
+                sweep={museHint}
+                title={museHint ? t('auth.welcome.museHint') : t('auth.welcome.museTitle')}
+              />
+              {/* The first screen is the one Motion Ultra matters most for: it
+                  is usually the landing page, and it sets the tone. */}
+              <UltraControl
+                variant="row"
+                ultra={ultra}
+                paused={ultraPaused}
+                onSetUltra={onSetUltra}
+                onTogglePause={onToggleUltraPause}
+                videoAvailable={ultraVideoAvailable}
+                allowedCounts={ultraCounts}
+              />
+              {onToggleFlows && (
+                <OptionToggle
+                  icon="cable"
+                  label={t('flows.toggle')}
+                  hint={t('workspace.hintFlows')}
+                  on={!!flowsOn}
+                  onClick={onToggleFlows}
+                  title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
+                />
+              )}
+            </OptionGroup>
+            <OptionGroup label={t('workspace.groupPictures')}>
+              {/* A document decides its picture here, and it is never hidden:
+                  it is the one choice that may cost a paid generation. */}
+              {pageFormat ? (
+                <DocumentImageControl
+                  value={documentImage.value}
+                  choices={documentImage.choices}
+                  onChange={documentImage.onChange}
+                  size={15}
+                  className="flex w-full flex-wrap justify-between gap-1 px-2 py-1.5 text-body-sm"
+                />
+              ) : (
+                imageChoiceAvailable && (
+                  <ImageSourceControl
+                    value={imageChoice}
+                    choices={imageChoices}
+                    onChange={onImageChoice}
+                    size={15}
+                    className="flex w-full flex-wrap justify-between gap-1 px-2 py-1.5 text-body-sm"
+                  />
+                )
+              )}
+              <SiteAttachButton
+                onFiles={onAddSiteFiles}
+                disabled={busy}
+                size={16}
+                labelled
+                className={`${OPTION_ROW} text-body-sm font-medium ${siteShots.length ? 'text-ink [&>svg]:text-accent-ink' : 'text-ink-muted [&>svg]:text-ink-faint'}`}
+              />
+            </OptionGroup>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line-soft px-1 pt-3">
             <PromptEnhanceButton

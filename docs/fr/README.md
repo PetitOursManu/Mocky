@@ -1,5 +1,5 @@
 ---
-source_hash: 8e934cc4cb6c
+source_hash: 23fda17e3dbc
 ---
 
 # Mocky
@@ -28,7 +28,7 @@ Un projet, ouvert. Cliquez les numéros pour voir ce qu’est chaque partie :
 - 37.7,41 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
 - 30.8,65.9 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
 - 50,15.1 **Outils flottants**: Pour l’écran sélectionné : modifier, peaufiner, régénérer, partager, exporter, et tout son menu sous `⋯`.
-- 89.6,53.4 **L’inspecteur**: Style, versions et audit — et validation, campagne et liens — en onglets d’une seule colonne.
+- 89.6,53.4 **L’inspecteur**: Une barre de six panneaux toujours présente — style, versions, audit, validation, campagne, liens — et celui qui est ouvert.
 - 31.8,96.1 **Barre de zoom**: Zoom, `Tout afficher`, le dernier écran, `Réorganiser`, et le bouton qui montre ou masque les câbles.
 - 15.3,44.2 **Générer**: Crée l’écran. Avec des écrans sélectionnés, il devient `Mettre à jour` et les modifie.
 :::
