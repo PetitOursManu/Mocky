@@ -100,6 +100,12 @@ system's accent colour, the one colour on the page the theme cannot reach.
 
 ### Lead, index, drafts
 
+The project touched last opens the page as a wide card — its picture, its name,
+the request that made its first screen, `Open`. The others follow as a grid of
+cards (one to four columns with the window), each with its picture, its name,
+that request, its screen count and age, and two buttons: file it, delete it.
+Folders are the sections of that grid; empty drafts come last, as small tags.
+
 | | Control | What it does | Cost |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg> | `Open` | Opens the project. | free |
@@ -143,6 +149,19 @@ panel in the inspector. The number beside it is the client's unread comments.
 (`Ready for shadcn`, `Tailwind only`, `daisyUI`, each a `.zip`), the selected
 screen (PNG, PowerPoint, `.tsx` — or `Download…` for a document), and the media
 library. A screen's own menu keeps the same exports under `Export ›`.
+
+**The bar over the canvas** — `Canvas` is where you are; `Code` opens the
+selected screen's source (one screen selected); `Versions` opens the inspector's
+tab of that name. `Frame` (the iPhone bezel) sits here when the project has a
+phone screen. The right end says whether your work has reached the server — `All
+changes saved`, `Saving…`, or a failure. The canvas' own hint (what a click does
+in the current mode) moves to the bottom-right corner.
+
+**The floating tools** — with exactly one screen selected, a small bar at the
+top of the canvas names it and offers what is done to a screen most often:
+`Edit with a message` (puts the cursor in the composer), `Polish`, `Regenerate a
+variant`, `Share`, an export menu (PNG, PowerPoint, `.tsx`, or `Download…` for a
+document) and `⋯`, which opens the screen's whole menu under it.
 
 Below `md` the workspace folds back: the floating toolbar described next, and the
 composer as a bar at the bottom of the canvas.

@@ -192,7 +192,7 @@ export default function ImageLightbox({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="rule-thin mb-1.5 flex items-center justify-between gap-2 pb-1.5">
-            <span className="kicker text-accent-ink">{t('library.promptLabel')}</span>
+            <span className="kicker">{t('library.promptLabel')}</span>
             {info?.prompt && (
               <Button variant="ghost" size="sm" onClick={copyPrompt}>
                 <Icon name={copied ? 'check' : 'copy'} size={14} />

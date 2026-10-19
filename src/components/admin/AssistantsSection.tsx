@@ -118,7 +118,7 @@ export default function AssistantsSection() {
           {/* The checklist, always: what holds, what does not, and what nobody can check from here. */}
           <div>
             <div className="section-head">
-              <span className="kicker text-accent-ink">{t('mcp.admin.ready.title')}</span>
+              <span className="kicker">{t('mcp.admin.ready.title')}</span>
             </div>
             <ul className="space-y-2">
               {checks.map(([ok, key]) => (
@@ -281,7 +281,7 @@ export default function AssistantsSection() {
 
       <div className="mt-10">
         <div className="section-head">
-          <span className="kicker text-accent-ink">{t('mcp.admin.connections')}</span>
+          <span className="kicker">{t('mcp.admin.connections')}</span>
           <span className="ml-auto font-mono text-caption text-accent-ink">{view.connections.length}</span>
         </div>
         {view.connections.length === 0 ? (

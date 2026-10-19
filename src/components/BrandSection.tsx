@@ -80,7 +80,7 @@ export default function BrandSection() {
   return (
     <section className="lg:col-span-2">
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('brand.title')}</span>
+        <span className="kicker">{t('brand.title')}</span>
       </div>
       <p className="measure mb-4 text-body text-ink-muted">{t('brand.intro')}</p>
 

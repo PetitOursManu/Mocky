@@ -191,7 +191,7 @@ export default function Welcome({
     <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-10">
       <div className="w-full max-w-2xl">
         <header className="mb-8 text-center">
-          <p className="kicker text-accent-ink">{t('auth.welcome.kicker')}</p>
+          <p className="kicker">{t('auth.welcome.kicker')}</p>
           <h1 className="mt-2 text-h2 text-ink sm:text-display">{t('auth.welcome.title')}</h1>
           <p className="mt-3 text-lead text-ink-muted">{t('auth.welcome.lead')}</p>
         </header>
@@ -413,7 +413,7 @@ export default function Welcome({
         {!designActive && (
           <div className="rule-thin mt-8 pb-6">
             <div className="mb-3 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-center">
-              <span className="kicker text-accent-ink">{t('auth.welcome.pickStyle')}</span>
+              <span className="kicker">{t('auth.welcome.pickStyle')}</span>
               <span className="text-caption text-ink-faint">{t('auth.welcome.pickStyleHint')}</span>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -448,7 +448,7 @@ export default function Welcome({
         )}
 
         <div className="mt-6">
-          <div className="kicker mb-3 text-center text-accent-ink">{t('auth.welcome.examples')}</div>
+          <div className="kicker mb-3 text-center">{t('auth.welcome.examples')}</div>
           <div className="flex flex-wrap justify-center gap-2">
             {examples.map((ex) => (
               <button

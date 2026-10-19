@@ -163,7 +163,7 @@ export default function AdminDashboard({
       <nav aria-label={t('dashboard.nav.label')} className="border-b border-line md:border-b-0 md:border-r">
         <div className="md:sticky md:top-0">
           <header className="hidden px-4 pb-3 pt-5 md:block">
-            <span className="kicker text-accent-ink">{t('nav.admin')}</span>
+            <span className="kicker">{t('nav.admin')}</span>
             <h2 className="mt-1 text-h3 text-ink">{t('dashboard.title')}</h2>
             <LiveBadge status={live.status} />
           </header>
@@ -270,7 +270,7 @@ export function SectionHead({
   return (
     <header className="rule-thin mb-5 flex flex-wrap items-end gap-x-4 gap-y-2 pb-3">
       <div className="min-w-0 flex-1">
-        {kicker && <span className="kicker text-accent-ink">{kicker}</span>}
+        {kicker && <span className="kicker">{kicker}</span>}
         <h2 className="mt-1 text-h2 text-ink">{title}</h2>
         {blurb && <p className="measure mt-1.5 text-body text-ink-muted">{blurb}</p>}
       </div>

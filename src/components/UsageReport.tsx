@@ -60,7 +60,7 @@ export default function UsageReport() {
   return (
     <section>
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('admin.usage')}</span>
+        <span className="kicker">{t('admin.usage')}</span>
         {instance && (
           <span className="ml-auto font-mono text-caption text-accent-ink">
             {size(instance.bytes)}

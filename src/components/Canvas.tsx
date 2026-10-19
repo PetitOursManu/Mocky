@@ -422,6 +422,7 @@ export default function Canvas({
   modifyMode,
   interactAll,
   showFrame,
+  chromeTop = 0,
   onPickElement,
   onRemoveHotspot,
   highlightedHotspotId,
@@ -473,6 +474,12 @@ export default function Canvas({
   modifyMode: boolean
   interactAll: boolean
   showFrame: boolean
+  /**
+   * Pixels at the top that the project's own bar covers. When there is one,
+   * the hint goes to the bottom-right corner: under the bar it ran into the
+   * floating tools of a selected screen, which sit centred at the top.
+   */
+  chromeTop?: number
   onPickElement: (screenId: string, info: PickInfo) => void
   onRemoveHotspot: (screenId: string, hotspotId: string) => void
   highlightedHotspotId?: string | null
@@ -1887,7 +1894,12 @@ export default function Canvas({
       </div>
 
       {/* Hint */}
-      <div className="pointer-events-none absolute right-4 top-3 text-right text-body-sm text-ink-faint">
+      <div
+        // In the bottom corner it shares the row with the zoom bar: half the
+        // width, wrapping, so the two never meet.
+        className={`pointer-events-none absolute right-4 text-right text-body-sm text-ink-faint ${chromeTop ? 'max-w-[45%]' : ''}`}
+        style={chromeTop ? { bottom: 16 } : { top: 12 }}
+      >
         {linkMode ? (
           <span className="flex items-center justify-end gap-1.5 text-accent-ink">
             <Icon name="link" size={15} />

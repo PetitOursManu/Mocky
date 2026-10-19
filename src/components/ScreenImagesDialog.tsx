@@ -306,7 +306,7 @@ export default function ScreenImagesDialog({
       {/* SECTION 1 — the code. The heading says so, and the sentence under it
           says what "replace" does here: rewrite one address in the source. */}
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('library.swapCodeSection')}</span>
+        <span className="kicker">{t('library.swapCodeSection')}</span>
       </div>
       <p className="measure text-body-sm text-ink-muted">{t('library.swapBlurb')}</p>
 
@@ -375,7 +375,7 @@ export default function ScreenImagesDialog({
                   single-slot image would just be its own summary repeated. */}
               {img.spans.length > 1 && (
                 <div className="border-t border-line-soft px-2 py-2">
-                  <p className="kicker text-accent-ink">{t('library.swapSlots')}</p>
+                  <p className="kicker">{t('library.swapSlots')}</p>
                   <p className="measure mb-2 text-caption text-ink-faint">{t('library.swapSlotsHint')}</p>
                   <ul className="space-y-1">
                     {img.spans.map((span, i) => (
@@ -442,7 +442,7 @@ export default function ScreenImagesDialog({
           pinned scrolling rather than an <img>. */}
       {sequences && sequences.length > 0 && (
         <div className="mt-5">
-          <p className="kicker text-accent-ink">{t('library.swapSequences')}</p>
+          <p className="kicker">{t('library.swapSequences')}</p>
           <p className="measure mb-2 text-caption text-ink-faint">{t('library.swapSequencesHint')}</p>
           <ul className="space-y-2">
             {sequences.map((seq, i) => (
@@ -597,7 +597,7 @@ function SequencePicker({
 
   return (
     <div>
-      <div className="kicker mb-2 text-accent-ink">{heading}</div>
+      <div className="kicker mb-2">{heading}</div>
       {items === null ? (
         <div className="flex justify-center py-6">
           <Spinner />
@@ -702,7 +702,7 @@ function AttachedMediaSection({
   return (
     <>
       <div className="section-head mt-6">
-        <span className="kicker text-accent-ink">{t('library.attachSection')}</span>
+        <span className="kicker">{t('library.attachSection')}</span>
       </div>
       <p className="measure text-body-sm text-ink-muted">{t('library.attachBlurb')}</p>
 
@@ -746,7 +746,7 @@ function AttachedMediaSection({
         </div>
       ) : (
         <>
-          <p className="kicker mt-4 text-accent-ink">{t('library.attachFilms')}</p>
+          <p className="kicker mt-4">{t('library.attachFilms')}</p>
           {filmsFailed ? (
             <Banner tone="warn" className="mt-1">
               {t('library.attachFilmsFailed')}
@@ -785,7 +785,7 @@ function AttachedMediaSection({
             </ul>
           )}
 
-          <p className="kicker mt-4 text-accent-ink">{t('library.attachSequences')}</p>
+          <p className="kicker mt-4">{t('library.attachSequences')}</p>
           {sequencesFailed ? (
             <Banner tone="warn" className="mt-1">
               {t('library.attachSequencesFailed')}

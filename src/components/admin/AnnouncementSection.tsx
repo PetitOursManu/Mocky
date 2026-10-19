@@ -280,7 +280,7 @@ export default function AnnouncementSection({ live }: { live: Live }) {
 
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.announce.preview')}</span>
+            <span className="kicker">{t('dashboard.announce.preview')}</span>
           </div>
           {/* The same markup the banner uses, so the preview is not a promise. */}
           <div className={`border-b ${tone === 'warn' ? 'border-warn bg-warn/10' : 'border-accent bg-accent/10'}`}>
@@ -301,7 +301,7 @@ export default function AnnouncementSection({ live }: { live: Live }) {
           </p>
 
           <div className="section-head mt-6">
-            <span className="kicker text-accent-ink">{t('dashboard.announce.current')}</span>
+            <span className="kicker">{t('dashboard.announce.current')}</span>
           </div>
           {!current ? (
             <p className="text-body-sm text-ink-muted">{t('dashboard.announce.none')}</p>

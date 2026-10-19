@@ -88,7 +88,7 @@ export default function AuthModal({
         className="w-full max-w-sm border border-line bg-raised p-6 shadow-2xl"
       >
         <header className="rule-double pb-3">
-          <p className="kicker text-accent-ink">Mocky&nbsp;· Chat&nbsp;→&nbsp;UI</p>
+          <p className="kicker">Mocky&nbsp;· Chat&nbsp;→&nbsp;UI</p>
           <h2 className="masthead mt-1.5 text-h2">
             {cfg?.setup ? t('account.createAdmin') : mode === 'login' ? t('account.signIn') : t('account.create')}
           </h2>

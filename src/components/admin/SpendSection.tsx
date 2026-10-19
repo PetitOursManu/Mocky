@@ -156,7 +156,7 @@ export default function SpendSection() {
 
       <div className="mt-10 border-t border-line pt-8">
         <div className="section-head">
-          <span className="kicker text-accent-ink">{t('spend.byProject')}</span>
+          <span className="kicker">{t('spend.byProject')}</span>
         </div>
         <p className="measure mb-4 text-body-sm text-ink-muted">{t('spend.byProjectBlurb')}</p>
         {usage.length === 0 ? (
@@ -390,7 +390,7 @@ function PriceTable({
   return (
     <div className="mt-10 border-t border-line pt-8">
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('spend.prices')}</span>
+        <span className="kicker">{t('spend.prices')}</span>
       </div>
       <p className="measure mb-3 text-body-sm text-ink-muted">{t('spend.pricesBlurb')}</p>
       <div className="mb-4 flex flex-wrap items-center gap-3">

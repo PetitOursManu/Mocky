@@ -78,7 +78,7 @@ export default function RunnerPanel({ status, onChanged }: { status: RunnerStatu
   return (
     <div className="space-y-4">
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('mcp.runner.title')}</span>
+        <span className="kicker">{t('mcp.runner.title')}</span>
         <span className={`ml-auto font-mono text-caption ${status.available ? 'text-ok' : 'text-danger'}`}>
           {status.available ? t('mcp.runner.available') : t('mcp.runner.unavailable')}
         </span>

@@ -20,9 +20,12 @@ export function BarMenu({
   variant = 'ghost',
   title,
   badge,
+  iconOnly = false,
   children,
 }: {
   label: string
+  /** An icon button, as in the floating tools: no label, no chevron. */
+  iconOnly?: boolean
   icon: IconName
   variant?: ButtonVariant
   title?: string
@@ -38,6 +41,7 @@ export function BarMenu({
       <Button
         variant={variant}
         size="sm"
+        className={iconOnly ? 'tap-target-square w-8 shrink-0 !px-0' : undefined}
         active={variant !== 'primary' && open}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -48,9 +52,9 @@ export function BarMenu({
         <Icon name={icon} size={15} />
         {/* Icon-only below lg: on a 1024px window the labels squeezed the
             project's name out of the breadcrumb. The title still names it. */}
-        <span className="hidden lg:inline">{label}</span>
+        {!iconOnly && <span className="hidden lg:inline">{label}</span>}
         {badge}
-        <Icon name="chevronDown" size={13} className="-mr-0.5 opacity-70" />
+        {!iconOnly && <Icon name="chevronDown" size={13} className="-mr-0.5 opacity-70" />}
       </Button>
       {open && (
         <>

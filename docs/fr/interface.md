@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: e058b74cc6e0
+source_hash: 13a994b7fba4
 ---
 
 # L’interface
@@ -104,6 +104,13 @@ système d’exploitation, la seule couleur de la page que le thème n’atteint
 
 ### À la une, index, brouillons
 
+Le dernier projet touché ouvre la page en grande carte — son image, son nom, la
+demande qui a fait son premier écran, `Ouvrir`. Les autres suivent en grille de
+cartes (d’une à quatre colonnes selon la fenêtre), chacune avec son image, son
+nom, cette demande, son nombre d’écrans et son âge, et deux boutons : le classer,
+le supprimer. Les dossiers sont les sections de cette grille ; les brouillons
+vides viennent en dernier, en petites étiquettes.
+
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg> | `Ouvrir` | Ouvre le projet. | libre |
@@ -150,6 +157,21 @@ projet exécutable (`Prêt pour shadcn`, `Tailwind seul`, `daisyUI`, chacun en
 `.zip`), l’écran sélectionné (PNG, PowerPoint, `.tsx` — ou `Télécharger…` pour un
 document), et la médiathèque. Le menu d’un écran garde les mêmes exports sous
 `Exporter ›`.
+
+**La barre au-dessus de la toile** — `Toile`, c’est là où vous êtes ; `Code`
+ouvre la source de l’écran sélectionné (un seul écran sélectionné) ; `Versions`
+ouvre l’onglet du même nom dans l’inspecteur. `Cadre` (le contour d’iPhone) s’y
+trouve quand le projet a un écran mobile. L’extrémité droite dit si votre
+travail a atteint le serveur — `Toutes les modifications enregistrées`,
+`Enregistrement…`, ou un échec. L’aide de la toile (ce que fait un clic dans le
+mode en cours) passe dans le coin en bas à droite.
+
+**Les outils flottants** — avec exactement un écran sélectionné, une petite
+barre en haut de la toile le nomme et propose ce qu’on fait le plus souvent à un
+écran : `Modifier par message` (place le curseur dans le composeur),
+`Peaufiner`, `Régénérer une variante`, `Partager`, un menu d’export (PNG,
+PowerPoint, `.tsx`, ou `Télécharger…` pour un document) et `⋯`, qui ouvre tout
+le menu de l’écran juste dessous.
 
 Sous `md`, l’espace se replie : la barre d’outils flottante décrite ensuite, et
 le composeur en barre au bas de la toile.

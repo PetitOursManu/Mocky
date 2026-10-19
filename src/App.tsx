@@ -419,7 +419,7 @@ function MockyApp() {
                   nothing. Between 768 and 1024 the logo says "Mocky" perfectly
                   well on its own, so the words wait for room that actually
                   exists. */}
-              {!inProject && <span className="kicker hidden text-accent-ink lg:inline">{t('nav.tagline')}</span>}
+              {!inProject && <span className="kicker hidden lg:inline">{t('nav.tagline')}</span>}
             </span>
           </button>
 

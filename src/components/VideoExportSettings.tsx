@@ -234,7 +234,7 @@ export default function VideoExportSettings() {
 
   const header = (
     <header className="rule-thin mb-4 border-accent/40 pb-2">
-      <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+      <span className="kicker">{t('settings.instance')}</span>
       <h3 className="mt-1 text-h3 text-ink">{t('video.sectionTitle')}</h3>
     </header>
   )
@@ -718,7 +718,7 @@ export function AccountScope({
       {access === 'allowlist' ? (
         <div className="mt-4">
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t(labels.listTitle)}</span>
+            <span className="kicker">{t(labels.listTitle)}</span>
             <span className="ml-auto font-mono text-caption text-accent-ink">
               {t('video.allowedCount', { n: allowed.length, total: users.length })}
             </span>

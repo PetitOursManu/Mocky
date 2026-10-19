@@ -8,6 +8,7 @@ import { filmMedia } from '../lib/screenMedia'
 import type { Plan } from '../lib/api'
 import { useMedia, usePhone } from '../lib/usePhone'
 import { useTimeAgo } from '../lib/timeAgo'
+import { getSyncState, onSyncState, type SyncState } from '../lib/sync'
 import { createPortal } from 'react-dom'
 import Inspector from './Inspector'
 import { BarMenu, BarMenuItem, BarMenuLabel, BarMenuRule } from './ProjectBar'
@@ -988,6 +989,9 @@ export default function ProjectView({
   /** From xl the inspector is a column too; below, it floats over the canvas. */
   const docked = useMedia('(min-width: 1280px)')
   const timeAgo = useTimeAgo()
+  /** Whether the work has reached the server — the canvas bar's right end. */
+  const [syncState, setSyncState] = useState<SyncState>(() => getSyncState())
+  useEffect(() => onSyncState(setSyncState), [])
   /** The App bar's slot for this project's tools — see the portal in the render. */
   const [barEl, setBarEl] = useState<HTMLElement | null>(null)
   useEffect(() => {
@@ -3703,19 +3707,182 @@ export default function ProjectView({
         regeneratingIds={regeneratingIds}
         fixingIds={fixingIds}
         regenLabel={regenLabel}
+        // Under the tabs bar, which covers the top 44px from md.
+        chromeTop={wide ? 44 : 0}
       />
       )}
 
-      {/* The iPhone bezel, where the reference keeps its canvas settings — and
-          only when there is a phone screen to put it on. */}
-      {wide && hasPhoneScreen && (
-        <div className="absolute bottom-4 right-4 z-panel">
-          <Button variant="ghost" size="sm" active={showFrame} onClick={toggleFrame} title={t('project.frameTitle')}>
-            <Icon name="phone" size={15} />
-            {t('mode.frame')}
-          </Button>
+      {/* The bar over the canvas — the reference's tabs. "Toile" is where you
+          are; "Code" opens the selected screen's source, "Versions" the
+          inspector's tab of that name. The right end says whether the work has
+          reached the server, which the top bar only says when it has NOT. */}
+      {wide && (
+        <div className="absolute inset-x-0 top-0 z-panel flex h-11 items-center gap-1 border-b border-line-soft bg-sunken/80 px-3 backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-raised px-2 py-1 text-body-sm text-ink">
+            <Icon name="grid" size={14} />
+            {t('workspace.tabCanvas')}
+          </span>
+          <button
+            type="button"
+            disabled={selectedScreens.length !== 1}
+            title={selectedScreens.length === 1 ? t('project.showCode') : t('workspace.tabCodeNeeds')}
+            onClick={() => selectedScreens.length === 1 && setCodeScreen(selectedScreens[0])}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body-sm text-ink-muted transition hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+          >
+            <Icon name="code" size={14} />
+            {t('workspace.tabCode')}
+          </button>
+          <button
+            type="button"
+            aria-pressed={showVersions}
+            onClick={() => setRightSlot((s) => toggleSlot(s, 'versions'))}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body-sm transition ${
+              showVersions ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+            }`}
+          >
+            <Icon name="history" size={14} />
+            {t('versions.toolbar')}
+            <Icon name="chevronDown" size={12} className="opacity-70" />
+          </button>
+          {/* The iPhone bezel — and only when there is a phone screen to put
+              it on. */}
+          {hasPhoneScreen && (
+            <button
+              type="button"
+              aria-pressed={showFrame}
+              title={t('project.frameTitle')}
+              onClick={toggleFrame}
+              className={`ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body-sm transition ${
+                showFrame ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+              }`}
+            >
+              <Icon name="phone" size={14} />
+              {t('mode.frame')}
+            </button>
+          )}
+          <span
+            className={`${hasPhoneScreen ? 'ml-3' : 'ml-auto'} inline-flex items-center gap-1.5 text-caption ${
+              syncState === 'failed' ? 'text-danger' : syncState === 'syncing' ? 'text-accent-ink' : 'text-ink-faint'
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 rounded-full ${
+                syncState === 'failed'
+                  ? 'bg-danger'
+                  : syncState === 'syncing'
+                    ? 'animate-pulse bg-accent'
+                    : syncState === 'paused'
+                      ? 'bg-ink-muted'
+                      : 'bg-ok'
+              }`}
+            />
+            {t(
+              syncState === 'failed'
+                ? 'workspace.saveFailed'
+                : syncState === 'syncing'
+                  ? 'workspace.saving'
+                  : syncState === 'paused'
+                    ? 'workspace.savePaused'
+                    : 'workspace.saved',
+            )}
+          </span>
         </div>
       )}
+
+      {/* The reference's floating tools, for the ONE selected screen: what you
+          do to a screen most often, without a right-click. `⋯` opens the
+          screen's whole menu under it. */}
+      {wide && selectedScreens.length === 1 && (() => {
+        const s = selectedScreens[0]
+        const writing = generatingIds.has(s.id) || regeneratingIds.has(s.id)
+        const unexportable = busy || !s.code.trim() || writing
+        return (
+          <div
+            role="toolbar"
+            aria-label={t('workspace.screenTools')}
+            className="absolute left-1/2 top-14 z-panel flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-line bg-raised/95 p-1 shadow-lg"
+          >
+            <span className="max-w-[12rem] truncate px-2 text-body-sm text-ink-muted">{s.name}</span>
+            <span aria-hidden className="mx-0.5 h-5 w-px bg-line-soft" />
+            <IconButton
+              label={t('project.menuEditMessage')}
+              variant="toolbar"
+              disabled={busy}
+              onClick={() => composerField.current?.focus()}
+            >
+              <Icon name="comment" size={16} />
+            </IconButton>
+            <IconButton label={t('project.polish')} variant="toolbar" disabled={busy} onClick={() => polishScreen(s.id)}>
+              <Icon name="sparkle" size={16} />
+            </IconButton>
+            <IconButton label={t('project.regenerate')} variant="toolbar" disabled={busy} onClick={() => regenerate(s.id)}>
+              <Icon name="refresh" size={16} />
+            </IconButton>
+            <span aria-hidden className="mx-0.5 h-5 w-px bg-line-soft" />
+            <IconButton label={t('share.menu')} variant="toolbar" onClick={() => setShareScreenId(s.id)}>
+              <Icon name="link" size={16} />
+            </IconButton>
+            <BarMenu label={t('workspace.screenExport')} icon="download" variant="toolbar" iconOnly>
+              {(close) => (
+                <>
+                  {s.page ? (
+                    <BarMenuItem
+                      icon="download"
+                      label={t('project.docDownload')}
+                      disabled={!s.code.trim() || writing}
+                      onClick={() => {
+                        close()
+                        setDownloadDocId(s.id)
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <BarMenuItem
+                        icon="image"
+                        label={t('project.webExportPng')}
+                        disabled={unexportable}
+                        onClick={() => {
+                          close()
+                          void exportWeb(s.id, 'png')
+                        }}
+                      />
+                      <BarMenuItem
+                        icon="download"
+                        label={t('project.webExportPptx')}
+                        disabled={unexportable}
+                        onClick={() => {
+                          close()
+                          void exportWeb(s.id, 'pptx')
+                        }}
+                      />
+                    </>
+                  )}
+                  <BarMenuItem
+                    icon="code"
+                    label={t('canvas.download')}
+                    onClick={() => {
+                      close()
+                      downloadTsx(s)
+                    }}
+                  />
+                </>
+              )}
+            </BarMenu>
+            <IconButton
+              label={t('workspace.screenMore')}
+              variant="toolbar"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setMenu({ screenId: s.id, x: r.left, y: r.bottom + 6 })
+              }}
+            >
+              <Icon name="more" size={16} />
+            </IconButton>
+          </div>
+        )
+      })()}
+
       </main>
 
       {/* The inspector — see Inspector.tsx. Which panel it shows is still the
@@ -3811,7 +3978,7 @@ export default function ProjectView({
       {linkMode && (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-line-soft px-3 py-2">
-            <span className="kicker text-accent-ink">
+            <span className="kicker">
               {t('project.links')} ·{' '}
               <span className="font-mono">{screens.reduce((a, s) => a + s.links.length, 0)}</span>
             </span>
@@ -4049,7 +4216,7 @@ export default function ProjectView({
                 the edge, because the button it hangs from is itself pushed to
                 the right of the bar. */}
             <div className="absolute left-0 top-full z-menu mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-xl md:left-auto md:right-0">
-              <div className="kicker px-2 py-1 text-accent-ink">{t('project.exportHeading')}</div>
+              <div className="kicker px-2 py-1">{t('project.exportHeading')}</div>
               {EXPORT_TARGETS.map(([stack, labelKey, hintKey]) => (
                 <button
                   key={stack}
@@ -4591,7 +4758,7 @@ export default function ProjectView({
             className="w-full max-w-sm rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="kicker mb-1 text-accent-ink">{t('project.linkKicker')}</div>
+            <div className="kicker mb-1">{t('project.linkKicker')}</div>
             <h3 id="link-target-title" className="mb-1 text-lead text-ink">
               {pendingLink.info.label
                 ? t('project.linkElement', { label: pendingLink.info.label })
@@ -4643,7 +4810,7 @@ export default function ProjectView({
             className="w-full max-w-md rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="kicker mb-1 flex items-center gap-1.5 text-accent-ink">
+            <div className="kicker mb-1 flex items-center gap-1.5">
               <Icon name="pencil" size={14} />
               {t('mode.modify')}
             </div>
@@ -5198,7 +5365,7 @@ export default function ProjectView({
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
               <span className="min-w-0">
-                <span className="kicker block text-accent-ink">{t('project.codeKicker')}</span>
+                <span className="kicker block">{t('project.codeKicker')}</span>
                 <span className="block truncate text-body text-ink">{codeScreen.name}</span>
               </span>
               <IconButton label={t('project.closeCode')} variant="quiet" onClick={() => setCodeScreen(null)}>

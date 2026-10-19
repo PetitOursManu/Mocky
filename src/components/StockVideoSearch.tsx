@@ -158,7 +158,7 @@ export default function StockVideoSearch({
   return (
     <section className="mb-5 border border-line-soft p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="kicker flex items-center gap-1.5 text-accent-ink">
+        <span className="kicker flex items-center gap-1.5">
           <Icon name="search" size={14} />
           {t(w.title)}
         </span>

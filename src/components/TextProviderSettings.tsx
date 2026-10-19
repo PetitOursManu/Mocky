@@ -245,7 +245,7 @@ function ProfileForm({
                   maps /api/tags to /v1/models. */}
               <button
                 type="button"
-                className="kicker text-accent-ink transition hover:opacity-80 disabled:opacity-50"
+                className="kicker transition hover:opacity-80 disabled:opacity-50"
                 onClick={loadModels}
                 disabled={loadingModels}
               >
@@ -388,7 +388,7 @@ export default function TextProviderSettings() {
     return (
       <section>
         <header className="rule-thin mb-4 border-accent/40 pb-2">
-          <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+          <span className="kicker">{t('settings.instance')}</span>
           <h3 className="mt-1 text-h3 text-ink">{t('settings.textModelsTitle')}</h3>
         </header>
         <p className="text-body text-ink-faint">{error || t('common.loading')}</p>
@@ -399,7 +399,7 @@ export default function TextProviderSettings() {
   return (
     <section>
       <header className="rule-thin mb-4 border-accent/40 pb-2">
-        <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+        <span className="kicker">{t('settings.instance')}</span>
         <h3 className="mt-1 text-h3 text-ink">{t('settings.textModelsTitle')}</h3>
       </header>
 

@@ -441,7 +441,7 @@ export default function MusePanel({
               {/* What these images are FOR. Without it there is no way to tell a
                   reference the model only looked at from one placed in the
                   screen — and so no way to check the mode did anything. */}
-              <p className="kicker text-accent-ink">
+              <p className="kicker">
                 {config.imageMode === 'inspiration'
                   ? t('muse.imageRoleInspiration')
                   : config.imageMode === 'both'

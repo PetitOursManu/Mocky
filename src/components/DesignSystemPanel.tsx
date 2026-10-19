@@ -81,7 +81,7 @@ export default function DesignSystemPanel({
         ) : (
           <>
             {/* Palette — click a swatch to recolor that token */}
-            <div className="kicker mb-1.5 text-accent-ink">{t('design.palette')}</div>
+            <div className="kicker mb-1.5">{t('design.palette')}</div>
             <div className="mb-3 grid grid-cols-2 gap-1.5">
               {ds.colors.map((c) => (
                 <button
@@ -130,7 +130,7 @@ export default function DesignSystemPanel({
 
             {/* Live sample rendered from the resolved roles */}
             <div className="rule-thin mb-3" />
-            <div className="kicker mb-1.5 text-accent-ink">{t('design.preview')}</div>
+            <div className="kicker mb-1.5">{t('design.preview')}</div>
             <div className="overflow-hidden border border-line-soft" style={{ background: r.bg, borderRadius: ds.radius }}>
               <div className="flex flex-col gap-3 p-3">
                 <div>

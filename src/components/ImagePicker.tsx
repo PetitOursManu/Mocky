@@ -109,7 +109,7 @@ export function ImagePicker({
 
   return (
     <div>
-      <div className="kicker mb-2 text-accent-ink">{heading}</div>
+      <div className="kicker mb-2">{heading}</div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

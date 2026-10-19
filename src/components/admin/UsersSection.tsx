@@ -180,7 +180,7 @@ export default function UsersSection({
       <div className="grid gap-x-12 gap-y-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('settings.access')}</span>
+            <span className="kicker">{t('settings.access')}</span>
           </div>
 
           <label className="flex cursor-pointer items-center justify-between gap-3 border border-line-soft bg-ink/5 p-3">
@@ -310,7 +310,7 @@ export default function UsersSection({
 
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('admin.users')}</span>
+            <span className="kicker">{t('admin.users')}</span>
             <span className="ml-auto font-mono text-caption text-accent-ink">{users.length}</span>
           </div>
           {loading ? (

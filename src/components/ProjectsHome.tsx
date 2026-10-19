@@ -3,15 +3,13 @@ import { useTimeAgo } from '../lib/timeAgo'
 import {
   FOLDER_MAX_LEN,
   groupByFolder,
-  indexNumbers,
   headline,
   listFolders,
   normalizeFolder,
   type Project,
   type Screen,
 } from '../lib/project'
-import { getThumb, pruneThumbs, THUMB_REGION } from '../lib/thumbnails'
-import { thumbFrame } from '../lib/documentMode'
+import { getThumb, pruneThumbs } from '../lib/thumbnails'
 import { Button, Icon, IconButton, Input, Modal } from '../ui'
 import { useT } from '../i18n'
 import ReviewStatusPill from './ReviewStatusPill'
@@ -57,7 +55,7 @@ function TickBox({
       />
       <span
         aria-hidden
-        className={`flex h-[18px] w-[18px] items-center justify-center border transition peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring ${
+        className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border transition peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring ${
           checked ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface text-transparent'
         }`}
       >
@@ -105,52 +103,37 @@ function ScreenFigure({ screens, tall = false }: { screens: Screen[]; tall?: boo
 }
 
 /**
- * Display size of a thumbnail.
- *
- * The capture only covers the top THUMB_REGION.h of the screen, so the picture's
- * ratio is `w / (h * region.h)` — using the screen's own ratio would squash it.
- * The result is clamped: a phone screen is nearly square once cropped and would
- * otherwise tower over the row it sits in. A document's picture is its first
- * page, not its frame (`thumbFrame`), and is measured the same way.
+ * A project's cover filling the box it is given — a card's picture. The real
+ * screenshot when there is one, the drawn rectangles until then, centred on the
+ * canvas colour so a card without a picture still reads as a card.
  */
-function thumbBox(screen: Screen, width: number, minH: number, maxH: number) {
-  const { w, h, region } = thumbFrame(screen, THUMB_REGION)
-  const ratio = w / Math.max(1, h * region.h)
-  return { width, height: Math.round(Math.min(maxH, Math.max(minH, width / ratio))) }
-}
-
-/**
- * The project's cover: its real screenshot when one has been captured, the
- * drawn rectangles until then. Never a hole — a project whose capture failed
- * still shows a figure of the right shape.
- */
-function ProjectFigure({
+function ProjectCover({
   screens,
   thumbs,
-  tall = false,
+  className = '',
 }: {
   screens: Screen[]
   thumbs: Record<string, string>
-  tall?: boolean
+  className?: string
 }) {
   const cover = screens[0]
   const thumb = cover ? thumbs[cover.id] : undefined
-  if (!thumb || !cover) return <ScreenFigure screens={screens} tall={tall} />
-  // A 1440 px screen shown at 96 px was unreadable — generated screens open on
-  // a pale header, so the whole thumbnail read as a white box. 480 px is stored
-  // (see thumbnails.ts) so neither size is upscaled.
-  const box = tall ? thumbBox(cover, 360, 130, 260) : thumbBox(cover, 132, 46, 104)
   return (
-    <img
-      src={thumb}
-      alt=""
-      aria-hidden
-      decoding="async"
-      width={box.width}
-      height={box.height}
-      style={{ width: box.width, height: box.height }}
-      className="block max-w-full shrink-0 border border-line-soft bg-surface object-cover object-top"
-    />
+    // `relative` + an absolute picture: as a flex child the image's own height
+    // overrode the box's aspect ratio and a tall capture stretched its card.
+    <div className={`relative flex items-center justify-center overflow-hidden bg-sunken ${className}`}>
+      {thumb ? (
+        <img
+          src={thumb}
+          alt=""
+          aria-hidden
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover object-[0_0]"
+        />
+      ) : (
+        <ScreenFigure screens={screens} />
+      )}
+    </div>
   )
 }
 
@@ -243,8 +226,6 @@ export default function ProjectsHome({
       visible: found,
     }
   }, [projects, query])
-
-  const numbers = useMemo(() => indexNumbers(sections), [sections])
 
   // Ticks are dropped when a project leaves the view — through the search box or
   // a deletion. Acting on something the user can no longer see is how a batch
@@ -387,9 +368,9 @@ export default function ProjectsHome({
 
   return (
     <div className="page py-8">
-      <header className="rule-double mb-8 flex flex-wrap items-end justify-between gap-4 pb-3">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-line-soft pb-5">
         <div>
-          <p className="kicker text-accent-ink">{t('projects.contents')}</p>
+          <p className="kicker">{t('projects.contents')}</p>
           <h1 className="mt-1 text-h2 text-ink">{t('projects.title')}</h1>
           <p className="mt-1 text-body-sm text-ink-faint">
             {projects.length === 0 ? (
@@ -457,7 +438,7 @@ export default function ProjectsHome({
           Sticky, because the ticks are spread down a long page and the actions
           must not be somewhere you have to scroll back to. */}
       {selecting && (
-        <div className="sticky top-2 z-20 mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 border border-line bg-surface px-3 py-2 shadow-sm">
+        <div className="sticky top-2 z-20 mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-raised px-3 py-2 shadow-lg">
           <span className="font-mono text-body-sm text-ink">
             {picked.size === 0
               ? t('projects.selectHint')
@@ -499,35 +480,34 @@ export default function ProjectsHome({
         <p className="measure text-body text-ink-muted">{t('projects.noMatch', { q: query })}</p>
       )}
 
-      {/* ---- the lead ---- */}
+      {/* ---- the lead ----
+          The project touched last, as a wide card: its picture large, its
+          request beside it. It was a newspaper's front-page story — a display
+          headline over a serif standfirst — and the redesign keeps the idea
+          (the last project is the one you are most likely to reopen) without
+          the newsprint. */}
       {lead && (
         <section className="mb-10">
-          <div className="mb-3 flex items-center gap-3">
-            <span className="kicker text-accent-ink">{t('projects.lead')}</span>
-            <span className="h-px flex-1 bg-accent/40" />
-            <span className="font-mono text-caption tabular-nums text-accent-ink">01</span>
-          </div>
+          <p className="kicker mb-3">{t('projects.lead')}</p>
 
-          <div className="group grid gap-6 border-b border-line pb-8 md:grid-cols-[1fr_auto] md:items-start">
-            <div className="min-w-0">
+          <div className="group grid overflow-hidden rounded-2xl border border-line bg-surface transition hover:border-ink/25 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+            <div className="flex min-w-0 flex-col p-6">
               <div className="flex items-start gap-3">
                 {selecting && (
                   <TickBox
                     checked={picked.has(lead.id)}
                     onChange={(on) => toggle(lead.id, on)}
                     label={t('projects.selectProject', { name: headline(lead.name) })}
-                    className="mt-2"
+                    className="mt-1.5"
                   />
                 )}
                 <button
                   type="button"
                   onClick={() => onOpen(lead.id)}
                   aria-label={t('projects.openProject', { name: lead.name })}
-                  className="block max-w-3xl text-left"
+                  className="block min-w-0 text-left"
                 >
-                  <h2 className="text-display text-ink transition group-hover:text-accent-ink">
-                    {headline(lead.name)}
-                  </h2>
+                  <h2 className="text-h2 text-ink transition group-hover:text-accent-ink">{headline(lead.name)}</h2>
                 </button>
               </div>
               {reviewStates[lead.id] && reviewStates[lead.id].status !== 'draft' && (
@@ -540,15 +520,13 @@ export default function ProjectsHome({
                   {t('projects.inFolder', { name: normalizeFolder(lead.folder) as string })}
                 </p>
               )}
-              {deckOf(lead) && (
-                <p className="measure mt-3 font-serif text-lead text-ink-muted">{deckOf(lead)}</p>
-              )}
-              <p className="mt-4 font-mono text-body-sm text-ink-faint">
+              {deckOf(lead) && <p className="measure mt-3 text-body text-ink-muted">{deckOf(lead)}</p>}
+              <p className="mt-4 font-mono text-caption text-ink-faint">
                 <span className="text-accent-ink">{screenCount(lead.screens.length)}</span>
                 {' · '}
                 {t('projects.updated', { when: timeAgo(lead.updatedAt) })}
               </p>
-              <div className="mt-5 flex items-center gap-2">
+              <div className="mt-auto flex items-center gap-2 pt-6">
                 <Button variant="primary" size="sm" onClick={() => onOpen(lead.id)}>
                   {t('projects.open')}
                   <Icon name="chevronRight" size={16} />
@@ -564,31 +542,23 @@ export default function ProjectsHome({
               </div>
             </div>
 
-            {/* Not a <button>. It was one, marked aria-hidden and tabIndex={-1}
-                to keep it out of the tab order — but clicking still focused it,
-                and the browser rightly complains that a focused element must not
-                be hidden from assistive technology. The headline and the "Open"
-                button already lead into the project; this is decoration, so it
-                is a plain element that happens to be clickable. */}
-            <div
-              onClick={() => onOpen(lead.id)}
-              aria-hidden
-              className="hidden shrink-0 cursor-pointer md:block"
-            >
-              <ProjectFigure screens={lead.screens} thumbs={thumbs} tall />
+            {/* Not a <button>: the title and "Open" already lead into the
+                project, and a focusable element hidden from assistive
+                technology is what the browser rightly complains about. This is
+                decoration that happens to be clickable. */}
+            <div onClick={() => onOpen(lead.id)} aria-hidden className="cursor-pointer border-t border-line-soft md:border-l md:border-t-0">
+              <ProjectCover screens={lead.screens} thumbs={thumbs} className="aspect-[16/10] h-full md:aspect-auto md:min-h-[260px]" />
             </div>
           </div>
         </section>
       )}
 
-      {/* ---- the index, cut into sections ----
-          Three columns of name-plus-date read as a spreadsheet: twenty rows of
-          identical grey, nothing to tell one project from another, and the
-          request that actually produced each screen nowhere in sight. A
-          newspaper index does the opposite — it numbers its entries, gives each
-          a line of standfirst, and rules them off. Two columns leave room for
-          that line; the numbers give the page a rhythm the old grid had none of,
-          and they continue the lead's 01.
+      {/* ---- the projects, cut into sections ----
+          A grid of cards, each with its picture, its name and the request that
+          produced its first screen. It was a numbered newspaper index; what that
+          index was right about stays — the request on every entry, because
+          twenty names in identical grey give nothing to tell one project from
+          another.
 
           Folders are the SECTIONS of that index rather than a filter above it.
           A filter shows one folder and hides the rest, so the shape of the whole
@@ -614,7 +584,7 @@ export default function ProjectsHome({
                   size={14}
                   className="text-ink-faint"
                 />
-                <span className="kicker text-accent-ink">
+                <span className="kicker">
                   {name ?? t('projects.unfiled')}
                 </span>
               </button>
@@ -634,102 +604,76 @@ export default function ProjectsHome({
               <span className="ml-auto font-mono text-caption text-ink-faint">{counts.get(key) ?? ps.length}</span>
             </div>
 
-            {/* `divide-x` draws the column rule — the device that makes a grid of
-                text read as a page rather than as cards. */}
             {!shut && (
-              <div className="grid gap-x-10 xl:grid-cols-2 xl:divide-x xl:divide-line-soft">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {ps.map((p) => {
                   const deck = deckOf(p, 96)
-                  /*
-                    `min-w-0` on the article, not only on the button below. The
-                    article is a GRID item, and a grid item's default
-                    `min-width: auto` resolves to its min-content — which, for a
-                    flex row holding a `flex-1` child, is essentially that
-                    child's MAX-content. So the row sized itself to the
-                    untruncated deck: 749px inside a 375px viewport. `truncate`
-                    then clipped nothing (there was room for the whole string),
-                    the file and delete buttons were pushed off the right edge,
-                    and the document grew wide enough that the header and the
-                    number gutter scrolled out of reach on a phone.
-
-                    The `min-w-0` already on the button could not prevent this:
-                    it governs how far the button may shrink, not how far its
-                    grid ancestor is allowed to.
-                  */
+                  // `min-w-0`: a grid item's default `min-width: auto` is its
+                  // min-content, and an untruncated deck once made a row 749px
+                  // wide inside a 375px phone.
                   return (
                     <article
                       key={p.id}
-                      className="group flex min-w-0 items-start gap-4 border-b border-line-soft py-4 xl:px-6 xl:first:pl-0"
+                      className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface transition hover:border-ink/25 focus-within:border-ink/25"
                     >
-                      {/* The entry number, as an index has. `tabular-nums` keeps
-                          the column of digits straight; `padStart` keeps 02 above
-                          12. In selection mode the tick box takes its place
-                          rather than sitting beside it: two markers in the same
-                          gutter would push the column out of line with the lead. */}
-                      {selecting ? (
+                      {/* Decoration, not a control — the name already opens the
+                          project. See the note on the lead's picture. */}
+                      <div onClick={() => onOpen(p.id)} aria-hidden className="cursor-pointer">
+                        <ProjectCover screens={p.screens} thumbs={thumbs} className="aspect-[16/10] border-b border-line-soft" />
+                      </div>
+                      {selecting && (
                         <TickBox
                           checked={picked.has(p.id)}
                           onChange={(on) => toggle(p.id, on)}
                           label={t('projects.selectProject', { name: headline(p.name) })}
-                          className="mt-1 w-6"
+                          className="absolute left-3 top-3"
                         />
-                      ) : (
-                        <span className="mt-1 w-6 shrink-0 font-mono text-caption tabular-nums text-ink-faint transition group-hover:text-accent-ink">
-                          {String(numbers.get(p.id) ?? 0).padStart(2, '0')}
-                        </span>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={() => onOpen(p.id)}
-                        className="min-w-0 flex-1 text-left"
-                        aria-label={t('projects.openProject', { name: headline(p.name) })}
-                      >
-                        <span className="block truncate font-serif text-body font-medium text-ink transition group-hover:text-accent-ink">
-                          {headline(p.name)}
-                        </span>
-                        {deck && (
-                          <span className="mt-1 block truncate text-body-sm text-ink-muted">{deck}</span>
-                        )}
-                        <span className="mt-1.5 block font-mono text-caption text-ink-faint">
-                          <span className="text-accent-ink">{screenCount(p.screens.length)}</span>
-                          {' · '}
-                          {timeAgo(p.updatedAt)}
-                        </span>
-                        {reviewStates[p.id] && reviewStates[p.id].status !== 'draft' && (
-                          <span className="mt-1.5 block">
-                            <ReviewStatusPill status={reviewStates[p.id].status} unread={reviewStates[p.id].unread} />
+                      <div className="flex min-w-0 items-start gap-1 p-3">
+                        <button
+                          type="button"
+                          onClick={() => onOpen(p.id)}
+                          className="min-w-0 flex-1 text-left"
+                          aria-label={t('projects.openProject', { name: headline(p.name) })}
+                        >
+                          <span className="block truncate text-body font-semibold text-ink transition group-hover:text-accent-ink">
+                            {headline(p.name)}
                           </span>
-                        )}
-                      </button>
-
-                      {/* Decoration, not a control — the headline already opens
-                          the project. See the note on the lead's figure. */}
-                      <div onClick={() => onOpen(p.id)} aria-hidden className="hidden shrink-0 cursor-pointer sm:block">
-                        <ProjectFigure screens={p.screens} thumbs={thumbs} />
+                          {deck && <span className="mt-0.5 block truncate text-body-sm text-ink-muted">{deck}</span>}
+                          <span className="mt-2 block font-mono text-caption text-ink-faint">
+                            <span className="text-accent-ink">{screenCount(p.screens.length)}</span>
+                            {' · '}
+                            {timeAgo(p.updatedAt)}
+                          </span>
+                          {reviewStates[p.id] && reviewStates[p.id].status !== 'draft' && (
+                            <span className="mt-2 block">
+                              <ReviewStatusPill status={reviewStates[p.id].status} unread={reviewStates[p.id].unread} />
+                            </span>
+                          )}
+                        </button>
+                        {/* Filing one project takes one click from here — it used
+                            to take four, which meant you had to already know
+                            folders existed to discover that they did. Visible at
+                            rest, brighter on hover: a finger has no hover. */}
+                        <div className="flex shrink-0 items-center opacity-60 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                          <IconButton
+                            label={t('projects.fileProject', { name: headline(p.name) })}
+                            variant="quiet"
+                            onClick={() => setFiling(p.id)}
+                            className="text-ink-faint hover:text-accent-ink"
+                          >
+                            <Icon name="library" size={16} />
+                          </IconButton>
+                          <IconButton
+                            label={t('projects.delete')}
+                            variant="quiet"
+                            onClick={() => confirmDelete(p)}
+                            className="text-ink-faint hover:text-danger"
+                          >
+                            <Icon name="trash" size={16} />
+                          </IconButton>
+                        </div>
                       </div>
-
-                      {/* Filing one project takes one click from here. It used to
-                          take four — enter selection mode, tick, open the dialog,
-                          choose — which meant you had to already know folders
-                          existed in order to discover that they did. */}
-                      <IconButton
-                        label={t('projects.fileProject', { name: headline(p.name) })}
-                        variant="quiet"
-                        onClick={() => setFiling(p.id)}
-                        className="shrink-0 text-ink-faint hover:text-accent-ink"
-                      >
-                        <Icon name="library" size={16} />
-                      </IconButton>
-
-                      <IconButton
-                        label={t('projects.delete')}
-                        variant="quiet"
-                        onClick={() => confirmDelete(p)}
-                        className="-mr-1 shrink-0 text-ink-faint transition hover:text-danger"
-                      >
-                        <Icon name="trash" size={16} />
-                      </IconButton>
                     </article>
                   )
                 })}
@@ -762,7 +706,7 @@ export default function ProjectsHome({
             {empties.map((p) => (
               <span
                 key={p.id}
-                className="group inline-flex min-h-8 items-center gap-1.5 border border-line-soft pl-2.5 text-body-sm text-ink-muted"
+                className="group inline-flex min-h-8 items-center gap-1.5 rounded-md border border-line bg-surface pl-2.5 text-body-sm text-ink-muted"
               >
                 {selecting && (
                   <TickBox
@@ -793,7 +737,7 @@ export default function ProjectsHome({
         <button
           type="button"
           onClick={onCreate}
-          className="flex w-full items-center justify-center gap-2 border border-dashed border-line-soft py-10 text-body text-ink-muted transition hover:border-accent hover:text-accent-ink"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line py-12 text-body text-ink-muted transition hover:border-accent hover:text-accent-ink"
         >
           <Icon name="plus" size={18} />
           {t('projects.new')}

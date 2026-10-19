@@ -999,7 +999,7 @@ export default function VideoExportDialog({
         */}
         <div className="mt-4 border border-line-soft bg-ink/5 p-3">
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('video.composeTitle')}</span>
+            <span className="kicker">{t('video.composeTitle')}</span>
           </div>
           <Field label={t('video.composeBrief')} hint={t('video.composeHint')}>
             {(p) => (
@@ -1112,7 +1112,7 @@ export default function VideoExportDialog({
         */}
         <div className="mt-4 border border-line-soft bg-ink/5 p-3">
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('video.sourceTitle')}</span>
+            <span className="kicker">{t('video.sourceTitle')}</span>
             <span className="ml-auto flex items-center gap-3">
               <span className="font-mono text-caption text-accent-ink">
                 {t('video.imageCount', { n: draft.imageIds.length, max: IMAGE_CAP })}
@@ -1196,7 +1196,7 @@ export default function VideoExportDialog({
         </div>
 
         <div className="section-head mt-5">
-          <span className="kicker text-accent-ink">{t('video.output')}</span>
+          <span className="kicker">{t('video.output')}</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t('video.aspectRatio')}>

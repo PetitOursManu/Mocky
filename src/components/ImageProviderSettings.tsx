@@ -531,7 +531,7 @@ function VideoForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
       {/* ---- how a clip is cut ----
           Its own block because these three are the only settings here that also
           govern IMPORTED clips, which reach none of the fields above. */}
-      <h5 className="kicker mt-5 text-accent-ink">{t('settings.framesTitle')}</h5>
+      <h5 className="kicker mt-5">{t('settings.framesTitle')}</h5>
       <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.framesBlurb')}</p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -964,7 +964,7 @@ export default function ImageProviderSettings() {
     return (
       <section>
         <header className="rule-thin mb-4 border-accent/40 pb-2">
-          <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+          <span className="kicker">{t('settings.instance')}</span>
           <h3 className="mt-1 text-h3 text-ink">{t('settings.imagesSectionTitle')}</h3>
         </header>
         <p className="text-body text-ink-faint">{error || t('common.loading')}</p>
@@ -975,7 +975,7 @@ export default function ImageProviderSettings() {
   return (
     <section>
       <header className="rule-thin mb-4 border-accent/40 pb-2">
-        <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+        <span className="kicker">{t('settings.instance')}</span>
         <h3 className="mt-1 text-h3 text-ink">{t('settings.imagesSectionTitle')}</h3>
       </header>
 
@@ -1040,7 +1040,7 @@ export default function ImageProviderSettings() {
           foot of a column of image profiles. Generation on one side, the free
           libraries and the access lists on the other — about the same height. */}
       <header className="rule-thin mb-4 mt-10 border-accent/40 pb-2">
-        <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+        <span className="kicker">{t('settings.instance')}</span>
         <h3 className="mt-1 text-h3 text-ink">{t('settings.videosSectionTitle')}</h3>
       </header>
       <div className="grid items-start gap-4 xl:grid-cols-2">

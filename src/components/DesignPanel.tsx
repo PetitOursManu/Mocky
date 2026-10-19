@@ -95,7 +95,7 @@ export default function DesignPanel({
       ) : (
         <div className="rule-double mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-3">
           <div>
-            <div className="kicker text-accent-ink">{t('design.title')}</div>
+            <div className="kicker">{t('design.title')}</div>
             <h1 className="mt-1 text-h2 text-ink">DESIGN.md</h1>
           </div>
           <div className="flex items-center gap-3 pb-1 text-body-sm">
@@ -198,7 +198,7 @@ export default function DesignPanel({
       {/* Built-in visual styles */}
       <section className="mb-10">
         <div className="section-head justify-between">
-          <div className="kicker text-accent-ink">
+          <div className="kicker">
             {t('design.styles')} <span className="text-ink-faint">({STYLE_PRESETS.length})</span>
           </div>
           <Segmented<ThemeMode>
@@ -332,7 +332,7 @@ export default function DesignPanel({
           the screen. */}
       <section>
         <div className="section-head justify-between">
-          <div className="kicker text-accent-ink">{t('design.source')}</div>
+          <div className="kicker">{t('design.source')}</div>
           <span className="font-mono text-body-sm text-ink-faint">
             <span className="text-accent-ink">{chars.toLocaleString()}</span> {t('design.charsUnit')}
           </span>

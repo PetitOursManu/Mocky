@@ -112,7 +112,7 @@ export default function OverviewSection({ live, go }: { live: Live; go: (s: Sect
       <div className="mt-8 grid gap-x-10 gap-y-8 xl:grid-cols-2">
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.overview.now')}</span>
+            <span className="kicker">{t('dashboard.overview.now')}</span>
             <Button size="sm" variant="quiet" className="ml-auto" onClick={() => go('activity')}>
               {t('dashboard.overview.seeActivity')}
             </Button>
@@ -130,7 +130,7 @@ export default function OverviewSection({ live, go }: { live: Live; go: (s: Sect
 
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.overview.requests')}</span>
+            <span className="kicker">{t('dashboard.overview.requests')}</span>
             <span className="ml-auto font-mono text-caption text-ink-muted">
               {t('dashboard.overview.lastHour', { n: totalOf(d) })}
             </span>

@@ -26,7 +26,7 @@ export default function ProvidersSection({ live }: { live: Live }) {
       <SectionHead kicker={t('dashboard.nav.providers')} title={t('dashboard.providers.title')} blurb={t('dashboard.providers.blurb')} />
 
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('dashboard.providers.health')}</span>
+        <span className="kicker">{t('dashboard.providers.health')}</span>
         <span className="ml-auto text-caption text-ink-muted">{t('dashboard.providers.window')}</span>
       </div>
       {rows.length === 0 ? (
