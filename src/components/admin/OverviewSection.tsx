@@ -177,9 +177,9 @@ function totalOf(d: Overview) {
 /** A chart with its title and current value above it. */
 export function ChartCard({ title, value, children }: { title: string; value?: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0">
-      <div className="mb-2 flex items-baseline gap-3 border-b border-line pb-1.5">
-        <span className="kicker text-ink">{title}</span>
+    <div className="min-w-0 rounded-xl border border-line bg-raised p-4">
+      <div className="mb-3 flex items-baseline gap-3 border-b border-line-soft pb-2">
+        <span className="kicker">{title}</span>
         {value && <span className="ml-auto font-mono text-body-sm text-ink">{value}</span>}
       </div>
       {children}

@@ -183,7 +183,7 @@ export default function SpendSection() {
                         {p.models.map((m) => (
                           <span
                             key={`${m.model}|${m.own}`}
-                            className="inline-flex items-center gap-1.5 border border-line-soft px-2 py-0.5 font-mono text-caption text-ink"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-line-soft px-2 py-0.5 font-mono text-caption text-ink"
                             title={`${m.provider} · ${t('spend.callsN', { n: f.num(m.calls) })}`}
                           >
                             {m.own && <OwnApiBadge />}

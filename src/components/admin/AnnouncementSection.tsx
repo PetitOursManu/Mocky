@@ -174,7 +174,7 @@ export default function AnnouncementSection({ live }: { live: Live }) {
 
             {/* A date in the text is an instant: every reader sees it on their
                 own clock (lib/announcementText.ts). */}
-            <div className="mt-3 border border-line-soft bg-ink/5 p-3">
+            <div className="mt-3 rounded-lg border border-line-soft bg-ink/5 p-3">
               <span className="block text-body-sm font-medium text-ink">{t('dashboard.announce.moment')}</span>
               <span className="measure mt-0.5 block text-caption text-ink-muted">{t('dashboard.announce.momentHelp')}</span>
               <div className="mt-2 flex flex-wrap items-center gap-2">

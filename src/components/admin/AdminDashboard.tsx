@@ -159,7 +159,7 @@ export default function AdminDashboard({
   })()
 
   return (
-    <div ref={rootRef} className="border border-line bg-surface md:grid md:grid-cols-[13.5rem_minmax(0,1fr)]">
+    <div ref={rootRef} className="overflow-clip rounded-2xl border border-line bg-surface md:grid md:grid-cols-[13.5rem_minmax(0,1fr)]">
       <nav aria-label={t('dashboard.nav.label')} className="border-b border-line md:border-b-0 md:border-r">
         <div className="md:sticky md:top-0">
           <header className="hidden px-4 pb-3 pt-5 md:block">
@@ -180,9 +180,11 @@ export default function AdminDashboard({
                     aria-current={active ? 'page' : undefined}
                     onClick={() => setSection(s.id)}
                     className={
-                      'tap-target flex w-full items-center gap-2.5 whitespace-nowrap border-b-2 px-4 py-2 text-left text-body-sm transition md:border-b-0 md:border-l-2 ' +
+                      // A rounded row inside the column from md, as the inspector's
+                      // tabs and the screen menu draw theirs; a tab strip below.
+                      'tap-target flex w-full items-center gap-2.5 whitespace-nowrap border-b-2 px-4 py-2 text-left text-body-sm transition md:mx-2 md:w-[calc(100%-1rem)] md:rounded-md md:border-b-0 md:px-3 ' +
                       (active
-                        ? 'border-accent/40 bg-selected text-on-selected'
+                        ? 'border-accent/40 bg-selected text-on-selected md:border-transparent'
                         : 'border-transparent text-ink-muted hover:bg-ink/5 hover:text-ink')
                     }
                   >

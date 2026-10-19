@@ -183,7 +183,7 @@ export default function UsersSection({
             <span className="kicker">{t('settings.access')}</span>
           </div>
 
-          <label className="flex cursor-pointer items-center justify-between gap-3 border border-line-soft bg-ink/5 p-3">
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-line-soft bg-ink/5 p-3">
             <span>
               <span className="block text-body font-medium text-ink">{t('admin.allowSignups')}</span>
               <span className="measure block text-body-sm text-ink-muted">{t('settings.allowSignupsHelp')}</span>
@@ -191,7 +191,7 @@ export default function UsersSection({
             <input type="checkbox" className="h-5 w-5 accent-accent" checked={allowReg} onChange={toggleReg} />
           </label>
 
-          <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 border border-line-soft bg-ink/5 p-3">
+          <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-line-soft bg-ink/5 p-3">
             <span>
               <span className="block text-body font-medium text-ink">{t('settings.ownKeysAllow')}</span>
               <span className="measure block text-body-sm text-ink-muted">{t('settings.ownKeysAllowHelp')}</span>
@@ -232,7 +232,7 @@ export default function UsersSection({
             />
           )}
 
-          <form onSubmit={addUser} className="mt-4 space-y-3 border border-line-soft bg-ink/5 p-3">
+          <form onSubmit={addUser} className="mt-4 space-y-3 rounded-lg border border-line-soft bg-ink/5 p-3">
             <div className="kicker">{t('admin.addUser')}</div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -289,7 +289,7 @@ export default function UsersSection({
               )}
             </div>
 
-            <label className="flex cursor-pointer items-start gap-3 border border-line-soft bg-surface p-3">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-soft bg-surface p-3">
               <input
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-accent"
@@ -463,7 +463,7 @@ function FreePlanForm({
   }
 
   return (
-    <form onSubmit={save} className="mt-4 space-y-3 border border-line-soft bg-ink/5 p-3">
+    <form onSubmit={save} className="mt-4 space-y-3 rounded-lg border border-line-soft bg-ink/5 p-3">
       <div className="kicker">{t('plan.adminHeading')}</div>
       <p className="measure text-body-sm text-ink-muted">{t('plan.adminBlurb')}</p>
 
@@ -538,7 +538,7 @@ function TestPlanSwitch({
   }
 
   return (
-    <div className="mt-4 space-y-3 border border-line-soft bg-ink/5 p-3">
+    <div className="mt-4 space-y-3 rounded-lg border border-line-soft bg-ink/5 p-3">
       <div className="kicker">{t('plan.testHeading')}</div>
       <p className="measure text-body-sm text-ink-muted">{t('plan.testBlurb')}</p>
       <Field label={t('plan.testLabel')}>
@@ -644,7 +644,7 @@ function ResetPasswordModal({
           )}
         </Field>
 
-        <label className="flex cursor-pointer items-start gap-3 border border-line-soft bg-ink/5 p-3">
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-soft bg-ink/5 p-3">
           <input
             type="checkbox"
             className="mt-0.5 h-4 w-4 accent-accent"
