@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { discardPendingSave, useProjects } from './lib/project'
+import { discardPendingSave, shownProjectName, useProjects } from './lib/project'
 import { loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
 import { enableSync, installUnloadGuard, reconcileOnLogin } from './lib/sync'
@@ -479,7 +479,7 @@ function MockyApp() {
                   className="max-w-[40vw] truncate text-body font-medium text-ink-muted transition hover:text-ink"
                   title={route === 'project' ? t('projects.rename') : t('app.backToProject')}
                 >
-                  {activeProject.name}
+                  {shownProjectName(activeProject.name, t('projects.untitled'))}
                 </button>
               )}
               {/* Shown once the project has been sent: a draft shows nothing,

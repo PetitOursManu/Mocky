@@ -37,10 +37,13 @@ jobs:
         run: node scripts/capture-docs.mjs ${{ inputs.only != '' && format('--only={0}', inputs.only) || '' }}
       # The pictures and the rewritten hotspot coordinates, as one patch to
       # apply with `git apply --binary captures.patch`, and the pictures loose
-      # to look at.
+      # to look at. `add -N` first: a plain diff leaves out a picture that did
+      # not exist before, and the READMEs' two were missing from the first patch.
       - name: Collect
         if: always()
-        run: git diff --binary -- docs > captures.patch
+        run: |
+          git add -N docs
+          git diff --binary -- docs > captures.patch
       - uses: actions/upload-artifact@v4
         if: always()
         with:

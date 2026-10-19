@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveProjectName, headline, DEFAULT_PROJECT_NAME } from './project'
+import { deriveProjectName, headline, shownProjectName, DEFAULT_PROJECT_NAME } from './project'
 
 describe('headline', () => {
   it('drops the markup a pasted brief leaves in a project name', () => {
@@ -64,5 +64,13 @@ describe('deriveProjectName', () => {
 
   it('leaves a short plain subject untouched apart from casing', () => {
     expect(deriveProjectName('portfolio photo')).toBe('Portfolio photo')
+  })
+})
+
+describe('shownProjectName', () => {
+  it('translates the stored placeholder and nothing else', () => {
+    expect(shownProjectName(DEFAULT_PROJECT_NAME, 'Projet sans titre')).toBe('Projet sans titre')
+    expect(shownProjectName(` ${DEFAULT_PROJECT_NAME} `, 'Projet sans titre')).toBe('Projet sans titre')
+    expect(shownProjectName('Café Atelier', 'Projet sans titre')).toBe('Café Atelier')
   })
 })

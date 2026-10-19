@@ -535,6 +535,17 @@ export function deriveName(prompt: string): string {
 export const DEFAULT_PROJECT_NAME = 'Untitled project'
 
 /**
+ * A project's name as a person reads it. The placeholder is stored in English
+ * because it is a MARKER — the first generation recognises it and names the
+ * project after its prompt (`pipeline/newScreen.ts`) — so it is translated on
+ * the way to the screen, never in the data: a French reader met "Untitled
+ * project" in the header of a French interface.
+ */
+export function shownProjectName(name: string, untitled: string): string {
+  return name.trim() === DEFAULT_PROJECT_NAME ? untitled : name
+}
+
+/**
  * A short, human project title derived from the first prompt, so projects stop
  * being called "Untitled project". Drops the leading boilerplate people write
  * ("une page d'accueil pour…", "a landing page for…"), keeps the subject, and

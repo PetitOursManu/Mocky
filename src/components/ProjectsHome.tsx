@@ -5,6 +5,7 @@ import {
   groupByFolder,
   headline,
   listFolders,
+  shownProjectName,
   normalizeFolder,
   type Project,
   type Screen,
@@ -343,7 +344,7 @@ export default function ProjectsHome({
     n === 0 ? t('projects.noScreens') : n === 1 ? t('projects.screens_one') : t('projects.screens_other', { count: n })
 
   const confirmDelete = (p: Project) => {
-    if (confirm(t('projects.deleteConfirm', { name: headline(p.name) }))) onDelete(p.id)
+    if (confirm(t('projects.deleteConfirm', { name: headline(shownProjectName(p.name, t('projects.untitled'))) }))) onDelete(p.id)
   }
 
   /**
@@ -497,17 +498,17 @@ export default function ProjectsHome({
                   <TickBox
                     checked={picked.has(lead.id)}
                     onChange={(on) => toggle(lead.id, on)}
-                    label={t('projects.selectProject', { name: headline(lead.name) })}
+                    label={t('projects.selectProject', { name: headline(shownProjectName(lead.name, t('projects.untitled'))) })}
                     className="mt-1.5"
                   />
                 )}
                 <button
                   type="button"
                   onClick={() => onOpen(lead.id)}
-                  aria-label={t('projects.openProject', { name: lead.name })}
+                  aria-label={t('projects.openProject', { name: headline(shownProjectName(lead.name, t('projects.untitled'))) })}
                   className="block min-w-0 text-left"
                 >
-                  <h2 className="text-h2 text-ink transition group-hover:text-accent-ink">{headline(lead.name)}</h2>
+                  <h2 className="text-h2 text-ink transition group-hover:text-accent-ink">{headline(shownProjectName(lead.name, t('projects.untitled')))}</h2>
                 </button>
               </div>
               {reviewStates[lead.id] && reviewStates[lead.id].status !== 'draft' && (
@@ -625,7 +626,7 @@ export default function ProjectsHome({
                         <TickBox
                           checked={picked.has(p.id)}
                           onChange={(on) => toggle(p.id, on)}
-                          label={t('projects.selectProject', { name: headline(p.name) })}
+                          label={t('projects.selectProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
                           className="absolute left-3 top-3"
                         />
                       )}
@@ -634,10 +635,10 @@ export default function ProjectsHome({
                           type="button"
                           onClick={() => onOpen(p.id)}
                           className="min-w-0 flex-1 text-left"
-                          aria-label={t('projects.openProject', { name: headline(p.name) })}
+                          aria-label={t('projects.openProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
                         >
                           <span className="block truncate text-body font-semibold text-ink transition group-hover:text-accent-ink">
-                            {headline(p.name)}
+                            {headline(shownProjectName(p.name, t('projects.untitled')))}
                           </span>
                           {deck && <span className="mt-0.5 block truncate text-body-sm text-ink-muted">{deck}</span>}
                           <span className="mt-2 block font-mono text-caption text-ink-faint">
@@ -657,7 +658,7 @@ export default function ProjectsHome({
                             rest, brighter on hover: a finger has no hover. */}
                         <div className="flex shrink-0 items-center opacity-60 transition group-hover:opacity-100 group-focus-within:opacity-100">
                           <IconButton
-                            label={t('projects.fileProject', { name: headline(p.name) })}
+                            label={t('projects.fileProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
                             variant="quiet"
                             onClick={() => setFiling(p.id)}
                             className="text-ink-faint hover:text-accent-ink"
@@ -712,11 +713,11 @@ export default function ProjectsHome({
                   <TickBox
                     checked={picked.has(p.id)}
                     onChange={(on) => toggle(p.id, on)}
-                    label={t('projects.selectProject', { name: headline(p.name) })}
+                    label={t('projects.selectProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
                   />
                 )}
                 <button type="button" onClick={() => onOpen(p.id)} className="transition hover:text-accent-ink">
-                  {headline(p.name)}
+                  {headline(shownProjectName(p.name, t('projects.untitled')))}
                 </button>
                 <span className="font-mono text-caption text-ink-faint">{timeAgo(p.updatedAt)}</span>
                 <button
@@ -852,9 +853,9 @@ function NewFolder({
                     return next
                   })
                 }
-                label={t('projects.selectProject', { name: headline(p.name) })}
+                label={t('projects.selectProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
               />
-              <span className="min-w-0 flex-1 truncate text-body-sm text-ink">{headline(p.name)}</span>
+              <span className="min-w-0 flex-1 truncate text-body-sm text-ink">{headline(shownProjectName(p.name, t('projects.untitled')))}</span>
               {/* Where it is now, so moving it out of another folder is a
                   deliberate act rather than a surprise. */}
               {current && (

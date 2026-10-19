@@ -1271,10 +1271,14 @@ export default function Canvas({
                 onScreenContextMenu?.(s.id, e.clientX, e.clientY)
               }}
             >
-              {/* Floating name label + selection actions (also the move handle) */}
+              {/* Floating name label + selection actions (also the move handle).
+                  Every text here scales with the zoom (`* inv`), so it carries a
+                  line height that scales too: it inherited the body's 22.4 px,
+                  and at 21% a 69 px name in a 22 px `truncate` box lost the top
+                  of every letter. */}
               <div
                 className="absolute left-0 flex items-center whitespace-nowrap"
-                style={{ bottom: '100%', paddingBottom: 5 * inv, gap: 5 * inv, fontSize: 12 * inv, maxWidth: b.w }}
+                style={{ bottom: '100%', paddingBottom: 5 * inv, gap: 5 * inv, lineHeight: 1.3, fontSize: 12 * inv, maxWidth: b.w }}
               >
                 {editingLabelId === s.id ? (
                   <input
@@ -1294,7 +1298,7 @@ export default function Canvas({
                       if (e.key === 'Escape') setEditingLabelId(null)
                     }}
                     className="rounded border border-line bg-raised text-ink outline-hidden"
-                    style={{ fontSize: 12 * inv, padding: `${1 * inv}px ${4 * inv}px`, width: b.w * 0.7 }}
+                    style={{ lineHeight: 1.3, fontSize: 12 * inv, padding: `${1 * inv}px ${4 * inv}px`, width: b.w * 0.7 }}
                   />
                 ) : (
                   <span className={`truncate ${selected ? 'text-accent-ink' : 'text-ink-muted'}`}>
@@ -1320,7 +1324,7 @@ export default function Canvas({
                 {s.animations === false && !s.page && editingLabelId !== s.id && (
                   <span
                     className="flex shrink-0 items-center rounded-full bg-ink/10 text-ink-muted"
-                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
+                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, lineHeight: 1.3, fontSize: 11 * inv }}
                     title={t('canvas.animOff')}
                   >
                     <Icon name="play" size={11 * inv} />
@@ -1335,7 +1339,7 @@ export default function Canvas({
                   <button
                     type="button"
                     className="flex shrink-0 items-center rounded-full border border-accent bg-accent font-semibold text-on-accent shadow-sm transition hover:opacity-90"
-                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, fontSize: 12 * inv }}
+                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, lineHeight: 1.3, fontSize: 12 * inv }}
                     title={t('notes.badgeTitle', { count: s.userNotes.length })}
                     aria-label={t('notes.badgeTitle', { count: s.userNotes.length })}
                     onPointerDown={(e) => e.stopPropagation()}
@@ -1353,7 +1357,7 @@ export default function Canvas({
                   <button
                     type="button"
                     className="flex shrink-0 items-center rounded-full border border-accent bg-accent font-semibold text-on-accent shadow-sm transition hover:opacity-90 disabled:opacity-50"
-                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, fontSize: 12 * inv }}
+                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, lineHeight: 1.3, fontSize: 12 * inv }}
                     title={t('canvas.docDownloadTitle')}
                     disabled={!s.code.trim() || generatingIds?.has(s.id)}
                     onPointerDown={(e) => e.stopPropagation()}
@@ -1366,7 +1370,7 @@ export default function Canvas({
                 {soloInteractive && editingLabelId !== s.id && (
                   <span
                     className="flex shrink-0 items-center rounded-full bg-accent/10 text-accent-ink"
-                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
+                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, lineHeight: 1.3, fontSize: 11 * inv }}
                   >
                     <Icon name="hand" size={11 * inv} />
                     {t('canvas.interactive')}
@@ -1443,6 +1447,7 @@ export default function Canvas({
                     top: -2 * inv,
                     width: Math.min(s.w, 420) ,
                     padding: `${8 * inv}px ${10 * inv}px`,
+                    lineHeight: 1.3,
                     fontSize: `${12 * inv}px`,
                     transform: `translateY(-100%) translateY(${-22 * inv}px)`,
                   }}
@@ -1451,7 +1456,7 @@ export default function Canvas({
                   <div className="flex items-center justify-between" style={{ gap: 6 * inv, marginBottom: 4 * inv }}>
                     <span
                       className="flex items-center font-medium text-muse-ink"
-                      style={{ fontSize: `${11 * inv}px`, gap: 4 * inv }}
+                      style={{ lineHeight: 1.3, fontSize: `${11 * inv}px`, gap: 4 * inv }}
                     >
                       <Icon name="comment" size={11 * inv} />
                       {t('canvas.originalPrompt')}
@@ -1653,7 +1658,7 @@ export default function Canvas({
               {regeneratingIds?.has(s.id) && (
                 <div
                   className="pointer-events-none absolute left-1/2 top-0 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-accent font-medium text-on-accent shadow-lg"
-                  style={{ marginTop: 8 * inv, paddingLeft: 10 * inv, paddingRight: 12 * inv, paddingTop: 4 * inv, paddingBottom: 4 * inv, fontSize: 12 * inv, gap: 6 * inv }}
+                  style={{ marginTop: 8 * inv, paddingLeft: 10 * inv, paddingRight: 12 * inv, paddingTop: 4 * inv, paddingBottom: 4 * inv, lineHeight: 1.3, fontSize: 12 * inv, gap: 6 * inv }}
                 >
                   <span
                     className="animate-spin rounded-full border-on-accent/40 border-t-on-accent"
@@ -1707,6 +1712,7 @@ export default function Canvas({
                   className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-accent px-2 font-mono font-medium text-on-accent"
                   style={{
                     top: b.h + 6 / view.scale,
+                    lineHeight: 1.3,
                     fontSize: 11 / view.scale,
                     paddingTop: 1 / view.scale,
                     paddingBottom: 1 / view.scale,
