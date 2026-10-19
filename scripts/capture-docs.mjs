@@ -155,7 +155,7 @@ async function toWebp(convert, png) {
 async function shoot(ctx, name, { clip = null, pad = 0, spots }) {
   if (ONLY && !ONLY.has(name)) return
   const { page, convert, lang } = ctx
-  await page.waitForTimeout(400)
+  await page.waitForTimeout(600)
   let rect = { x: 0, y: 0, width: VIEW.width, height: VIEW.height }
   if (clip) {
     const b = await clip.first().boundingBox()
@@ -175,7 +175,9 @@ async function shoot(ctx, name, { clip = null, pad = 0, spots }) {
     if (!b) throw new Error(`${lang}/${name}: "${label}" was not found`)
     coords.push([round(((b.x + b.width / 2 - rect.x) / rect.width) * 100), round(((b.y + b.height / 2 - rect.y) / rect.height) * 100)])
   }
-  const png = await page.screenshot({ clip: rect, animations: 'disabled' })
+  // Animations are left running and simply waited out (the pause at the top):
+  // freezing them made Chromium hang on the menu captures, past 30 s.
+  const png = await page.screenshot({ clip: rect, timeout: 60_000 })
   const dir = path.join(ROOT, 'docs/assets/ui', lang === 'fr' ? 'fr' : '')
   fs.writeFileSync(path.join(dir, `${name}.webp`), await toWebp(convert, png))
   measured[lang][name] = coords

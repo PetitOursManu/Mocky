@@ -53,22 +53,29 @@ export default function ScreenThemePicker({
   const chipRef = useRef<HTMLButtonElement>(null)
   const active = getScreenTheme(value)
 
-  // Hung from the chip's left edge, the menu is wider than the room to its
-  // right whenever the chip is not at the start of its row — the export menu
-  // learned this at 390px, where it opened entirely past the edge. Measured and
-  // pulled back inside a 16px gutter, before paint so it never flashes there.
+  // Placed in FIXED coordinates, from the chip's own box. Hung `absolute` from
+  // the chip it was clipped by any scrolling ancestor — and from md the
+  // composer is a 300px column that scrolls, so a 34rem menu was cut to the
+  // column's width. Fixed escapes that clip. It is then pulled back inside a
+  // 16px gutter, before paint so it never flashes past the edge — the export
+  // menu learned at 390px that a menu hung from a chip's left edge can open
+  // entirely off screen. `offsetWidth`, not the rect: on its first frame
+  // `.menu-in` still scales the menu, and offset sizes ignore transforms.
   useLayoutEffect(() => {
     const menu = menuRef.current
-    if (!open || !menu) return
-    menu.style.left = ''
-    // The left edge from the rect, the width from offsetWidth: the menu is
-    // measured on its first frame, while `.menu-in` still scales it from its
-    // left edge, so the rect's right side came up ~4.5% short and the pulled-back
-    // menu still ran past the viewport. Offset sizes ignore transforms, and a
-    // scale anchored on the left leaves the left edge where it will end up.
-    const over = menu.getBoundingClientRect().left + menu.offsetWidth - (window.innerWidth - 16)
-    if (over > 0) menu.style.left = `${-over}px`
-  }, [open])
+    const chip = chipRef.current
+    if (!open || !menu || !chip) return
+    const r = chip.getBoundingClientRect()
+    const gutter = 16
+    menu.style.left = `${Math.max(gutter, Math.min(r.left, window.innerWidth - gutter - menu.offsetWidth))}px`
+    if (placement === 'up') {
+      menu.style.top = ''
+      menu.style.bottom = `${window.innerHeight - r.top + 4}px`
+    } else {
+      menu.style.bottom = ''
+      menu.style.top = `${r.bottom + 4}px`
+    }
+  }, [open, placement])
 
   // Focus lands on the chosen type (or the first one) so the keyboard starts
   // where the eye does, and Escape gives the focus back to the chip.
@@ -165,9 +172,7 @@ export default function ScreenThemePicker({
             onKeyDown={onMenuKey}
             // Grows out of the chip, from the side it opened on (see `.menu-in`).
             style={{ transformOrigin: placement === 'up' ? 'bottom left' : 'top left' }}
-            className={`menu-in absolute left-0 z-menu w-[34rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-2xl ${
-              placement === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
-            }`}
+            className="menu-in fixed z-menu w-[34rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-2xl"
           >
             <p className="kicker px-2 pb-1 pt-1.5">{t('composer.themeMenu')}</p>
             <p className="measure px-2 pb-2 text-body-sm text-ink-muted">{t('composer.themeHint')}</p>
