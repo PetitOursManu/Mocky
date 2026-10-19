@@ -298,13 +298,14 @@ au-delà du bord d’une page, Mocky le dit — une notice nomme le document et 
 — parce que sur papier ce contenu est tout simplement coupé.
 
 :::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
-- 50,5.8 **Télécharger…**: Un document seulement : PDF à champs remplissables, PowerPoint / Google Slides / Canva, images PNG, PSD ou SVG.
-- 50,12.5 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
-- 50,19.2 **Régénérer**: La même demande à nouveau, pour un autre design.
-- 50,25.8 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
-- 50,39.1 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
-- 50,52.5 **Partager**: Un lien public temporaire et un QR code.
-- 50,94.2 **Supprimer l’écran**: Une confirmation, et il disparaît.
+- 50,50 **Modifier par message**: Sélectionne le document et place le curseur dans le composeur.
+- 50,50 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
+- 50,50 **Régénérer une variante**: La même demande à nouveau, pour un autre design.
+- 50,50 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
+- 50,50 **Exporter ›**: `Télécharger…` — PDF à champs remplissables, PowerPoint / Google Slides / Canva, images PNG, PSD ou SVG — et le `.tsx`.
+- 50,50 **Partager**: Un lien public temporaire et un QR code.
+- 50,50 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
+- 50,50 **Supprimer l’écran**: Une confirmation, et il disparaît.
 :::
 
 **Clic droit sur le document → `Ajuster à la page`** demande au modèle de regagner

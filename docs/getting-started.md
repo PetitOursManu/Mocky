@@ -104,16 +104,18 @@ Who becomes the instance administrator?
 
 The [[composer|composer]], where a screen is described:
 
-:::hotspots src=assets/ui/composer.webp alt="The composer: formats, screen type, the three switches, the prompt, Improve and Generate"
-- 38,84.7 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
-- 49.4,84.7 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
-- 32.2,89.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 40.9,89.4 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 49.3,89.4 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 61.3,89.4 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 45.3,94.3 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 65,94.6 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 69.7,94.6 **Generate**: Creates the screen — or `Update` when screens are selected.
+:::hotspots src=assets/ui/composer.webp alt="The creation workshop: format, screen type, the prompt, the options, Improve, Generate, Also make and the recent history"
+- 50,50 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 50,50 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 50,50 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 50,50 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 50,50 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 50,50 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 50,50 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 50,50 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 50,50 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 50,50 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 50,50 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
 A project keeps **one** [[design direction|direction]], so its screens look like one product
@@ -139,13 +141,14 @@ with the rest of the bar.
 
 The home page after a first generation:
 
-:::hotspots src=assets/ui/home.webp alt="The projects page: the lead project, the folders, New folder and New project"
-- 73.9,2.9 **Navigation**: The same on every page.
-- 91.2,2.9 **Theme**: Papier or Encre, remembered by the browser.
-- 95.6,2.9 **Account**: Signed in: your projects follow you from one device to another.
-- 93.9,15.9 **New project**: An empty canvas, named after its first prompt.
-- 84.7,15.9 **New folder**: Folders are names on projects; drag or file a project to fill one.
-- 12.2,28.7 **The lead project**: The most recent, with its screens. `Open` goes in; the others are listed below, by folder.
+:::hotspots src=assets/ui/home.webp alt="The projects page: the last project, the project cards, New folder and New project"
+- 50,50 **Navigation**: The same on every page.
+- 50,50 **Theme**: Ink (dark, the default) or Paper, remembered by the browser.
+- 50,50 **Account**: Signed in: your projects follow you from one device to another.
+- 50,50 **New project**: An empty canvas, named after its first prompt.
+- 50,50 **New folder**: Folders are names on projects; file a project to fill one.
+- 50,50 **The last project**: The one touched last, as a wide card with its picture and its request. `Open` goes in.
+- 50,50 **A project card**: Every other project, with its picture, its request, its screens and its age; file it or delete it from here.
 :::
 
 ### Account rules

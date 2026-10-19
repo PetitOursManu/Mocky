@@ -190,18 +190,16 @@ défenses la maintiennent à l’écran : les libellés disparaissent sous `md`,
 ce qui suit `Modifier` se replie dans `Plus`, et la rangée défile d’elle-même
 plutôt que de pousser la page de côté.
 
-:::hotspots src=../assets/ui/fr/toolbar.webp alt="La barre d’outils du projet"
-- 4.6,50 **Retour**: Quitte le projet — et interrompt une génération en cours.
-- 13.3,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
-- 21.3,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
-- 30.7,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
-- 40,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
-- 48.5,50 **Cadre**: Le cadre d’iPhone autour des écrans mobiles. Grisé quand le projet n’en a pas.
-- 57.1,50 **Système**: Le système de design en direct : vos jetons, et de quoi les recolorer.
-- 65.6,50 **Audit**: SEO et accessibilité. L’ouvrir n’évalue rien.
-- 75.3,50 **Motion Ultra**: Monter un film à partir de la médiathèque.
-- 86.3,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](interface.md#le-mode-demo).
-- 94.9,50 **Exporter**: Un projet Vite + React + Tailwind exécutable, en `.zip`.
+:::hotspots src=../assets/ui/fr/toolbar.webp alt="Les outils du projet, dans la barre du haut"
+- 50,50 **Sélectionner**: Aucun mode : un clic sélectionne un écran. Coupe le mode qui était actif.
+- 50,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
+- 50,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
+- 50,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
+- 50,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
+- 50,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](interface.md#le-mode-demo).
+- 50,50 **Partager**: Un lien vers l’écran sélectionné, ou le projet envoyé en validation.
+- 50,50 **Exporter**: Le projet exécutable en `.zip`, l’écran sélectionné, les médias.
+- 50,50 **Inspecteur**: Affiche ou masque la colonne des panneaux, à droite.
 :::
 
 ### Les trois qui ne se replient jamais
@@ -442,13 +440,14 @@ second panneau à côté du menu, au survol, au clic ou avec `→`.
 Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 
 :::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
-- 50,5.8 **Télécharger…**: Un document seulement : PDF à champs remplissables, PowerPoint / Google Slides, ou images PNG.
-- 50,12.5 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
-- 50,19.2 **Régénérer**: La même demande à nouveau, pour un autre design.
-- 50,25.8 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
-- 50,39.1 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
-- 50,52.5 **Partager**: Un lien public temporaire et un QR code.
-- 50,94.2 **Supprimer l’écran**: Une confirmation, et il disparaît.
+- 50,50 **Modifier par message**: Sélectionne le document et place le curseur dans le composeur.
+- 50,50 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
+- 50,50 **Régénérer une variante**: La même demande à nouveau, pour un autre design.
+- 50,50 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
+- 50,50 **Exporter ›**: `Télécharger…` — PDF à champs remplissables, PowerPoint / Google Slides, ou images PNG — et le `.tsx`.
+- 50,50 **Partager**: Un lien public temporaire et un QR code.
+- 50,50 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
+- 50,50 **Supprimer l’écran**: Une confirmation, et il disparaît.
 :::
 
 | | Entrée | Ce qu’elle fait | Coût |
@@ -508,16 +507,18 @@ est son format de page.
 La colonne de création à gauche à partir de `md` (voir [l’espace de travail](#lespace-de-travail-dun-projet)) ; en dessous, la barre flottante en bas. C’est le seul contrôle du produit qui change de verbe
 selon ce qui est sélectionné.
 
-:::hotspots src=../assets/ui/fr/composer.webp alt="Le composeur : formats, type d’écran, les trois interrupteurs, la demande, Améliorer et Générer"
-- 38.9,84.7 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
-- 51.3,84.7 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
-- 33.7,89.4 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
-- 43.9,89.4 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
-- 52.3,89.4 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
-- 64.8,89.4 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
-- 45.5,94.3 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
-- 65.4,94.6 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
-- 69.9,94.6 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+:::hotspots src=../assets/ui/fr/composer.webp alt="L’atelier de création : format, type d’écran, la demande, les options, Améliorer, Générer, Créer aussi et l’historique récent"
+- 50,50 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 50,50 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 50,50 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 50,50 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 50,50 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 50,50 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 50,50 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 50,50 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 50,50 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+- 50,50 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
+- 50,50 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
 :::
 
 `Type d’écran` ouvre ce menu — un [[type d’écran|screen-type]] pour un écran, ou un [[document|document]] :

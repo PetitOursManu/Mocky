@@ -1234,6 +1234,9 @@ export default function Canvas({
           return (
             <div
               key={s.id}
+              // Where the documentation's screenshots find a screen's frame
+              // (scripts/capture-docs.mjs). Nothing in the app reads it.
+              data-screen={s.id}
               className={`absolute ${useFrame ? '' : 'frame-shadow'} ${
                 selected
                   ? 'ring-2 ring-accent'

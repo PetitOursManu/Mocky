@@ -178,18 +178,16 @@ the canvas, and the densest thing in the product. Three defences
 keep it on screen: labels fold away below `md`, everything past `Modify` folds
 into `More`, and the row scrolls itself rather than pushing the page sideways.
 
-:::hotspots src=assets/ui/toolbar.webp alt="The project toolbar"
-- 4.1,50 **Back**: Leaves the project — and aborts a generation in flight.
-- 12.7,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
-- 20.7,50 **Modify**: Click an element and describe a change, or edit its text directly.
-- 29.7,50 **Interact**: Every preview becomes clickable at once.
-- 39.4,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
-- 48.6,50 **Frame**: The iPhone frame around mobile screens. Greyed out when the project has none.
-- 57.2,50 **System**: The live design system: your tokens, and a way to recolour them.
-- 65.6,50 **Audit**: SEO and accessibility. Opening it evaluates nothing.
-- 75.7,50 **Motion Ultra**: Cut a film from the media library.
-- 87,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
-- 95.3,50 **Export**: A runnable Vite + React + Tailwind project, as a `.zip`.
+:::hotspots src=assets/ui/toolbar.webp alt="The project’s tools, in the top bar"
+- 50,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
+- 50,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
+- 50,50 **Interact**: Every preview becomes clickable at once.
+- 50,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 50,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
+- 50,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
+- 50,50 **Share**: A link to the selected screen, or the project sent for approval.
+- 50,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
+- 50,50 **Inspector**: Shows or hides the column of panels on the right.
 :::
 
 ### The three that never fold
@@ -417,13 +415,14 @@ versions, display format, DESIGN.md, code) — then `Delete screen`. An item wit
 The menu of a document, which opens on its own two items:
 
 :::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
-- 50,5.8 **Download…**: A document only: PDF with fillable fields, PowerPoint / Google Slides, or PNG images.
-- 50,12.5 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
-- 50,19.2 **Regenerate**: The same prompt again, for a different design.
-- 50,25.8 **Polish**: Checks the design against named rules and corrects what it finds.
-- 50,39.1 **Notes**: Private notes on this screen, never sent to a model.
-- 50,52.5 **Share**: A temporary public link and a QR code.
-- 50,94.2 **Delete screen**: One confirmation, and it is gone.
+- 50,50 **Edit with a message**: Selects the document and puts the cursor in the composer.
+- 50,50 **Polish**: Checks the design against named rules and corrects what it finds.
+- 50,50 **Regenerate a variant**: The same prompt again, for a different design.
+- 50,50 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
+- 50,50 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides, or PNG images — and the `.tsx`.
+- 50,50 **Share**: A temporary public link and a QR code.
+- 50,50 **Notes**: Private notes on this screen, never sent to a model.
+- 50,50 **Delete screen**: One confirmation, and it is gone.
 :::
 
 | | Item | What it does | Cost |
@@ -480,16 +479,18 @@ and `Pin as layout reference`.
 The creation column on the left from `md` (see [the workspace](#the-project-workspace)); below it, the floating bar at the bottom. It is the only control in the product that
 changes verb depending on what is selected.
 
-:::hotspots src=assets/ui/composer.webp alt="The composer: formats, screen type, the three switches, the prompt, Improve and Generate"
-- 38,84.7 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
-- 49.4,84.7 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
-- 32.2,89.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 40.9,89.4 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 49.3,89.4 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 61.3,89.4 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 45.3,94.3 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 65,94.6 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 69.7,94.6 **Generate**: Creates the screen — or `Update` when screens are selected.
+:::hotspots src=assets/ui/composer.webp alt="The creation workshop: format, screen type, the prompt, the options, Improve, Generate, Also make and the recent history"
+- 50,50 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 50,50 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 50,50 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 50,50 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 50,50 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 50,50 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 50,50 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 50,50 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 50,50 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 50,50 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 50,50 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
 `Screen type` opens this menu — a [[screen type|screen-type]] for a screen, or a [[document|document]]:

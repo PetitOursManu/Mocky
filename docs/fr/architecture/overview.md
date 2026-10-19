@@ -702,18 +702,16 @@ coûtent sont dans [L'interface](../interface.md#la-barre-de-zoom).
 
 ## 6. L'isolation de l'aperçu
 
-:::hotspots src=../../assets/ui/fr/toolbar.webp alt="La barre d’outils du projet"
-- 4.6,50 **Retour**: Quitte le projet — et interrompt une génération en cours.
-- 13.3,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
-- 21.3,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
-- 30.7,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
-- 40,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
-- 48.5,50 **Cadre**: Le cadre d’iPhone autour des écrans mobiles. Grisé quand le projet n’en a pas.
-- 57.1,50 **Système**: Le système de design en direct : vos jetons, et de quoi les recolorer.
-- 65.6,50 **Audit**: SEO et accessibilité. L’ouvrir n’évalue rien.
-- 75.3,50 **Motion Ultra**: Monter un film à partir de la médiathèque.
-- 86.3,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](../interface.md#le-mode-demo).
-- 94.9,50 **Exporter**: Un projet Vite + React + Tailwind exécutable, en `.zip`.
+:::hotspots src=../../assets/ui/fr/toolbar.webp alt="Les outils du projet, dans la barre du haut"
+- 50,50 **Sélectionner**: Aucun mode : un clic sélectionne un écran. Coupe le mode qui était actif.
+- 50,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
+- 50,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
+- 50,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
+- 50,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
+- 50,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](../interface.md#le-mode-demo).
+- 50,50 **Partager**: Un lien vers l’écran sélectionné, ou le projet envoyé en validation.
+- 50,50 **Exporter**: Le projet exécutable en `.zip`, l’écran sélectionné, les médias.
+- 50,50 **Inspecteur**: Affiche ou masque la colonne des panneaux, à droite.
 :::
 
 *Les dix verbes d'un projet, dans l'ordre de la barre : Lier, Modifier, Interagir, Annoter, Cadre, Système, Audit, Démo, Exporter, Vidéo. Les quatre premiers agissent à travers l'aperçu isolé ; les six derniers agissent autour de lui. La capture est antérieure à deux d'entre eux — « Audit », qui se place entre « Système » et « Démo », et « Vidéo », qui ferme la rangée — on voit donc ici huit verbes, pas dix.*

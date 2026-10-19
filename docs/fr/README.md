@@ -20,16 +20,17 @@ TypeScript.
 
 Un projet, ouvert. Cliquez les numéros pour voir ce qu’est chaque partie :
 
-:::hotspots src=../assets/ui/fr/canvas.webp alt="Un projet : la barre d’outils, quatre écrans reliés par des câbles, la barre de zoom et le composeur"
-- 73.3,2.9 **Navigation principale**: `Accueil` liste vos projets ; `DESIGN.md`, `Média`, `Réglages`, `Admin` et `Docs` s’ouvrent par-dessus le projet.
-- 37.4,9.7 **Barre d’outils du projet**: Lier, modifier, interagir, annoter, les panneaux latéraux, `Démo` et `Exporter`. Chacun est décrit dans [L’interface](interface.md#la-barre-doutils-du-projet).
-- 17.4,26 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
-- 30.3,19.1 **Un câble**: Un lien d’un élément d’un écran vers l’écran qu’il ouvre — la carte du prototype que joue `Démo`.
-- 68.1,13.4 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
-- 10.9,95.6 **Barre de zoom**: Zoom, `Tout afficher`, le dernier écran, `Réorganiser`, et le bouton qui montre ou masque les câbles.
-- 51.3,85.5 **Type d’écran**: Ce qu’est le prochain écran — un tableau de bord, une page de tarifs — ou quel document. Il reste armé pour le projet.
-- 45.5,94.6 **La demande**: Décrivez un écran avec vos mots. Avec un écran sélectionné, le même champ décrit un changement à lui apporter.
-- 69.9,94.9 **Générer**: Crée l’écran. Avec des écrans sélectionnés, il devient `Mettre à jour` et les modifie.
+:::hotspots src=../assets/ui/fr/canvas.webp alt="Un projet : la barre du haut, l’atelier de création, des écrans reliés par des câbles, l’inspecteur et la barre de zoom"
+- 50,50 **Outils de la toile**: Sélectionner, lier, interagir, modifier, annoter — ce que fait un clic sur un écran. Voir [L’interface](interface.md#lespace-de-travail-dun-projet).
+- 50,50 **Partager**: Un lien vers un écran, ou le projet entier envoyé en validation à un client.
+- 50,50 **Exporter**: Toutes les sorties : le projet exécutable en `.zip`, l’écran sélectionné en PNG, PowerPoint ou `.tsx`, et les médias.
+- 50,50 **L’atelier de création**: Le composeur, en colonne : décrivez un écran, choisissez son format et ses options, générez. Avec des écrans sélectionnés, il les modifie.
+- 50,50 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
+- 50,50 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
+- 50,50 **Outils flottants**: Pour l’écran sélectionné : modifier, peaufiner, régénérer, partager, exporter, et tout son menu sous `⋯`.
+- 50,50 **L’inspecteur**: Style, versions et audit — et validation, campagne et liens — en onglets d’une seule colonne.
+- 50,50 **Barre de zoom**: Zoom, `Tout afficher`, le dernier écran, `Réorganiser`, et le bouton qui montre ou masque les câbles.
+- 50,50 **Générer**: Crée l’écran. Avec des écrans sélectionnés, il devient `Mettre à jour` et les modifie.
 :::
 
 ---

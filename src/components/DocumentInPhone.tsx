@@ -112,7 +112,9 @@ export default function DocumentInPhone({
               )}
               {layout.mode === 'feed' && (
                 <>
-                  <circle cx={layout.avatar.cx} cy={layout.avatar.cy} r={layout.avatar.r} fill="none" stroke={INK} strokeWidth={1.25} {...hairline} />
+                  {/* data-doc, here and below: what the documentation's
+                      screenshots point at (scripts/capture-docs.mjs). */}
+                  <circle data-doc="phone-author" cx={layout.avatar.cx} cy={layout.avatar.cy} r={layout.avatar.r} fill="none" stroke={INK} strokeWidth={1.25} {...hairline} />
                   {layout.author.map((b, i) => (
                     <Bar key={i} b={b} fill={i === 0 ? MUTED : FAINT} />
                   ))}
@@ -122,7 +124,7 @@ export default function DocumentInPhone({
                 <Bar key={i} b={b} />
               ))}
               {layout.actions.map((a, i) => (
-                <g key={i}>
+                <g key={i} data-doc={i === 0 ? 'phone-actions' : undefined}>
                   <Glyph kind={a.icon} cx={a.c.cx} cy={a.c.cy} size={a.c.r * 2.2} />
                   {a.label && <Bar b={a.label} />}
                 </g>
@@ -165,6 +167,7 @@ export default function DocumentInPhone({
             {/* The page, at its own size, scaled into the picture's place and
                 moved so the page shown is the one in the window. */}
             <div
+              data-doc="phone-post"
               className="absolute overflow-hidden"
               style={{ left: post.x, top: post.y, width: post.w, height: post.h, borderRadius: post.r }}
             >
@@ -195,7 +198,7 @@ export default function DocumentInPhone({
                 does, because they sit on a photograph of any colour. */}
             <svg aria-hidden="true" className="pointer-events-none absolute inset-0" viewBox={`0 0 ${PHONE_SCREEN.w} ${PHONE_SCREEN.h}`}>
               {layout.counter && (
-                <g>
+                <g data-doc="phone-counter">
                   <rect x={layout.counter.x} y={layout.counter.y} width={layout.counter.w} height={layout.counter.h} rx={layout.counter.r} fill="#000" opacity={0.55} />
                   <text
                     x={layout.counter.x + layout.counter.w / 2}
@@ -233,7 +236,7 @@ export default function DocumentInPhone({
       </WireframeDevice>
 
       {pages > 1 && (
-        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1" style={{ top: frame.height * scale + CAPTION_ROOM }}>
+        <div data-doc="phone-pages" className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1" style={{ top: frame.height * scale + CAPTION_ROOM }}>
           <IconButton label={t('canvas.docPrevPage')} variant="quiet" disabled={shown === 0} onClick={() => setIndex(Math.max(0, shown - 1))}>
             <Icon name="chevronLeft" size={16} />
           </IconButton>

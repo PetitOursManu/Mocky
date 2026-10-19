@@ -165,7 +165,7 @@ export default function ScreenThemePicker({
             onKeyDown={onMenuKey}
             // Grows out of the chip, from the side it opened on (see `.menu-in`).
             style={{ transformOrigin: placement === 'up' ? 'bottom left' : 'top left' }}
-            className={`menu-in absolute left-0 z-menu w-[34rem] max-w-[calc(100vw-2rem)] border border-line bg-raised p-1 ${
+            className={`menu-in absolute left-0 z-menu w-[34rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-2xl ${
               placement === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
             }`}
           >

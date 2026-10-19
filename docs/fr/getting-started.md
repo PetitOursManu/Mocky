@@ -105,16 +105,18 @@ Qui devient l’administrateur de l’instance ?
 
 Le [[composeur|composer]], où l’on décrit un écran :
 
-:::hotspots src=../assets/ui/fr/composer.webp alt="Le composeur : formats, type d’écran, les trois interrupteurs, la demande, Améliorer et Générer"
-- 38.9,84.7 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
-- 51.3,84.7 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
-- 33.7,89.4 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
-- 43.9,89.4 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
-- 52.3,89.4 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
-- 64.8,89.4 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
-- 45.5,94.3 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
-- 65.4,94.6 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
-- 69.9,94.6 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+:::hotspots src=../assets/ui/fr/composer.webp alt="L’atelier de création : format, type d’écran, la demande, les options, Améliorer, Générer, Créer aussi et l’historique récent"
+- 50,50 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 50,50 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 50,50 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 50,50 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 50,50 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 50,50 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 50,50 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 50,50 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 50,50 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+- 50,50 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
+- 50,50 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
 :::
 
 Un projet garde **une seule** [[direction de design|direction]], pour que ses écrans aient
@@ -143,13 +145,14 @@ vous avez sélectionné. Les deux sont dans
 
 L’accueil après une première génération :
 
-:::hotspots src=../assets/ui/fr/home.webp alt="La page des projets : le projet à la une, les dossiers, Nouveau dossier et Nouveau projet"
-- 73.3,2.9 **Navigation**: La même sur toutes les pages.
-- 91.2,2.9 **Thème**: Papier ou Encre, retenu par le navigateur.
-- 95.6,2.9 **Compte**: Connecté : vos projets vous suivent d’un appareil à l’autre.
-- 93.2,15.9 **Nouveau projet**: Un canevas vide, nommé d’après sa première demande.
-- 82.1,15.9 **Nouveau dossier**: Les dossiers sont des noms posés sur les projets ; glissez ou classez un projet pour en remplir un.
-- 12.5,28.7 **Le projet à la une**: Le plus récent, avec ses écrans. `Ouvrir` y entre ; les autres sont listés dessous, par dossier.
+:::hotspots src=../assets/ui/fr/home.webp alt="La page des projets : le dernier projet, les cartes des projets, Nouveau dossier et Nouveau projet"
+- 50,50 **Navigation**: La même sur toutes les pages.
+- 50,50 **Thème**: Encre (sombre, le défaut) ou Papier, retenu par le navigateur.
+- 50,50 **Compte**: Connecté : vos projets vous suivent d’un appareil à l’autre.
+- 50,50 **Nouveau projet**: Une toile vide, nommée d’après sa première demande.
+- 50,50 **Nouveau dossier**: Les dossiers sont des noms posés sur les projets ; classez un projet pour en remplir un.
+- 50,50 **Le dernier projet**: Le dernier touché, en grande carte avec son image et sa demande. `Ouvrir` y entre.
+- 50,50 **Une carte de projet**: Chacun des autres projets, avec son image, sa demande, ses écrans et son âge ; classez-le ou supprimez-le d’ici.
 :::
 
 ### Les règles de compte

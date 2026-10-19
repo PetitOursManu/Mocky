@@ -143,7 +143,8 @@ export default function DocumentInHand({
             <path d={hand.fill} fill={PAPER} stroke="none" />
             <path d={hand.outer} stroke={INK} strokeWidth={1.5} {...hairline} />
             <path d={hand.inner} stroke={INK} strokeWidth={1.5} {...hairline} />
-            <path d={hand.thumb} stroke={INK} strokeWidth={1.5} {...hairline} />
+            {/* data-doc: the documentation's screenshots point at the thumb. */}
+            <path data-doc="hand-thumb" d={hand.thumb} stroke={INK} strokeWidth={1.5} {...hairline} />
             <path d={hand.thenar} stroke={INK} strokeWidth={1.5} {...hairline} />
             <path d={hand.thumbSide} stroke={INK} strokeWidth={1.25} {...hairline} />
             <path d={hand.fingerTip} stroke={INK} strokeWidth={1.25} {...hairline} />
