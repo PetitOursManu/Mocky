@@ -42,10 +42,10 @@ the file contains, and where a fillable field lands in it.
 :::
 
 :::hotspots src=assets/ui/types.webp alt="The Screen type menu: documents, social media and screens"
-- 50,5.4 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
-- 25.7,29.4 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
-- 25.7,86.2 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
-- 25.7,115.8 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
+- 50,3.6 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
+- 50,19.1 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
+- 50,91.6 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
+- 50,123.9 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
 :::
 
 The type stays armed after the generation, and a project opens on the type and
@@ -227,12 +227,12 @@ A document's frame carries a `Download` pill, and the screen context menu a
 `Download…` item. Both open `Download the document`, with five buttons:
 
 :::hotspots src=assets/ui/download.webp alt="Download the document: PDF, PowerPoint / Google Slides / Canva, PNG images, PSD, SVG"
-- 50,13.7 **The format**: The page format the document was laid out in. The file downloads directly — no print dialog.
-- 50,22.6 **PDF**: To print or send. Text stays selectable; every field becomes a real form field.
-- 50,39.3 **PowerPoint / Google Slides / Canva**: To keep editing: every text an editable box, every picture in a shape a frame. Import it into Canva, or open it in Google Slides from Drive.
-- 50,57.3 **PNG images**: To post: one image per page, in a `.zip` when there are several. A social post comes out at its exact pixels.
-- 50,72.4 **PSD**: For Photoshop or Photopea: the page as one layer, every picture in a shape as a layer of its own.
-- 50,87.5 **SVG**: For Figma, Illustrator or Inkscape: every picture in a shape is a named mask holding it.
+- 50,12.3 **The format**: The page format the document was laid out in. The file downloads directly — no print dialog.
+- 52.9,19.8 **PDF**: To print or send. Text stays selectable; every field becomes a real form field.
+- 52.9,35.2 **PowerPoint / Google Slides / Canva**: To keep editing: every text an editable box, every picture in a shape a frame. Import it into Canva, or open it in Google Slides from Drive.
+- 52.9,55.9 **PNG images**: To post: one image per page, in a `.zip` when there are several. A social post comes out at its exact pixels.
+- 52.9,69.7 **PSD**: For Photoshop or Photopea: the page as one layer, every picture in a shape as a layer of its own.
+- 52.9,86.1 **SVG**: For Figma, Illustrator or Inkscape: every picture in a shape is a named mask holding it.
 :::
 
 | Button | What you get | For |
@@ -287,14 +287,14 @@ edge, Mocky says so — a notice names the document and the page — because on
 paper that content is simply cut.
 
 :::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
-- 50,50 **Edit with a message**: Selects the document and puts the cursor in the composer.
-- 50,50 **Polish**: Checks the design against named rules and corrects what it finds.
-- 50,50 **Regenerate a variant**: The same prompt again, for a different design.
-- 50,50 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
-- 50,50 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides / Canva, PNG images, PSD or SVG — and the `.tsx`.
-- 50,50 **Share**: A temporary public link and a QR code.
-- 50,50 **Notes**: Private notes on this screen, never sent to a model.
-- 50,50 **Delete screen**: One confirmation, and it is gone.
+- 50,4.4 **Edit with a message**: Selects the document and puts the cursor in the composer.
+- 50,10.6 **Polish**: Checks the design against named rules and corrects what it finds.
+- 50,16.7 **Regenerate a variant**: The same prompt again, for a different design.
+- 50,35.1 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
+- 50,43 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides / Canva, PNG images, PSD or SVG — and the `.tsx`.
+- 50,49.1 **Share**: A temporary public link and a QR code.
+- 50,69.3 **Notes**: Private notes on this screen, never sent to a model.
+- 50,95.6 **Delete screen**: One confirmation, and it is gone.
 :::
 
 **Right-click the document → `Fit to page`** asks the model to win the space
@@ -387,19 +387,19 @@ With `Device` on, the demo shows a document the way it will be seen:
 A flyer, held:
 
 :::hotspots src=assets/ui/demo-hand.webp alt="Demo mode: a flyer held in a hand"
-- 23.2,3.1 **Device**: On for a printed document: it is held in a hand, drawn in the same line as the devices.
-- 17.4,26 **The page**: The real document, one page at a time; a pager appears under it when there are several.
-- 66.1,82 **The hand**: Only the thumb lies on the sheet, along its edge; the rest of the page stays clickable.
+- 23.9,3.5 **Device**: On for a printed document: it is held in a hand, drawn in the same line as the devices.
+- 44,46.5 **The page**: The real document, one page at a time; a pager appears under it when there are several.
+- 58.8,63.6 **The hand**: Only the thumb lies on the sheet, along its edge; the rest of the page stays clickable.
 - 50,95.3 **Caption**: The page format.
 :::
 
 A carousel, in its feed:
 
 :::hotspots src=assets/ui/demo-phone.webp alt="Demo mode: an Instagram carousel on a phone, in its feed"
-- 10.7,12.4 **Author row**: The feed drawn around the post: generic, in the phone’s ink — no logo, no copied interface.
-- 17.4,24.9 **The post**: At the full width of the screen, where the platform puts it.
-- 27.1,16.2 **Carousel counter**: The page shown and the carousel’s length.
-- 8,38.4 **Actions and caption**: Under the picture on Instagram; above it on Facebook and LinkedIn.
+- 40.7,23.1 **Author row**: The feed drawn around the post: generic, in the phone’s ink — no logo, no copied interface.
+- 50,43.2 **The post**: At the full width of the screen, where the platform puts it.
+- 59,27.7 **Carousel counter**: The page shown and the carousel’s length.
+- 40.4,62.9 **Actions and caption**: Under the picture on Instagram; above it on Facebook and LinkedIn.
 - 50,94.7 **Pages**: Turns the carousel’s pages. A story fills the screen instead.
 :::
 

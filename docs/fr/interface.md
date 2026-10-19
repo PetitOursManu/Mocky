@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 9326ecb95389
+source_hash: 7358d62a3062
 ---
 
 # L’interface
@@ -191,15 +191,15 @@ ce qui suit `Modifier` se replie dans `Plus`, et la rangée défile d’elle-mê
 plutôt que de pousser la page de côté.
 
 :::hotspots src=../assets/ui/fr/toolbar.webp alt="Les outils du projet, dans la barre du haut"
-- 50,50 **Sélectionner**: Aucun mode : un clic sélectionne un écran. Coupe le mode qui était actif.
-- 50,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
-- 50,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
-- 50,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
-- 50,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
-- 50,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](interface.md#le-mode-demo).
-- 50,50 **Partager**: Un lien vers l’écran sélectionné, ou le projet envoyé en validation.
-- 50,50 **Exporter**: Le projet exécutable en `.zip`, l’écran sélectionné, les médias.
-- 50,50 **Inspecteur**: Affiche ou masque la colonne des panneaux, à droite.
+- 4.4,50 **Sélectionner**: Aucun mode : un clic sélectionne un écran. Coupe le mode qui était actif.
+- 10.3,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
+- 16.2,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
+- 22.2,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
+- 28.1,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
+- 42.6,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](interface.md#le-mode-demo).
+- 60.8,50 **Partager**: Un lien vers l’écran sélectionné, ou le projet envoyé en validation.
+- 82,50 **Exporter**: Le projet exécutable en `.zip`, l’écran sélectionné, les médias.
+- 96.2,50 **Inspecteur**: Affiche ou masque la colonne des panneaux, à droite.
 :::
 
 ### Les trois qui ne se replient jamais
@@ -264,12 +264,12 @@ composeur, qui est opaque — et c’est ainsi que le seul contrôle de zoom du
 produit était devenu invisible sur un portable.
 
 :::hotspots src=../assets/ui/fr/zoombar.webp alt="La barre de zoom"
-- 7.7,50 **Dézoomer**: Autour du centre de la vue. `Ctrl/⌘ + molette` fait de même.
-- 37.2,50 **Zoomer**: Autour du centre de la vue.
-- 54.4,50 **Tout afficher**: Cadre tous les écrans, et continue tant que vous ne bougez pas la vue.
-- 67,50 **Dernier écran**: Cadre l’écran le plus récent.
-- 79.6,50 **Réorganiser**: Range le plateau selon la taille réelle de chaque écran.
-- 92.3,50 **Câbles**: Montre ou masque les câbles entre les écrans hors du mode liens.
+- 8.6,50 **Dézoomer**: Autour du centre de la vue. `Ctrl/⌘ + molette` fait de même.
+- 8.6,50 **Zoomer**: Autour du centre de la vue.
+- 54.3,50 **Tout afficher**: Cadre tous les écrans, et continue tant que vous ne bougez pas la vue.
+- 66.7,50 **Dernier écran**: Cadre l’écran le plus récent.
+- 79,50 **Réorganiser**: Range le plateau selon la taille réelle de chaque écran.
+- 91.4,50 **Câbles**: Montre ou masque les câbles entre les écrans hors du mode liens.
 :::
 
 | | Contrôle | Ce qu’il fait | Coût |
@@ -440,14 +440,14 @@ second panneau à côté du menu, au survol, au clic ou avec `→`.
 Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 
 :::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
-- 50,50 **Modifier par message**: Sélectionne le document et place le curseur dans le composeur.
-- 50,50 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
-- 50,50 **Régénérer une variante**: La même demande à nouveau, pour un autre design.
-- 50,50 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
-- 50,50 **Exporter ›**: `Télécharger…` — PDF à champs remplissables, PowerPoint / Google Slides, ou images PNG — et le `.tsx`.
-- 50,50 **Partager**: Un lien public temporaire et un QR code.
-- 50,50 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
-- 50,50 **Supprimer l’écran**: Une confirmation, et il disparaît.
+- 50,4.4 **Modifier par message**: Sélectionne le document et place le curseur dans le composeur.
+- 50,10.6 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
+- 50,16.7 **Régénérer une variante**: La même demande à nouveau, pour un autre design.
+- 50,35.1 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
+- 50,43 **Exporter ›**: `Télécharger…` — PDF à champs remplissables, PowerPoint / Google Slides, ou images PNG — et le `.tsx`.
+- 50,49.1 **Partager**: Un lien public temporaire et un QR code.
+- 50,69.3 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
+- 50,95.6 **Supprimer l’écran**: Une confirmation, et il disparaît.
 :::
 
 | | Entrée | Ce qu’elle fait | Coût |
@@ -508,26 +508,26 @@ La colonne de création à gauche à partir de `md` (voir [l’espace de travail
 selon ce qui est sélectionné.
 
 :::hotspots src=../assets/ui/fr/composer.webp alt="L’atelier de création : format, type d’écran, la demande, les options, Améliorer, Générer, Créer aussi et l’historique récent"
-- 50,50 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
-- 50,50 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
-- 50,50 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
-- 50,50 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
-- 50,50 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
-- 50,50 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
-- 50,50 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
-- 50,50 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
-- 50,50 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
-- 50,50 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
-- 50,50 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
+- 11.9,13.5 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 26.6,22.1 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 49.8,32.1 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 29.5,42.9 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 74.7,42.9 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 23.3,47.5 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 29.5,52 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 21.2,57.8 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 78.8,57.8 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+- 49.8,68.2 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
+- 49.8,76.3 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
 :::
 
 `Type d’écran` ouvre ce menu — un [[type d’écran|screen-type]] pour un écran, ou un [[document|document]] :
 
 :::hotspots src=../assets/ui/fr/types.webp alt="Le menu Type d’écran : documents, réseaux sociaux et écrans"
-- 50,5.2 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
-- 25.7,31.8 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
-- 25.7,89.7 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
-- 25.7,119.7 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
+- 50,3.6 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
+- 50,19.1 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
+- 50,98 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
+- 50,130.4 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
 :::
 
 ### Les options sous le champ
@@ -828,12 +828,12 @@ pendant que vous passez de l’un à l’autre : `Données (N)` les montre,
 écran et des données enregistrés (`+` enregistre l’état actuel).
 
 :::hotspots src=../assets/ui/fr/demo-device.webp alt="Le mode démo : un écran montré dans un ordinateur dessiné au trait"
-- 5.6,3.1 **Quitter la démo**: Retour au canevas. `Échap` fait de même.
-- 4.4,9.7 **Retour**: L’écran précédent du parcours suivi.
-- 21.5,3.1 **Recommencer**: Retour au premier écran.
-- 29.7,3.1 **Appareil**: Le cadre dessiné au trait : un ordinateur, une tablette ou un téléphone selon la taille de l’écran ; une main pour un document imprimé, un fil de téléphone pour un post.
-- 46.1,3.1 **Changer d’écran**: Précédent, la liste de tous les écrans, suivant — ou ← →. Chaque pas compte comme un lien suivi.
-- 17.4,26 **L’écran**: Vivant et cliquable : les éléments liés mènent à leurs écrans.
+- 5.6,3.5 **Quitter la démo**: Retour au canevas. `Échap` fait de même.
+- 13.9,3.5 **Retour**: L’écran précédent du parcours suivi.
+- 22,3.5 **Recommencer**: Retour au premier écran.
+- 30.4,3.5 **Appareil**: Le cadre dessiné au trait : un ordinateur, une tablette ou un téléphone selon la taille de l’écran ; une main pour un document imprimé, un fil de téléphone pour un post.
+- 45.9,3.5 **Changer d’écran**: Précédent, la liste de tous les écrans, suivant — ou ← →. Chaque pas compte comme un lien suivi.
+- 50,47.4 **L’écran**: Vivant et cliquable : les éléments liés mènent à leurs écrans.
 - 50,95.3 **Légende**: La taille pour laquelle l’écran a été conçu, et l’appareil qui lui a été donné.
 :::
 

@@ -11,11 +11,6 @@ on:
         description: 'Only these captures, comma-separated (canvas,home,…). Empty: all of them.'
         required: false
         default: ''
-  # TEMPORARY — lets the script be brought up from its branch (a manual trigger
-  # only exists once the workflow is on main). Removed when it runs clean.
-  push:
-    branches: [refonte/phase-1-theme]
-    paths: ['scripts/capture-docs.mjs', 'scripts/capture-docs/**', '.github/workflows/docs-captures.yml']
 
 permissions:
   contents: read

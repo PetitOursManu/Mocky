@@ -13,16 +13,16 @@ were made. They assume you know React and TypeScript.
 A project, open. Click the numbers to see what each part is:
 
 :::hotspots src=assets/ui/canvas.webp alt="A project: the top bar, the creation workshop, screens linked by cables, the inspector and the zoom bar"
-- 50,50 **Canvas tools**: Select, link, interact, modify, annotate — what a click on a screen does. See [The interface](interface.md#the-project-workspace).
-- 50,50 **Share**: A link to one screen, or the whole project sent to a client for approval.
-- 50,50 **Export**: Every way out: the runnable project as a `.zip`, the selected screen as PNG, PowerPoint or `.tsx`, and the media.
-- 50,50 **The creation workshop**: The composer, as a column: describe a screen, choose its format and options, generate. With screens selected, it edits them.
-- 50,50 **A generated screen**: A real React + Tailwind component, rendered live. Double-click to use it, right-click for its menu.
-- 50,50 **A document**: A flyer, a report, a post: fixed pages. Its `Download` pill gives a PDF, a `.pptx` or PNG images.
-- 50,50 **Floating tools**: For the one selected screen: edit, polish, regenerate, share, export, and its whole menu under `⋯`.
-- 50,50 **The inspector**: Style, versions and audit — and approval, campaign and links — as tabs of one column.
-- 50,50 **Zoom bar**: Zoom, `Fit all`, the latest screen, `Arrange`, and the switch that shows or hides the cables.
-- 50,50 **Generate**: Creates the screen. With screens selected, it reads `Update` and edits them instead.
+- 62.1,3.2 **Canvas tools**: Select, link, interact, modify, annotate — what a click on a screen does. See [The interface](interface.md#the-project-workspace).
+- 79.2,3.2 **Share**: A link to one screen, or the whole project sent to a client for approval.
+- 86.6,3.2 **Export**: Every way out: the runnable project as a `.zip`, the selected screen as PNG, PowerPoint or `.tsx`, and the media.
+- 10.4,9.2 **The creation workshop**: The composer, as a column: describe a screen, choose its format and options, generate. With screens selected, it edits them.
+- 37.7,41 **A generated screen**: A real React + Tailwind component, rendered live. Double-click to use it, right-click for its menu.
+- 30.8,65.9 **A document**: A flyer, a report, a post: fixed pages. Its `Download` pill gives a PDF, a `.pptx` or PNG images.
+- 50,15.1 **Floating tools**: For the one selected screen: edit, polish, regenerate, share, export, and its whole menu under `⋯`.
+- 89.6,53.4 **The inspector**: Style, versions and audit — and approval, campaign and links — as tabs of one column.
+- 31.8,96.1 **Zoom bar**: Zoom, `Fit all`, the latest screen, `Arrange`, and the switch that shows or hides the cables.
+- 16.5,44.2 **Generate**: Creates the screen. With screens selected, it reads `Update` and edits them instead.
 :::
 
 ---

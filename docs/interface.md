@@ -179,15 +179,15 @@ keep it on screen: labels fold away below `md`, everything past `Modify` folds
 into `More`, and the row scrolls itself rather than pushing the page sideways.
 
 :::hotspots src=assets/ui/toolbar.webp alt="The project’s tools, in the top bar"
-- 50,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
-- 50,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
-- 50,50 **Interact**: Every preview becomes clickable at once.
-- 50,50 **Modify**: Click an element and describe a change, or edit its text directly.
-- 50,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
-- 50,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
-- 50,50 **Share**: A link to the selected screen, or the project sent for approval.
-- 50,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
-- 50,50 **Inspector**: Shows or hides the column of panels on the right.
+- 4.6,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
+- 10.9,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
+- 17.1,50 **Interact**: Every preview becomes clickable at once.
+- 23.4,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 29.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
+- 45,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
+- 62.5,50 **Share**: A link to the selected screen, or the project sent for approval.
+- 82.2,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
+- 95.9,50 **Inspector**: Shows or hides the column of panels on the right.
 :::
 
 ### The three that never fold
@@ -251,12 +251,12 @@ behind the composer, which is opaque — which is how the only zoom control in
 the product came to be invisible on a laptop.
 
 :::hotspots src=assets/ui/zoombar.webp alt="The zoom bar"
-- 7.7,50 **Zoom out**: Around the centre of the view. `Ctrl/⌘ + wheel` does the same.
-- 37.2,50 **Zoom in**: Around the centre of the view.
-- 54.4,50 **Fit all**: Frames every screen, and keeps doing so until you move the view.
-- 67,50 **Latest screen**: Frames the most recent screen.
-- 79.6,50 **Arrange**: Repacks the board by each screen’s real size.
-- 92.3,50 **Cables**: Shows or hides the cables between screens outside link mode.
+- 8.6,50 **Zoom out**: Around the centre of the view. `Ctrl/⌘ + wheel` does the same.
+- 37.5,50 **Zoom in**: Around the centre of the view.
+- 54.3,50 **Fit all**: Frames every screen, and keeps doing so until you move the view.
+- 66.7,50 **Latest screen**: Frames the most recent screen.
+- 79,50 **Arrange**: Repacks the board by each screen’s real size.
+- 91.4,50 **Cables**: Shows or hides the cables between screens outside link mode.
 :::
 
 | | Control | What it does | Cost |
@@ -415,14 +415,14 @@ versions, display format, DESIGN.md, code) — then `Delete screen`. An item wit
 The menu of a document, which opens on its own two items:
 
 :::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
-- 50,50 **Edit with a message**: Selects the document and puts the cursor in the composer.
-- 50,50 **Polish**: Checks the design against named rules and corrects what it finds.
-- 50,50 **Regenerate a variant**: The same prompt again, for a different design.
-- 50,50 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
-- 50,50 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides, or PNG images — and the `.tsx`.
-- 50,50 **Share**: A temporary public link and a QR code.
-- 50,50 **Notes**: Private notes on this screen, never sent to a model.
-- 50,50 **Delete screen**: One confirmation, and it is gone.
+- 50,4.4 **Edit with a message**: Selects the document and puts the cursor in the composer.
+- 50,10.6 **Polish**: Checks the design against named rules and corrects what it finds.
+- 50,16.7 **Regenerate a variant**: The same prompt again, for a different design.
+- 50,35.1 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
+- 50,43 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides, or PNG images — and the `.tsx`.
+- 50,49.1 **Share**: A temporary public link and a QR code.
+- 50,69.3 **Notes**: Private notes on this screen, never sent to a model.
+- 50,95.6 **Delete screen**: One confirmation, and it is gone.
 :::
 
 | | Item | What it does | Cost |
@@ -480,26 +480,26 @@ The creation column on the left from `md` (see [the workspace](#the-project-work
 changes verb depending on what is selected.
 
 :::hotspots src=assets/ui/composer.webp alt="The creation workshop: format, screen type, the prompt, the options, Improve, Generate, Also make and the recent history"
-- 50,50 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
-- 50,50 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
-- 50,50 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 50,50 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 50,50 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 50,50 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 50,50 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 50,50 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 50,50 **Generate**: Creates the screen — or `Update` when screens are selected.
-- 50,50 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
-- 50,50 **Recent history**: The screens made last; click one to frame it on the canvas.
+- 11.9,14.5 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 25.7,19.2 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 49.8,29.2 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 25.2,40.1 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 66,40.1 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 23.3,44.6 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 28,49.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 19.6,55 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 77.7,55 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 49.8,68.2 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 49.8,76.3 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
 `Screen type` opens this menu — a [[screen type|screen-type]] for a screen, or a [[document|document]]:
 
 :::hotspots src=assets/ui/types.webp alt="The Screen type menu: documents, social media and screens"
-- 50,5.4 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
-- 25.7,29.4 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
-- 25.7,86.2 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
-- 25.7,115.8 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
+- 50,3.6 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
+- 50,19.1 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
+- 50,91.6 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
+- 50,123.9 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
 :::
 
 ### The options under the field
@@ -788,12 +788,12 @@ signed-in user, the cart, the forms sent — while you move between them:
 on a recorded screen with recorded data (`+` records the current state).
 
 :::hotspots src=assets/ui/demo-device.webp alt="Demo mode: a screen shown in a line-drawn laptop"
-- 4.4,3.1 **Exit demo**: Back to the canvas. `Esc` does the same.
-- 3.9,9.7 **Back**: The previous screen of the path you followed.
-- 16.9,3.1 **Restart**: Back to the first screen.
-- 23.2,3.1 **Device**: The line-drawn frame: a computer, a tablet or a phone by the screen’s size; a hand for a printed document, a phone feed for a post.
-- 38.8,3.1 **Screen switcher**: Previous, a list of every screen, next — or ← →. Each step counts as a followed link.
-- 17.4,26 **The screen**: Live and clickable: the linked elements take you to their screens.
+- 4.5,3.5 **Exit demo**: Back to the canvas. `Esc` does the same.
+- 11.2,3.5 **Back**: The previous screen of the path you followed.
+- 17.3,3.5 **Restart**: Back to the first screen.
+- 23.9,3.5 **Device**: The line-drawn frame: a computer, a tablet or a phone by the screen’s size; a hand for a printed document, a phone feed for a post.
+- 38.3,3.5 **Screen switcher**: Previous, a list of every screen, next — or ← →. Each step counts as a followed link.
+- 50,47.4 **The screen**: Live and clickable: the linked elements take you to their screens.
 - 50,95.3 **Caption**: The size the screen was designed at, and the device it was given.
 :::
 
