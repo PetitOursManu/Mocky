@@ -139,7 +139,11 @@ export function OptionTile({
   onClick: () => void
   title?: string
   sweep?: boolean
-  /** Settings shown under the sentence once the option is on (Motion Ultra's). */
+  /**
+   * Settings shown once the option is on (Motion Ultra's), IN PLACE of the
+   * sentence: appended under it they made the tile taller, and a taller tile
+   * could give the page a scrollbar that narrowed the whole composer.
+   */
   children?: ReactNode
 }) {
   return (
@@ -152,9 +156,38 @@ export function OptionTile({
         <span className={`text-body-sm font-semibold ${on ? 'text-ink' : 'text-ink-muted'}`}>
           <span className={sweep && !on ? 'muse-sweep' : undefined}>{label}</span>
         </span>
-        <span className="text-caption leading-snug text-ink-faint">{hint}</span>
+        {!children && <span className="text-caption leading-snug text-ink-faint">{hint}</span>}
       </button>
       {children}
+    </div>
+  )
+}
+
+/**
+ * A tile whose control is a choice of several values (where pictures come
+ * from): the same head as every other tile — icon, name, sentence — and the
+ * choice at its foot. It held the control alone at first, with the tile's
+ * remaining height empty under it.
+ */
+export function OptionTileChoice({
+  icon,
+  label,
+  hint,
+  lit = false,
+  children,
+}: {
+  icon: IconName
+  label: string
+  hint: string
+  lit?: boolean
+  children: ReactNode
+}) {
+  return (
+    <div className={`${OPTION_TILE} ${lit ? 'border-accent/40 bg-accent/5' : 'border-line bg-raised/40'}`}>
+      <Icon name={icon} size={18} className={lit ? 'text-accent-ink' : 'text-ink-faint'} />
+      <span className={`text-body-sm font-semibold ${lit ? 'text-ink' : 'text-ink-muted'}`}>{label}</span>
+      <span className="text-caption leading-snug text-ink-faint">{hint}</span>
+      <div className="mt-auto pt-1">{children}</div>
     </div>
   )
 }

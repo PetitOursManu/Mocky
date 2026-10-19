@@ -21,7 +21,7 @@ import type { ScreenThemeId } from '../lib/screenThemes'
 import type { PageFormatId } from '../lib/pageFormats'
 import type { FoldId } from '../lib/folds'
 import FoldControl from './FoldControl'
-import { OPTION_TILE, OptionTile, OptionTileAction } from './ComposerOptions'
+import { OPTION_TILE, OptionTile, OptionTileAction, OptionTileChoice } from './ComposerOptions'
 
 type Props = {
   prompt: string
@@ -197,6 +197,11 @@ export default function Welcome({
   }
 
   return (
+    // Its own scroll area, with the scrollbar's room kept whether it shows or
+    // not (`scrollbar-gutter: stable`): turning an option on makes the page a
+    // little taller, and a scrollbar appearing then narrowed the whole composer
+    // by its width.
+    <div className="h-full overflow-y-auto [scrollbar-gutter:stable]">
     <div className="flex min-h-full items-center justify-center px-6 py-10">
       {/* max-w-4xl: the tiles under the field want one row of five or six,
           and the field itself reads no worse wider. */}
@@ -335,25 +340,22 @@ export default function Welcome({
             {/* A document decides its picture here, and it is never hidden:
                 it is the one choice that may cost a paid generation. */}
             {(pageFormat || imageChoiceAvailable) && (
-              <div className={`${OPTION_TILE} border-line bg-raised/40`}>
+              <OptionTileChoice
+                icon="image"
+                label={t(pageFormat ? 'project.docImage' : 'project.imageSource')}
+                hint={t('workspace.hintImages')}
+              >
                 {pageFormat ? (
                   <DocumentImageControl
                     value={documentImage.value}
                     choices={documentImage.choices}
                     onChange={documentImage.onChange}
-                    size={18}
-                    className="flex flex-col items-start gap-2 text-body-sm font-semibold"
+                    bare
                   />
                 ) : (
-                  <ImageSourceControl
-                    value={imageChoice}
-                    choices={imageChoices}
-                    onChange={onImageChoice}
-                    size={18}
-                    className="flex flex-col items-start gap-2 text-body-sm font-semibold"
-                  />
+                  <ImageSourceControl value={imageChoice} choices={imageChoices} onChange={onImageChoice} bare />
                 )}
-              </div>
+              </OptionTileChoice>
             )}
             <SiteAttachButton
               onFiles={onAddSiteFiles}
@@ -496,6 +498,7 @@ export default function Welcome({
           </Banner>
         )}
       </div>
+    </div>
     </div>
   )
 }
