@@ -251,10 +251,12 @@ async function run(lang) {
       ],
     })
     await page.keyboard.press('Escape')
-    await page.mouse.click(VIEW.width / 2, VIEW.height / 2)
+    await types.waitFor({ state: 'hidden' })
 
     // ---- one screen selected, everything framed: the canvas --------------------
-    await column.getByRole('button', { name: names['cafe-menu'] }).click()
+    // The history's own entry, by its title: the selection chips name the same
+    // screen, and a click there would deselect it.
+    await column.locator(`button[title="${t('workspace.historyTitle')}"]`).filter({ hasText: names['cafe-menu'] }).click()
     await btn(page, t('canvas.fit')).click()
     await settle(page, 2500)
     const zoomBar = btn(page, t('canvas.zoomIn')).locator('..')
