@@ -9,6 +9,7 @@ import {
   MAIN_BRANCH,
   MAX_CODE_BYTES,
   MAX_VERSIONS_PER_PROJECT,
+  MAX_AUTO_SCREEN_VERSIONS,
 } from './versions.js'
 import { createDiskBudget } from './storage-quota.js'
 
@@ -169,6 +170,54 @@ describe('what a version costs', () => {
     const s = store()
     for (let i = 0; i < MAX_VERSIONS_PER_PROJECT; i++) s.create('u1', project([screen('s1', 'A')], { label: String(i) }))
     expect(() => s.create('u1', project([screen('s1', 'A')]))).toThrow(/Delete some/)
+  })
+})
+
+describe('automatic screen versions', () => {
+  // Taken by the browser every time a screen's code settles after a change.
+  const auto = (id, code) => ({ projectId: 'p1', scope: 'screen', kind: 'auto', screenId: id, screens: [screen(id, code)] })
+
+  it('keeps the newest of one screen and drops the oldest, blobs included', () => {
+    const s = store()
+    for (let i = 0; i < MAX_AUTO_SCREEN_VERSIONS + 5; i++) s.create('u1', auto('s1', `code ${i}`))
+    const kept = s.list('u1', 'p1')
+    expect(kept).toHaveLength(MAX_AUTO_SCREEN_VERSIONS)
+    // Newest first: the last five saves are there, the first five are gone.
+    expect(s.get('u1', kept[0].id).screens[0].code).toBe(`code ${MAX_AUTO_SCREEN_VERSIONS + 4}`)
+    expect(s.get('u1', kept.at(-1).id).screens[0].code).toBe('code 5')
+    expect(blobCount()).toBe(MAX_AUTO_SCREEN_VERSIONS)
+  })
+
+  it('counts each screen apart, and never drops a version saved by hand', () => {
+    const s = store()
+    const manual = s.create('u1', { ...auto('s1', 'kept by hand'), kind: 'manual', label: 'Mine' }).version
+    for (let i = 0; i < MAX_AUTO_SCREEN_VERSIONS + 3; i++) {
+      s.create('u1', auto('s1', `a ${i}`))
+      s.create('u1', auto('s2', `b ${i}`))
+    }
+    const all = s.list('u1', 'p1')
+    expect(all.filter((v) => v.screenId === 's1' && v.kind === 'auto')).toHaveLength(MAX_AUTO_SCREEN_VERSIONS)
+    expect(all.filter((v) => v.screenId === 's2' && v.kind === 'auto')).toHaveLength(MAX_AUTO_SCREEN_VERSIONS)
+    expect(all.some((v) => v.id === manual.id)).toBe(true)
+  })
+
+  it('makes room under the project ceiling instead of refusing', () => {
+    const s = store()
+    const perScreen = MAX_AUTO_SCREEN_VERSIONS - 1
+    let n = 0
+    for (let screenNo = 0; n < MAX_VERSIONS_PER_PROJECT; screenNo++) {
+      for (let i = 0; i < perScreen && n < MAX_VERSIONS_PER_PROJECT; i++, n++) s.create('u1', auto(`s${screenNo}`, `c ${screenNo} ${i}`))
+    }
+    expect(() => s.create('u1', auto('fresh', 'new'))).not.toThrow()
+    expect(s.list('u1', 'p1')).toHaveLength(MAX_VERSIONS_PER_PROJECT)
+  })
+
+  it('drops nothing for a save that writes nothing', () => {
+    const s = store()
+    for (let i = 0; i < MAX_AUTO_SCREEN_VERSIONS; i++) s.create('u1', auto('s1', `code ${i}`))
+    const before = s.list('u1', 'p1').map((v) => v.id)
+    expect(s.create('u1', auto('s1', `code ${MAX_AUTO_SCREEN_VERSIONS - 1}`)).unchanged).toBe(true)
+    expect(s.list('u1', 'p1').map((v) => v.id)).toEqual(before)
   })
 })
 

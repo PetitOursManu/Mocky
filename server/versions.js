@@ -62,6 +62,14 @@ export const MAX_DESIGN_BYTES = 128 * 1024
 /** Everything else on a screen — position, links, notes. Notes are the large part. */
 export const MAX_META_BYTES = 256 * 1024
 export const LABEL_MAX = 80
+/**
+ * How many AUTOMATIC versions of one screen are kept, per branch. The browser
+ * takes one each time a screen's code settles after a change (a generation, an
+ * edit, a polish…), so they arrive by the dozen; past this the oldest is
+ * dropped as the newest comes in. A version a person saved by hand is never
+ * dropped this way, and neither is any project version.
+ */
+export const MAX_AUTO_SCREEN_VERSIONS = 30
 export const BRANCH_MAX = 40
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/
@@ -270,7 +278,33 @@ export function createVersionStore(dataDir, { now = () => Date.now(), budget = n
         throw fail('The design is too large to version.', 413)
       }
 
-      const versions = loadIndex(userId)
+      let versions = loadIndex(userId)
+      // An automatic screen version makes its own room: it drops the oldest
+      // automatic screen versions instead of refusing, first of this screen
+      // (MAX_AUTO_SCREEN_VERSIONS), then of the project, then of the account.
+      // Refusing would have turned "every generation is kept" into "every
+      // generation is kept until the 200th, then none and no manual save
+      // either" — the ceilings exist against abuse, not against history.
+      const automatic = kind === 'auto' && scope === 'screen'
+      const prunable = (v) => v.kind === 'auto' && v.scope === 'screen'
+      let pruned = false
+      const dropOldest = (pred) => {
+        const victim = versions.filter((v) => prunable(v) && pred(v)).sort((a, b) => a.createdAt - b.createdAt)[0]
+        if (!victim) return false
+        versions = versions.filter((v) => v !== victim)
+        pruned = true
+        return true
+      }
+      if (automatic) {
+        const sameScreen = (v) => v.projectId === projectId && v.screenId === screenId && v.branch === branch
+        while (versions.filter((v) => prunable(v) && sameScreen(v)).length >= MAX_AUTO_SCREEN_VERSIONS) dropOldest(sameScreen)
+        while (versions.filter((v) => v.projectId === projectId).length >= MAX_VERSIONS_PER_PROJECT) {
+          if (!dropOldest((v) => v.projectId === projectId)) break
+        }
+        while (versions.length >= MAX_VERSIONS_PER_USER) {
+          if (!dropOldest(() => true)) break
+        }
+      }
       const mine = versions.filter((v) => v.projectId === projectId)
       if (mine.length >= MAX_VERSIONS_PER_PROJECT) {
         throw fail(`This project already has ${MAX_VERSIONS_PER_PROJECT} versions. Delete some first.`, 429)
@@ -330,11 +364,13 @@ export function createVersionStore(dataDir, { now = () => Date.now(), budget = n
         const last = versions
           .filter((v) => v.projectId === projectId && v.branch === branch && v.scope === scope && (v.screenId || '') === screenId)
           .sort((a, b) => b.createdAt - a.createdAt)[0]
+        // Nothing is dropped for a save that writes nothing.
         if (last && digest(last) === digest(record)) return { version: summary(last), unchanged: true }
       }
 
       versions.push(record)
       saveIndex(userId, versions)
+      if (pruned) collect(userId, versions)
       return { version: summary(record), unchanged: false }
     },
 

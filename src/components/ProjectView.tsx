@@ -796,6 +796,7 @@ export default function ProjectView({
     t,
     enabled: rightSlot === 'versions' || historyScreenId !== null || compare !== null,
   })
+
   useEffect(() => {
     if (backfilledRef.current === project.id) return
     backfilledRef.current = project.id
@@ -2940,6 +2941,74 @@ export default function ProjectView({
     }
   }
 
+  /*
+   * Every state a screen goes through becomes a version, automatically.
+   *
+   * Versions used to be taken by hand, so after a few generations the panel
+   * held what the person had remembered to save and nothing else. Now each
+   * screen is watched: once its code differs from the last state kept and has
+   * stopped changing (AUTO_VERSION_SETTLE_MS — a generation streams, and no
+   * half-written screen is worth keeping) and no pass is running on it, the
+   * new state is saved as an automatic screen version. The server keeps the
+   * newest MAX_AUTO_SCREEN_VERSIONS of each screen and answers "unchanged" to a
+   * state it already has (server/versions.js).
+   *
+   * A screen already there when the project opens is NOT saved on sight —
+   * opening a project must not cost a request per screen — but the first time
+   * it changes, the state it had is kept first, so the original is never the
+   * one state missing. A screen that appears later (a generation) is new, and
+   * its first state is its first version.
+   */
+  const AUTO_VERSION_SETTLE_MS = 2000
+  const autoVersions = useRef<{ ready: boolean; known: Map<string, { code: string; kept: boolean }> }>({
+    ready: false,
+    known: new Map(),
+  })
+  const autoTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const autoSaveScreen = versions.autoSaveScreen
+  useEffect(() => {
+    const state = autoVersions.current
+    const first = !state.ready
+    state.ready = true
+    for (const s of screens) {
+      if (!s.code.trim()) continue
+      const known = state.known.get(s.id)
+      if (!known) {
+        // Already there when the project opened: remembered, not saved.
+        if (first) {
+          state.known.set(s.id, { code: s.code, kept: false })
+          continue
+        }
+      } else if (known.code === s.code) {
+        continue
+      }
+      if (generatingIds.has(s.id) || regeneratingIds.has(s.id) || fixingIds.has(s.id)) continue
+      const id = s.id
+      const timers = autoTimers.current
+      const pending = timers.get(id)
+      if (pending) clearTimeout(pending)
+      timers.set(
+        id,
+        setTimeout(() => {
+          timers.delete(id)
+          const now = screensRef.current.find((x) => x.id === id)
+          if (!now || !now.code.trim()) return
+          const before = state.known.get(id)
+          if (before && before.code === now.code) return
+          // The state it had when the project opened, kept before it is lost.
+          if (before && !before.kept) void autoSaveScreen(id, t('versions.autoOriginal'), before.code)
+          state.known.set(id, { code: now.code, kept: true })
+          void autoSaveScreen(id, before ? t('versions.autoChanged') : t('versions.autoCreated'))
+        }, AUTO_VERSION_SETTLE_MS),
+      )
+    }
+  }, [screens, generatingIds, regeneratingIds, fixingIds, autoSaveScreen, t])
+  // Pending saves are dropped with the project; the next visit starts afresh.
+  useEffect(() => {
+    const timers = autoTimers.current
+    return () => timers.forEach((h) => clearTimeout(h))
+  }, [])
+
   const editing = selectedScreens.length > 0
 
   // A rewrite is a NEW-screen brief. Selecting a screen mid-stream turns the
@@ -3491,7 +3560,7 @@ export default function ProjectView({
     // Three columns from md — the creation column, the canvas, the inspector —
     // ordered with `order-*` so each block stays where its state lives in this
     // file. Below md the composer and the inspector float over the canvas.
-    <div className="relative flex h-[calc(100vh-57px)]">
+    <div className="relative flex h-full">
       {libraryModal}
       {/*
         The project's tools, in the app's top bar from md — the reference's
@@ -3728,9 +3797,10 @@ export default function ProjectView({
       )}
 
       {/* The bar over the canvas — the reference's tabs. "Toile" is where you
-          are; "Code" opens the selected screen's source, "Versions" the
-          inspector's tab of that name. The right end says whether the work has
-          reached the server, which the top bar only says when it has NOT. */}
+          are; "Code" opens the selected screen's source. (The versions are the
+          inspector's, on its rail: a second door here was one too many.) The
+          right end says whether the work has reached the server, which the top
+          bar only says when it has NOT. */}
       {wide && (
         <div className="absolute inset-x-0 top-0 z-panel flex h-11 items-center gap-1 border-b border-line-soft bg-sunken/80 px-3 backdrop-blur-sm">
           <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-raised px-2 py-1 text-body-sm text-ink">
@@ -3746,18 +3816,6 @@ export default function ProjectView({
           >
             <Icon name="code" size={14} />
             {t('workspace.tabCode')}
-          </button>
-          <button
-            type="button"
-            aria-pressed={showVersions}
-            onClick={() => setRightSlot((s) => toggleSlot(s, 'versions'))}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body-sm transition ${
-              showVersions ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
-            }`}
-          >
-            <Icon name="history" size={14} />
-            {t('versions.toolbar')}
-            <Icon name="chevronDown" size={12} className="opacity-70" />
           </button>
           {/* The iPhone bezel — and only when there is a phone screen to put
               it on. */}

@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 540988947dff
+source_hash: dd73ed3beb9a
 ---
 
 # L’interface
@@ -159,8 +159,7 @@ document), et la médiathèque. Le menu d’un écran garde les mêmes exports s
 `Exporter ›`.
 
 **La barre au-dessus de la toile** — `Toile`, c’est là où vous êtes ; `Code`
-ouvre la source de l’écran sélectionné (un seul écran sélectionné) ; `Versions`
-ouvre l’onglet du même nom dans l’inspecteur. `Cadre` (le contour d’iPhone) s’y
+ouvre la source de l’écran sélectionné (un seul écran sélectionné). `Cadre` (le contour d’iPhone) s’y
 trouve quand le projet a un écran mobile. L’extrémité droite dit si votre
 travail a atteint le serveur — `Toutes les modifications enregistrées`,
 `Enregistrement…`, ou un échec. L’aide de la toile (ce que fait un clic dans le

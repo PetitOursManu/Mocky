@@ -151,8 +151,7 @@ screen (PNG, PowerPoint, `.tsx` — or `Download…` for a document), and the me
 library. A screen's own menu keeps the same exports under `Export ›`.
 
 **The bar over the canvas** — `Canvas` is where you are; `Code` opens the
-selected screen's source (one screen selected); `Versions` opens the inspector's
-tab of that name. `Frame` (the iPhone bezel) sits here when the project has a
+selected screen's source (one screen selected). `Frame` (the iPhone bezel) sits here when the project has a
 phone screen. The right end says whether your work has reached the server — `All
 changes saved`, `Saving…`, or a failure. The canvas' own hint (what a click does
 in the current mode) moves to the bottom-right corner.

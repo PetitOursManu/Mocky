@@ -10,8 +10,9 @@ let you **keep a state on purpose**, look at two states **side by side**, and
 **go back** to any of them. Branches let you try **another direction** on the
 same project without risking the one you had.
 
-Open them with `Versions` in the project toolbar. A screen's own history is in
-its context menu: `Versions of this screen`.
+Open them with the `Versions` icon on the inspector's rail, on the right of a
+project. A screen's own history is in its context menu: `Versions of this
+screen`.
 
 ## Saving a version
 
@@ -28,6 +29,29 @@ a project where one screen changed costs that one screen.
 :::
 
 A screen can also be saved on its own, from `Versions of this screen`.
+
+## Automatic versions of a screen
+
+:::why
+A version taken by hand is a version taken when someone remembers to. After a
+few generations the history held the states a person had thought of saving and
+none of the others, which are usually the ones wanted back.
+:::
+
+Every state a screen goes through is also saved **on its own**: when it is
+created, then each time its code changes — an edit, a polish, a regeneration,
+added animations, a repair. The version is taken once the screen has stopped
+changing for two seconds and no pass is running on it, so a screen still being
+written is never kept half-done. They appear in the `Versions` panel as
+`Screen created` or `Change`, with the screen's name, and can be compared and
+restored like any other.
+
+A screen that was already there when the project opened is not saved on sight;
+the first time it changes, the state it had is kept first, as `Original state`.
+
+The **30 most recent** automatic versions of each screen are kept, per branch;
+past that, the oldest is dropped as the newest comes in. A version you saved by
+hand, and every project version, is never dropped this way.
 
 ## Comparing
 
@@ -97,6 +121,6 @@ main one always exists. The branch you are on cannot be deleted — switch first
 |---|---|
 | Model calls | None. Saving, comparing, restoring and switching never call a model. |
 | Disk | The server's, counted in the instance's storage limit (`MOCKY_MAX_STORAGE_MB`). Identical code is stored once. |
-| Limits | 200 versions per project, 1,500 per account, 80 screens per version. Delete old versions from the history. |
+| Limits | 200 versions per project, 1,500 per account, 80 screens per version. Automatic screen versions make their own room (the oldest goes); for the others, delete old versions from the history. |
 
 Deleting an account deletes its versions.

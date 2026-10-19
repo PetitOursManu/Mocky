@@ -364,7 +364,11 @@ function MockyApp() {
   }
 
   return (
-    <div className="min-h-screen bg-sunken text-ink">
+    // Inside a project the window is the workspace: exactly one screen high,
+    // the area under the bar taking the rest. It was `100vh - 57px` on the
+    // project's side, and any banner or a bar a pixel taller than 57 put a
+    // scrollbar on the whole page.
+    <div className={`${inProject ? 'flex h-screen flex-col overflow-hidden' : 'min-h-screen'} bg-sunken text-ink`}>
       {/* The top bar: the wordmark, the navigation, the account — then it gets
           out of the way. */}
       <header className="rule-double bg-surface">
@@ -654,8 +658,11 @@ function MockyApp() {
         />
       )}
 
-      {route === 'project' &&
-        (activeProject ? (
+      {route === 'project' && (
+        // The rest of the window under the bar. It scrolls only for the first
+        // composer of an empty project; the workspace itself never does.
+        <div className="min-h-0 flex-1 overflow-y-auto">
+        {activeProject ? (
           // Scoped boundary: a project whose data makes ProjectView throw must
           // not take the rest of the app down with it — you can still get back
           // to the other projects.
@@ -697,7 +704,9 @@ function MockyApp() {
               {t('error.backToProjects')}
             </button>
           </div>
-        ))}
+        )}
+        </div>
+      )}
 
       {route === 'design' && (
         <main className="page py-10">

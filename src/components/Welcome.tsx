@@ -189,7 +189,7 @@ export default function Welcome({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-10">
+    <div className="flex min-h-full items-center justify-center px-6 py-10">
       <div className="w-full max-w-2xl">
         <header className="mb-8 text-center">
           <p className="kicker">{t('auth.welcome.kicker')}</p>
