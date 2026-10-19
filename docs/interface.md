@@ -163,8 +163,11 @@ top of the canvas names it and offers what is done to a screen most often:
 variant`, `Share`, an export menu (PNG, PowerPoint, `.tsx`, or `Download…` for a
 document) and `⋯`, which opens the screen's whole menu under it.
 
-Below `md` the workspace folds back: the floating toolbar described next, and the
-composer as a bar at the bottom of the canvas.
+Below `md` the workspace folds back: the floating toolbar described next (a
+full-width bar on a phone, above the strip of screens), and the composer as a
+sheet along the bottom of the canvas. The sheet shows the field and its buttons;
+`Options` unfolds the format and the chips, which otherwise took half of a small
+window. The toolbar's `Export` holds the same rows as the top bar's.
 
 ---
 

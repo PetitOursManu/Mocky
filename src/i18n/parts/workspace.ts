@@ -20,6 +20,7 @@ export const workspace = {
     'workspace.screens_other': '{count} écrans dans ce projet',
     'workspace.editHint': 'Votre message s’applique à la sélection.',
     'workspace.alsoMake': 'Créer aussi',
+    'workspace.options': 'Options',
     'workspace.history': 'Historique récent',
     'workspace.historyTitle': 'Afficher cet écran sur la toile',
 
@@ -68,6 +69,7 @@ export const workspace = {
     'workspace.screens_other': '{count} screens in this project',
     'workspace.editHint': 'Your message applies to the selection.',
     'workspace.alsoMake': 'Also make',
+    'workspace.options': 'Options',
     'workspace.history': 'Recent history',
     'workspace.historyTitle': 'Show this screen on the canvas',
 

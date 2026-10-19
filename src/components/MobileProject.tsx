@@ -100,7 +100,7 @@ export default function MobileProject({
                 type="button"
                 onClick={() => onSelectionChange([s.id])}
                 aria-current={on ? 'true' : undefined}
-                className={`tap-target flex shrink-0 items-center gap-2 border px-3 py-2 text-body-sm transition ${
+                className={`tap-target flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-body-sm transition ${
                   on ? 'border-accent bg-accent/10 text-accent-ink' : 'border-line-soft text-ink-muted'
                 }`}
               >
@@ -166,7 +166,7 @@ export default function MobileProject({
         )}
 
         {active && regenLabel && (regeneratingIds?.has(active.id) || fixingIds?.has(active.id)) && (
-          <span className="absolute left-1/2 top-3 -translate-x-1/2 border border-line bg-raised px-2 py-1 text-caption text-ink-muted">
+          <span className="absolute left-1/2 top-3 -translate-x-1/2 rounded-md border border-line bg-raised px-2 py-1 text-caption text-ink-muted">
             {regenLabel}
           </span>
         )}

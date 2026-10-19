@@ -632,6 +632,12 @@ export default function ProjectView({
   }, [linkMode])
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
+  /**
+   * Below md the composer is a sheet over the bottom of the canvas, and its
+   * options (format, the chips) fold away behind one button: open, they took
+   * half a 700px-high window before a single screen could be seen.
+   */
+  const [narrowOptions, setNarrowOptions] = useState(false)
   /** The toolbar's overflow menu below md. See the bar itself for why it exists. */
   const [plusMenu, setPlusMenu] = useState(false)
   const [menu, setMenu] = useState<{ screenId: string; x: number; y: number } | null>(null)
@@ -3390,6 +3396,93 @@ export default function ProjectView({
     },
   }
 
+  /**
+   * Every way something leaves Mocky — the top bar's Export menu, and the same
+   * rows in the floating toolbar's Export below md, so a narrow window loses no
+   * export the wide one has.
+   */
+  const exportItems = (close: () => void) => {
+                const one = selectedScreens.length === 1 ? selectedScreens[0] : null
+                const unexportable =
+                  !one || busy || !one.code.trim() || generatingIds.has(one.id) || regeneratingIds.has(one.id)
+                return (
+                  <>
+                    <BarMenuLabel>{t('workspace.exportProject')}</BarMenuLabel>
+                    {EXPORT_TARGETS.map(([stack, labelKey, hintKey]) => (
+                      <BarMenuItem
+                        key={stack}
+                        icon="code"
+                        label={`${t(labelKey)} (.zip)`}
+                        hint={t(hintKey)}
+                        onClick={() => {
+                          close()
+                          void handleExport(stack)
+                        }}
+                      />
+                    ))}
+                    <BarMenuRule />
+                    <BarMenuLabel>{t('workspace.exportScreen')}</BarMenuLabel>
+                    {!one ? (
+                      <BarMenuItem icon="image" label={t('workspace.exportScreenNeeds')} disabled onClick={() => {}} />
+                    ) : one.page ? (
+                      <BarMenuItem
+                        icon="download"
+                        label={t('project.docDownload')}
+                        hint={one.name}
+                        disabled={unexportable}
+                        onClick={() => {
+                          close()
+                          setDownloadDocId(one.id)
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <BarMenuItem
+                          icon="image"
+                          label={t('project.webExportPng')}
+                          hint={one.name}
+                          disabled={unexportable}
+                          onClick={() => {
+                            close()
+                            void exportWeb(one.id, 'png')
+                          }}
+                        />
+                        <BarMenuItem
+                          icon="download"
+                          label={t('project.webExportPptx')}
+                          disabled={unexportable}
+                          onClick={() => {
+                            close()
+                            void exportWeb(one.id, 'pptx')
+                          }}
+                        />
+                      </>
+                    )}
+                    {one && (
+                      <BarMenuItem
+                        icon="code"
+                        label={t('canvas.download')}
+                        onClick={() => {
+                          close()
+                          downloadTsx(one)
+                        }}
+                      />
+                    )}
+                    <BarMenuRule />
+                    <BarMenuLabel>{t('workspace.exportMedia')}</BarMenuLabel>
+                    <BarMenuItem
+                      icon="library"
+                      label={t('workspace.mediaLibrary')}
+                      onClick={() => {
+                        close()
+                        setLibraryTab('images')
+                        setShowLibrary(true)
+                      }}
+                    />
+                  </>
+                )
+  }
+
   /** The column's recent history: the last screens made, newest first. */
   const recentScreens = [...screens].sort((x, y) => y.createdAt - x.createdAt).slice(0, 4)
 
@@ -3499,87 +3592,7 @@ export default function ProjectView({
 
             {/* Every way something leaves Mocky, in one menu. */}
             <BarMenu label={t('mode.export')} icon="download" variant="primary" title={t('project.exportTitle')}>
-              {(close) => {
-                const one = selectedScreens.length === 1 ? selectedScreens[0] : null
-                const unexportable =
-                  !one || busy || !one.code.trim() || generatingIds.has(one.id) || regeneratingIds.has(one.id)
-                return (
-                  <>
-                    <BarMenuLabel>{t('workspace.exportProject')}</BarMenuLabel>
-                    {EXPORT_TARGETS.map(([stack, labelKey, hintKey]) => (
-                      <BarMenuItem
-                        key={stack}
-                        icon="code"
-                        label={`${t(labelKey)} (.zip)`}
-                        hint={t(hintKey)}
-                        onClick={() => {
-                          close()
-                          void handleExport(stack)
-                        }}
-                      />
-                    ))}
-                    <BarMenuRule />
-                    <BarMenuLabel>{t('workspace.exportScreen')}</BarMenuLabel>
-                    {!one ? (
-                      <BarMenuItem icon="image" label={t('workspace.exportScreenNeeds')} disabled onClick={() => {}} />
-                    ) : one.page ? (
-                      <BarMenuItem
-                        icon="download"
-                        label={t('project.docDownload')}
-                        hint={one.name}
-                        disabled={unexportable}
-                        onClick={() => {
-                          close()
-                          setDownloadDocId(one.id)
-                        }}
-                      />
-                    ) : (
-                      <>
-                        <BarMenuItem
-                          icon="image"
-                          label={t('project.webExportPng')}
-                          hint={one.name}
-                          disabled={unexportable}
-                          onClick={() => {
-                            close()
-                            void exportWeb(one.id, 'png')
-                          }}
-                        />
-                        <BarMenuItem
-                          icon="download"
-                          label={t('project.webExportPptx')}
-                          disabled={unexportable}
-                          onClick={() => {
-                            close()
-                            void exportWeb(one.id, 'pptx')
-                          }}
-                        />
-                      </>
-                    )}
-                    {one && (
-                      <BarMenuItem
-                        icon="code"
-                        label={t('canvas.download')}
-                        onClick={() => {
-                          close()
-                          downloadTsx(one)
-                        }}
-                      />
-                    )}
-                    <BarMenuRule />
-                    <BarMenuLabel>{t('workspace.exportMedia')}</BarMenuLabel>
-                    <BarMenuItem
-                      icon="library"
-                      label={t('workspace.mediaLibrary')}
-                      onClick={() => {
-                        close()
-                        setLibraryTab('images')
-                        setShowLibrary(true)
-                      }}
-                    />
-                  </>
-                )
-              }}
+              {exportItems}
             </BarMenu>
             <IconButton
               label={rightSlot ? t('workspace.inspectorClose') : t('workspace.inspectorOpen')}
@@ -3602,7 +3615,8 @@ export default function ProjectView({
         in this component, so there is exactly one mutation path on every
         device.
       */}
-      <main className="relative order-2 min-w-0 flex-1">
+      {/* 54px = the phone bar: a 44px touch target inside p-1 and its rule. */}
+      <main className={`relative order-2 min-w-0 flex-1 ${phone ? 'pt-[54px]' : ''}`}>
       {phone ? (
         <MobileProject
           screens={screens}
@@ -4117,8 +4131,15 @@ export default function ProjectView({
         3 makes the row a scroll container, and a scroll container clips a menu
         anchored inside it.
       */}
-      <div className="absolute left-4 top-3 z-panel max-w-[calc(100vw-2rem)] md:hidden">
-        <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 shadow-lg">
+      {/* On a phone the bar is a real bar, full width, and MobileProject starts
+          under it (the `pt-` on <main>): floating at top-left it covered the
+          strip of screens, the one control that view has. */}
+      <div className={`${phone ? 'absolute inset-x-0 top-0' : 'absolute left-4 top-3 max-w-[calc(100vw-2rem)]'} z-panel md:hidden`}>
+        <div
+          className={`flex items-center gap-1 overflow-x-auto border-line bg-surface p-1 ${
+            phone ? 'border-b' : 'rounded-lg border shadow-lg'
+          }`}
+        >
           <Button variant="toolbar" size="sm" onClick={leaveProject} title={t('error.backToProjects')}>
             <Icon name="chevronLeft" size={16} />
             {/* Every label on the bar is wrapped, including the ones inside the
@@ -4215,19 +4236,8 @@ export default function ProjectView({
                 the panel opened at x 657–881 on a 390px screen — entirely past
                 the edge, because the button it hangs from is itself pushed to
                 the right of the bar. */}
-            <div className="absolute left-0 top-full z-menu mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-xl md:left-auto md:right-0">
-              <div className="kicker px-2 py-1">{t('project.exportHeading')}</div>
-              {EXPORT_TARGETS.map(([stack, labelKey, hintKey]) => (
-                <button
-                  key={stack}
-                  type="button"
-                  onClick={() => handleExport(stack)}
-                  className="group block w-full rounded-md px-2.5 py-1.5 text-left text-body-sm text-ink transition hover:bg-ink/5"
-                >
-                  <span className="font-medium transition group-hover:text-accent-ink">{t(labelKey)}</span>
-                  <span className="block text-caption text-ink-faint">{t(hintKey)}</span>
-                </button>
-              ))}
+            <div className="absolute left-0 top-full z-menu mt-1 w-max min-w-[16rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-xl">
+              {exportItems(() => setExportMenu(false))}
             </div>
           </>
         )}
@@ -4238,7 +4248,7 @@ export default function ProjectView({
           over it: the canvas keeps its whole height, and the composer stops
           covering the bottom of every screen it is asked to change. Below md
           it is the floating bar it always was. */}
-      <aside className="pointer-events-none absolute inset-x-0 bottom-4 z-panel flex justify-center px-4 md:pointer-events-auto md:static md:order-1 md:w-[300px] md:shrink-0 md:flex-col md:justify-start md:border-r md:border-line-soft md:bg-surface md:px-0">
+      <aside className="pointer-events-none absolute inset-x-0 bottom-0 z-panel flex justify-center md:pointer-events-auto md:static md:order-1 md:w-[300px] md:shrink-0 md:flex-col md:justify-start md:border-r md:border-line-soft md:bg-surface md:px-0">
         <header className="hidden shrink-0 border-b border-line-soft px-4 pb-3 pt-4 md:block">
           <p className="kicker">{t('workspace.atelier')}</p>
           <h2 className="mt-1.5 text-lead font-semibold text-ink">
@@ -4257,7 +4267,7 @@ export default function ProjectView({
         {/* The whole bar takes a dropped screenshot, not only the field: a drop
             aimed at "the composer" lands wherever the pointer happens to be. */}
         <div
-          className={`pointer-events-auto w-full max-w-2xl rounded-2xl border bg-surface p-2 shadow-2xl transition md:min-h-0 md:max-w-none md:flex-1 md:overflow-y-auto md:rounded-none md:border-0 md:bg-transparent md:p-3 md:shadow-none ${
+          className={`pointer-events-auto w-full max-w-2xl rounded-t-2xl border border-b-0 bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl transition md:min-h-0 md:border-b md:max-w-none md:flex-1 md:overflow-y-auto md:rounded-none md:border-0 md:bg-transparent md:p-3 md:shadow-none ${
             siteDragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
           }`}
           {...siteDropHandlers((files) => void addSiteFiles(files), setSiteDragOver)}
@@ -4459,7 +4469,7 @@ export default function ProjectView({
               ABOVE the field as a row of bare capitalised words, and the
               buttons beside it squeezed the field on a narrow window. */}
           {!editing && (
-            <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className={`mb-2 flex-wrap items-center gap-2 md:flex ${narrowOptions ? 'flex' : 'hidden'}`}>
               <span className="kicker">{t('project.format')}</span>
               <PresetPicker
                 value={presetId}
@@ -4523,7 +4533,7 @@ export default function ProjectView({
               — and the screenshots last. Every chip is `.composer-chip`, the
               same box as the first composer's. While EDITING only Muse and the
               screenshots remain: the rest decide what a new screen is. */}
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <div className={`mt-2 flex-wrap items-center gap-1.5 md:flex ${narrowOptions ? 'flex' : 'hidden'}`}>
             {/* One direction per project, and this is the only way to change it
                 from the composer: tick it, and THIS prompt writes the design
                 every following screen will follow. Hidden while editing — an
@@ -4632,6 +4642,18 @@ export default function ProjectView({
 
           {/* The buttons, on a row of their own: the field keeps the width. */}
           <div className="mt-2 flex items-center justify-between gap-2 border-t border-line-soft pt-2">
+            <div className="flex min-w-0 items-center gap-2">
+            {/* The fold of the sheet, below md only. */}
+            <button
+              type="button"
+              aria-expanded={narrowOptions}
+              onClick={() => setNarrowOptions((v) => !v)}
+              className="composer-chip md:hidden"
+            >
+              <Icon name="settings" size={14} />
+              {t('workspace.options')}
+              <Icon name="chevronDown" size={12} className={`transition-transform ${narrowOptions ? 'rotate-180' : ''}`} />
+            </button>
             {/* New screens only. An edit instruction must stay narrow — EDIT_RULES
                 change only what is asked — and a 200-word brief would read as a
                 redesign of the selected screens. */}
@@ -4645,6 +4667,7 @@ export default function ProjectView({
             ) : (
               <span />
             )}
+            </div>
             <div className="flex items-center gap-2">
               {busy && (
                 <button

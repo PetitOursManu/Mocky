@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 13a994b7fba4
+source_hash: 9326ecb95389
 ---
 
 # L’interface
@@ -173,8 +173,12 @@ barre en haut de la toile le nomme et propose ce qu’on fait le plus souvent à
 PowerPoint, `.tsx`, ou `Télécharger…` pour un document) et `⋯`, qui ouvre tout
 le menu de l’écran juste dessous.
 
-Sous `md`, l’espace se replie : la barre d’outils flottante décrite ensuite, et
-le composeur en barre au bas de la toile.
+Sous `md`, l’espace se replie : la barre d’outils flottante décrite ensuite (une
+barre pleine largeur sur un téléphone, au-dessus de la bande des écrans), et le
+composeur en panneau le long du bas de la toile. Le panneau montre le champ et
+ses boutons ; `Options` déplie le format et les puces, qui prenaient sinon la
+moitié d’une petite fenêtre. L’`Exporter` de la barre d’outils contient les
+mêmes lignes que celui de la barre du haut.
 
 ---
 
