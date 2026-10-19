@@ -11,10 +11,6 @@ on:
         description: 'Only these captures, comma-separated (canvas,home,…). Empty: all of them.'
         required: false
         default: ''
-  # TEMPORARY — refreshes the captures from this branch; removed right after.
-  push:
-    branches: [refonte/phase-1-theme]
-    paths: ['.github/workflows/docs-captures.yml']
 
 permissions:
   contents: read

@@ -483,14 +483,14 @@ changes verb depending on what is selected.
 - 11.9,14.5 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
 - 25.7,19.2 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
 - 49.8,29.2 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 25.2,40.1 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 66,40.1 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 23.3,44.6 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 28,49.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 19.6,55 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 77.7,55 **Generate**: Creates the screen — or `Update` when screens are selected.
-- 49.8,68.2 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
-- 49.8,76.3 **Recent history**: The screens made last; click one to frame it on the canvas.
+- 49.8,50.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 49.8,60 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 49.8,65.7 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 49.8,80.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 19.6,40.1 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 77.7,40.1 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 49.8,66.2 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 49.8,81.5 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
 `Screen type` opens this menu — a [[screen type|screen-type]] for a screen, or a [[document|document]]:

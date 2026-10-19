@@ -1,5 +1,5 @@
 ---
-source_hash: 23fda17e3dbc
+source_hash: 393d0b4e8850
 ---
 
 # Mocky
@@ -25,12 +25,12 @@ Un projet, ouvert. Cliquez les numéros pour voir ce qu’est chaque partie :
 - 77.7,3.2 **Partager**: Un lien vers un écran, ou le projet entier envoyé en validation à un client.
 - 86.2,3.2 **Exporter**: Toutes les sorties : le projet exécutable en `.zip`, l’écran sélectionné en PNG, PowerPoint ou `.tsx`, et les médias.
 - 10.4,9.2 **L’atelier de création**: Le composeur, en colonne : décrivez un écran, choisissez son format et ses options, générez. Avec des écrans sélectionnés, il les modifie.
-- 37.7,41 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
-- 30.8,65.9 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
-- 50,15.1 **Outils flottants**: Pour l’écran sélectionné : modifier, peaufiner, régénérer, partager, exporter, et tout son menu sous `⋯`.
-- 89.6,53.4 **L’inspecteur**: Une barre de six panneaux toujours présente — style, versions, audit, validation, campagne, liens — et celui qui est ouvert.
+- 36.9,41.9 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
+- 30.5,65 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
+- 48.3,15.1 **Outils flottants**: Pour l’écran sélectionné : modifier, peaufiner, régénérer, partager, exporter, et tout son menu sous `⋯`.
+- 86.3,53.4 **L’inspecteur**: Une barre de six panneaux toujours présente — style, versions, audit, validation, campagne, liens — et celui qui est ouvert.
 - 31.8,96.1 **Barre de zoom**: Zoom, `Tout afficher`, le dernier écran, `Réorganiser`, et le bouton qui montre ou masque les câbles.
-- 15.3,44.2 **Générer**: Crée l’écran. Avec des écrans sélectionnés, il devient `Mettre à jour` et les modifie.
+- 15.3,38.8 **Générer**: Crée l’écran. Avec des écrans sélectionnés, il devient `Mettre à jour` et les modifie.
 :::
 
 ---
