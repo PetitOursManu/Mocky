@@ -440,7 +440,8 @@ async function run(lang) {
         ['Account', btn(header, 'demo')],
         ['New project', btn(page, t('projects.new')).first()],
         ['New folder', btn(page, t('projects.newFolder'))],
-        ['The last project', page.getByRole('heading', { name: cafe })],
+        // The page's first heading after its title: whichever project was touched last.
+        ['The last project', page.locator('div.page h2').first()],
         ['A project card', page.locator('article').first()],
       ],
     })
