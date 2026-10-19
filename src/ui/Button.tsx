@@ -27,28 +27,32 @@ export type ButtonSize = 'sm' | 'md'
 // size: `sm` and `md` still differ by 32 vs 36 on a mouse, and both land on the
 // same 44 under a finger.
 const BASE =
-  'tap-target inline-flex items-center justify-center gap-1.5 font-medium transition select-none ' +
+  'tap-target inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition select-none ' +
   'disabled:cursor-not-allowed disabled:opacity-50'
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  // The single signature flat. One per screen, on the action that matters.
-  primary: 'border border-accent bg-accent text-on-accent hover:opacity-90',
-  // The default: an outlined rule, which is the editorial device.
-  ghost: 'border border-line-soft text-ink hover:border-line',
-  // No rule at all — for tertiary actions that must not add to the grid.
-  quiet: 'border border-transparent text-ink-muted hover:text-ink hover:border-line-soft',
+  // The lime. One per view, on the action that matters.
+  primary: 'border border-accent bg-accent font-semibold text-on-accent hover:brightness-110',
+  // The default: a raised flat with a soft edge, as the reference draws `.btn`.
+  ghost: 'border border-line bg-raised text-ink hover:border-ink/25 hover:bg-ink/5',
+  // No edge at all — for tertiary actions.
+  quiet: 'border border-transparent text-ink-muted hover:bg-ink/5 hover:text-ink',
   danger: 'border border-danger bg-danger text-on-danger hover:opacity-90',
-  // Canvas toolbar. `active` inverts it rather than tinting it, so the state is
-  // unmistakable in both themes.
-  toolbar: 'border border-transparent text-ink-muted hover:text-ink hover:border-line-soft',
+  // Canvas toolbar: grey until hovered.
+  toolbar: 'border border-transparent text-ink-muted hover:bg-ink/5 hover:text-ink',
 }
+
+// The active state is the lime on a tinted ground (`--selected`), the way the
+// reference marks its active tool. It used to INVERT (`bg-ink text-surface`),
+// which on a dark shell is a white slab in the middle of the toolbar.
+const ACTIVE_LOOK = 'border-accent/30 bg-selected text-on-selected hover:bg-selected hover:text-on-selected'
 
 const ACTIVE: Record<ButtonVariant, string> = {
   primary: '',
-  ghost: 'border-accent bg-ink text-surface hover:opacity-90',
-  quiet: 'border-accent bg-ink text-surface',
+  ghost: ACTIVE_LOOK,
+  quiet: ACTIVE_LOOK,
   danger: '',
-  toolbar: 'border-accent bg-ink text-surface hover:opacity-90',
+  toolbar: ACTIVE_LOOK,
 }
 
 const SIZES: Record<ButtonSize, string> = {

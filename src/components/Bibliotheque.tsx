@@ -513,7 +513,7 @@ export default function Bibliotheque({
           onClick={() => setTab(id)}
           className={`kicker border-b-2 px-2.5 py-1 ${
             tab === id
-              ? 'border-b-accent bg-ink text-surface'
+              ? 'border-b-accent bg-selected text-on-selected'
               : 'border-b-transparent text-ink-muted hover:bg-ink/5'
           }`}
         >
@@ -770,7 +770,7 @@ export default function Bibliotheque({
               // an image could be pinned at all was to own a mouse.
               className={`kicker absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-1 transition ${
                 isPinned(img.hash)
-                  ? 'border border-muse bg-muse text-surface'
+                  ? 'border border-muse bg-muse text-on-accent'
                   : 'border border-line bg-raised text-ink opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
               }`}
               title={t('library.pinHint')}
@@ -881,7 +881,7 @@ export default function Bibliotheque({
                 onClick={() => onPinVideo?.(chosen ? null : v)}
                 className={`kicker absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-1 transition ${
                   chosen
-                    ? 'border border-muse bg-muse text-surface'
+                    ? 'border border-muse bg-muse text-on-accent'
                     : 'border border-line bg-raised text-ink opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
                 }`}
                 title={t('library.useVideoHint')}
@@ -1079,7 +1079,7 @@ export default function Bibliotheque({
 
   // ---- Modal (inside a project, with pinning) ----
   return (
-    <div className="fixed inset-0 z-modal flex flex-col bg-ink/60" onClick={onClose}>
+    <div className="fixed inset-0 z-modal flex flex-col bg-black/60" onClick={onClose}>
       <div
         className="mx-auto mt-8 flex h-[calc(100vh-4rem)] w-full max-w-5xl flex-col rounded-2xl border border-line bg-raised shadow-2xl"
         onClick={(e) => e.stopPropagation()}

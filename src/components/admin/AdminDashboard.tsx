@@ -182,7 +182,7 @@ export default function AdminDashboard({
                     className={
                       'tap-target flex w-full items-center gap-2.5 whitespace-nowrap border-b-2 px-4 py-2 text-left text-body-sm transition md:border-b-0 md:border-l-2 ' +
                       (active
-                        ? 'border-accent bg-ink text-surface'
+                        ? 'border-accent/40 bg-selected text-on-selected'
                         : 'border-transparent text-ink-muted hover:bg-ink/5 hover:text-ink')
                     }
                   >

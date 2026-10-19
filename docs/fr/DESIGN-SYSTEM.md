@@ -1,5 +1,5 @@
 ---
-source_hash: 6cd47c900131
+source_hash: cdf8a42f20f1
 ---
 
 # Le système de design de Mocky
@@ -11,82 +11,80 @@ Un outil qui sert à juger des maquettes et les maquettes elles-mêmes obéissen
 > Il s'agit de l'interface de **Mocky elle-même**, pas des écrans qu'elle génère.
 > Pour ces derniers, voir `DESIGN.md` et les presets de `src/lib/styles.ts`.
 
-## La direction : éditorial contrasté
+## La direction : un studio sombre
 
 :::why
-L'œil ne juge jamais une couleur dans l'absolu : il la compare à ce qui l'entoure, si bien qu'un cadre teinté déplace la perception de tout ce qu'il encadre. Comme Mocky sert précisément à regarder des maquettes, sa coquille est achromatique par obligation professionnelle avant de l'être par goût — et c'est cette obligation, pas une mode graphique, qui dicte ensuite l'absence d'ombres et la rareté de l'accent.
+L'œil ne juge jamais une couleur isolément : il la compare à ce qui l'entoure, si bien qu'un cadre teinté décale la perception de tout ce qu'il encadre. Comme regarder des maquettes est précisément la raison d'être de Mocky, sa coquille reste d'un gris neutre par obligation professionnelle avant de l'être par goût — et la seule couleur qu'elle s'autorise reste rare pour la même raison.
 :::
 
-Noir et blanc, filets de 1px, **aucun rayon, aucune ombre**, un seul aplat de couleur signature. Affiche suisse plutôt que tableau de bord.
+Un studio presque noir, des gris neutres et **un seul accent vert-citron**. La référence dont tout est tiré est [`plans/refonte/modele-dark-glitch.html`](../../plans/refonte/modele-dark-glitch.html), avec son accent « acid » ; les jetons y lisent leurs valeurs. Son effet glitch (des filets magenta et cyan décalés) a été essayé puis mis de côté : la coquille n'en porte aucun.
 
-Ce n'est pas seulement un parti pris esthétique. Mocky sert à **juger des couleurs** : des maquettes sont posées côte à côte sur un canvas, et le chrome les entoure. L'ancienne palette était `slate` — un gris nettement bleuté (`#64748b`). Une maquette chaude posée dessus paraît plus jaune qu'elle n'est ; une maquette bleue paraît fade. **Le chrome mentait sur les couleurs qu'il présentait**, ce qui est disqualifiant pour un outil de design. Une coquille achromatique est la seule qui ne déforme pas ce qu'elle encadre, et le noir/blanc en est la version la plus complète.
+Le sombre est le thème **par défaut** : rien de choisi veut dire sombre, et la préférence du système ne décide plus. Le thème clair reprend les mêmes rôles à l'autre bout de l'échelle.
 
-Deux conséquences assumées :
+Ce qui survit de l'ancienne direction éditoriale, c'est la raison pour laquelle elle était achromatique. L'ancienne palette était `slate` — un gris nettement bleuté (`#64748b`). Une maquette chaude posée dessus paraît plus jaune qu'elle n'est ; une maquette bleue paraît terne. **Le chrome mentait sur les couleurs qu'il présentait**, ce qui est rédhibitoire pour un outil de design. Les gris d'ici ont donc au plus un canal d'écart.
 
-- **Les filets remplacent les ombres.** L'élévation se lit par la valeur (trois niveaux de surface) et par un filet, jamais par un flou.
-- **L'accent est rare.** Une seule action primaire par vue le porte. Un onglet ou un mode actif ne prend pas l'accent : il **s'inverse** (`bg-ink text-surface`). C'est plus franc, et ça reste lisible dans les deux thèmes.
+Trois conséquences :
+
+- **L'élévation se lit d'abord à la valeur.** Trois niveaux de surface ; les filets sont doux et ne font que finir un bord ; une ombre ne soulève que ce qui flotte (menus, barre d'outils flottante, fenêtres).
+- **L'accent est rare.** Il marque l'action principale, le focus et l'état actif. Un contrôle actif ne s'inverse plus : il prend le citron sur un fond teinté (`--selected`), comme la référence dessine son outil actif — un bloc inversé sur une coquille sombre, c'est une plaque blanche au milieu de la barre d'outils.
+- **Les arrondis reviennent**, petits et gradués : 4px pour une vignette, 7px pour un bouton ou un champ, 9 à 12px pour un menu ou une fenêtre.
 
 ## Les jetons
 
 :::why
-Une couleur nommée par son rôle (« la surface d'un panneau ») peut changer de valeur quand le thème change ; une couleur nommée par son apparence (« gris 800 ») ne le peut pas, puisque son nom est déjà la réponse. Les thèmes étaient auparavant obtenus en redéclarant les utilitaires de Tailwind un par un — 96 règles écrites face aux 109 classes de couleur réellement employées par les composants, donc 83 jamais traduites — et c'est ce trou que referme un jeu unique de variables que chaque thème réassigne.
+Une couleur nommée d'après son rôle (« la surface d'un panneau ») peut changer de valeur quand le thème change ; une couleur nommée d'après son apparence (« gris 800 ») ne le peut pas, puisque son nom est déjà la réponse. Les thèmes s'obtenaient autrefois en redéclarant une à une des utilitaires Tailwind — 96 règles écrites pour 109 classes de couleur réellement utilisées par les composants, si bien que 83 n'étaient jamais traduites — et c'est ce trou que referme un jeu unique de variables que chaque thème réaffecte.
 :::
 
-Tout vit dans [`src/styles/tokens.css`](../../src/styles/tokens.css), en canaux RGB bruts — c'est ce qui permet à Tailwind de composer l'opacité (`bg-surface/60` fonctionne).
+Tout vit dans [`src/styles/tokens.css`](../../src/styles/tokens.css), en canaux RVB bruts — c'est ce qui permet à Tailwind de composer l'opacité (`bg-surface/60` fonctionne).
 
 | Jeton | Rôle |
 |---|---|
-| `--sunken` | le canvas, derrière les cadres |
-| `--surface` | panneaux, cartes, en-tête, composer |
-| `--raised` | popovers, menus, modales |
-| `--line` | le filet **structurel** : bord extérieur d'une surface flottante, règle sous l'en-tête. Rare. |
-| `--line-soft` | le filet **fin** : rangées d'une liste, bordures de champs, séparateurs. Le cas par défaut. |
+| `--sunken` | la toile, derrière les cadres, et la page |
+| `--surface` | panneaux, barre du haut, composer |
+| `--raised` | popovers, menus, fenêtres, outils flottants |
+| `--line` | le bord d'une surface flottante. Doux. |
+| `--line-soft` | lignes d'une liste, séparateurs. Le cas par défaut. |
+| `--field` | le bord d'un champ de formulaire — le seul filet tenu à 3:1 |
 | `--ink` / `--ink-muted` / `--ink-faint` | texte principal / secondaire / le plancher (jamais en dessous) |
-| `--accent` / `--on-accent` | l'aplat signature (**#228477**) et son texte |
-| `--accent-ink` | le **petit texte** en couleur d'accent — voir ci-dessous |
-| `--danger` `--warn` `--ok` | statuts, désaturés d'un cran pour ne jamais crier plus fort qu'une maquette |
-| `--muse` | la marque de Muse — un mode, pas un état |
+| `--accent` / `--on-accent` | le vert-citron (**#d4ff46**) et le texte posé dessus |
+| `--accent-ink` | la couleur d'accent pour du **petit texte** — voir plus bas |
+| `--selected` / `--on-selected` | l'état actif : un fond teinté et l'accent dessus |
+| `--danger` `--warn` `--ok` | les statuts |
+| `--muse` | la marque de Muse — un mode, pas un état ; elle porte la couleur de la maison |
 | `--ring` | l'anneau de focus |
+| `--shadow` / `--shadow-k` | la couleur des ombres, et une force par laquelle chaque cran est multiplié |
 
-Deux thèmes, **Papier** et **Encre**, définis par les mêmes jetons. Ni l'un ni l'autre n'est une surcharge de l'autre.
+Deux thèmes, **Encre** (sombre, le défaut) et **Papier**, définis par les mêmes jetons. Aucun des deux n'est une surcharge de l'autre.
 
 ## Pourquoi deux jetons d'accent
 
 :::why
-Les normes d'accessibilité n'exigent pas le même écart de luminosité pour un texte (4,5:1) et pour un aplat, un filet ou une icône (3:1) : une même couleur de marque peut donc être parfaitement lisible en fond de bouton et illisible en petits caractères, sur la même page. Plutôt que d'interdire cette couleur au texte, le système en décline deux variantes — assez proches pour être indiscernables à l'œil, assez distinctes pour franchir chacune son seuil.
+Les normes d'accessibilité n'exigent pas le même écart de luminosité pour du texte (4,5:1) que pour un aplat, un filet ou une icône (3:1) : une seule et même couleur de marque peut donc être parfaitement lisible derrière un bouton et illisible en petit texte, sur la même page. Plutôt que d'interdire cette couleur au texte, le système la décline en deux variantes — assez proches pour être indiscernables à l'œil, assez distinctes pour que chacune franchisse son propre seuil.
 :::
 
-`#228477` mesuré sur le papier (`#faf8f3`) :
+Sur les fonds sombres, le citron n'a pas besoin d'une seconde valeur : `#d4ff46` fait 15,8:1 sur la surface, donc `--accent` et `--accent-ink` y sont égaux.
 
-| Usage | Contraste | Verdict |
-|---|---|---|
-| Blanc sur l'aplat (bouton) | **4,53:1** | passe AA |
-| L'accent en **petit texte** sur le papier | **4,27:1** | **échoue** (AA = 4,5) |
-| L'accent en aplat, filet, icône | 4,27:1 | passe (composant d'interface = 3:1) |
-
-D'où `--accent-ink` (`#20796C`, **4,93:1**) : même teinte, un cheveu plus sombre, indiscernable à taille de texte. C'est ce qui permet d'utiliser la couleur **largement** sans livrer du texte illisible.
+Sur le papier, c'est une autre histoire — du citron sur du blanc fait 1,1:1, invisible. Le thème clair garde la teinte et baisse la valeur : un olive (`#547800`) qui franchit 4,5:1 sous un texte blanc et en filet, et `--accent-ink` (`#4a6a00`) un cheveu plus sombre pour le petit texte.
 
 **La règle : `text-accent-ink` pour du texte, `bg-accent` / `border-accent` pour tout le reste.** `text-accent` n'est acceptable que sur un `text-h2` ou plus grand, et sur une icône. Le test de contraste vérifie les deux jetons séparément, avec deux seuils différents.
 
-En thème Encre, les deux jetons valent la même valeur claire (8,4:1 sur la surface) — un seul suffit là-bas.
-
-## Les dispositifs de presse
+## Les dispositifs récurrents
 
 :::why
-Ce qui fait reconnaître une page imprimée tient à quelques signaux qui reviennent partout — un surtitre, des filets d'épaisseurs différentes, une largeur de colonne, un format fixe — bien plus qu'au dessin de chaque élément pris isolément. Reproduire ces signaux dans une poignée de classes réutilisables coûte moins cher que d'habiller les écrans un par un, et laisse une seule adresse à modifier le jour où le ton doit changer.
+Ce qui fait reconnaître une interface tient à quelques signaux qui reviennent partout — une étiquette au-dessus de ce qu'elle nomme, un logotype, un filet, un format fixe — bien plus qu'au dessin de chaque élément pris isolément. Reproduire ces signaux dans une poignée de classes réutilisables coûte moins cher que d'habiller les écrans un par un, et laisse une seule adresse à modifier le jour où le ton doit changer.
 :::
 
-Quatre choses font presque tout le travail pour qu'un écran ait l'air imprimé. Elles sont dans `src/index.css`.
+Ils sont dans `src/index.css`. Les trois premiers étaient la manchette, le surtitre et le double filet d'un journal ; ils ont gardé leur nom pour que les 270 endroits qui s'en servent changent d'aspect sans changer de code.
 
 | Classe | Usage |
 |---|---|
-| `.masthead` | Le nom du journal, en serif. Une fois, en haut. |
-| `.kicker` | **Le surtitre** — petit, capitales, très espacé. Le dispositif le plus rentable : titres de panneau, libellés de groupe, onglets. Utilisé 69 fois. |
-| `.rule-double` | Le filet double (un gras + un fin) sous la manchette. |
+| `.masthead` | Le logotype et les titres de page : la sans, grasse et serrée. |
+| `.kicker` | **L'étiquette** — l'« eyebrow » de la référence : chasse fixe, capitales, largement espacée, en `--ink-faint`. Titres de panneau, libellés de groupe, onglets. |
+| `.rule-double` | Le filet sous la barre du haut — doux, comme tous les filets. |
 | `.rule-thin` | Le filet de séparation entre sections. |
-| `.section-head` | Tête de section : surtitre + filet. |
-| `.measure` | 68ch — la largeur de lecture d'un paragraphe. **Pleine largeur ne veut pas dire lignes de 200 caractères** : c'est précisément pour ça que les journaux ont des colonnes. |
-| `.page` | **Le format de la page** : 1440px max, centré, gouttière de 24px. |
+| `.section-head` | Tête de section : étiquette plus filet. |
+| `.measure` | 68ch — la largeur de lecture d'un paragraphe. Pleine largeur ne veut pas dire des lignes de 200 caractères. |
+| `.page` | **Le format de page** : 1440px max, centré, gouttière de 24px. |
 | `.page-wide` | 1760px, réservé à la galerie d'images — une grille de vignettes n'a pas de largeur de lecture. |
 
 ### Le format de page
@@ -95,7 +93,7 @@ Quatre choses font presque tout le travail pour qu'un écran ait l'air imprimé.
 Une mise en page est faite de rapports entre des éléments, et un rapport se défait au-delà d'une certaine distance : la largeur n'est donc pas une variable libre qu'on gagnerait à maximiser, c'est un format à choisir. Le format retenu est un plafond centré parce qu'il se comporte comme une pleine largeur sur les écrans courants et cesse simplement de grandir au-delà — une seule valeur, aucune règle particulière à écrire par écran.
 :::
 
-Un journal a un format fixe, et c'est celui-là. Les pages étaient d'abord enfermées dans `max-w-4xl` (896px), ce qui gâchait la moitié d'un écran large. Les libérer complètement allait trop loin dans l'autre sens : sur un écran de 2000px le contenu allait d'un bord à l'autre, l'œil devait traverser toute la largeur pour relier un nom de projet à sa date, et plus rien n'encadrait la page.
+Une page a un format fixe, et c'est celui-là. Les pages étaient d'abord enfermées dans `max-w-4xl` (896px), ce qui gâchait la moitié d'un écran large. Les libérer complètement allait trop loin dans l'autre sens : sur un écran de 2000px le contenu allait d'un bord à l'autre, l'œil devait traverser toute la largeur pour relier un nom de projet à sa date, et plus rien n'encadrait la page.
 
 Mesuré, contenu utile selon l'écran :
 
@@ -108,9 +106,9 @@ Mesuré, contenu utile selon l'écran :
 
 En dessous de 1440px le comportement est celui d'une pleine largeur ; au-delà, la page s'arrête. **Une seule valeur à régler**, dans `.page`.
 
-Les titres `h1/h2/h3` prennent le serif automatiquement, via une règle en couche `base`. C'est la ligne qui sépare « application monochrome » de « page imprimée » : un titre en grotesque se lit comme du chrome, un titre en serif comme un article.
+Les titres `h1/h2/h3` sont composés dans la sans, grasse et serrée, via une règle en couche `base`. Ils prenaient autrefois un serif — c'était toute la « page imprimée » — et la refonte garde une seule famille pour l'interface : les maquettes sont le seul endroit où un serif apparaît.
 
-Aucune police n'est téléchargée. La pile serif s'appuie sur des faces livrées avec le système (Iowan Old Style et Palatino sur macOS, Georgia sur Windows) — les aperçus doivent fonctionner hors-ligne et sous une CSP stricte.
+Aucune police n'est téléchargée pour la coquille. La pile demande Inter et se rabat sur la sans du système (Segoe UI sous Windows, SF sous macOS) — les familles auto-hébergées de `public/fonts` sont celles des maquettes, et la coquille s'en tient à l'écart exprès.
 
 ## Les icônes
 

@@ -252,7 +252,7 @@ export default function DesignPanel({
                       e.stopPropagation()
                       setPreview({ preset: s, accentId, bgId })
                     }}
-                    className="absolute right-2 top-2 inline-flex items-center gap-1 bg-ink/80 px-2 py-1 text-caption text-surface opacity-0 backdrop-blur transition hover:bg-ink group-hover:opacity-100"
+                    className="absolute right-2 top-2 inline-flex items-center gap-1 bg-black/80 px-2 py-1 text-caption text-white opacity-0 backdrop-blur transition hover:bg-ink group-hover:opacity-100"
                   >
                     <Icon name="fit" size={12} />
                     {t('design.preview')}
@@ -444,7 +444,7 @@ export default function DesignPanel({
           const r = resolveStyle(s, mode, preview.accentId, preview.bgId)
           return (
             <div
-              className="fixed inset-0 z-modal flex items-center justify-center bg-ink/60 p-4"
+              className="fixed inset-0 z-modal flex items-center justify-center bg-black/60 p-4"
               onClick={() => setPreview(null)}
             >
               <div

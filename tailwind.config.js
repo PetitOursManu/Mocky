@@ -14,36 +14,41 @@ const token = (name) => `rgb(var(--${name}) / <alpha-value>)`
 export default {
   theme: {
     // ---- overridden wholesale, not extended -------------------------------
-    // The direction is editorial: 1px rules, no radius, no shadow. Replacing
-    // these scales rather than adding to them means the ~100 existing
-    // `rounded-lg` / `shadow-xl` usages resolve to the new geometry on their
-    // own, instead of needing a rewrite before anything can be seen.
+    // Replacing these scales rather than adding to them means the ~200 existing
+    // `rounded-*` / `shadow-*` usages resolve to the geometry of the reference
+    // (plans/refonte/modele-dark-glitch.html) on their own. The previous,
+    // editorial direction set every step to zero; the components kept their
+    // classes, which is why turning the radius back on needed no rewrite.
 
     borderRadius: {
       none: '0',
-      DEFAULT: '0',
-      sm: '0',
-      md: '0',
-      lg: '0',
-      xl: '0',
-      '2xl': '0',
-      '3xl': '0',
-      // The one exception: dots, avatars and status pills are meant to be round.
+      sm: '4px', // a thumbnail, a swatch
+      DEFAULT: '6px', // an icon button
+      md: '7px', // a button, a field, a chip
+      lg: '9px', // a menu, the prompt
+      xl: '10px', // the floating toolbar
+      '2xl': '12px', // a modal
+      '3xl': '16px',
       full: '9999px',
     },
 
+    // Elevation is read from value first; a shadow only lifts what FLOATS —
+    // menus, the floating toolbar, modals. Its colour and strength are tokens,
+    // because a shadow tuned for a black canvas is a smudge on a white one.
     boxShadow: {
       none: 'none',
-      DEFAULT: 'none',
-      sm: 'none',
-      md: 'none',
-      lg: 'none',
-      xl: 'none',
-      '2xl': 'none',
-      inner: 'none',
-      // Frames on the canvas are the one place where an object must read as
-      // sitting *on* the board. A hairline offset, not a glow.
-      frame: '0 0 0 1px rgb(var(--line) / 0.9)',
+      sm: '0 1px 2px rgb(var(--shadow) / calc(0.3 * var(--shadow-k)))',
+      DEFAULT: '0 7px 22px rgb(var(--shadow) / calc(0.33 * var(--shadow-k)))',
+      md: '0 7px 22px rgb(var(--shadow) / calc(0.33 * var(--shadow-k)))',
+      lg: '0 12px 42px rgb(var(--shadow) / calc(0.56 * var(--shadow-k)))',
+      xl: '0 12px 42px rgb(var(--shadow) / calc(0.56 * var(--shadow-k)))',
+      '2xl': '0 18px 70px rgb(var(--shadow) / calc(0.6 * var(--shadow-k)))',
+      inner: 'inset 0 1px 2px rgb(var(--shadow) / calc(0.3 * var(--shadow-k)))',
+      // A frame on the canvas: a hairline so it reads as an object, and a soft
+      // drop so it sits ON the board. Shallower than `2xl` on purpose — the
+      // canvas can hold dozens of frames, and the blur is painted per frame.
+      frame:
+        '0 0 0 1px rgb(var(--ink) / 0.13), 0 10px 32px rgb(var(--shadow) / calc(0.5 * var(--shadow-k)))',
     },
 
     fontSize: {
@@ -91,6 +96,11 @@ export default {
         muse: token('muse'),
         'muse-ink': token('muse-ink'),
         ring: token('ring'),
+        // The edge of a form field — the one rule held to 3:1.
+        field: token('field'),
+        // The active state: a tinted ground and the accent on it.
+        selected: token('selected'),
+        'on-selected': token('on-selected'),
       },
 
       fontFamily: {
@@ -106,11 +116,9 @@ export default {
           'Arial',
           'sans-serif',
         ],
-        // Headlines are set in a serif — this is what makes the difference
-        // between "monochrome app" and "printed page". No webfont: previews must
-        // work offline and under a strict CSP, so this is a stack of faces that
-        // ship with Windows and macOS. Georgia is the workhorse on Windows,
-        // Iowan/Palatino the nicer ones on macOS.
+        // No longer the headline face (headlines are in the sans since the
+        // redesign); kept for the few specimens that show a serif on purpose.
+        // No webfont: a stack of faces that ship with Windows and macOS.
         serif: [
           'Iowan Old Style',
           'Palatino Linotype',
@@ -137,7 +145,6 @@ export default {
       },
 
       borderWidth: {
-        // The editorial rule. There is no 2px.
         DEFAULT: '1px',
       },
     },

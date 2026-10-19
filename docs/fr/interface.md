@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: fe55f2afeecc
+source_hash: e13163b5fe26
 ---
 
 # L’interface
@@ -375,6 +375,13 @@ design se juge aussi sur ses mots, pas seulement sur l’allure d’une page.
 
 Clic droit sur un écran, ou <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> dans sa barre de nom.
 
+Le menu est en trois groupes, séparés par un filet : ce qui **change** l’écran
+(modifier, peaufiner, régénérer, médias, cadres, animations, revenir en
+arrière), ce qui **sort** avec lui (`Exporter ›`, `Partager`), et le
+**rangement** (renommer, dupliquer, notes, versions, format d’affichage,
+DESIGN.md, code) — puis `Supprimer l’écran`. Une entrée marquée `›` ouvre un
+second panneau à côté du menu, au survol, au clic ou avec `→`.
+
 Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 
 :::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
@@ -389,9 +396,10 @@ Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 
 | | Entrée | Ce qu’elle fait | Coût |
 |---|---|---|---|
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/></svg> | `Modifier par message` | Sélectionne l’écran et place le curseur dans le composeur : ce que vous tapez ensuite est une modification de cet écran, envoyée avec `Mettre à jour`. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Télécharger…` | Un document seulement : ouvre `Télécharger le document` — PDF à champs remplissables, PowerPoint / Google Slides, images PNG. Voir [Documents](documents.md#telecharger). | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> | `Ajuster à la page` | Un document seulement : mesure ce qui dépasse de la page, demande au modèle de le regagner, mesure la réponse et ne la garde que si elle tient mieux, sur le même nombre de pages. Voir [Documents](documents.md#quand-le-contenu-depasse-de-la-page). | modèle |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Régénérer (nouvelle variante)` | Relance la demande d’origine de l’écran pour obtenir un autre résultat. Le code précédent est conservé, donc `Revenir à la version précédente` le défait. | modèle |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Régénérer une variante` | Relance la demande d’origine de l’écran pour obtenir un autre résultat. Le code précédent est conservé, donc `Revenir à la version précédente` le défait. | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Peaufiner (détecter et corriger)` | La passe qualité : vérifier, corriger, revérifier. Voir [Passe de qualité](quality.md). | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Renommer` | Une invite du navigateur. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 8v4.5l3 2"/></svg> | `Versions de cet écran` | Tous les états enregistrés de cet écran — ses propres versions et chaque version du projet qui le contenait — pour les comparer à l’état actuel ou les restaurer. Voir [Versions et branches](versions.md). | libre |
@@ -410,25 +418,31 @@ Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Cadres…` | Change la forme, l’image, le cadrage ou l’ombre de chaque image en forme de l’écran, ou met l’une de ses images dans un cadre. Réécrit la source sans appel au modèle ; `Revenir à la version précédente` l’annule. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Supprimer l’écran` | Une confirmation. | libre |
 
-### Les trois groupes de petits boutons
+### Les sous-menus
 
-En bas du menu, trois rangées qui se ressemblent et n’ont rien à voir.
+Quatre entrées ouvrent un second panneau au lieu d’agir tout de suite.
 
-**`Format d’affichage` — `Mobile` · `Tablette` · `Bureau` · `Complet`.**
-Redimensionne le cadre et indique aux passes suivantes de quel appareil il
-s’agit. `Complet` signifie hauteur complète, ajustée au contenu. Libre : aucun
-code n’est réécrit.
+**`Animations ›`** réunit deux choses qui se ressemblent et n’ont rien à voir.
+`Ajouter des animations` — `Subtiles` · `Modérées` · `Riches` — réécrit le code
+pour y mettre du mouvement, en conservant contenu et mise en page : cela coûte du
+**modèle**, et se défait. `Lire les animations` — `Oui` · `Non`, l’état courant
+coché — décide seulement si le mouvement déjà présent s’exécute. Libre. Les deux
+états sont listés, parce que dans un menu, une entrée dont le texte change ne
+montre jamais quels sont les autres états. Absent d’un document : une page ne
+bouge pas.
 
-**`Ajouter des animations` — `Subtiles` · `Modérées` · `Riches`.** Réécrit le
-code pour y mettre du mouvement, en conservant contenu et mise en page. Coûte du
-**modèle**, et se défait.
+**`Exporter ›`** réunit toutes les façons dont l’écran quitte Mocky :
+`Télécharger…` pour un document, `Exporter en image PNG (page entière)` et
+`Exporter en PowerPoint` pour un écran, et `Télécharger le .tsx` pour les deux.
+Libre.
 
-**`Lire les animations` — `Auto` · `Oui` · `Non`.** Décide si le mouvement déjà
-présent dans le code s’exécute. Libre. Trois choix visibles plutôt qu’un libellé
-qui tourne, parce que dans un menu, une entrée dont le texte change ne montre
-jamais quels sont les autres états.
+**`Format d’affichage ›`** — `Mobile` · `Tablette` · `Bureau` · hauteur
+complète. Redimensionne le cadre et indique aux passes suivantes de quel appareil
+il s’agit. Libre : aucun code n’est réécrit. Absent d’un document, dont la taille
+est son format de page.
 
-Celui du milieu consomme des jetons. Les deux qui l’encadrent, non.
+**`DESIGN.md ›`** — `Faire de cet écran mon DESIGN.md` (modèle),
+`Modifier DESIGN.md`, et `Épingler comme référence de mise en page`.
 
 ---
 
@@ -458,14 +472,24 @@ selon ce qui est sélectionné.
 - 25.7,119.7 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
 :::
 
-### Les puces au-dessus du champ
+### Les options sous le champ
+
+Le composeur pose ses questions dans l’ordre où elles viennent : **ce qu’on
+fait** (`Format`, `Type d’écran`, un pli — au-dessus du champ), la demande, puis
+**comment** on le fait — des options sous le champ, en trois groupes séparés par
+un filet : le style (`Nouvelle direction`, `Marque`), ce qui aide à l’écrire
+(`Muse`, `Motion Ultra`, `Parcours`), et d’où viennent les images (`Images`),
+avec `Captures d’un site` en dernier. Chaque option est une puce ; une option
+active prend l’accent. Le premier composeur, sur un projet vide, suit le même
+ordre, avec `DESIGN.md` dans le groupe du style et `Campagne` à côté du format.
+
 
 | | Puce | Ce qu’elle fait | Coût |
 |---|---|---|---|
 | | `Nouvelle direction` | Ce prompt-ci écrira la direction artistique du projet, que tous les écrans suivants suivront. **La case se décoche toute seule après la génération.** Cachée pendant une édition — une édition retravaille ce qu’une direction a produit, et la laisser réécrire cette direction reviendrait à réattribuer tous les autres écrans du projet. | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, direction artistique et vraie copie. L’activer change ce que coûte une génération — voir [Muse](muse/overview.md). | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Parcours` | Activé par défaut. Les nouveaux écrans sont des pages d’un **prototype qui fonctionne** : formulaires, connexion simulée, filtres et panier partagé marchent en démo, et les écrans vers lesquels mène un parcours (`account`, `cart`, `confirmation`…) sont **créés automatiquement** après l’écran, trois au plus. Désactivé, un écran est généré seul, comme avant. Masqué pendant une modification. Voir [Des prototypes qui fonctionnent](flows.md). | une génération par écran créé |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg> `Campagne` | Sur un projet vide, à côté de `Parcours` : ouvre le panneau Campagne, qui décline un brief en plusieurs formats. Voir [Campagne](campaign.md). | une génération par création |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg> `Campagne` | Sur un projet vide, à côté du format : ouvre le panneau Campagne, qui décline un brief en plusieurs formats. Voir [Campagne](campaign.md). | une génération par création |
 | | `Format` | Le gabarit du prochain écran. Affiché seulement en création, pas en édition. Avec un type de document, les mêmes puces deviennent des **formats de page** (A4, A3, US Letter, 16:9, ou les tailles des réseaux). | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Type d’écran` | Le genre du prochain écran — tableau de bord, planning, kanban, page d’accueil, tarifs… — ou, sous `Documents à imprimer ou exporter` et `Réseaux sociaux`, le genre de document. La structure du type guide la génération ; vos mots l’emportent toujours. **Il reste armé**, et un projet s’ouvre sur le type de son dernier écran ; la croix à côté le retire. Ignoré en `Reproduire`. | libre (arme la prochaine génération) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Image` · `Sans image` / `Générée` / `Photo libre` | Un document seulement : s’il porte une image, et d’où elle vient. `Sans image` compose avec des formes et des couleurs. Retenu par le navigateur. | Générée : le prix du modèle d’image |
@@ -481,6 +505,9 @@ des écrans sont sélectionnés, une puce par écran avec `Retirer de la sélect
 plus `tout désélectionner`.
 
 ### Le champ et ses deux boutons
+
+Les boutons ont leur propre rangée sous les options, pour que le champ garde
+toute la largeur : `Améliorer` à gauche, `Générer` (ou `Mettre à jour`) à droite.
 
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|
@@ -807,12 +834,12 @@ modèle, tout est réversible depuis le menu de l’écran.
 | Ceci | Pas ceci | La différence |
 |---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1.5V4a1.5 1.5 0 0 1 3 0v7m0-1.5a1.5 1.5 0 0 1 3 0V13m-9 0a1.5 1.5 0 0 0-3 0v2a7 7 0 0 0 7 7h1a7 7 0 0 0 7-7v-4"/></svg> `Interagir` (barre d’outils) | Double-cliquer un écran | Le bouton de la barre rend **tous** les aperçus cliquables d’un coup. Le double-clic n’en rend qu’un, et celui-là porte la pastille `Interactif — clic dehors pour sortir`. |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> `Ajouter des animations` (menu contextuel) | `Lire les animations` (menu contextuel) | Le premier **réécrit le code** pour y ajouter du mouvement : appel au modèle, réversible. Le second décide seulement si le mouvement déjà présent s’exécute. Ils sont à deux rangées d’écart dans le même menu. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> `Ajouter des animations` (menu contextuel) | `Lire les animations` (menu contextuel) | Le premier **réécrit le code** pour y ajouter du mouvement : appel au modèle, réversible. Le second décide seulement si le mouvement déjà présent s’exécute. Les deux sont dans le sous-menu `Animations ›` du menu, sous deux libellés. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> `Reprendre ce design` (à côté d’un cadre) | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> `Faire de cet écran mon DESIGN.md` (menu contextuel) | Le premier restaure un document **enregistré**, à l’identique, gratuitement. Le second demande à un modèle de **lire l’écran et d’en écrire un nouveau**. Même intention, mécanique inverse, et un seul des deux coûte quelque chose. |
 | `Appliquer` dans le panneau Système | Une pastille de `Recolorer` dans la carte Élément | Le panneau Système réécrit un token du DESIGN.md : libre, et cela ne change que les générations **futures**. La pastille de la carte Élément est une édition de **cet** élément par le modèle, tout de suite, et elle ne touche pas au DESIGN.md. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z"/></svg> `Épingler comme référence de mise en page` | `Reprendre ce design` | L’épingle gouverne la **mise en page** des prochains écrans. La carte de design gouverne la **direction artistique**. Un écran peut être l’un, l’autre, les deux ou aucun. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> `Système` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> `Modifier DESIGN.md` | Même icône, deux profondeurs : le panneau montre les tokens et les recolore ; la page est le document lui-même. `Modifier`, dans le panneau, est le pont entre les deux. |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> `Régénérer (nouvelle variante)` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Peaufiner (détecter et corriger)` | Le premier jette l’écran et redemande à partir de la même demande : un autre design. Le second garde le design et corrige des défauts nommés dedans. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> `Régénérer une variante` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Peaufiner (détecter et corriger)` | Le premier jette l’écran et redemande à partir de la même demande : un autre design. Le second garde le design et corrige des défauts nommés dedans. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> Les points de l’`Audit` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> Les points de `Peaufiner (détecter et corriger)` | Deux catalogues, deux notes, deux prompts de correction. L’un porte sur le balisage, l’autre sur le goût. Aucune des deux notes ne s’écrit dans le champ de l’autre. |
 | `Générer` | `Mettre à jour ({count})` | Le même bouton. Si un écran est sélectionné, vous modifiez, vous ne créez pas. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> `Ajuster à la page` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Peaufiner (détecter et corriger)` | Les deux réécrivent un document en gardant le design. Le premier répond à un seul problème mesuré — du contenu hors de la page — et ne fait que resserrer ; le second répond à une liste de défauts de design. |
@@ -876,7 +903,7 @@ ci-dessous est un clic, et la liste est complète.
 | `Mettre à jour ({count})` | Composeur | Un appel par écran sélectionné. |
 | `Améliorer` | Composeur | Un appel qui réécrit votre prompt ; rien n’est généré tant que vous n’appuyez pas sur `Générer`. |
 | Réparation | Automatique, après un affichage raté | Le seul appel au modèle non sollicité — et il n’arrive qu’après qu’une génération que vous avez demandée a produit du code qui ne tourne pas. Plafonné à deux tentatives. |
-| `Régénérer (nouvelle variante)` | Menu contextuel d’un écran | |
+| `Régénérer une variante` | Menu contextuel d’un écran | |
 | `Peaufiner (détecter et corriger)` | Menu contextuel d’un écran | La vérification elle-même appelle un modèle pour les règles qu’une expression régulière ne tranche pas, puis jusqu’à deux corrections. |
 | `Ajouter des animations` — `Subtiles` / `Modérées` / `Riches` | Menu contextuel d’un écran | |
 | `Ajuster à la page` | Menu contextuel d’un document | Un appel, et deux rendus hors écran pour mesurer avant et après. |

@@ -358,8 +358,8 @@ function MockyApp() {
 
   return (
     <div className="min-h-screen bg-sunken text-ink">
-      {/* The masthead. A newspaper announces itself once, in the serif, above a
-          double rule — then gets out of the way. */}
+      {/* The top bar: the wordmark, the navigation, the account — then it gets
+          out of the way. */}
       <header className="rule-double bg-surface">
         <div className="page flex items-center gap-3 py-2.5">
           <button
@@ -398,7 +398,8 @@ function MockyApp() {
                 left on `items-baseline` the mark sat on the serif's baseline
                 and hung a third of its height below the row. */}
             <span className="flex items-baseline gap-2.5">
-              <span className="masthead text-h2 leading-none">Mocky</span>
+              {/* Lower-case, as the reference draws it. */}
+              <span className="masthead text-h2 leading-none">mocky</span>
               {/* `lg`, and the mark beside it is what moved this from `md`.
                   The tagline is 67px of brand that nothing needs; it was already
                   held back to `md` because restoring it at 640px made 640–740px

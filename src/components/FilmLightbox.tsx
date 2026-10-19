@@ -42,7 +42,7 @@ export default function FilmLightbox({ hash, onClose }: { hash: string; onClose:
   useEffect(() => setGone(false), [hash])
 
   return (
-    <div className="fixed inset-0 z-top flex items-center justify-center bg-ink/80 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-top flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
       <div className="w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-2 flex items-center justify-end gap-2">
           {/* No download link once the stream has failed: the two URLs differ by

@@ -108,7 +108,7 @@ export function SiteShotsRow({
           <button
             type="button"
             onClick={() => onRemove(shot.id)}
-            className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
+            className="absolute right-0 top-0 rounded-bl bg-black/60 p-0.5 text-white opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
             aria-label={t('project.siteRemoveN', { n: i + 1 })}
             title={t('project.siteRemove')}
           >

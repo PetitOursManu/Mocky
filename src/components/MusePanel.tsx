@@ -137,7 +137,7 @@ export default function MusePanel({
                 <button
                   type="button"
                   onClick={() => onUnpin(p.hash)}
-                  className="absolute inset-0 flex items-center justify-center bg-ink/60 text-surface opacity-0 transition group-hover:opacity-100"
+                  className="absolute inset-0 flex items-center justify-center bg-black/60 text-white opacity-0 transition group-hover:opacity-100"
                   aria-label={t('muse.unpinImage', { label: p.label })}
                   title={t('library.unpin')}
                 >
@@ -202,7 +202,7 @@ export default function MusePanel({
             title={t('muse.modeContentHint')}
             className={`kicker border-b-2 px-2.5 py-1 ${
               config.imageMode === 'content'
-                ? 'border-b-accent bg-ink text-surface'
+                ? 'border-b-accent bg-selected text-on-selected'
                 : 'border-b-transparent text-ink-muted hover:bg-ink/5'
             }`}
           >
@@ -215,7 +215,7 @@ export default function MusePanel({
             title={vision === false ? t('muse.modeNeedsVision') : t('muse.modeInspirationHint')}
             className={`kicker border-b-2 border-l border-l-line-soft px-2.5 py-1 ${
               config.imageMode === 'inspiration'
-                ? 'border-b-accent bg-ink text-surface'
+                ? 'border-b-accent bg-selected text-on-selected'
                 : 'border-b-transparent text-ink-muted hover:bg-ink/5'
             } ${vision === false ? 'cursor-not-allowed opacity-40' : ''}`}
           >
@@ -228,7 +228,7 @@ export default function MusePanel({
             title={vision === false ? t('muse.modeNeedsVision') : t('muse.modeBothHint')}
             className={`kicker border-b-2 border-l border-l-line-soft px-2.5 py-1 ${
               config.imageMode === 'both'
-                ? 'border-b-accent bg-ink text-surface'
+                ? 'border-b-accent bg-selected text-on-selected'
                 : 'border-b-transparent text-ink-muted hover:bg-ink/5'
             } ${vision === false ? 'cursor-not-allowed opacity-40' : ''}`}
           >
@@ -261,7 +261,7 @@ export default function MusePanel({
                   disabled={busy || o.disabled}
                   title={o.hint}
                   className={`kicker border-b-2 px-2.5 py-1 ${i > 0 ? 'border-l border-l-line-soft' : ''} ${
-                    source === o.id ? 'border-b-accent bg-ink text-surface' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+                    source === o.id ? 'border-b-accent bg-selected text-on-selected' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
                   } ${o.disabled ? 'cursor-not-allowed opacity-40' : ''}`}
                 >
                   {o.label}
@@ -325,7 +325,7 @@ export default function MusePanel({
                         onClick={() => config.videoPin && onChange({ ...config, videoPin: { ...config.videoPin, drive } })}
                         title={t(drive === 'pointer' ? 'muse.videoDrivePointerHint' : 'muse.videoDriveScrollHint')}
                         className={`kicker border-b-2 px-2 py-0.5 ${drive === 'pointer' ? 'border-l border-l-line-soft' : ''} ${
-                          on ? 'border-b-accent bg-ink text-surface' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+                          on ? 'border-b-accent bg-selected text-on-selected' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
                         }`}
                       >
                         {t(drive === 'pointer' ? 'muse.videoDrivePointer' : 'muse.videoDriveScroll')}
@@ -452,10 +452,10 @@ export default function MusePanel({
               {images.map((im) => (
                 <div key={im.id} className="group relative h-16 w-24 overflow-hidden rounded-lg border border-line-soft bg-sunken">
                   <img src={im.url} alt={im.slot} className="h-full w-full object-cover" />
-                  <span className="kicker absolute left-0 top-0 bg-ink/60 px-1 text-surface">{im.slot}</span>
+                  <span className="kicker absolute left-0 top-0 bg-black/60 px-1 text-white">{im.slot}</span>
                   <a
                     href={`${im.url}?download=1`}
-                    className="absolute bottom-0 right-0 flex items-center bg-ink/60 p-1 text-surface opacity-0 transition group-hover:opacity-100"
+                    className="absolute bottom-0 right-0 flex items-center bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
                     aria-label={t('muse.downloadImage', { slot: im.slot })}
                     title={t('design.download')}
                   >

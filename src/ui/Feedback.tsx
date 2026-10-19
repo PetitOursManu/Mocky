@@ -16,10 +16,10 @@ export function Banner({
   className?: string
 }) {
   const edge = {
-    info: 'border-accent',
-    warn: 'border-warn',
-    danger: 'border-danger',
-    ok: 'border-ok',
+    info: 'border-l-accent',
+    warn: 'border-l-warn',
+    danger: 'border-l-danger',
+    ok: 'border-l-ok',
   }[tone]
   const ink = { info: 'text-ink', warn: 'text-warn', danger: 'text-danger', ok: 'text-ok' }[tone]
 
@@ -28,7 +28,7 @@ export function Banner({
       // Errors have to be announced, not just drawn — the app reported failures
       // by painting a red box that a screen reader never mentioned.
       role={tone === 'danger' ? 'alert' : 'status'}
-      className={`border-l-2 ${edge} bg-surface px-3 py-2 ${className}`}
+      className={`rounded-md border border-line border-l-2 ${edge} bg-raised px-3 py-2 ${className}`}
     >
       {title && <p className={`text-body-sm font-medium ${ink}`}>{title}</p>}
       {children && <div className="text-body-sm text-ink-muted">{children}</div>}
@@ -61,7 +61,7 @@ export function Spinner({ label, className = '' }: { label?: string; className?:
  * which is indistinguishable from a screen that generated badly.
  */
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-ink/10 ${className}`} aria-hidden />
+  return <div className={`animate-pulse rounded-md bg-ink/10 ${className}`} aria-hidden />
 }
 
 export function ScreenSkeleton() {

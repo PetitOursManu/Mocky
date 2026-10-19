@@ -158,7 +158,7 @@ export default function ActivitySection({ live }: { live: Live }) {
                   }
                   className={
                     'tap-target min-h-8 border px-2 text-caption ' +
-                    (on ? 'border-line bg-ink text-surface' : 'border-line-soft text-ink-muted hover:text-ink')
+                    (on ? 'border-accent/40 bg-selected text-on-selected' : 'border-line-soft text-ink-muted hover:text-ink')
                   }
                 >
                   {t(`dashboard.kind.${k}`)}

@@ -190,21 +190,62 @@ export default function Welcome({
   return (
     <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-10">
       <div className="w-full max-w-2xl">
-        <header className="rule-double mb-8 pb-6 text-center">
+        <header className="mb-8 text-center">
           <p className="kicker text-accent-ink">{t('auth.welcome.kicker')}</p>
           <h1 className="mt-2 text-h2 text-ink sm:text-display">{t('auth.welcome.title')}</h1>
           <p className="mt-3 text-lead text-ink-muted">{t('auth.welcome.lead')}</p>
         </header>
 
+        {/* The composer answers three questions, in the order they are asked:
+            WHAT is being made (above the field, because it changes what the
+            field should say), the request itself, then HOW it is made (the
+            options under the field, in groups), and last the button. The
+            options used to be one row of ten bare words with the format chosen
+            after the request, below the box. */}
+        <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+          <span className="kicker">{t('auth.welcome.format')}</span>
+          <PresetPicker
+            value={presetId}
+            onChange={onPresetChange}
+            pageFormat={pageFormat}
+            onPageFormatChange={onPageFormatChange}
+            themeId={themeId}
+            disabled={enhancer.running}
+          />
+          <ScreenThemePicker
+            value={themeId}
+            onChange={onThemeChange}
+            placement="down"
+            disabled={busy || enhancer.running}
+            ignored={siteShots.length > 0 && siteMode === 'reproduce'}
+          />
+          {/* Flat sheet or folded leaflet: a property of the format, so it sits
+              beside it rather than among the options. */}
+          {folds.length > 0 && onFoldChange && (
+            <FoldControl value={fold} folds={folds} onChange={onFoldChange} size={15} className="composer-chip" />
+          )}
+          {/* A campaign is a different thing to make — several documents from
+              one brief — not an option of this one, so it is offered beside the
+              format, as the alternative to it. */}
+          {onOpenCampaign && (
+            <button type="button" onClick={onOpenCampaign} className="composer-chip" title={t('campaign.toolbarTitle')}>
+              <Icon name="megaphone" size={15} />
+              {t('campaign.toolbar')}
+            </button>
+          )}
+        </div>
+
         <div
-          className={`rounded-2xl border bg-surface p-3 shadow-xl transition ${
+          // The focus is shown on the card, not on the field inside it: a ring
+          // drawn around a borderless field sat inside the card's own edge.
+          className={`rounded-2xl border bg-surface p-3 shadow-xl transition focus-within:border-accent/60 ${
             dragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
           }`}
           {...siteDropHandlers(onAddSiteFiles, setDragOver)}
         >
           <textarea
             autoFocus
-            className="input min-h-[120px] resize-y border-0 bg-transparent text-lead"
+            className="input min-h-[120px] resize-y border-0 bg-transparent text-lead focus-visible:outline-0"
             placeholder={siteShots.length ? t('project.sitePlaceholder') : t('auth.welcome.placeholder')}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -221,131 +262,107 @@ export default function Welcome({
             onMode={onSiteMode}
             onRemove={onRemoveSiteShot}
           />
-          <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-1">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {/* First, because on an empty project "reproduce this site" is
-                  the whole request, not an option among the others. */}
-              <SiteAttachButton
-                onFiles={onAddSiteFiles}
-                disabled={busy}
-                size={15}
-                labelled
-                className="inline-flex items-center gap-1.5 text-body-sm text-ink-faint transition hover:text-ink"
-              />
+          {/* HOW: three groups, a hairline between them — the style the screen
+              follows, what helps write it, where its pictures come from — and
+              the attachments last, as the reference's "+ Ajouter". */}
+          <div className="flex flex-wrap items-center gap-1.5 px-1 pt-1">
+            <button
+              type="button"
+              onClick={onOpenDesign}
+              className={`composer-chip ${designActive ? 'is-on' : ''}`}
+              title={t('auth.welcome.designTitle')}
+            >
+              {designActive ? t('auth.welcome.designOn') : t('auth.welcome.designOff')}
+            </button>
+            {onToggleBrand && (
               <button
                 type="button"
-                onClick={onOpenDesign}
-                className={`text-body-sm transition ${
-                  designActive ? 'text-ok hover:opacity-80' : 'text-ink-faint hover:text-ink'
-                }`}
-                title={t('auth.welcome.designTitle')}
+                onClick={onToggleBrand}
+                className="composer-chip"
+                title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
+                aria-pressed={!!brandOn}
               >
-                {designActive ? t('auth.welcome.designOn') : t('auth.welcome.designOff')}
+                <Icon name="star" size={15} />
+                {t('brand.toggle')}
               </button>
+            )}
+            <span aria-hidden className="composer-chip-rule" />
+            <button
+              type="button"
+              onClick={toggleMuse}
+              className="composer-chip"
+              title={museHint ? t('auth.welcome.museHint') : t('auth.welcome.museTitle')}
+              aria-pressed={museConfig.enabled}
+            >
+              <Icon name="sparkle" size={15} className={museHint ? 'muse-sweep-icon' : undefined} />
+              <span className={museHint ? 'muse-sweep' : undefined}>
+                {museConfig.enabled ? t('auth.welcome.museOn') : t('auth.welcome.museOff')}
+              </span>
+            </button>
+            {/* The first screen is the one Motion Ultra matters most for: it
+                is usually the landing page, and it sets the tone. */}
+            <UltraControl
+              ultra={ultra}
+              paused={ultraPaused}
+              onSetUltra={onSetUltra}
+              onTogglePause={onToggleUltraPause}
+              videoAvailable={ultraVideoAvailable}
+              allowedCounts={ultraCounts}
+              size={15}
+              className="composer-chip"
+            />
+            {onToggleFlows && (
               <button
                 type="button"
-                onClick={toggleMuse}
-                // `muse-ink`, not `muse`: on paper the two differ, and the
-                // brighter one measures 4.27:1 against the surface — under the
-                // 4.5:1 AA floor for text this size. The ink variant exists for
-                // exactly this, and is identical in the dark theme.
-                className={`inline-flex items-center gap-1.5 text-body-sm transition ${
-                  museConfig.enabled ? 'text-muse-ink hover:opacity-80' : 'text-ink-faint hover:text-ink'
-                }`}
-                title={museHint ? t('auth.welcome.museHint') : t('auth.welcome.museTitle')}
+                onClick={onToggleFlows}
+                className="composer-chip"
+                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
+                aria-pressed={!!flowsOn}
               >
-                <Icon name="sparkle" size={15} className={museHint ? 'muse-sweep-icon' : undefined} />
-                <span className={museHint ? 'muse-sweep' : undefined}>
-                  {museConfig.enabled ? t('auth.welcome.museOn') : t('auth.welcome.museOff')}
-                </span>
+                <Icon name="cable" size={15} />
+                {t('flows.toggle')}
               </button>
-              {onToggleFlows && (
-                <button
-                  type="button"
-                  onClick={onToggleFlows}
-                  className={`inline-flex items-center gap-1.5 text-body-sm transition ${
-                    flowsOn ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink'
-                  }`}
-                  title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
-                  aria-pressed={!!flowsOn}
-                >
-                  <Icon name="cable" size={15} />
-                  {t('flows.toggle')}
-                </button>
-              )}
-              {onToggleBrand && (
-                <button
-                  type="button"
-                  onClick={onToggleBrand}
-                  className={`inline-flex items-center gap-1.5 text-body-sm transition ${
-                    brandOn ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink'
-                  }`}
-                  title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
-                  aria-pressed={!!brandOn}
-                >
-                  <Icon name="star" size={15} />
-                  {t('brand.toggle')}
-                </button>
-              )}
-              {/* A campaign starts from a brief, not from this composer: on an
-                  empty project there is no toolbar to reach its panel from. */}
-              {onOpenCampaign && (
-                <button
-                  type="button"
-                  onClick={onOpenCampaign}
-                  className="inline-flex items-center gap-1.5 text-body-sm text-ink-faint transition hover:text-ink"
-                  title={t('campaign.toolbarTitle')}
-                >
-                  <Icon name="megaphone" size={15} />
-                  {t('campaign.toolbar')}
-                </button>
-              )}
-              {/* The first screen is the one Motion Ultra matters most for: it
-                  is usually the landing page, and it sets the tone. */}
-              <UltraControl
-                ultra={ultra}
-                paused={ultraPaused}
-                onSetUltra={onSetUltra}
-                onTogglePause={onToggleUltraPause}
-                videoAvailable={ultraVideoAvailable}
-                allowedCounts={ultraCounts}
+            )}
+            <span aria-hidden className="composer-chip-rule" />
+            {/* A document decides its picture here, and it is never hidden:
+                it is the one choice that may cost a paid generation. */}
+            {pageFormat ? (
+              <DocumentImageControl
+                value={documentImage.value}
+                choices={documentImage.choices}
+                onChange={documentImage.onChange}
                 size={15}
-                className="text-body-sm"
+                className="composer-chip"
               />
-              {/* A document decides its picture here, and it is never hidden:
-                  it is the one choice that may cost a paid generation. */}
-              {folds.length > 0 && onFoldChange && (
-                <FoldControl value={fold} folds={folds} onChange={onFoldChange} size={15} className="text-body-sm" />
-              )}
-              {pageFormat ? (
-                <DocumentImageControl
-                  value={documentImage.value}
-                  choices={documentImage.choices}
-                  onChange={documentImage.onChange}
+            ) : (
+              imageChoiceAvailable && (
+                <ImageSourceControl
+                  value={imageChoice}
+                  choices={imageChoices}
+                  onChange={onImageChoice}
                   size={15}
-                  className="text-body-sm"
+                  className="composer-chip"
                 />
-              ) : (
-                imageChoiceAvailable && (
-                  <ImageSourceControl
-                    value={imageChoice}
-                    choices={imageChoices}
-                    onChange={onImageChoice}
-                    size={15}
-                    className="text-body-sm"
-                  />
-                )
-              )}
-            </div>
+              )
+            )}
+            <SiteAttachButton
+              onFiles={onAddSiteFiles}
+              disabled={busy}
+              size={15}
+              labelled
+              className={`composer-chip ${siteShots.length ? 'is-on' : ''}`}
+            />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-line-soft px-1 pt-3">
+            <PromptEnhanceButton
+              enhancer={enhancer}
+              onStart={onEnhance}
+              disabled={busy || !prompt.trim()}
+              // Captures describe the screen; a brief invented on top would
+              // argue with them (Reproduce: "nothing added"; Redesign: "keep the content").
+              disabledReason={siteShots.length ? t('composer.enhanceCaptures') : undefined}
+            />
             <div className="flex items-center gap-3">
-              <PromptEnhanceButton
-                enhancer={enhancer}
-                onStart={onEnhance}
-                disabled={busy || !prompt.trim()}
-                // Captures describe the screen; a brief invented on top would
-                // argue with them (Reproduce: "nothing added"; Redesign: "keep the content").
-                disabledReason={siteShots.length ? t('composer.enhanceCaptures') : undefined}
-              />
               <span className="hidden text-caption text-ink-faint sm:inline">⌘/Ctrl + Enter</span>
               <Button
                 variant="primary"
@@ -390,25 +407,6 @@ export default function Welcome({
             />
           </div>
         )}
-
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          <span className="kicker">{t('auth.welcome.format')}</span>
-          <PresetPicker
-            value={presetId}
-            onChange={onPresetChange}
-            pageFormat={pageFormat}
-            onPageFormatChange={onPageFormatChange}
-            themeId={themeId}
-            disabled={enhancer.running}
-          />
-          <ScreenThemePicker
-            value={themeId}
-            onChange={onThemeChange}
-            placement="down"
-            disabled={busy || enhancer.running}
-            ignored={siteShots.length > 0 && siteMode === 'reproduce'}
-          />
-        </div>
 
         {/* First-run style picker (D.1) — sets a DESIGN.md so the very first
             screen is on-brand. Hidden once a design system is active. */}

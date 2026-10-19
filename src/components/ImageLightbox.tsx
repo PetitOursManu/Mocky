@@ -90,7 +90,7 @@ export default function ImageLightbox({
   return (
     <div
       ref={scrollRef}
-      className="fixed inset-0 z-top overflow-y-auto overscroll-contain bg-ink/60"
+      className="fixed inset-0 z-top overflow-y-auto overscroll-contain bg-black/60"
       onClick={onClose}
     >
       {/* Pinned actions — reachable no matter how long the prompt is. */}

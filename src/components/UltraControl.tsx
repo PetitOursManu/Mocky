@@ -89,7 +89,7 @@ export default function UltraControl({
               aria-pressed={shown === count}
               title={t('project.ultraCountTitle', { count, minutes: count === 3 ? '1' : '2–3' })}
               className={`px-1.5 py-0.5 text-caption tabular-nums transition ${
-                shown === count ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
+                shown === count ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5'
               }`}
             >
               ×{count}
@@ -115,7 +115,7 @@ export default function UltraControl({
           aria-pressed={!!ultra.video}
           title={t('project.ultraVideoTitle')}
           className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-caption transition ${
-            ultra.video ? 'border-accent bg-accent text-on-accent' : 'border-line text-ink-muted hover:bg-ink/5'
+            ultra.video ? 'border-accent/40 bg-selected text-on-selected' : 'border-line text-ink-muted hover:bg-ink/5'
           }`}
         >
           <Icon name="play" size={11} />

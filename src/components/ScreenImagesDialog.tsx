@@ -463,7 +463,7 @@ export default function ScreenImagesDialog({
                       alt=""
                       className="h-full w-full object-cover"
                     />
-                    <span className="absolute bottom-0 left-0 flex items-center gap-1 bg-ink/80 px-1 py-0.5 text-caption text-surface">
+                    <span className="absolute bottom-0 left-0 flex items-center gap-1 bg-black/80 px-1 py-0.5 text-caption text-white">
                       <Icon name="film" size={11} />
                       {t('library.swapSeqBadge')}
                     </span>

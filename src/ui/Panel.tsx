@@ -40,12 +40,12 @@ export function Panel({
   return (
     <aside
       aria-label={title}
-      className={`flex max-h-[70vh] flex-col border border-line bg-raised ${className}`}
+      className={`flex max-h-[70vh] flex-col overflow-hidden rounded-lg border border-line bg-raised shadow-lg ${className}`}
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-2">
+      <header className="flex shrink-0 items-center gap-2 border-b border-line-soft px-3 py-2">
         {/* A real heading, not a <span>: the floating panels titled themselves
             with plain text, so the page had no outline below <h1>. */}
-        <h3 className="min-w-0 flex-1 truncate text-body-sm font-semibold uppercase tracking-wide text-accent-ink">
+        <h3 className="min-w-0 flex-1 truncate kicker">
           {title}
         </h3>
         {onClose && (
@@ -76,7 +76,7 @@ export function PanelRow({
     <div
       className={`group flex items-center gap-2 border-b border-l-2 border-b-line-soft px-3 py-2 last:border-b-0 ${
         // The left rule is always there, so nothing shifts when a row is picked.
-        active ? 'border-l-accent bg-ink/5' : 'border-l-transparent'
+        active ? 'border-l-accent bg-selected' : 'border-l-transparent'
       }`}
     >
       {onClick ? (

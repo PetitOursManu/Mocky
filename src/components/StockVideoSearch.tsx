@@ -171,7 +171,7 @@ export default function StockVideoSearch({
                 aria-pressed={p === provider}
                 onClick={() => switchTo(p)}
                 className={`kicker border-b-2 px-2 py-0.5 ${p === 'pixabay' ? 'border-l border-l-line-soft' : ''} ${
-                  p === provider ? 'border-b-accent bg-ink text-surface' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+                  p === provider ? 'border-b-accent bg-selected text-on-selected' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
                 }`}
               >
                 {STOCK_LABELS[p]}

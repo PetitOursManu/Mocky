@@ -122,7 +122,7 @@ function SourceChoices<T extends string>({
             aria-pressed={value === id}
             title={t(title)}
             className={`px-1.5 py-0.5 text-caption transition ${
-              value === id ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
+              value === id ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5'
             }`}
           >
             {t(optionLabel)}

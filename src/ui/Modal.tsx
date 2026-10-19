@@ -97,7 +97,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-ink/60 p-4"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       // The single overlay tint. No handler at all when the dialog is required:
       // a click that is silently ignored reads as a broken dialog.
       onClick={dismissible ? onClose : undefined}
@@ -109,9 +109,9 @@ export function Modal({
         aria-label={title}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-[90vh] w-full ${width} flex-col border border-line bg-raised outline-hidden`}
+        className={`flex max-h-[90vh] w-full ${width} flex-col overflow-hidden rounded-2xl border border-line bg-raised shadow-2xl outline-hidden`}
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-line px-5 py-3">
+        <header className="flex shrink-0 items-center gap-3 border-b border-line-soft px-5 py-3">
           <h2 className="min-w-0 flex-1 truncate text-h3 text-ink">{title}</h2>
           {dismissible && (
             <IconButton label={closeLabel ?? t('common.close')} variant="quiet" onClick={onClose}>

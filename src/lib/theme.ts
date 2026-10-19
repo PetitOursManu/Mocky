@@ -8,7 +8,8 @@
  * enough to tint every mockup laid on it.
  *
  * Now: paper and ink. Both are defined by the same tokens (src/styles/tokens.css),
- * so neither is an afterthought patched on top of the other.
+ * so neither is an afterthought patched on top of the other — but ink, the
+ * dark one, is the default: nothing chosen means dark.
  */
 export type Theme = 'light' | 'dark'
 
@@ -19,15 +20,6 @@ export const THEMES: { id: Theme; label: string; icon: string }[] = [
 
 const KEY = 'mocky.theme'
 
-/** The OS preference, used when nothing has been chosen yet. */
-function systemTheme(): Theme {
-  try {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  } catch {
-    return 'light'
-  }
-}
-
 export function loadTheme(): Theme {
   try {
     const v = localStorage.getItem(KEY)
@@ -37,7 +29,9 @@ export function loadTheme(): Theme {
   } catch {
     /* storage unavailable */
   }
-  return systemTheme()
+  // Dark first: the OS preference used to decide here, and the redesign made
+  // dark the default theme rather than one of two equals.
+  return 'dark'
 }
 
 export function applyTheme(t: Theme): void {

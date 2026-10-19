@@ -3201,7 +3201,7 @@ export default function ProjectView({
         enhancer={enhancer}
         onEnhance={startEnhance}
       />
-      {campaignPanel && <div className="fixed inset-0 z-30 bg-ink/10">{campaignPanel}</div>}
+      {campaignPanel && <div className="fixed inset-0 z-30 bg-black/10">{campaignPanel}</div>}
       {libraryModal}
       </>
     )
@@ -3762,7 +3762,7 @@ export default function ProjectView({
                     className={`flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left text-body transition disabled:opacity-40 ${
                       // Inverted, not tinted — the same way an active toolbar
                       // button reads, and legible in both themes.
-                      tool.active ? 'bg-ink text-surface' : 'text-ink hover:bg-ink/5'
+                      tool.active ? 'bg-selected text-on-selected' : 'text-ink hover:bg-ink/5'
                     }`}
                   >
                     <Icon name={tool.icon} size={tool.iconSize ?? 16} />
@@ -3885,7 +3885,7 @@ export default function ProjectView({
                   <button
                     type="button"
                     onClick={() => setAnnotations((arr) => arr.filter((x) => x.id !== a.id))}
-                    className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
+                    className="absolute right-0 top-0 rounded-bl bg-black/60 p-0.5 text-white opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
                     aria-label={t('project.removeRefN', { n: i + 1 })}
                     title={t('project.removeRef')}
                   >
@@ -3918,7 +3918,7 @@ export default function ProjectView({
               {selectedScreens.map((s) => (
                 <span
                   key={s.id}
-                  className="flex max-w-[200px] items-center gap-1 rounded-md border border-accent bg-ink py-0.5 pl-2 pr-1 text-body-sm font-medium text-surface"
+                  className="flex max-w-[200px] items-center gap-1 rounded-md border border-accent/40 bg-selected py-0.5 pl-2 pr-1 text-body-sm font-medium text-on-selected"
                 >
                   <span className="flex min-w-0 items-center gap-1.5">
                     <Icon name="grid" size={12} />
@@ -3926,7 +3926,7 @@ export default function ProjectView({
                   </span>
                   <button
                     type="button"
-                    className="rounded p-0.5 text-surface/70 transition hover:bg-surface/20 hover:text-surface"
+                    className="rounded p-0.5 text-on-selected/70 transition hover:bg-on-selected/20 hover:text-on-selected"
                     onClick={() => setSelectedIds((ids) => ids.filter((i) => i !== s.id))}
                     aria-label={t('project.removeFromSelectionOf', { name: s.name })}
                     title={t('project.removeFromSelection')}
@@ -4001,7 +4001,10 @@ export default function ProjectView({
             </div>
           )}
 
-          {/* Format preset — only relevant when creating a new screen */}
+          {/* The same order as the first composer (Welcome): WHAT is made, the
+              request, HOW it is made, then the buttons. The options used to sit
+              ABOVE the field as a row of bare capitalised words, and the
+              buttons beside it squeezed the field on a narrow window. */}
           {!editing && (
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="kicker">{t('project.format')}</span>
@@ -4020,90 +4023,77 @@ export default function ProjectView({
                 disabled={busy || enhancer.running}
                 ignored={themeIgnored}
               />
+              {/* Flat sheet or folded leaflet, for a type that folds and a size
+                  that can take it (lib/folds.ts): a property of the format. */}
+              {composerFolds.length > 0 && (
+                <FoldControl
+                  value={composerFold}
+                  folds={composerFolds}
+                  onChange={setFoldId}
+                  className="composer-chip"
+                />
+              )}
             </div>
           )}
 
-          {/* Two rows, not one.
-              The three toggles grew from two words to a sentence each, and on
-              one line they squeezed the prompt field down to a few characters
-              and the Generate button to an initial. The field is the point of
-              this bar; it gets the width.
+          <EnhanceNotice enhancer={enhancer} className="mb-2" />
+          {/* min-w-0: a textarea's automatic minimum size comes from `cols`
+              (20 by default), which is wider than a 390px row. */}
+          <textarea
+            ref={composerField}
+            rows={2}
+            className="input min-w-0 resize-none"
+            placeholder={
+              editing
+                ? t(
+                    selectedScreens.length === 1 ? 'project.composerEdit_one' : 'project.composerEdit_other',
+                    { count: selectedScreens.length },
+                  )
+                : siteShots.length
+                  ? t('project.sitePlaceholder')
+                  : t('composer.placeholder')
+            }
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={onComposerKey}
+            onPaste={onComposerPaste}
+            // The brief is being written INTO the field: a keystroke now would
+            // be overwritten by the next chunk, or overwrite it.
+            readOnly={enhancer.running}
+            aria-busy={enhancer.running || undefined}
+          />
 
-              They were also bare `.kicker` text: 11px, 16px tall, no padding at
-              all — three of the smallest hit targets in the product, and a
-              design-system violation besides, since caption 11px is for badges
-              only. They are controls, so they take body-sm 13px and a real box.
-              `text-body-sm` after `kicker` is not redundant: Tailwind emits
-              utilities after components, so that is what actually overrides the
-              `@apply text-caption` inside `.kicker` while the rest of the
-              device — capitals, tracking, weight — stays.
-
-              `tap-target` because these are hand-rolled `<button>`s and not the
-              `Button` primitive, so the 44px touch floor in index.css does not
-              reach them on its own. `-mx-2` pays back the `px-2` each toggle now
-              carries, so the labels still line up with the Format row above
-              instead of sitting 8px in. */}
-          <div className="-mx-2 mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          {/* HOW, in three groups with a hairline between them — the style the
+              screen follows, what helps write it, where its pictures come from
+              — and the screenshots last. Every chip is `.composer-chip`, the
+              same box as the first composer's. While EDITING only Muse and the
+              screenshots remain: the rest decide what a new screen is. */}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {/* One direction per project, and this is the only way to change it
                 from the composer: tick it, and THIS prompt writes the design
                 every following screen will follow. Hidden while editing — an
                 edit reworks what a direction produced, and letting it rewrite
                 that direction would reattribute every other screen in the
-                project to a document written for a change to one of them.
-                DESIGN.md itself is still reachable from the header and from a
-                screen's context menu; what it is not any more is a thing the
-                composer silently rewrote on every generation. */}
+                project to a document written for a change to one of them. */}
             {!editing && (
               <button
                 type="button"
                 onClick={() => setRedesign((v) => !v)}
-                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center px-2 py-1.5 text-body-sm transition ${
-                  redesign ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-                }`}
+                className="composer-chip"
                 title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
                 aria-pressed={redesign}
               >
-                {redesign ? '● ' : '○ '}
+                <Icon name="wand" size={14} />
                 {t('project.redesignChip')}
               </button>
             )}
-            <button
-              type="button"
-              onClick={toggleMuse}
-              className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                museConfig.enabled ? 'text-muse-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-              title={museHint ? t('project.museHint') : t('project.museToggle')}
-              aria-pressed={museConfig.enabled}
-            >
-              <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
-              <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
-            </button>
-            {/* New screens only: an edit keeps the flow its screen already has. */}
-            {!editing && (
-              <button
-                type="button"
-                onClick={toggleFlows}
-                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                  flowsOn ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-                }`}
-                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
-                aria-pressed={flowsOn}
-              >
-                <Icon name="cable" size={14} />
-                {t('flows.toggle')}
-              </button>
-            )}
             {/* The account's brand, for this project (lib/brand.ts): offered once
-                a brand exists, remembered on the project, read by every
-                generation and edit until switched off. */}
+                a brand exists, remembered on the project. */}
             {!editing && brandAvailable && (
               <button
                 type="button"
                 onClick={() => onSetUseBrand?.(!project.useBrand)}
-                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                  project.useBrand ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-                }`}
+                className="composer-chip"
                 title={t(project.useBrand ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
                 aria-pressed={!!project.useBrand}
               >
@@ -4111,6 +4101,17 @@ export default function ProjectView({
                 {t('brand.toggle')}
               </button>
             )}
+            {!editing && <span aria-hidden className="composer-chip-rule" />}
+            <button
+              type="button"
+              onClick={toggleMuse}
+              className="composer-chip"
+              title={museHint ? t('project.museHint') : t('project.museToggle')}
+              aria-pressed={museConfig.enabled}
+            >
+              <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
+              <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
+            </button>
             {/* New screens only: an edit reworks a screen that already is, or
                 is not, Motion Ultra — the pass that builds one is a storyboard
                 and a series of pictures, not an instruction to an edit. */}
@@ -4122,29 +4123,33 @@ export default function ProjectView({
                 onTogglePause={() => setUltraPaused((v) => !v)}
                 videoAvailable={ultraVideoAvailable}
                 allowedCounts={ultraCounts}
-                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+                className="composer-chip"
               />
             )}
+            {/* New screens only: an edit keeps the flow its screen already has. */}
+            {!editing && (
+              <button
+                type="button"
+                onClick={toggleFlows}
+                className="composer-chip"
+                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
+                aria-pressed={flowsOn}
+              >
+                <Icon name="cable" size={14} />
+                {t('flows.toggle')}
+              </button>
+            )}
+            {!editing && <span aria-hidden className="composer-chip-rule" />}
             {/* A document has a choice of its own, "Sans image" first, drawn
                 whenever a page format is active: it is where a paid picture is
                 decided, so no other condition may hide it
                 (lib/documentPictures.ts). */}
-            {/* Flat sheet or folded leaflet, for a type that folds and a size
-                that can take it (lib/folds.ts). */}
-            {!editing && composerFolds.length > 0 && (
-              <FoldControl
-                value={composerFold}
-                folds={composerFolds}
-                onChange={setFoldId}
-                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
-              />
-            )}
             {!editing && composerPage ? (
               <DocumentImageControl
                 value={docImageShown}
                 choices={docImageChoicesNow}
                 onChange={setDocImageChoice}
-                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+                className="composer-chip"
               />
             ) : (
               !editing &&
@@ -4153,7 +4158,7 @@ export default function ProjectView({
                   value={imageChoiceShown}
                   choices={imageChoices}
                   onChange={onImageChoice}
-                  className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+                  className="composer-chip"
                 />
               )
             )}
@@ -4166,95 +4171,61 @@ export default function ProjectView({
               disabled={busy}
               size={14}
               labelled
-              className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                siteShots.length ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-              }`}
+              className={`composer-chip ${siteShots.length ? 'is-on' : ''}`}
             />
           </div>
 
-          <EnhanceNotice enhancer={enhancer} className="mb-2" />
-          <div className="flex items-end gap-2">
-            {/* min-w-0: a textarea's automatic minimum size comes from `cols`
-                (20 by default), which is wider than the room left beside the
-                two buttons at 390px — so without this the row overflowed the
-                composer instead of the field giving way. */}
-            <textarea
-              ref={composerField}
-              rows={2}
-              className="input min-w-0 resize-none"
-              placeholder={
-                editing
-                  ? t(
-                      selectedScreens.length === 1 ? 'project.composerEdit_one' : 'project.composerEdit_other',
-                      { count: selectedScreens.length },
-                    )
-                  : siteShots.length
-                    ? t('project.sitePlaceholder')
-                    : t('composer.placeholder')
-              }
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={onComposerKey}
-              onPaste={onComposerPaste}
-              // The brief is being written INTO the field: a keystroke now would
-              // be overwritten by the next chunk, or overwrite it.
-              readOnly={enhancer.running}
-              aria-busy={enhancer.running || undefined}
-            />
+          {/* The buttons, on a row of their own: the field keeps the width. */}
+          <div className="mt-2 flex items-center justify-between gap-2 border-t border-line-soft pt-2">
             {/* New screens only. An edit instruction must stay narrow — EDIT_RULES
                 change only what is asked — and a 200-word brief would read as a
                 redesign of the selected screens. */}
-            {!editing && (
+            {!editing ? (
               <PromptEnhanceButton
                 enhancer={enhancer}
                 onStart={startEnhance}
                 disabled={busy || !prompt.trim()}
                 disabledReason={enhanceBlocked}
-                compact
-                className="mb-0.5"
               />
+            ) : (
+              <span />
             )}
-            <button
-              type="button"
-              className="btn-primary mb-0.5 flex shrink-0 items-center gap-2"
-              onClick={generate}
-              // Screenshots are a request on their own for a new screen; an
-              // edit still needs the words saying what to change.
-              disabled={busy || enhancer.running || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
-            >
-              {busy ? (
-                <>
-                  {/* MockyLoader porte deja role="status" + aria-label : le texte
-                      visible est masque aux lecteurs d'ecran pour que l'etat ne
-                      soit pas annonce deux fois.
-
-                      64px de signature plus le libelle plus le bouton Arreter,
-                      tous shrink-0, ne laissaient que ~74px au champ de saisie
-                      sur un telephone : la barre annoncait ce qu'elle faisait au
-                      prix de ce a quoi elle sert. Le mot passe a 32 et le
-                      libelle disparait sous sm — le champ garde ~190px, et le
-                      nom accessible du loader dit toujours l'etat. */}
-                  <MockyLoader size={32} label={busyLabel} className="shrink-0" />
-                  <span aria-hidden className="hidden sm:inline">
-                    {busyLabel}
-                  </span>
-                </>
-              ) : editing ? (
-                t('composer.update', { count: selectedScreens.length })
-              ) : (
-                t('composer.generate')
+            <div className="flex items-center gap-2">
+              {busy && (
+                <button
+                  type="button"
+                  className="btn-ghost shrink-0"
+                  onClick={cancelGenerate}
+                  title={t('project.stopTitle')}
+                >
+                  {t('composer.stop')}
+                </button>
               )}
-            </button>
-            {busy && (
               <button
                 type="button"
-                className="btn-ghost mb-0.5 shrink-0 px-3 py-2 text-body-sm"
-                onClick={cancelGenerate}
-                title={t('project.stopTitle')}
+                className="btn-primary flex shrink-0 items-center gap-2"
+                onClick={generate}
+                // Screenshots are a request on their own for a new screen; an
+                // edit still needs the words saying what to change.
+                disabled={busy || enhancer.running || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
               >
-                {t('composer.stop')}
+                {busy ? (
+                  <>
+                    {/* MockyLoader porte deja role="status" + aria-label : le texte
+                        visible est masque aux lecteurs d'ecran pour que l'etat ne
+                        soit pas annonce deux fois. Le libelle disparait sous sm. */}
+                    <MockyLoader size={32} label={busyLabel} className="shrink-0" />
+                    <span aria-hidden className="hidden sm:inline">
+                      {busyLabel}
+                    </span>
+                  </>
+                ) : editing ? (
+                  t('composer.update', { count: selectedScreens.length })
+                ) : (
+                  `${t('composer.generate')} ↵`
+                )}
               </button>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -4262,7 +4233,7 @@ export default function ProjectView({
       {/* Target picker — the list behind the cable's "Choose from the list" */}
       {pendingLink?.list && (
         <div
-          className="absolute inset-0 z-40 flex items-center justify-center bg-ink/60 p-4"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
           onClick={() => setPendingLink(null)}
         >
           <div
@@ -4317,7 +4288,7 @@ export default function ProjectView({
       {/* No-code element editor (Modify mode) */}
       {pendingModify && (
         <div
-          className="absolute inset-0 z-40 flex items-center justify-center bg-ink/60 p-4"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
           onClick={() => setPendingModify(null)}
         >
           <div
@@ -4535,188 +4506,196 @@ export default function ProjectView({
                 }}
               />
               <ContextMenuShell x={menu.x} y={menu.y}>
-                {s.page && (
-                  <MenuItem
-                    icon="download"
-                    label={t('project.docDownload')}
-                    // As the pill on the frame: a document still being written
-                    // would export half a page.
-                    disabled={!s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
-                    onClick={() => { close(); setDownloadDocId(s.id) }}
-                  />
-                )}
-                {/* A document only: pages are what a fit is measured against. */}
-                {s.page && (
-                  <MenuItem
-                    icon="fit"
-                    label={t('project.docFit')}
-                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
-                    onClick={() => { close(); void fitDocument(s.id) }}
-                  />
-                )}
-                <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
-                <MenuItem icon="sparkle" label={t('project.polish')} disabled={busy} onClick={() => { close(); polishScreen(s.id) }} />
-                {/* Only on a screen that carries a film: the one place a film made
-                    at the first prompt can still be changed rather than replaced. */}
-                {s.attachedMedia?.kind === 'film' && (
-                  <MenuItem icon="pencil" label={t('project.motionRevise')} disabled={busy} onClick={() => { close(); setReviseFilmScreenId(s.id) }} />
-                )}
-                <MenuItem
-                  icon="pencil"
-                  label={t('canvas.rename')}
-                  onClick={() => {
-                    close()
-                    const n = window.prompt(t('project.screenNamePrompt'), s.name)
-                    if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
-                  }}
-                />
-                <MenuItem
-                  icon="note"
-                  label={s.userNotes?.length ? t('notes.menuCount', { count: s.userNotes.length }) : t('notes.menu')}
-                  onClick={() => { close(); setNotesScreenId(s.id) }}
-                />
-                <MenuItem icon="history" label={t('versions.screenMenu')} onClick={() => { close(); setHistoryScreenId(s.id) }} />
-                <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
-                <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
-                <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
-                {/* Not offered on a document: its chrome is <Doc>/<Page>, which an
-                    app screen has no kit for, and `pickReference` passes a pinned
-                    document over anyway. Still there to UNPIN one. */}
-                {(!s.page || isRef) && (
-                  <MenuItem
-                    icon="pin"
-                    label={t(isRef ? 'project.unpinReference' : 'project.pinReference')}
-                    onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
-                  />
-                )}
-                {/* An ordinary screen as files a person can send: the whole page
-                    as a picture, or cut into slides (lib/docExport/web.ts). */}
-                {!s.page && (
-                  <MenuItem
-                    icon="image"
-                    label={t('project.webExportPng')}
-                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
-                    onClick={() => { close(); void exportWeb(s.id, 'png') }}
-                  />
-                )}
-                {!s.page && (
-                  <MenuItem
-                    icon="download"
-                    label={t('project.webExportPptx')}
-                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
-                    onClick={() => { close(); void exportWeb(s.id, 'pptx') }}
-                  />
-                )}
-                <MenuItem icon="download" label={t('canvas.download')} onClick={() => { close(); downloadTsx(s) }} />
-                {s.previousCode && (
-                  <MenuItem icon="undo" label={t('common.revert')} onClick={() => { close(); onRevertScreen(s.id) }} />
-                )}
-                <MenuItem
-                  icon="wand"
-                  label={t(derivingDesignId === s.id ? 'project.deriveDesignBusy' : 'project.deriveDesign')}
-                  onClick={() => { close(); deriveDesignFrom(s) }}
-                />
-                <MenuItem icon="image" label={t('project.editDesign')} onClick={() => { close(); onOpenDesign() }} />
-                <MenuItem
-                  icon="library"
-                  label={t('project.changeImages')}
-                  onClick={() => { close(); setImagesForScreen(s.id) }}
-                />
-                <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
+                {/* Three groups, in the order a person reaches for them: what
+                    CHANGES the screen, then what LEAVES with it, then
+                    housekeeping. It was one flat list of twenty-odd entries in
+                    the order they were added, with three exports scattered
+                    among renaming and pinning. The groups carry no title — the
+                    rule between them is enough, as in the reference menu. */}
+                {(() => {
+                  const writing = generatingIds.has(s.id) || regeneratingIds.has(s.id)
+                  const unexportable = busy || !s.code.trim() || writing
+                  return (
+                    <>
+                      {/* Editing a screen is selecting it: the composer turns to it. */}
+                      <MenuItem
+                        icon="comment"
+                        label={t('project.menuEditMessage')}
+                        hint="↵"
+                        disabled={busy}
+                        onClick={() => {
+                          close()
+                          setSelectedIds([s.id])
+                          requestAnimationFrame(() => composerField.current?.focus())
+                        }}
+                      />
+                      <MenuItem icon="sparkle" label={t('project.polish')} disabled={busy} onClick={() => { close(); polishScreen(s.id) }} />
+                      <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
+                      <MenuItem icon="library" label={t('project.changeImages')} onClick={() => { close(); setImagesForScreen(s.id) }} />
+                      <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
+                      {/* A page does not move: animations mean nothing on a document. */}
+                      {!s.page && (
+                        <SubMenu icon="pulse" label={t('project.menuAnimations')}>
+                          <MenuLabel>{t('project.addAnimations')}</MenuLabel>
+                          {ANIMATION_LEVELS.map((lvl) => (
+                            <MenuItem
+                              key={lvl}
+                              icon="plus"
+                              label={t(ANIMATION_LEVEL_KEYS[lvl])}
+                              disabled={busy || !s.code.trim()}
+                              onClick={() => { close(); addAnimations(s.id, lvl) }}
+                            />
+                          ))}
+                          <MenuRule />
+                          {/* Whether this screen PLAYS its animations — distinct
+                              from adding them, which rewrites the code. Both
+                              states are listed and the current one is checked: a
+                              single item that changed wording never showed which
+                              state you were on. */}
+                          <MenuLabel>{t('project.playAnimations')}</MenuLabel>
+                          {(
+                            [
+                              [undefined, 'project.playOn'],
+                              [false, 'project.playOff'],
+                            ] as const
+                          ).map(([value, labelKey]) => (
+                            <MenuItem
+                              key={String(value)}
+                              icon="play"
+                              label={t(labelKey)}
+                              checked={value === false ? s.animations === false : s.animations !== false}
+                              onClick={() => { close(); onUpdateScreen(s.id, { animations: value }) }}
+                            />
+                          ))}
+                        </SubMenu>
+                      )}
+                      {/* Only on a screen that carries a film: the one place a
+                          film made at the first prompt can still be changed rather
+                          than replaced. Making a NEW film stays in the toolbar: a
+                          cut is made from the media library and reads no screen. */}
+                      {s.attachedMedia?.kind === 'film' && (
+                        <MenuItem icon="film" label={t('project.motionRevise')} disabled={busy} onClick={() => { close(); setReviseFilmScreenId(s.id) }} />
+                      )}
+                      {/* A document only: pages are what a fit is measured against. */}
+                      {s.page && (
+                        <MenuItem
+                          icon="fit"
+                          label={t('project.docFit')}
+                          disabled={busy || !s.code.trim() || writing}
+                          onClick={() => { close(); void fitDocument(s.id) }}
+                        />
+                      )}
+                      {s.previousCode && (
+                        <MenuItem icon="undo" label={t('common.revert')} onClick={() => { close(); onRevertScreen(s.id) }} />
+                      )}
 
-                {/* A document's size is its page format, and a page does not
-                    move: neither the viewport formats nor the animation
-                    controls below mean anything for it. */}
-                {!s.page && (<>
-                <div className="my-1 border-t border-line-soft" />
-                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.displayFormat')}</div>
-                <div className="flex gap-1 px-2 pb-1.5">
-                  {([
-                    ['mobile', 'project.formatMobile'],
-                    ['tablet', 'project.formatTablet'],
-                    ['desktop', 'project.formatDesktop'],
-                    ['full', 'project.formatFull'],
-                  ] as [ViewportFormat, string][]).map(([f, labelKey]) => (
-                    <button
-                      key={f}
-                      type="button"
-                      aria-label={
-                        f === 'full' ? t('project.formatFullTitle') : t('project.formatOf', { name: t(labelKey) })
-                      }
-                      title={f === 'full' ? t('project.formatFullTitle') : t(labelKey)}
-                      onClick={() => { close(); setFormat(s.id, f) }}
-                      className="flex-1 rounded-md border border-line-soft py-1 text-caption font-medium transition hover:border-accent hover:text-accent-ink"
-                    >
-                      {t(labelKey)}
-                    </button>
-                  ))}
-                </div>
+                      <MenuRule />
+                      {/* Every way a screen leaves Mocky, in one place. */}
+                      <SubMenu icon="download" label={t('project.menuExport')}>
+                        {s.page ? (
+                          <MenuItem
+                            icon="download"
+                            label={t('project.docDownload')}
+                            // As the pill on the frame: a document still being
+                            // written would export half a page.
+                            disabled={!s.code.trim() || writing}
+                            onClick={() => { close(); setDownloadDocId(s.id) }}
+                          />
+                        ) : (
+                          <>
+                            {/* The whole page as a picture, or cut into slides
+                                (lib/docExport/web.ts). */}
+                            <MenuItem
+                              icon="image"
+                              label={t('project.webExportPng')}
+                              disabled={unexportable}
+                              onClick={() => { close(); void exportWeb(s.id, 'png') }}
+                            />
+                            <MenuItem
+                              icon="download"
+                              label={t('project.webExportPptx')}
+                              disabled={unexportable}
+                              onClick={() => { close(); void exportWeb(s.id, 'pptx') }}
+                            />
+                          </>
+                        )}
+                        <MenuItem icon="code" label={t('canvas.download')} onClick={() => { close(); downloadTsx(s) }} />
+                      </SubMenu>
+                      <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
 
-                <div className="my-1 border-t border-line-soft" />
-                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.addAnimations')}</div>
-                <div className="flex gap-1 px-2 pb-1.5">
-                  {ANIMATION_LEVELS.map((lvl) => (
-                    <button
-                      key={lvl}
-                      type="button"
-                      disabled={busy || !s.code.trim()}
-                      title={t('project.animTitle', { level: t(ANIMATION_LEVEL_KEYS[lvl]).toLowerCase() })}
-                      onClick={() => { close(); addAnimations(s.id, lvl) }}
-                      className="flex-1 rounded-md border border-line-soft py-1 text-caption font-medium transition hover:border-accent hover:text-accent-ink disabled:opacity-40"
-                    >
-                      {t(ANIMATION_LEVEL_KEYS[lvl])}
-                    </button>
-                  ))}
-                </div>
+                      <MenuRule />
+                      <MenuItem
+                        icon="pencil"
+                        label={t('canvas.rename')}
+                        onClick={() => {
+                          close()
+                          const n = window.prompt(t('project.screenNamePrompt'), s.name)
+                          if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
+                        }}
+                      />
+                      <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
+                      <MenuItem
+                        icon="note"
+                        label={s.userNotes?.length ? t('notes.menuCount', { count: s.userNotes.length }) : t('notes.menu')}
+                        onClick={() => { close(); setNotesScreenId(s.id) }}
+                      />
+                      <MenuItem icon="history" label={t('versions.screenMenu')} onClick={() => { close(); setHistoryScreenId(s.id) }} />
+                      {/* A document's size is its page format: the viewport
+                          formats mean nothing for it. */}
+                      {!s.page && (
+                        <SubMenu icon="phone" label={t('project.displayFormat')}>
+                          {([
+                            ['mobile', 'project.formatMobile'],
+                            ['tablet', 'project.formatTablet'],
+                            ['desktop', 'project.formatDesktop'],
+                            ['full', 'project.formatFull'],
+                          ] as [ViewportFormat, string][]).map(([f, labelKey]) => (
+                            <MenuItem
+                              key={f}
+                              icon={f === 'full' ? 'fit' : 'phone'}
+                              label={f === 'full' ? t('project.formatFullTitle') : t(labelKey)}
+                              onClick={() => { close(); setFormat(s.id, f) }}
+                            />
+                          ))}
+                        </SubMenu>
+                      )}
+                      <SubMenu icon="wand" label={t('project.menuDesign')}>
+                        <MenuItem
+                          icon="wand"
+                          label={t(derivingDesignId === s.id ? 'project.deriveDesignBusy' : 'project.deriveDesign')}
+                          onClick={() => { close(); deriveDesignFrom(s) }}
+                        />
+                        <MenuItem icon="pencil" label={t('project.editDesign')} onClick={() => { close(); onOpenDesign() }} />
+                        {/* Not offered on a document: its chrome is <Doc>/<Page>,
+                            which an app screen has no kit for, and `pickReference`
+                            passes a pinned document over anyway. Still there to
+                            UNPIN one. */}
+                        {(!s.page || isRef) && (
+                          <MenuItem
+                            icon="pin"
+                            label={t(isRef ? 'project.unpinReference' : 'project.pinReference')}
+                            onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
+                          />
+                        )}
+                      </SubMenu>
+                      <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
 
-                <div className="my-1 border-t border-line-soft" />
-                {/* Whether this screen PLAYS its animations. Distinct from
-                    "Ajouter des animations" just above, which rewrites the
-                    code; this only decides whether what is already there runs.
-                    Three visible choices rather than one cycling label: in a
-                    menu, a single item that changes wording never shows what
-                    the other states are, or which one you are on. */}
-                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.playAnimations')}</div>
-                <div className="flex gap-1 px-2 pb-1.5">
-                  {(
-                    [
-                      [undefined, 'project.playOn', 'project.playOnTitle'],
-                      [false, 'project.playOff', 'project.playOffTitle'],
-                    ] as const
-                  ).map(([value, labelKey, titleKey]) => (
-                    <button
-                      key={String(value)}
-                      type="button"
-                      title={t(titleKey)}
-                      onClick={() => {
-                        close()
-                        onUpdateScreen(s.id, { animations: value })
-                      }}
-                      className={`flex-1 rounded-md border py-1 text-caption font-medium transition ${
-                        (value === false ? s.animations === false : s.animations !== false)
-                          ? 'border-accent bg-ink text-surface'
-                          : 'border-line-soft hover:border-accent hover:text-accent-ink'
-                      }`}
-                    >
-                      {t(labelKey)}
-                    </button>
-                  ))}
-                </div>
-                </>)}
-
-                <div className="my-1 border-t border-line-soft" />
-                <MenuItem
-                  icon="trash"
-                  label={t('canvas.delete')}
-                  danger
-                  onClick={() => {
-                    close()
-                    if (confirm(t('project.deleteScreenConfirm'))) {
-                      onRemoveScreen(s.id)
-                      setSelectedIds((ids) => ids.filter((i) => i !== s.id))
-                    }
-                  }}
-                />
+                      <MenuRule />
+                      <MenuItem
+                        icon="trash"
+                        label={t('canvas.delete')}
+                        danger
+                        onClick={() => {
+                          close()
+                          if (confirm(t('project.deleteScreenConfirm'))) {
+                            onRemoveScreen(s.id)
+                            setSelectedIds((ids) => ids.filter((i) => i !== s.id))
+                          }
+                        }}
+                      />
+                    </>
+                  )
+                })()}
               </ContextMenuShell>
             </>
           )
@@ -4862,7 +4841,7 @@ export default function ProjectView({
 
       {codeScreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           onClick={() => setCodeScreen(null)}
         >
           <div
@@ -4927,7 +4906,7 @@ function ContextMenuShell({ x, y, children }: { x: number; y: number; children: 
   return (
     <div
       ref={ref}
-      className="menu-in fixed z-50 w-max min-w-[15rem] max-w-[min(24rem,calc(100vw-1rem))] overflow-hidden rounded-lg border border-line bg-raised py-1 text-body text-ink shadow-2xl"
+      className="menu-in fixed z-50 w-max min-w-[15rem] max-w-[min(24rem,calc(100vw-1rem))] rounded-lg border border-line bg-raised p-1 text-body-sm text-ink shadow-2xl"
       style={{
         left: pos.left,
         top: pos.top,
@@ -4942,33 +4921,135 @@ function ContextMenuShell({ x, y, children }: { x: number; y: number; children: 
   )
 }
 
+/** One row of a menu: the reference's 31px row, rounded inside the shell. */
+const MENU_ROW =
+  'flex min-h-8 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition disabled:opacity-40'
+
 function MenuItem({
   icon,
   label,
   onClick,
   danger,
   disabled,
+  hint,
+  checked,
 }: {
   icon: IconName
   label: string
   onClick: () => void
   danger?: boolean
   disabled?: boolean
+  /** A shortcut or a symbol, set faint at the end of the row. */
+  hint?: string
+  /** Marks the current state among siblings (a radio-like choice). */
+  checked?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition disabled:opacity-40 ${
-        danger ? 'text-danger hover:bg-danger/10' : 'hover:bg-ink/5'
+      role={checked === undefined ? undefined : 'menuitemradio'}
+      aria-checked={checked}
+      className={`${MENU_ROW} ${
+        danger ? 'text-danger hover:bg-danger/10' : checked ? 'bg-selected text-on-selected' : 'hover:bg-ink/5'
       }`}
     >
       {/* shrink-0 so a long label never squeezes the icon into a sliver. */}
-      <Icon name={icon} size={16} className="shrink-0" />
-      {/* No `truncate`: the frame now sizes to the content, so cutting the
-          label was hiding text that had room to be read. */}
+      <Icon name={icon} size={15} className={`shrink-0 ${checked || danger ? '' : 'text-ink-muted'}`} />
+      {/* No `truncate`: the frame sizes to the content, so cutting the label
+          was hiding text that had room to be read. */}
       <span className="whitespace-nowrap">{label}</span>
+      {checked && <Icon name="check" size={14} className="ml-auto shrink-0" />}
+      {hint && !checked && <span className="ml-auto pl-3 text-caption text-ink-faint">{hint}</span>}
     </button>
+  )
+}
+
+/** A rule between two groups of a menu. */
+function MenuRule() {
+  return <div className="mx-1 my-1 border-t border-line-soft" />
+}
+
+/** A small label above the rows it names, inside a submenu. */
+function MenuLabel({ children }: { children: React.ReactNode }) {
+  return <div className="kicker px-2.5 pb-1 pt-1.5">{children}</div>
+}
+
+/**
+ * A row that opens a second panel beside the menu — "Animations ›",
+ * "Exporter ›". Hover opens it, the way every desktop menu works; so do a click
+ * and → for a keyboard or a touch screen, where there is no hover.
+ *
+ * The panel opens to the right unless that would cross the window, then to the
+ * left, and it is lifted when it would run off the bottom. Both are measured
+ * after it mounts — its height depends on what the screen offers. It sits in a
+ * transparent gutter rather than behind a margin, so the pointer crossing from
+ * the row to the panel never leaves the submenu and closes it.
+ */
+function SubMenu({
+  icon,
+  label,
+  children,
+  disabled,
+}: {
+  icon: IconName
+  label: string
+  children: React.ReactNode
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [side, setSide] = useState<'right' | 'left'>('right')
+  const [lift, setLift] = useState(0)
+  const row = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (!open || !row.current || !panel.current) return
+    const r = row.current.getBoundingClientRect()
+    const p = panel.current.getBoundingClientRect()
+    const M = 8
+    setSide(r.right + p.width + M > window.innerWidth && r.left - p.width - M > 0 ? 'left' : 'right')
+    setLift(Math.max(0, r.top + p.height + M - window.innerHeight))
+  }, [open])
+
+  return (
+    <div
+      ref={row}
+      className="relative"
+      onMouseEnter={() => !disabled && setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') setOpen(true)
+          if (e.key === 'ArrowLeft') setOpen(false)
+        }}
+        className={`${MENU_ROW} ${open ? 'bg-ink/5' : 'hover:bg-ink/5'}`}
+      >
+        <Icon name={icon} size={15} className="shrink-0 text-ink-muted" />
+        <span className="whitespace-nowrap">{label}</span>
+        <Icon name="chevronRight" size={14} className="ml-auto shrink-0 text-ink-faint" />
+      </button>
+      {open && (
+        <div
+          className={`absolute z-50 ${side === 'right' ? 'left-full pl-1.5' : 'right-full pr-1.5'}`}
+          style={{ top: -5 - lift }}
+        >
+          <div
+            ref={panel}
+            role="menu"
+            className="w-max min-w-[12rem] rounded-lg border border-line bg-raised p-1 shadow-2xl"
+          >
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

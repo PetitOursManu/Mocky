@@ -196,13 +196,13 @@ export default function ScreenThemePicker({
                           }}
                           className={`flex min-h-11 w-full items-start gap-2.5 px-2.5 py-2 text-left transition ${
                             // Inverted, not tinted — how every active menu row reads here.
-                            checked ? 'bg-ink text-surface' : 'text-ink hover:bg-ink/5'
+                            checked ? 'bg-selected text-on-selected' : 'text-ink hover:bg-ink/5'
                           }`}
                         >
                           <Icon name={th.icon} size={16} className="mt-0.5" />
                           <span className="min-w-0">
                             <span className="block text-body-sm font-medium">{t(`composer.themes.${th.id}`)}</span>
-                            <span className={`block text-caption ${checked ? 'text-surface/80' : 'text-ink-faint'}`}>
+                            <span className={`block text-caption ${checked ? 'text-on-selected/80' : 'text-ink-faint'}`}>
                               {t(`composer.themes.${th.id}.desc`)}
                             </span>
                           </span>

@@ -77,7 +77,7 @@ export default function AuthModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-ink/60 p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
       // No handler at all when an account is required — a click that is quietly
       // ignored looks like a bug. The explanatory line below says why instead.
       onClick={dismissible ? onClose : undefined}
