@@ -11,10 +11,16 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/mocky-welcome.png" width="900" alt="La vue « nouvel écran » de Mocky : un champ de prompt, le panneau ✨ Muse avec ses URL d'inspiration et son mode image, les préréglages de format, et une rangée de préréglages de style." />
+  <img src="docs/assets/ui/fr/readme-welcome.webp" width="900" alt="Le premier composeur de Mocky : le format, le prompt, les options en tuiles (DESIGN.md, Muse, Motion Ultra, Parcours, captures d'un site) et une rangée de préréglages de style." />
 </p>
 
 <p align="center"><sub>Décrivez un écran, choisissez un format, et laissez ✨ Muse construire la direction artistique. — <a href="docs/DESIGN-SYSTEM.md">système de design</a></sub></p>
+
+<p align="center">
+  <img src="docs/assets/ui/fr/readme-project.webp" width="900" alt="Un projet ouvert : l'atelier de création à gauche, les écrans et un flyer sur la toile, l'inspecteur à droite avec la palette du projet." />
+</p>
+
+<p align="center"><sub>Un projet : l'atelier de création, la toile et ses écrans, et l'inspecteur.</sub></p>
 
 <p align="center"><a href="README.md">English</a> · <strong>Français</strong></p>
 

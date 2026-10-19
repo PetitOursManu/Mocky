@@ -8,7 +8,8 @@
  * creates an account, seeds it with the projects of `capture-docs/fixtures.mjs`
  * (written by hand, so no picture depends on a model), drives this build in a
  * headless Chromium at 1440×900 and 2× — the 2880 px the docs were drawn at —
- * and writes `docs/assets/ui[/fr]/<name>.webp`.
+ * and writes `docs/assets/ui[/fr]/<name>.webp`. The two `readme-*` pictures
+ * have no points: they are the READMEs' own, not a hotspots block's.
  *
  * The points on a picture are MEASURED, not typed. Each capture names the
  * elements its `:::hotspots` block describes, in the block's order; the script
@@ -156,7 +157,9 @@ async function shoot(ctx, name, { clip = null, pad = 0, spots }) {
   if (ONLY && !ONLY.has(name)) return
   const { page, convert, lang } = ctx
   await page.waitForTimeout(600)
-  let rect = { x: 0, y: 0, width: VIEW.width, height: VIEW.height }
+  // The window may have been made taller for one picture (the composer).
+  const view = page.viewportSize() ?? VIEW
+  let rect = { x: 0, y: 0, width: view.width, height: view.height }
   if (clip) {
     const b = await clip.first().boundingBox()
     if (!b) throw new Error(`${lang}/${name}: the clip is not on screen`)
@@ -165,8 +168,8 @@ async function shoot(ctx, name, { clip = null, pad = 0, spots }) {
     rect = {
       x,
       y,
-      width: Math.min(VIEW.width - x, b.width + pad * 2),
-      height: Math.min(VIEW.height - y, b.height + pad * 2),
+      width: Math.min(view.width - x, b.width + pad * 2),
+      height: Math.min(view.height - y, b.height + pad * 2),
     }
   }
   const coords = []
@@ -242,6 +245,11 @@ async function run(lang) {
     await page.goto(`${base}/p/${data.ids.cafe}`)
     await settle(page, 4000)
     const column = page.locator('aside').filter({ hasText: t('workspace.atelier') })
+    // The column scrolls, and at 900 px its picture stopped in the middle of the
+    // options: the window is made as tall as the whole column for this one.
+    const columnEnd = await column.first().evaluate((el) => el.getBoundingClientRect().top + el.scrollHeight)
+    await page.setViewportSize({ width: VIEW.width, height: Math.max(VIEW.height, Math.ceil(columnEnd)) })
+    await settle(page, 1500)
     await shoot(ctx, 'composer', {
       clip: column,
       spots: [
@@ -258,6 +266,8 @@ async function run(lang) {
         ['Recent history', column.getByText(t('workspace.history'), { exact: true })],
       ],
     })
+    await page.setViewportSize(VIEW)
+    await settle(page, 1500)
 
     // ---- the screen type menu -------------------------------------------------
     await btn(column, t('composer.themeLabel'), true).click()
@@ -274,6 +284,11 @@ async function run(lang) {
     })
     await page.keyboard.press('Escape')
     await types.waitFor({ state: 'hidden' })
+
+    // ---- the READMEs' open project: the whole board, nothing selected ----------
+    await btn(page, t('canvas.fit')).click()
+    await settle(page, 2500)
+    await shoot(ctx, 'readme-project', { spots: [] })
 
     // ---- one screen selected, everything framed: the canvas --------------------
     // The history's own entry, by its title: the selection chips name the same
@@ -495,6 +510,21 @@ async function run(lang) {
         ['Muse — design dossier', page.getByText(t('settings.textProfileInspiration'), { exact: true })],
       ],
     })
+
+    // ---- the READMEs' first composer: a new, empty project ----------------------
+    // Last, because it adds a project, which would then lead the projects page.
+    await btn(header, t('nav.home'), true).click()
+    await settle(page, 1500)
+    await btn(page, t('projects.new')).first().click()
+    const prompt = page.locator('textarea').first()
+    await prompt.waitFor()
+    await prompt.fill(
+      lang === 'fr'
+        ? 'Le site d’un café de quartier : un accueil chaleureux, la carte du moment et la réservation d’une table.'
+        : 'The website of a neighbourhood café: a warm welcome, the current menu and booking a table.',
+    )
+    await settle(page, 1500)
+    await shoot(ctx, 'readme-welcome', { spots: [] })
   } finally {
     await browser.close()
     server.stop()

@@ -4306,8 +4306,12 @@ export default function ProjectView({
           the composer is a column beside the canvas instead of a bar floating
           over it: the canvas keeps its whole height, and the composer stops
           covering the bottom of every screen it is asked to change. Below md
-          it is the floating bar it always was. */}
-      <aside className="pointer-events-none absolute inset-x-0 bottom-0 z-panel flex justify-center md:pointer-events-auto md:static md:order-1 md:w-[300px] md:shrink-0 md:flex-col md:justify-start md:border-r md:border-line-soft md:bg-surface md:px-0">
+          it is the floating bar it always was.
+          From md the column scrolls as ONE piece. The options had a scroll area
+          of their own between the buttons and a fixed foot ("Also make", the
+          history) that kept 45% of the height, so on a 900px window they were a
+          strip a row and a half tall, cut in the middle of Muse. */}
+      <aside className="pointer-events-none absolute inset-x-0 bottom-0 z-panel flex justify-center md:pointer-events-auto md:static md:order-1 md:w-[300px] md:shrink-0 md:flex-col md:justify-start md:overflow-y-auto md:border-r md:border-line-soft md:bg-surface md:px-0">
         <header className="hidden shrink-0 border-b border-line-soft px-4 pb-3 pt-4 md:block">
           <p className="kicker">{t('workspace.atelier')}</p>
           <h2 className="mt-1.5 text-lead font-semibold text-ink">
@@ -4326,7 +4330,7 @@ export default function ProjectView({
         {/* The whole bar takes a dropped screenshot, not only the field: a drop
             aimed at "the composer" lands wherever the pointer happens to be. */}
         <div
-          className={`pointer-events-auto w-full max-w-2xl rounded-t-2xl border border-b-0 bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl transition md:min-h-0 md:border-b md:max-w-none md:flex-1 md:overflow-y-auto md:rounded-none md:border-0 md:bg-transparent md:p-3 md:shadow-none ${
+          className={`pointer-events-auto w-full max-w-2xl rounded-t-2xl border border-b-0 bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl transition md:grow md:shrink-0 md:border-b md:max-w-none md:rounded-none md:border-0 md:bg-transparent md:p-3 md:shadow-none ${
             siteDragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
           }`}
           {...siteDropHandlers((files) => void addSiteFiles(files), setSiteDragOver)}
@@ -4767,7 +4771,7 @@ export default function ProjectView({
         {/* The foot of the column: the other things this workshop makes, and
             what was made last. Column only — on a phone the composer is a
             floating bar again and has no room for either. */}
-        <div className="hidden max-h-[45%] shrink-0 overflow-y-auto border-t border-line-soft px-4 py-3 md:block">
+        <div className="hidden shrink-0 border-t border-line-soft px-4 py-3 md:block">
           {!editing && (
             <>
               <OptionGroup label={t('workspace.alsoMake')}>

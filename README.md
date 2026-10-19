@@ -11,10 +11,16 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/mocky-welcome.png" width="900" alt="Mocky's new-screen view: a prompt field, the ✨ Muse panel with inspiration URLs and image mode, format presets, and a row of style presets." />
+  <img src="docs/assets/ui/readme-welcome.webp" width="900" alt="Mocky's first composer: the format, the prompt, the options as tiles (DESIGN.md, Muse, Motion Ultra, Flows, screenshots of a site) and a row of style presets." />
 </p>
 
 <p align="center"><sub>Describe a screen, pick a format, and let ✨ Muse build the art direction. — <a href="docs/DESIGN-SYSTEM.en.md">design system</a></sub></p>
+
+<p align="center">
+  <img src="docs/assets/ui/readme-project.webp" width="900" alt="An open project: the creation workshop on the left, the screens and a flyer on the canvas, the inspector on the right with the project's palette." />
+</p>
+
+<p align="center"><sub>A project: the creation workshop, the canvas and its screens, and the inspector.</sub></p>
 
 <p align="center"><strong>English</strong> · <a href="README.fr.md">Français</a></p>
 
