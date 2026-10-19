@@ -21,7 +21,7 @@ import type { ScreenThemeId } from '../lib/screenThemes'
 import type { PageFormatId } from '../lib/pageFormats'
 import type { FoldId } from '../lib/folds'
 import FoldControl from './FoldControl'
-import { OPTION_ROW, OptionAction, OptionGroup, OptionToggle } from './ComposerOptions'
+import { OPTION_TILE, OptionTile, OptionTileAction } from './ComposerOptions'
 
 type Props = {
   prompt: string
@@ -177,6 +177,14 @@ export default function Welcome({
    */
   const museHint = !museConfig.enabled
 
+  /** How many option tiles are drawn — the first composer lays them out in one row. */
+  const tileCount =
+    3 + // DESIGN.md, Muse, the screenshots
+    (ultraCounts === undefined || ultraCounts.length > 0 ? 1 : 0) +
+    (onToggleBrand ? 1 : 0) +
+    (onToggleFlows ? 1 : 0) +
+    (pageFormat || imageChoiceAvailable ? 1 : 0)
+
   function toggleMuse() {
     onMuseChange({ ...museConfig, enabled: !museConfig.enabled })
   }
@@ -190,7 +198,9 @@ export default function Welcome({
 
   return (
     <div className="flex min-h-full items-center justify-center px-6 py-10">
-      <div className="w-full max-w-2xl">
+      {/* max-w-4xl: the tiles under the field want one row of five or six,
+          and the field itself reads no worse wider. */}
+      <div className="w-full max-w-4xl">
         <header className="mb-8 text-center">
           <p className="kicker">{t('auth.welcome.kicker')}</p>
           <h1 className="mt-2 text-h2 text-ink sm:text-display">{t('auth.welcome.title')}</h1>
@@ -263,93 +273,100 @@ export default function Welcome({
             onMode={onSiteMode}
             onRemove={onRemoveSiteShot}
           />
-          {/* HOW the screen is made: three named groups of rows, side by side —
-              what it follows, what helps write it, where its pictures come from.
-              The same rows as the project's composer (ComposerOptions). */}
-          <div className="grid gap-4 px-1 pt-3 sm:grid-cols-3">
-            <OptionGroup label={t('workspace.groupStyle')}>
-              <OptionAction
-                icon="image"
-                label="DESIGN.md"
-                hint={t('workspace.hintDesign')}
-                status={designActive ? t('workspace.designOn') : t('workspace.designOff')}
-                lit={designActive}
-                onClick={onOpenDesign}
-                title={t('auth.welcome.designTitle')}
+          {/* HOW the screen is made: one row of equal tiles under the field, in
+              the order of the groups — what the screen follows, what helps
+              write it, where its pictures come from (see OptionTile for why not
+              three columns of rows). */}
+          {/* As many columns as tiles, from sm: one row, never four and an
+              orphan. Two by two on a phone. */}
+          <div
+            className="grid grid-cols-2 gap-2 border-t border-line-soft px-1 pt-3 sm:[grid-template-columns:var(--tiles)]"
+            style={{ '--tiles': `repeat(${tileCount}, minmax(0, 1fr))` } as React.CSSProperties}
+          >
+            <OptionTileAction
+              icon="image"
+              label="DESIGN.md"
+              hint={t('workspace.hintDesign')}
+              status={designActive ? t('workspace.designOn') : t('workspace.designOff')}
+              lit={designActive}
+              onClick={onOpenDesign}
+              title={t('auth.welcome.designTitle')}
+            />
+            {onToggleBrand && (
+              <OptionTile
+                icon="star"
+                label={t('brand.toggle')}
+                hint={t('workspace.hintBrand')}
+                on={!!brandOn}
+                onClick={onToggleBrand}
+                title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
               />
-              {onToggleBrand && (
-                <OptionToggle
-                  icon="star"
-                  label={t('brand.toggle')}
-                  hint={t('workspace.hintBrand')}
-                  on={!!brandOn}
-                  onClick={onToggleBrand}
-                  title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
-                />
-              )}
-            </OptionGroup>
-            <OptionGroup label={t('workspace.groupHelp')}>
-              <OptionToggle
-                icon="sparkle"
-                label={t('muse.title')}
-                hint={t('workspace.hintMuse')}
-                on={museConfig.enabled}
-                onClick={toggleMuse}
-                sweep={museHint}
-                title={museHint ? t('auth.welcome.museHint') : t('auth.welcome.museTitle')}
+            )}
+            <OptionTile
+              icon="sparkle"
+              label={t('muse.title')}
+              hint={t('workspace.hintMuse')}
+              on={museConfig.enabled}
+              onClick={toggleMuse}
+              sweep={museHint}
+              title={museHint ? t('auth.welcome.museHint') : t('auth.welcome.museTitle')}
+            />
+            {/* The first screen is the one Motion Ultra matters most for: it
+                is usually the landing page, and it sets the tone. */}
+            <UltraControl
+              variant="tile"
+              ultra={ultra}
+              paused={ultraPaused}
+              onSetUltra={onSetUltra}
+              onTogglePause={onToggleUltraPause}
+              videoAvailable={ultraVideoAvailable}
+              allowedCounts={ultraCounts}
+            />
+            {onToggleFlows && (
+              <OptionTile
+                icon="cable"
+                label={t('flows.toggle')}
+                hint={t('workspace.hintFlows')}
+                on={!!flowsOn}
+                onClick={onToggleFlows}
+                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
               />
-              {/* The first screen is the one Motion Ultra matters most for: it
-                  is usually the landing page, and it sets the tone. */}
-              <UltraControl
-                variant="row"
-                ultra={ultra}
-                paused={ultraPaused}
-                onSetUltra={onSetUltra}
-                onTogglePause={onToggleUltraPause}
-                videoAvailable={ultraVideoAvailable}
-                allowedCounts={ultraCounts}
-              />
-              {onToggleFlows && (
-                <OptionToggle
-                  icon="cable"
-                  label={t('flows.toggle')}
-                  hint={t('workspace.hintFlows')}
-                  on={!!flowsOn}
-                  onClick={onToggleFlows}
-                  title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
-                />
-              )}
-            </OptionGroup>
-            <OptionGroup label={t('workspace.groupPictures')}>
-              {/* A document decides its picture here, and it is never hidden:
-                  it is the one choice that may cost a paid generation. */}
-              {pageFormat ? (
-                <DocumentImageControl
-                  value={documentImage.value}
-                  choices={documentImage.choices}
-                  onChange={documentImage.onChange}
-                  size={15}
-                  className="flex w-full flex-wrap justify-between gap-1 px-2 py-1.5 text-body-sm"
-                />
-              ) : (
-                imageChoiceAvailable && (
+            )}
+            {/* A document decides its picture here, and it is never hidden:
+                it is the one choice that may cost a paid generation. */}
+            {(pageFormat || imageChoiceAvailable) && (
+              <div className={`${OPTION_TILE} border-line bg-raised/40`}>
+                {pageFormat ? (
+                  <DocumentImageControl
+                    value={documentImage.value}
+                    choices={documentImage.choices}
+                    onChange={documentImage.onChange}
+                    size={18}
+                    className="flex flex-col items-start gap-2 text-body-sm font-semibold"
+                  />
+                ) : (
                   <ImageSourceControl
                     value={imageChoice}
                     choices={imageChoices}
                     onChange={onImageChoice}
-                    size={15}
-                    className="flex w-full flex-wrap justify-between gap-1 px-2 py-1.5 text-body-sm"
+                    size={18}
+                    className="flex flex-col items-start gap-2 text-body-sm font-semibold"
                   />
-                )
-              )}
-              <SiteAttachButton
-                onFiles={onAddSiteFiles}
-                disabled={busy}
-                size={16}
-                labelled
-                className={`${OPTION_ROW} text-body-sm font-medium ${siteShots.length ? 'text-ink [&>svg]:text-accent-ink' : 'text-ink-muted [&>svg]:text-ink-faint'}`}
-              />
-            </OptionGroup>
+                )}
+              </div>
+            )}
+            <SiteAttachButton
+              onFiles={onAddSiteFiles}
+              disabled={busy}
+              size={18}
+              labelled
+              hint={t('workspace.hintCaptures')}
+              className={`${OPTION_TILE} items-start text-body-sm font-semibold ${
+                siteShots.length
+                  ? 'border-accent/40 bg-accent/5 text-ink [&>svg]:text-accent-ink'
+                  : 'border-line bg-raised/40 text-ink-muted hover:border-ink/25 hover:bg-ink/5 [&>svg]:text-ink-faint'
+              }`}
+            />
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line-soft px-1 pt-3">
             <PromptEnhanceButton

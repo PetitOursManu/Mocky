@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: dd73ed3beb9a
+source_hash: 944b7a0c8d3e
 ---
 
 # L’interface
@@ -541,8 +541,9 @@ ce qu’elle fait, et un interrupteur qui dit si elle est active. `Motion Ultra`
 montre ses réglages (×3 / ×6, le fond vidéo) sous sa ligne une fois activé. Dans
 la colonne du projet, les boutons sont juste sous le champ et les options en
 dessous, pour que `Générer` ne défile jamais hors de vue. Le premier composeur,
-sur un projet vide, met les trois groupes côte à côte, avec `DESIGN.md` dans le
-groupe du style et `Campagne` à côté du format.
+sur un projet vide, est plus large et montre les mêmes options en une rangée de
+tuiles égales — icône et interrupteur, nom, et ce que fait l’option en entier —
+avec `DESIGN.md` en premier et `Campagne` à côté du format.
 
 
 | | Puce | Ce qu’elle fait | Coût |

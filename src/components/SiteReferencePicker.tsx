@@ -21,6 +21,7 @@ export function SiteAttachButton({
   size = 18,
   className = '',
   labelled = false,
+  hint,
 }: {
   onFiles: (files: File[]) => void
   disabled?: boolean
@@ -32,6 +33,8 @@ export function SiteAttachButton({
    * this button is a word, so a lone glyph read as decoration.
    */
   labelled?: boolean
+  /** A sentence under the word — the first composer's tile has room for one. */
+  hint?: string
 }) {
   const t = useT()
   const input = useRef<HTMLInputElement>(null)
@@ -60,6 +63,7 @@ export function SiteAttachButton({
       >
         <Icon name="image" size={size} />
         {labelled && <span>{t('project.siteAttachShort')}</span>}
+        {hint && <span className="text-caption font-normal leading-snug text-ink-faint">{hint}</span>}
       </button>
     </>
   )

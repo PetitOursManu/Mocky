@@ -512,9 +512,9 @@ option is a row: its name, one line of what it does, and a switch that says
 whether it is on. `Motion Ultra` shows its settings (×3 / ×6, the video
 background) under its row once it is on. In the project's column the buttons
 sit right under the field and the options below them, so `Generate` never
-scrolls away. The first composer, on an empty project, lays the three groups
-side by side, with `DESIGN.md` in the style group and `Campaign` beside the
-format.
+scrolls away. The first composer, on an empty project, is wider and shows the
+same options as one row of equal tiles — icon and switch, name, and what the
+option does in full — with `DESIGN.md` first and `Campaign` beside the format.
 
 
 | | Chip | What it does | Cost |

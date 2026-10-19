@@ -105,3 +105,89 @@ export function Switch({ on }: { on: boolean }) {
     </span>
   )
 }
+
+/**
+ * The first composer's options, as TILES: equal boxes in one wrapping row, each
+ * with its icon and its switch on top, its name, and what it does in full.
+ *
+ * Rows in three columns were tried there first and read badly: a 200px column
+ * cut every explanation to "Inspiration, direction, v…", the columns ended at
+ * three different heights, and a group of one option was mostly empty. A tile
+ * has room for the whole sentence, and a grid of equal tiles has no ragged edge.
+ */
+export const OPTION_TILE =
+  'flex min-h-[6.5rem] w-full min-w-0 flex-col gap-1.5 rounded-xl border p-3 text-left transition'
+
+const tileLook = (on: boolean) =>
+  on ? 'border-accent/40 bg-accent/5 hover:border-accent/60' : 'border-line bg-raised/40 hover:border-ink/25 hover:bg-ink/5'
+
+/** An on/off tile: icon and switch, name, and the whole sentence of what it does. */
+export function OptionTile({
+  icon,
+  label,
+  hint,
+  on,
+  onClick,
+  title,
+  sweep = false,
+  children,
+}: {
+  icon: IconName
+  label: string
+  hint: string
+  on: boolean
+  onClick: () => void
+  title?: string
+  sweep?: boolean
+  /** Settings shown under the sentence once the option is on (Motion Ultra's). */
+  children?: ReactNode
+}) {
+  return (
+    <div className={`${OPTION_TILE} ${tileLook(on)}`}>
+      <button type="button" onClick={onClick} title={title} aria-pressed={on} className="flex min-w-0 flex-1 flex-col gap-1.5 text-left">
+        <span className="flex w-full items-center justify-between">
+          <Icon name={icon} size={18} className={on ? 'text-accent-ink' : sweep ? 'muse-sweep-icon' : 'text-ink-faint'} />
+          <Switch on={on} />
+        </span>
+        <span className={`text-body-sm font-semibold ${on ? 'text-ink' : 'text-ink-muted'}`}>
+          <span className={sweep && !on ? 'muse-sweep' : undefined}>{label}</span>
+        </span>
+        <span className="text-caption leading-snug text-ink-faint">{hint}</span>
+      </button>
+      {children}
+    </div>
+  )
+}
+
+/** A tile that opens something: icon and a state word on top, name, sentence. */
+export function OptionTileAction({
+  icon,
+  label,
+  hint,
+  status,
+  lit = false,
+  onClick,
+  title,
+}: {
+  icon: IconName
+  label: string
+  hint: string
+  status?: string
+  lit?: boolean
+  onClick: () => void
+  title?: string
+}) {
+  return (
+    <button type="button" onClick={onClick} title={title} className={`${OPTION_TILE} ${tileLook(lit)}`}>
+      <span className="flex w-full items-center justify-between">
+        <Icon name={icon} size={18} className={lit ? 'text-accent-ink' : 'text-ink-faint'} />
+        <span className={`flex items-center gap-1 text-caption ${lit ? 'text-accent-ink' : 'text-ink-faint'}`}>
+          {status}
+          <Icon name="chevronRight" size={13} />
+        </span>
+      </span>
+      <span className={`text-body-sm font-semibold ${lit ? 'text-ink' : 'text-ink-muted'}`}>{label}</span>
+      <span className="text-caption leading-snug text-ink-faint">{hint}</span>
+    </button>
+  )
+}
