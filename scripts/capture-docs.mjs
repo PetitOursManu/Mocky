@@ -177,7 +177,21 @@ async function shoot(ctx, name, { clip = null, pad = 0, spots }) {
   }
   // Animations are left running and simply waited out (the pause at the top):
   // freezing them made Chromium hang on the menu captures, past 30 s.
-  const png = await page.screenshot({ clip: rect, timeout: 60_000 })
+  // Retried: a screenshot waits for the page to produce a frame, and the
+  // project view sometimes spends a long while on work of its own (the
+  // thumbnails it captures for the projects page). Waiting it out and asking
+  // again is enough.
+  let png
+  for (let attempt = 1; ; attempt++) {
+    try {
+      png = await page.screenshot({ clip: rect, timeout: 25_000 })
+      break
+    } catch (e) {
+      if (attempt >= 4) throw e
+      console.log(`  ${lang}/${name}: no frame yet, trying again (${attempt})`)
+      await page.waitForTimeout(5000)
+    }
+  }
   const dir = path.join(ROOT, 'docs/assets/ui', lang === 'fr' ? 'fr' : '')
   fs.writeFileSync(path.join(dir, `${name}.webp`), await toWebp(convert, png))
   measured[lang][name] = coords
