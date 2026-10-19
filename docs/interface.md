@@ -123,9 +123,36 @@ currently filed, since otherwise the button would undo nothing.
 
 ---
 
+## The project workspace
+
+From `md` (768px) a project is three columns under one bar, as the reference
+the redesign was drawn from lays it out:
+
+| Where | What |
+|---|---|
+| **The top bar** | The wordmark (back to the projects), `Projects / name` (click the name to rename), then the project's tools: the canvas modes — `Select`, `Link`, `Interact`, `Modify`, `Annotate` — then `Demo`, `Share ▾`, `Export ▾` and the inspector's switch. The site navigation (DESIGN.md, Media, Settings) is one click away, on the wordmark. |
+| **Left: the creation workshop** | The composer as a column instead of a floating bar: a title that says what the next message does (`New screen`, or `Edit the screen` when screens are selected), the composer itself, `Also make` (`Campaign`, `Motion Ultra` films), and the four screens made last — click one to frame it on the canvas. |
+| **Centre: the canvas** | All of its height: nothing floats over the bottom of the screens any more. The zoom bar is bottom-left; `Frame` (the iPhone bezel) bottom-right, and only when the project has a phone screen. |
+| **Right: the inspector** | The panels that used to float over the canvas' corner, as tabs: `Style`, `Versions`, `Audit`; `⋯` opens `Approval`, `Campaign` and `Links`, which then show as a fourth tab. A column from `xl` (1280px), open on `Style` when a project opens; narrower, it floats over the canvas' right edge. A status line at its foot says whether Mocky is working. |
+
+**`Share ▾`** puts sharing and approval together: `Link to the screen (QR code)`
+for the one selected screen, and `Send for approval…`, which opens the approval
+panel in the inspector. The number beside it is the client's unread comments.
+
+**`Export ▾`** is every way something leaves Mocky: the runnable project
+(`Ready for shadcn`, `Tailwind only`, `daisyUI`, each a `.zip`), the selected
+screen (PNG, PowerPoint, `.tsx` — or `Download…` for a document), and the media
+library. A screen's own menu keeps the same exports under `Export ›`.
+
+Below `md` the workspace folds back: the floating toolbar described next, and the
+composer as a bar at the bottom of the canvas.
+
+---
+
 ## The project toolbar
 
-Top-left of the canvas, and the densest thing in the product. Three defences
+Below `md` only — from `md` its tools are in the top bar (above). Top-left of
+the canvas, and the densest thing in the product. Three defences
 keep it on screen: labels fold away below `md`, everything past `Modify` folds
 into `More`, and the row scrolls itself rather than pushing the page sideways.
 
@@ -194,8 +221,10 @@ it.
 
 ### The zoom bar
 
-Bottom-left of the canvas from `xl` up; below that it moves to the top and
-tucks under the toolbar. Geometry, not taste: the bar is pinned to the left
+Bottom-left of the canvas from `md` up, where the composer is a column and no
+longer covers that corner; below `md` it moves to the top and tucks under the
+floating toolbar. Geometry, not taste — this was the reasoning when the composer
+floated at every width: the bar is pinned to the left
 margin and the composer is a centred 672px block, so seven controls only clear
 it past roughly 1200px of window. Any narrower and the bottom-left corner sits
 behind the composer, which is opaque — which is how the only zoom control in
@@ -426,7 +455,7 @@ and `Pin as layout reference`.
 
 ## The composer
 
-The floating bar at the bottom. It is the only control in the product that
+The creation column on the left from `md` (see [the workspace](#the-project-workspace)); below it, the floating bar at the bottom. It is the only control in the product that
 changes verb depending on what is selected.
 
 :::hotspots src=assets/ui/composer.webp alt="The composer: formats, screen type, the three switches, the prompt, Improve and Generate"
@@ -541,7 +570,7 @@ refused up front, with a sentence saying so.
 
 ## The side panels
 
-All three open at the same place, on the right, under the toolbar.
+From `md` they are tabs of the inspector, on the right (see [the workspace](#the-project-workspace)); below it they float at the same place, on the right, under the toolbar.
 
 ### Links
 

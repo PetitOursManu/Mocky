@@ -1,7 +1,23 @@
-import type { ReactNode } from 'react'
+import { createContext, useContext, type ReactNode } from 'react'
 import { IconButton } from './Button'
 import { Icon } from './Icon'
 import { useT } from '../i18n'
+
+/**
+ * Whether a Panel is drawn inside the project's inspector column.
+ *
+ * Docked, a panel is the inspector's CONTENT: the column already draws the
+ * frame, the title (as its tab) and the close button, so the panel drops all
+ * three and fills the column. One switch here rather than a prop on six panels:
+ * each of them passes its own floating `className`, written for the corner of
+ * the canvas, and every one of those would have needed a second variant.
+ */
+export const PanelDock = createContext(false)
+
+/** Read by the panels that draw their own frame instead of using <Panel>. */
+export function usePanelDock(): boolean {
+  return useContext(PanelDock)
+}
 
 /**
  * A floating surface over the canvas — the Links list, the Design System
@@ -37,6 +53,15 @@ export function Panel({
   closeLabel?: string
 }) {
   const t = useT()
+  const docked = useContext(PanelDock)
+  if (docked) {
+    return (
+      <section aria-label={title} className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        {footer && <div className="shrink-0 border-t border-line-soft px-3 py-2">{footer}</div>}
+      </section>
+    )
+  }
   return (
     <aside
       aria-label={title}

@@ -6,7 +6,11 @@ import { editComponent, fixComponent, generateComponent, fitComponent, detectCom
 import { deriveName, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import type { Plan } from '../lib/api'
-import { usePhone } from '../lib/usePhone'
+import { useMedia, usePhone } from '../lib/usePhone'
+import { useTimeAgo } from '../lib/timeAgo'
+import { createPortal } from 'react-dom'
+import Inspector from './Inspector'
+import { BarMenu, BarMenuItem, BarMenuLabel, BarMenuRule } from './ProjectBar'
 import { useAutoGrow } from '../lib/useAutoGrow'
 import { useWorkChime } from '../lib/useWorkChime'
 import { DEFAULT_PRESET_ID, getPreset } from '../lib/presets'
@@ -582,7 +586,12 @@ export default function ProjectView({
    * separate flags two of them could be — and were — open at once, painting over
    * each other with no z-index to settle it.
    */
-  const [rightSlot, setRightSlot] = useState<RightSlot>(null)
+  // Open on Style where the inspector has a column of its own (xl): the
+  // reference shows it, and an empty right edge reads as a missing panel.
+  // Narrower, it would float over the canvas the moment a project opens.
+  const [rightSlot, setRightSlot] = useState<RightSlot>(() =>
+    typeof window !== 'undefined' && window.matchMedia?.('(min-width: 1280px)').matches ? 'system' : null,
+  )
   const linkMode = rightSlot === 'links'
   const showSystem = rightSlot === 'system'
   const showAudit = rightSlot === 'audit'
@@ -974,6 +983,16 @@ export default function ProjectView({
   const [fixingIds, setFixingIds] = useState<Set<string>>(new Set())
   /** Phone: a coarse pointer AND a narrow viewport. See lib/usePhone.ts. */
   const phone = usePhone()
+  /** From md the composer is a column beside the canvas and the tools are in the top bar. */
+  const wide = useMedia('(min-width: 768px)')
+  /** From xl the inspector is a column too; below, it floats over the canvas. */
+  const docked = useMedia('(min-width: 1280px)')
+  const timeAgo = useTimeAgo()
+  /** The App bar's slot for this project's tools — see the portal in the render. */
+  const [barEl, setBarEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setBarEl(document.getElementById('mocky-project-bar'))
+  }, [wide])
   const [regenLabel, setRegenLabel] = useState(() => t('canvas.regenerating'))
 
   /**
@@ -3212,7 +3231,7 @@ export default function ProjectView({
    * at md and above, as rows in the "Plus" menu below it — from this one list,
    * so the two can never drift apart.
    */
-  const foldedTools: FoldedTool[] = [
+  const allTools: FoldedTool[] = [
     {
       id: 'interact',
       icon: 'hand',
@@ -3241,10 +3260,10 @@ export default function ProjectView({
       id: 'frame',
       icon: 'phone',
       label: t('mode.frame'),
-      // Disabled, not hidden: the control still says what it would do. It was
-      // already a no-op without a phone screen — Canvas only draws the bezel on
-      // `device === 'iphone'` — so this only makes the existing behaviour
-      // visible instead of leaving a button that answers nothing.
+      // Hidden without a phone screen (the filter at the end of this list):
+      // Canvas only draws the bezel on `device === 'iphone'`, so the button
+      // answered nothing, and greyed out it was still one more control on a
+      // bar that had too many — asked for by the user.
       //
       // `showFrame` itself is deliberately NOT cleared by `toggleFrame`. It
       // lives in one global localStorage key shared by every project, so
@@ -3342,10 +3361,234 @@ export default function ProjectView({
       onClick: () => setExportMenu((v) => !v),
     },
   ]
+  const foldedTools = allTools.filter((tool) => tool.id !== 'frame' || hasPhoneScreen)
+
+  /** Link mode: the Links list in the inspector, and every frame pickable. */
+  function toggleLinkMode() {
+    setRightSlot((s) => toggleSlot(s, 'links'))
+    setModifyMode(false)
+    setAnnotateMode(false)
+  }
+
+  /** Modify mode, shared by the top bar and the floating toolbar. */
+  const modifyTool = {
+    label: t('mode.modify'),
+    title: t('project.modifyTitle'),
+    icon: 'pencil' as IconName,
+    active: modifyMode,
+    onClick: () => {
+      setModifyMode((v) => !v)
+      // See the Annotate button: Link mode only, because Modify has no
+      // panel of its own in that slot to make room for.
+      setRightSlot((s) => closeSlot(s, 'links'))
+      setAnnotateMode(false)
+      setPendingModify(null)
+    },
+  }
+
+  /** The column's recent history: the last screens made, newest first. */
+  const recentScreens = [...screens].sort((x, y) => y.createdAt - x.createdAt).slice(0, 4)
 
   return (
-    <div className="relative h-[calc(100vh-57px)]">
+    // Three columns from md — the creation column, the canvas, the inspector —
+    // ordered with `order-*` so each block stays where its state lives in this
+    // file. Below md the composer and the inspector float over the canvas.
+    <div className="relative flex h-[calc(100vh-57px)]">
       {libraryModal}
+      {/*
+        The project's tools, in the app's top bar from md — the reference's
+        layout. ProjectView owns every one of these handlers, so it renders them
+        and the App bar only keeps a slot for them (`#mocky-project-bar`): one
+        bar across the window instead of a second toolbar floating over the
+        canvas. Below md the floating toolbar further down is still the one.
+      */}
+      {wide &&
+        barEl &&
+        createPortal(
+          <div className="flex items-center gap-2">
+            {/* The canvas modes. "Select" is no mode at all: it switches off
+                whichever one is on, the way the reference's arrow does. */}
+            <div
+              role="toolbar"
+              aria-label={t('workspace.tools')}
+              className="flex items-center gap-0.5 rounded-lg border border-line-soft bg-raised p-0.5"
+            >
+              <IconButton
+                label={t('workspace.select')}
+                title={t('workspace.selectTitle')}
+                variant="toolbar"
+                active={!linkMode && !modifyMode && !annotateMode && !interactAll}
+                onClick={() => {
+                  setRightSlot((s) => closeSlot(s, 'links'))
+                  setModifyMode(false)
+                  setPendingModify(null)
+                  setAnnotateMode(false)
+                  setInteractAll(false)
+                }}
+              >
+                <Icon name="target" size={16} />
+              </IconButton>
+              <IconButton label={t('mode.link')} title={t('project.linkTitle')} variant="toolbar" active={linkMode} onClick={toggleLinkMode}>
+                <Icon name="link" size={16} />
+              </IconButton>
+              {(['interact', 'modify', 'annotate'] as const).map((id) => {
+                const tool = id === 'modify' ? modifyTool : foldedTools.find((x) => x.id === id)
+                if (!tool) return null
+                return (
+                  <IconButton key={id} label={tool.label} title={tool.title} variant="toolbar" active={tool.active} onClick={tool.onClick}>
+                    <Icon name={tool.icon} size={16} />
+                  </IconButton>
+                )
+              })}
+            </div>
+            <span aria-hidden className="mx-1 h-5 w-px bg-line-soft" />
+            <Button
+              variant="quiet"
+              size="sm"
+              aria-label={t('mode.demo')}
+              title={t('project.demoTitle')}
+              onClick={() => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null)}
+            >
+              <Icon name="play" size={14} />
+              <span className="hidden lg:inline">{t('mode.demo')}</span>
+            </Button>
+
+            {/* Sharing and approval, together: a link to one screen, or the
+                whole project sent to a client. */}
+            <BarMenu
+              label={t('workspace.share')}
+              icon="link"
+              badge={
+                reviewState?.unread ? (
+                  <span className="font-mono text-caption text-accent-ink">{reviewState.unread}</span>
+                ) : undefined
+              }
+            >
+              {(close) => (
+                <>
+                  <BarMenuItem
+                    icon="link"
+                    label={t('workspace.shareScreen')}
+                    hint={selectedScreens.length === 1 ? selectedScreens[0].name : t('workspace.shareScreenNeeds')}
+                    disabled={selectedScreens.length !== 1}
+                    onClick={() => {
+                      close()
+                      setShareScreenId(selectedScreens[0].id)
+                    }}
+                  />
+                  <BarMenuItem
+                    icon="comment"
+                    label={
+                      reviewState?.unread
+                        ? `${t('workspace.shareReview')} (${reviewState.unread})`
+                        : t('workspace.shareReview')
+                    }
+                    hint={t('workspace.shareReviewHint')}
+                    onClick={() => {
+                      close()
+                      setRightSlot('review')
+                    }}
+                  />
+                </>
+              )}
+            </BarMenu>
+
+            {/* Every way something leaves Mocky, in one menu. */}
+            <BarMenu label={t('mode.export')} icon="download" variant="primary" title={t('project.exportTitle')}>
+              {(close) => {
+                const one = selectedScreens.length === 1 ? selectedScreens[0] : null
+                const unexportable =
+                  !one || busy || !one.code.trim() || generatingIds.has(one.id) || regeneratingIds.has(one.id)
+                return (
+                  <>
+                    <BarMenuLabel>{t('workspace.exportProject')}</BarMenuLabel>
+                    {EXPORT_TARGETS.map(([stack, labelKey, hintKey]) => (
+                      <BarMenuItem
+                        key={stack}
+                        icon="code"
+                        label={`${t(labelKey)} (.zip)`}
+                        hint={t(hintKey)}
+                        onClick={() => {
+                          close()
+                          void handleExport(stack)
+                        }}
+                      />
+                    ))}
+                    <BarMenuRule />
+                    <BarMenuLabel>{t('workspace.exportScreen')}</BarMenuLabel>
+                    {!one ? (
+                      <BarMenuItem icon="image" label={t('workspace.exportScreenNeeds')} disabled onClick={() => {}} />
+                    ) : one.page ? (
+                      <BarMenuItem
+                        icon="download"
+                        label={t('project.docDownload')}
+                        hint={one.name}
+                        disabled={unexportable}
+                        onClick={() => {
+                          close()
+                          setDownloadDocId(one.id)
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <BarMenuItem
+                          icon="image"
+                          label={t('project.webExportPng')}
+                          hint={one.name}
+                          disabled={unexportable}
+                          onClick={() => {
+                            close()
+                            void exportWeb(one.id, 'png')
+                          }}
+                        />
+                        <BarMenuItem
+                          icon="download"
+                          label={t('project.webExportPptx')}
+                          disabled={unexportable}
+                          onClick={() => {
+                            close()
+                            void exportWeb(one.id, 'pptx')
+                          }}
+                        />
+                      </>
+                    )}
+                    {one && (
+                      <BarMenuItem
+                        icon="code"
+                        label={t('canvas.download')}
+                        onClick={() => {
+                          close()
+                          downloadTsx(one)
+                        }}
+                      />
+                    )}
+                    <BarMenuRule />
+                    <BarMenuLabel>{t('workspace.exportMedia')}</BarMenuLabel>
+                    <BarMenuItem
+                      icon="library"
+                      label={t('workspace.mediaLibrary')}
+                      onClick={() => {
+                        close()
+                        setLibraryTab('images')
+                        setShowLibrary(true)
+                      }}
+                    />
+                  </>
+                )
+              }}
+            </BarMenu>
+            <IconButton
+              label={rightSlot ? t('workspace.inspectorClose') : t('workspace.inspectorOpen')}
+              variant="toolbar"
+              active={!!rightSlot}
+              onClick={() => setRightSlot((s) => (s ? null : 'system'))}
+            >
+              <Icon name="list" size={16} />
+            </IconButton>
+          </div>,
+          barEl,
+        )}
+
       {/*
         The viewport, and only the viewport.
         On a phone the infinite canvas is replaced — see MobileProject for why
@@ -3355,6 +3598,7 @@ export default function ProjectView({
         in this component, so there is exactly one mutation path on every
         device.
       */}
+      <main className="relative order-2 min-w-0 flex-1">
       {phone ? (
         <MobileProject
           screens={screens}
@@ -3462,67 +3706,110 @@ export default function ProjectView({
       />
       )}
 
-      {/* Live Design-system frame (D.2) */}
-      {showSystem && (
-        <DesignSystemPanel
-          markdown={directionMd || ''}
-          onRecolor={recolorToken}
-          onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
-          onEdit={onOpenDesign}
-        />
+      {/* The iPhone bezel, where the reference keeps its canvas settings — and
+          only when there is a phone screen to put it on. */}
+      {wide && hasPhoneScreen && (
+        <div className="absolute bottom-4 right-4 z-panel">
+          <Button variant="ghost" size="sm" active={showFrame} onClick={toggleFrame} title={t('project.frameTitle')}>
+            <Icon name="phone" size={15} />
+            {t('mode.frame')}
+          </Button>
+        </div>
       )}
+      </main>
 
-      {showReview && (
-        <ReviewPanel
-          getProject={() => projectRef.current}
-          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
-          onChanged={() => onReviewChanged?.()}
-          onClose={() => setRightSlot((s) => closeSlot(s, 'review'))}
-        />
-      )}
-
-      {campaignPanel}
-
-      {showVersions && (
-        <VersionsPanel
-          api={versions}
-          branch={currentBranch(project)}
-          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
-          screenName={(id) => screens.find((x) => x.id === id)?.name ?? null}
-          onCompare={(a, b) =>
-            setCompare(b ? { left: { kind: 'version', id: b }, right: { kind: 'version', id: a } } : { left: { kind: 'current' }, right: { kind: 'version', id: a } })
-          }
-          onClose={() => setRightSlot((s) => closeSlot(s, 'versions'))}
-        />
-      )}
-
-      {showAudit && (
-        <AuditPanel
-          className="absolute right-4 top-11 w-80 rounded-xl shadow-2xl"
-          screens={screens}
-          projectName={project.name}
-          productName={project.productName}
-          selectedId={selectedIds[0] ?? null}
-          // Selecting from the panel also frames the screen on the canvas: the
-          // report names elements, and a report about a screen you cannot see
-          // is a list of assertions you have to take on trust.
+      {/* The inspector — see Inspector.tsx. Which panel it shows is still the
+          single RightSlot value (lib/rightSlot.ts); null hides the column. */}
+      {rightSlot && (
+        <Inspector<NonNullable<RightSlot>>
+          tabs={[
+            { id: 'system', label: t('workspace.style'), icon: 'image' },
+            { id: 'versions', label: t('versions.toolbar'), icon: 'history' },
+            { id: 'audit', label: t('mode.audit'), icon: 'shield' },
+          ]}
+          more={[
+            { id: 'review', label: t('review.toolbar'), icon: 'comment', badge: reviewState?.unread },
+            { id: 'campaign', label: t('campaign.toolbar'), icon: 'megaphone' },
+            { id: 'links', label: t('project.links'), icon: 'link' },
+          ]}
+          active={rightSlot}
           onSelect={(id) => {
-            setSelectedIds([id])
-            setFocus({ screenId: id, nonce: Date.now() })
+            // Opening Links is entering Link mode, exactly as the tool does.
+            if (id === 'links') toggleLinkMode()
+            else setRightSlot(id)
           }}
-          onFix={fixAuditFindings}
-          // Gated on the project being idle, not just on the panel's own state:
-          // `fixAuditFindings` refuses while another screen mutation runs, and a
-          // button whose only feedback would be "the correction failed" is worse
-          // than one that says it is unavailable.
-          busy={busy}
-          onClose={() => setRightSlot((s) => closeSlot(s, 'audit'))}
-        />
-      )}
+          onClose={() => setRightSlot(null)}
+          docked={docked}
+          status={
+            <>
+              <span className={`inline-flex items-center gap-1.5 ${busy ? 'text-accent-ink' : 'text-ok'}`}>
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
+                <span className="max-w-[10rem] truncate">{busy ? busyLabel : t('workspace.ready')}</span>
+              </span>
+              <span>{t('workspace.stack')}</span>
+              <span className="ml-auto font-mono">{screens.length}</span>
+            </>
+          }
+        >
+          {showSystem && (
+            <DesignSystemPanel
+              markdown={directionMd || ''}
+              onRecolor={recolorToken}
+              onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
+              onEdit={onOpenDesign}
+            />
+          )}
 
-      {/* Links panel (link mode) */}
+          {showReview && (
+            <ReviewPanel
+              getProject={() => projectRef.current}
+              busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+              onChanged={() => onReviewChanged?.()}
+              onClose={() => setRightSlot((s) => closeSlot(s, 'review'))}
+            />
+          )}
+
+          {campaignPanel}
+
+          {showVersions && (
+            <VersionsPanel
+              api={versions}
+              branch={currentBranch(project)}
+              busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+              screenName={(id) => screens.find((x) => x.id === id)?.name ?? null}
+              onCompare={(a, b) =>
+                setCompare(b ? { left: { kind: 'version', id: b }, right: { kind: 'version', id: a } } : { left: { kind: 'current' }, right: { kind: 'version', id: a } })
+              }
+              onClose={() => setRightSlot((s) => closeSlot(s, 'versions'))}
+            />
+          )}
+
+          {showAudit && (
+            <AuditPanel
+              screens={screens}
+              projectName={project.name}
+              productName={project.productName}
+              selectedId={selectedIds[0] ?? null}
+              // Selecting from the panel also frames the screen on the canvas: the
+              // report names elements, and a report about a screen you cannot see
+              // is a list of assertions you have to take on trust.
+              onSelect={(id) => {
+                setSelectedIds([id])
+                setFocus({ screenId: id, nonce: Date.now() })
+              }}
+              onFix={fixAuditFindings}
+              // Gated on the project being idle, not just on the panel's own state:
+              // `fixAuditFindings` refuses while another screen mutation runs, and a
+              // button whose only feedback would be "the correction failed" is worse
+              // than one that says it is unavailable.
+              busy={busy}
+              onClose={() => setRightSlot((s) => closeSlot(s, 'audit'))}
+            />
+          )}
+
+          {/* Links panel (link mode) */}
       {linkMode && (
-        <div className="absolute right-4 top-11 flex max-h-[70vh] w-72 flex-col rounded-xl border border-line bg-raised shadow-2xl">
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-line-soft px-3 py-2">
             <span className="kicker text-accent-ink">
               {t('project.links')} ·{' '}
@@ -3635,6 +3922,9 @@ export default function ProjectView({
         </div>
       )}
 
+        </Inspector>
+      )}
+
       {/*
         Top-left toolbar.
 
@@ -3660,7 +3950,7 @@ export default function ProjectView({
         3 makes the row a scroll container, and a scroll container clips a menu
         anchored inside it.
       */}
-      <div className="absolute left-4 top-3 max-w-[calc(100vw-2rem)]">
+      <div className="absolute left-4 top-3 z-panel max-w-[calc(100vw-2rem)] md:hidden">
         <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 shadow-lg">
           <Button variant="toolbar" size="sm" onClick={leaveProject} title={t('error.backToProjects')}>
             <Icon name="chevronLeft" size={16} />
@@ -3672,34 +3962,11 @@ export default function ProjectView({
             <span className="hidden md:inline">{t('project.back')}</span>
           </Button>
           <div className="mx-1 h-5 w-px bg-line-soft" />
-          <Button
-            variant="toolbar"
-            size="sm"
-            active={linkMode}
-            onClick={() => {
-              setRightSlot((s) => toggleSlot(s, 'links'))
-              setModifyMode(false)
-              setAnnotateMode(false)
-            }}
-            title={t('project.linkTitle')}
-          >
+          <Button variant="toolbar" size="sm" active={linkMode} onClick={toggleLinkMode} title={t('project.linkTitle')}>
             <Icon name="link" size={16} />
             <span className="hidden md:inline">{t('mode.link')}</span>
           </Button>
-          <Button
-            variant="toolbar"
-            size="sm"
-            active={modifyMode}
-            onClick={() => {
-              setModifyMode((v) => !v)
-              // See the Annotate button: Link mode only, because Modify has no
-              // panel of its own in that slot to make room for.
-              setRightSlot((s) => closeSlot(s, 'links'))
-              setAnnotateMode(false)
-              setPendingModify(null)
-            }}
-            title={t('project.modifyTitle')}
-          >
+          <Button variant="toolbar" size="sm" active={modifyMode} onClick={modifyTool.onClick} title={modifyTool.title}>
             <Icon name="pencil" size={16} />
             <span className="hidden md:inline">{t('mode.modify')}</span>
           </Button>
@@ -3799,12 +4066,31 @@ export default function ProjectView({
         )}
       </div>
 
-      {/* Floating composer */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+      {/* The creation column — the reference's "Atelier de création". From md
+          the composer is a column beside the canvas instead of a bar floating
+          over it: the canvas keeps its whole height, and the composer stops
+          covering the bottom of every screen it is asked to change. Below md
+          it is the floating bar it always was. */}
+      <aside className="pointer-events-none absolute inset-x-0 bottom-4 z-panel flex justify-center px-4 md:pointer-events-auto md:static md:order-1 md:w-[300px] md:shrink-0 md:flex-col md:justify-start md:border-r md:border-line-soft md:bg-surface md:px-0">
+        <header className="hidden shrink-0 border-b border-line-soft px-4 pb-3 pt-4 md:block">
+          <p className="kicker">{t('workspace.atelier')}</p>
+          <h2 className="mt-1.5 text-lead font-semibold text-ink">
+            {!editing
+              ? t('workspace.newScreen')
+              : selectedScreens.length === 1
+                ? t('workspace.editOne')
+                : t('workspace.editMany', { count: selectedScreens.length })}
+          </h2>
+          <p className="mt-0.5 text-caption text-ink-muted">
+            {editing
+              ? t('workspace.editHint')
+              : t(screens.length === 1 ? 'workspace.screens_one' : 'workspace.screens_other', { count: screens.length })}
+          </p>
+        </header>
         {/* The whole bar takes a dropped screenshot, not only the field: a drop
             aimed at "the composer" lands wherever the pointer happens to be. */}
         <div
-          className={`pointer-events-auto w-full max-w-2xl rounded-2xl border bg-surface p-2 shadow-2xl transition ${
+          className={`pointer-events-auto w-full max-w-2xl rounded-2xl border bg-surface p-2 shadow-2xl transition md:min-h-0 md:max-w-none md:flex-1 md:overflow-y-auto md:rounded-none md:border-0 md:bg-transparent md:p-3 md:shadow-none ${
             siteDragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
           }`}
           {...siteDropHandlers((files) => void addSiteFiles(files), setSiteDragOver)}
@@ -4019,7 +4305,9 @@ export default function ProjectView({
               <ScreenThemePicker
                 value={themeId}
                 onChange={chooseTheme}
-                placement="up"
+                // Down in the column, which starts under the top bar; up from
+                // the floating bar, which sits at the bottom of the screen.
+                placement={wide ? 'down' : 'up'}
                 disabled={busy || enhancer.running}
                 ignored={themeIgnored}
               />
@@ -4042,7 +4330,7 @@ export default function ProjectView({
           <textarea
             ref={composerField}
             rows={2}
-            className="input min-w-0 resize-none"
+            className="input min-w-0 resize-none md:min-h-[7.5rem]"
             placeholder={
               editing
                 ? t(
@@ -4228,7 +4516,67 @@ export default function ProjectView({
             </div>
           </div>
         </div>
-      </div>
+        {/* The foot of the column: the other things this workshop makes, and
+            what was made last. Column only — on a phone the composer is a
+            floating bar again and has no room for either. */}
+        <div className="hidden max-h-[45%] shrink-0 overflow-y-auto border-t border-line-soft px-4 py-3 md:block">
+          {!editing && (
+            <>
+              <p className="kicker mb-2">{t('workspace.alsoMake')}</p>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  className="composer-chip"
+                  aria-pressed={showCampaign}
+                  title={t('campaign.toolbarTitle')}
+                  onClick={() => setRightSlot((sl) => toggleSlot(sl, 'campaign'))}
+                >
+                  <Icon name="megaphone" size={14} />
+                  {t('campaign.toolbar')}
+                </button>
+                {/* A film is made from the media library, not from a screen —
+                    which is why it lives here, with what this column makes,
+                    and not in a screen's menu. */}
+                <button
+                  type="button"
+                  className="composer-chip"
+                  aria-pressed={showVideoExport}
+                  title={t('video.toolbarTitle')}
+                  onClick={() => setShowVideoExport((v) => !v)}
+                >
+                  <Icon name="film" size={14} />
+                  {t('video.toolbarLabel')}
+                </button>
+              </div>
+            </>
+          )}
+          <p className="kicker mb-1.5">{t('workspace.history')}</p>
+          <ul className="space-y-0.5">
+            {recentScreens.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  title={t('workspace.historyTitle')}
+                  onClick={() => {
+                    setSelectedIds([s.id])
+                    setFocus({ screenId: s.id, nonce: Date.now() })
+                  }}
+                  className="flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-left transition hover:bg-ink/5"
+                >
+                  <Icon name="history" size={14} className="mt-0.5 shrink-0 text-ink-faint" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body-sm text-ink">{s.name}</span>
+                    <span className="block text-caption text-ink-faint">{timeAgo(s.createdAt)}</span>
+                  </span>
+                  {selectedIds.includes(s.id) && (
+                    <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
 
       {/* Target picker — the list behind the cable's "Choose from the list" */}
       {pendingLink?.list && (

@@ -282,6 +282,13 @@ function MockyApp() {
   }
 
   const activeProject = projects.find((p) => p.id === activeId) ?? null
+  /**
+   * Inside a project the bar becomes the reference's workspace bar: full width,
+   * the wordmark as wide as the creation column under it, a breadcrumb, and the
+   * project's own tools (portalled in by ProjectView) where the site navigation
+   * was — the navigation is one click away, on the wordmark or "Projets".
+   */
+  const inProject = route === 'project' && !!activeProject
 
   function openProject(id: string) {
     setActiveId(id)
@@ -361,11 +368,14 @@ function MockyApp() {
       {/* The top bar: the wordmark, the navigation, the account — then it gets
           out of the way. */}
       <header className="rule-double bg-surface">
-        <div className="page flex items-center gap-3 py-2.5">
+        <div className={inProject ? 'flex items-center gap-3 px-4 py-2.5' : 'page flex items-center gap-3 py-2.5'}>
           <button
             type="button"
             onClick={goHome}
-            className="flex items-center gap-2.5"
+            // 284 = the 300px creation column less this bar's own 16px gutter,
+            // so the breadcrumb starts where the canvas does. From xl only:
+            // narrower, the project's tools need that room and the name went.
+            className={`flex items-center gap-2.5 ${inProject ? 'xl:w-[284px] xl:shrink-0' : ''}`}
             title={t('nav.backHome')}
           >
             {/*
@@ -409,7 +419,7 @@ function MockyApp() {
                   nothing. Between 768 and 1024 the logo says "Mocky" perfectly
                   well on its own, so the words wait for room that actually
                   exists. */}
-              <span className="kicker hidden text-accent-ink lg:inline">{t('nav.tagline')}</span>
+              {!inProject && <span className="kicker hidden text-accent-ink lg:inline">{t('nav.tagline')}</span>}
             </span>
           </button>
 
@@ -419,6 +429,15 @@ function MockyApp() {
               right edge instead of giving way to it. */}
           {activeProject && (
             <div className="flex min-w-0 items-center gap-2">
+              {inProject && (
+                <button
+                  type="button"
+                  onClick={goHome}
+                  className="hidden text-body text-ink-muted transition hover:text-ink xl:inline"
+                >
+                  {t('workspace.projects')}
+                </button>
+              )}
               <span className="text-ink-faint">/</span>
               {editingName ? (
                 <input
@@ -482,22 +501,29 @@ function MockyApp() {
               declared the problem solved 100px early. */}
           <nav className="ml-auto hidden items-center gap-1 md:flex">
             <SyncIndicator />
-            <HeaderTab active={route === 'home'} onClick={goHome}>
-              {t('nav.home')}
-            </HeaderTab>
-            <HeaderTab active={route === 'design'} onClick={() => navigate('design')}>
-              {t('nav.design')}
-            </HeaderTab>
-            <HeaderTab active={route === 'media'} onClick={() => navigate('media')}>
-              {t('nav.media')}
-            </HeaderTab>
-            <HeaderTab active={route === 'settings'} onClick={() => navigate('settings')}>
-              {t('nav.settings')}
-            </HeaderTab>
-            {account?.role === 'admin' && (
-              <HeaderTab active={route === 'admin'} onClick={() => navigate('admin')}>
-                {t('nav.admin')}
-              </HeaderTab>
+            {/* ProjectView renders its tools here (createPortal). Present only
+                inside a project, where it replaces the site navigation. */}
+            {inProject && <div id="mocky-project-bar" className="ml-2 flex items-center" />}
+            {!inProject && (
+              <>
+                <HeaderTab active={route === 'home'} onClick={goHome}>
+                  {t('nav.home')}
+                </HeaderTab>
+                <HeaderTab active={route === 'design'} onClick={() => navigate('design')}>
+                  {t('nav.design')}
+                </HeaderTab>
+                <HeaderTab active={route === 'media'} onClick={() => navigate('media')}>
+                  {t('nav.media')}
+                </HeaderTab>
+                <HeaderTab active={route === 'settings'} onClick={() => navigate('settings')}>
+                  {t('nav.settings')}
+                </HeaderTab>
+                {account?.role === 'admin' && (
+                  <HeaderTab active={route === 'admin'} onClick={() => navigate('admin')}>
+                    {t('nav.admin')}
+                  </HeaderTab>
+                )}
+              </>
             )}
             {/* An administrator testing the free plan is told so on every page:
                 a forgotten switch reads as a broken instance — a weaker model, a
@@ -511,9 +537,11 @@ function MockyApp() {
                 {t('plan.testBadge')}
               </span>
             )}
-            <HeaderLink href={DOCS_URL} title={t('nav.docsHint')}>
-              {t('nav.docs')}
-            </HeaderLink>
+            {!inProject && (
+              <HeaderLink href={DOCS_URL} title={t('nav.docsHint')}>
+                {t('nav.docs')}
+              </HeaderLink>
+            )}
             <IconButton
               label={theme === 'dark' ? t('theme.toPaper') : t('theme.toInk')}
               variant="quiet"
@@ -545,7 +573,8 @@ function MockyApp() {
                 ) : (
                   <Icon name="user" size={16} />
                 )}
-                <span className="max-w-[100px] truncate">{account.username}</span>
+                {/* The name is the bar's last luxury: in a project the tools need the room. */}
+                {!inProject && <span className="max-w-[100px] truncate">{account.username}</span>}
               </Button>
             ) : (
               <Button

@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: e13163b5fe26
+source_hash: e058b74cc6e0
 ---
 
 # L’interface
@@ -128,9 +128,38 @@ projets choisis est actuellement classé, sans quoi le bouton ne déferait rien.
 
 ---
 
+## L’espace de travail d’un projet
+
+À partir de `md` (768 px), un projet tient en trois colonnes sous une seule
+barre, comme dans la référence dont la refonte est tirée :
+
+| Où | Quoi |
+|---|---|
+| **La barre du haut** | Le logotype (retour aux projets), `Projets / nom` (cliquez le nom pour le renommer), puis les outils du projet : les modes de la toile — `Sélectionner`, `Lier`, `Interagir`, `Modifier`, `Annoter` — puis `Démo`, `Partager ▾`, `Exporter ▾` et l’interrupteur de l’inspecteur. La navigation du site (DESIGN.md, Média, Réglages) est à un clic, sur le logotype. |
+| **À gauche : l’atelier de création** | Le composeur en colonne au lieu d’une barre flottante : un titre qui dit ce que fera le prochain message (`Nouvel écran`, ou `Modifier l’écran` quand des écrans sont sélectionnés), le composeur lui-même, `Créer aussi` (`Campagne`, les films `Motion Ultra`), et les quatre derniers écrans créés — cliquez-en un pour le cadrer sur la toile. |
+| **Au centre : la toile** | Toute sa hauteur : plus rien ne flotte sur le bas des écrans. La barre de zoom est en bas à gauche ; `Cadre` (le contour d’iPhone) en bas à droite, et seulement quand le projet a un écran mobile. |
+| **À droite : l’inspecteur** | Les panneaux qui flottaient dans le coin de la toile, en onglets : `Style`, `Versions`, `Audit` ; `⋯` ouvre `Validation`, `Campagne` et `Liens`, qui s’affichent alors en quatrième onglet. Une colonne à partir de `xl` (1280 px), ouverte sur `Style` à l’ouverture d’un projet ; plus étroit, il flotte sur le bord droit de la toile. Une ligne d’état, en bas, dit si Mocky travaille. |
+
+**`Partager ▾`** réunit le partage et la validation : `Lien vers l’écran (QR
+code)` pour l’écran sélectionné, et `Envoyer en validation…`, qui ouvre le
+panneau de validation dans l’inspecteur. Le nombre à côté, ce sont les
+commentaires du client pas encore lus.
+
+**`Exporter ▾`** réunit toutes les façons dont quelque chose quitte Mocky : le
+projet exécutable (`Prêt pour shadcn`, `Tailwind seul`, `daisyUI`, chacun en
+`.zip`), l’écran sélectionné (PNG, PowerPoint, `.tsx` — ou `Télécharger…` pour un
+document), et la médiathèque. Le menu d’un écran garde les mêmes exports sous
+`Exporter ›`.
+
+Sous `md`, l’espace se replie : la barre d’outils flottante décrite ensuite, et
+le composeur en barre au bas de la toile.
+
+---
+
 ## La barre d’outils du projet
 
-En haut à gauche du canevas, et l’endroit le plus dense du produit. Trois
+Sous `md` seulement — à partir de `md`, ses outils sont dans la barre du haut
+(ci-dessus). En haut à gauche du canevas, et l’endroit le plus dense du produit. Trois
 défenses la maintiennent à l’écran : les libellés disparaissent sous `md`, tout
 ce qui suit `Modifier` se replie dans `Plus`, et la rangée défile d’elle-même
 plutôt que de pousser la page de côté.
@@ -200,8 +229,10 @@ contredirait.
 
 ### La barre de zoom
 
-En bas à gauche du canevas à partir de `xl` ; en dessous, elle remonte en haut
-et se glisse sous la barre d’outils. Question de géométrie, pas de goût : la
+En bas à gauche du canevas à partir de `md`, où le composeur est une colonne et
+ne couvre plus ce coin ; sous `md`, elle remonte en haut et se glisse sous la
+barre d’outils flottante. Question de géométrie, pas de goût — c’était le
+raisonnement quand le composeur flottait à toutes les largeurs : la
 barre est calée sur la marge gauche et le composeur est un bloc de 672 px
 centré, si bien que sept contrôles ne le dégagent qu’au-delà de 1200 px de
 fenêtre environ. Plus étroit, le coin inférieur gauche passe derrière le
@@ -448,7 +479,7 @@ est son format de page.
 
 ## Le composeur
 
-La barre flottante en bas. C’est le seul contrôle du produit qui change de verbe
+La colonne de création à gauche à partir de `md` (voir [l’espace de travail](#lespace-de-travail-dun-projet)) ; en dessous, la barre flottante en bas. C’est le seul contrôle du produit qui change de verbe
 selon ce qui est sélectionné.
 
 :::hotspots src=../assets/ui/fr/composer.webp alt="Le composeur : formats, type d’écran, les trois interrupteurs, la demande, Améliorer et Générer"
@@ -567,7 +598,7 @@ vision est refusé d’emblée, avec une phrase qui le dit.
 
 ## Les panneaux latéraux
 
-Les trois s’ouvrent au même endroit, à droite, sous la barre d’outils.
+À partir de `md`, ce sont des onglets de l’inspecteur, à droite (voir [l’espace de travail](#lespace-de-travail-dun-projet)) ; en dessous, ils flottent au même endroit, à droite, sous la barre d’outils.
 
 ### Liens
 

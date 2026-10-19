@@ -1809,6 +1809,11 @@ export default function Canvas({
          * the bar was already being painted over. The seventh control makes it
          * 251px and needs W > 1206.
          *
+         * From md none of that applies any more: the composer is a column beside
+         * the canvas and the toolbar is in the app's top bar, so the bottom-left
+         * corner is free at every width where there is a column at all. The
+         * arithmetic below still governs the floating bar under md.
+         *
          * Budget for whoever adds the ninth: at `xl` the clearance is 1280/2
          * - 336 - 16 - width, which is 288px of controls — not the ~330 this
          * note used to say; the arithmetic was right and the total was not.
@@ -1818,7 +1823,7 @@ export default function Canvas({
          * nothing left: the next control goes into a menu. A wider breakpoint
          * is the wrong answer — the bar would spend its life at top-14.
          */
-        className="absolute left-4 top-14 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg xl:bottom-4 xl:top-auto"
+        className="absolute left-4 top-14 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg md:bottom-4 md:top-auto"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <IconButton variant="toolbar" label={t('canvas.zoomOut')} onClick={() => zoomBy(1 / 1.2)}>
