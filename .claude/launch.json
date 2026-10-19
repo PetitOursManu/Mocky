@@ -8,10 +8,7 @@
         "run",
         "dev:all"
       ],
-      "port": 5173,
-      "env": {
-        "MOCKY_PORT": "8788"
-      }
+      "port": 5173
     },
     {
       "name": "mocky-web",
