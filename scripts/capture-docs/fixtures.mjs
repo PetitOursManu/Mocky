@@ -17,6 +17,7 @@ const T = {
     booking: 'Réservation',
     flyer: 'Flyer d’ouverture',
     post: 'Post Instagram',
+    social: 'Lancement Instagram',
     nav: ['Le lieu', 'La carte', 'Réserver'],
     book: 'Réserver une table',
     kicker: 'Le goût des choses simples',
@@ -68,6 +69,7 @@ const T = {
     booking: 'Booking',
     flyer: 'Opening flyer',
     post: 'Instagram post',
+    social: 'Instagram launch',
     nav: ['The place', 'Menu', 'Book'],
     book: 'Book a table',
     kicker: 'The taste of simple things',
@@ -287,21 +289,31 @@ export function fixtures(lang) {
         // A cable to the menu, from the "See the menu" button's place.
         links: [{ id: 'l1', x: 0.06, y: 0.62, w: 0.13, h: 0.06, target: 'cafe-menu' }],
       }),
-      screen('cafe-menu', t.menu, t.menuTitle, menu(t), { x: 1600, y: 0, w: 1440, h: 900 }, {
+      screen('cafe-menu', t.menu, t.menuTitle, menu(t), { x: 1560, y: 0, w: 1440, h: 900 }, {
         createdAt: now - 60 * min,
         links: [{ id: 'l2', x: 0.05, y: 0.4, w: 0.25, h: 0.35, target: 'cafe-booking' }],
       }),
-      screen('cafe-booking', t.booking, t.bookTitle, booking(t), { x: 3200, y: 0, w: 390, h: 844 }, {
+      screen('cafe-booking', t.booking, t.bookTitle, booking(t), { x: 1560, y: 1040, w: 390, h: 844 }, {
         createdAt: now - 40 * min,
         device: 'iphone',
       }),
-      screen('cafe-flyer', t.flyer, t.flyerTitle, flyer(t), { x: 3750, y: 0, w: 559, h: 794 }, {
+      screen('cafe-flyer', t.flyer, t.flyerTitle, flyer(t), { x: 0, y: 1040, w: 559, h: 794 }, {
         createdAt: now - 20 * min,
         page: 'a5',
         caps: ['document'],
       }),
-      screen('cafe-post', t.post, t.postB, post(t), { x: 4470, y: 0, w: 1080, h: 1080 }, {
-        createdAt: now - 5 * min,
+    ],
+  }
+  // The post lives in a project of its own: a carousel is two pages tall, and on
+  // the café's board it shrank every other screen to a stamp.
+  const social = {
+    id: 'docs-social',
+    name: t.social,
+    createdAt: now - 30 * min,
+    updatedAt: now - 30 * min,
+    screens: [
+      screen('cafe-post', t.post, t.postB, post(t), { x: 0, y: 0, w: 1080, h: 1080 }, {
+        createdAt: now - 30 * min,
         page: 'social-square',
         caps: ['document'],
       }),
@@ -336,5 +348,11 @@ export function fixtures(lang) {
 - Display: a serif, tight, large
 - Body: a sans, 16px, relaxed
 `
-  return { projects: [cafe, ...others], design, ids: { cafe: cafe.id, flyer: 'cafe-flyer', post: 'cafe-post', home: 'cafe-home' } }
+  // The project's own direction too, so the inspector's Style tab has a palette.
+  cafe.design = design
+  return {
+    projects: [cafe, social, ...others],
+    design,
+    ids: { cafe: cafe.id, social: social.id, flyer: 'cafe-flyer', post: 'cafe-post', home: 'cafe-home' },
+  }
 }

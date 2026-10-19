@@ -318,8 +318,13 @@ async function run(lang) {
     })
 
     // ---- a document's menu, and its download dialog ----------------------------
-    const flyerLabel = page.locator('main').getByText(names['cafe-flyer'], { exact: true }).first()
-    await flyerLabel.click({ button: 'right' })
+    // The menu from the floating tools' `⋯`: a frame's own label is too small
+    // to click once the whole board is framed.
+    const pick = (id) =>
+      column.locator(`button[title="${t('workspace.historyTitle')}"]`).filter({ hasText: names[id] }).click()
+    await pick('cafe-flyer')
+    await page.waitForTimeout(800)
+    await btn(page.getByRole('toolbar', { name: t('workspace.screenTools') }), t('workspace.screenMore')).click()
     const menu = page.locator('.menu-in.fixed').last()
     await menu.waitFor()
     await shoot(ctx, 'docmenu', {
@@ -356,6 +361,8 @@ async function run(lang) {
     await page.keyboard.press('Escape')
 
     // ---- demo mode: a screen in a device, a flyer in a hand, a post in a feed --
+    // The demo opens on the selected screen.
+    await pick('cafe-menu')
     await btn(bar, t('mode.demo')).click()
     const demo = page.locator('div.fixed.inset-0.z-top').last()
     await demo.waitFor()
@@ -384,8 +391,15 @@ async function run(lang) {
         ['Caption', demo.getByText(t('docExport.format.a5'), { exact: true })],
       ],
     })
-    await switcher.selectOption('cafe-post')
+    await btn(demo, t('canvas.demoExit')).click()
+
+    // The post, from its own project's demo.
+    await page.goto(`${base}/p/${data.ids.social}`)
+    await settle(page, 3000)
+    await btn(bar, t('mode.demo')).click()
+    await demo.waitFor()
     await settle(page, 2500)
+    if ((await frameToggle.getAttribute('aria-pressed')) !== 'true') await frameToggle.click()
     await shoot(ctx, 'demo-phone', {
       spots: [
         ['Author row', demo.locator('[data-doc="phone-author"]')],
@@ -396,6 +410,9 @@ async function run(lang) {
       ],
     })
     await btn(demo, t('canvas.demoExit')).click()
+    // Back to the café, so the header names it as the open project.
+    await page.goto(`${base}/p/${data.ids.cafe}`)
+    await settle(page, 2000)
 
     // ---- the header and the projects page ---------------------------------------
     const header = page.locator('header').first()
