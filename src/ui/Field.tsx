@@ -20,7 +20,7 @@ import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttri
 // rhythm is untouched. Type stays at `body` — see the note in index.css about
 // not paying for height with legibility.
 const CONTROL =
-  'tap-target w-full border border-line-soft bg-surface px-3 py-2 text-body text-ink ' +
+  'tap-target w-full rounded-md border border-field bg-raised px-3 py-2 text-body text-ink ' +
   'placeholder:text-ink-faint outline-hidden transition hover:border-line focus:border-accent ' +
   'focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ' +
   'disabled:cursor-not-allowed disabled:opacity-50'

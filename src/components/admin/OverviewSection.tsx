@@ -112,7 +112,7 @@ export default function OverviewSection({ live, go }: { live: Live; go: (s: Sect
       <div className="mt-8 grid gap-x-10 gap-y-8 xl:grid-cols-2">
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.overview.now')}</span>
+            <span className="kicker">{t('dashboard.overview.now')}</span>
             <Button size="sm" variant="quiet" className="ml-auto" onClick={() => go('activity')}>
               {t('dashboard.overview.seeActivity')}
             </Button>
@@ -130,7 +130,7 @@ export default function OverviewSection({ live, go }: { live: Live; go: (s: Sect
 
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.overview.requests')}</span>
+            <span className="kicker">{t('dashboard.overview.requests')}</span>
             <span className="ml-auto font-mono text-caption text-ink-muted">
               {t('dashboard.overview.lastHour', { n: totalOf(d) })}
             </span>
@@ -177,9 +177,9 @@ function totalOf(d: Overview) {
 /** A chart with its title and current value above it. */
 export function ChartCard({ title, value, children }: { title: string; value?: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0">
-      <div className="mb-2 flex items-baseline gap-3 border-b border-line pb-1.5">
-        <span className="kicker text-ink">{title}</span>
+    <div className="min-w-0 rounded-xl border border-line bg-raised p-4">
+      <div className="mb-3 flex items-baseline gap-3 border-b border-line-soft pb-2">
+        <span className="kicker">{title}</span>
         {value && <span className="ml-auto font-mono text-body-sm text-ink">{value}</span>}
       </div>
       {children}

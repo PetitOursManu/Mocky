@@ -45,7 +45,7 @@ export default function ActivitySection({ live }: { live: Live }) {
       )}
 
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('dashboard.activity.people')}</span>
+        <span className="kicker">{t('dashboard.activity.people')}</span>
         <span className="font-mono text-caption text-ink-muted">
           {t('dashboard.activity.peopleCount', { online: d.counts.online, users: d.counts.users })}
         </span>
@@ -86,7 +86,7 @@ export default function ActivitySection({ live }: { live: Live }) {
       <div className="mt-8 grid gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.activity.running')}</span>
+            <span className="kicker">{t('dashboard.activity.running')}</span>
             <span className="font-mono text-caption text-ink-muted">{d.inflight.length}</span>
             {d.video.queued > 0 && (
               <span className="ml-auto text-caption text-ink-muted">{t('dashboard.activity.queued', { n: d.video.queued })}</span>
@@ -105,7 +105,7 @@ export default function ActivitySection({ live }: { live: Live }) {
 
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.activity.byKind')}</span>
+            <span className="kicker">{t('dashboard.activity.byKind')}</span>
             <span className="ml-auto text-caption text-ink-muted">{t('dashboard.activity.byKindHelp')}</span>
           </div>
           {/* Small multiples on ONE scale: the busiest kind is visibly the
@@ -137,7 +137,7 @@ export default function ActivitySection({ live }: { live: Live }) {
 
       <div className="mt-8">
         <div className="section-head flex-wrap">
-          <span className="kicker text-accent-ink">{t('dashboard.activity.feed')}</span>
+          <span className="kicker">{t('dashboard.activity.feed')}</span>
           <span className="font-mono text-caption text-ink-muted">{feed.length}</span>
           <div className="ml-auto flex flex-wrap gap-1" role="group" aria-label={t('dashboard.activity.filter')}>
             {WORK_KINDS.map((k) => {
@@ -158,7 +158,7 @@ export default function ActivitySection({ live }: { live: Live }) {
                   }
                   className={
                     'tap-target min-h-8 border px-2 text-caption ' +
-                    (on ? 'border-line bg-ink text-surface' : 'border-line-soft text-ink-muted hover:text-ink')
+                    (on ? 'border-accent/40 bg-selected text-on-selected' : 'border-line-soft text-ink-muted hover:text-ink')
                   }
                 >
                   {t(`dashboard.kind.${k}`)}

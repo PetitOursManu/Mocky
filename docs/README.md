@@ -12,16 +12,17 @@ were made. They assume you know React and TypeScript.
 
 A project, open. Click the numbers to see what each part is:
 
-:::hotspots src=assets/ui/canvas.webp alt="A project: the toolbar, four screens linked by cables, the zoom bar and the composer"
-- 73.9,2.9 **Main navigation**: `Home` lists your projects; `DESIGN.md`, `Media`, `Settings`, `Admin` and `Docs` open over the project.
-- 36.3,9.7 **Project toolbar**: Link, modify, interact, annotate, the side panels, `Demo` and `Export`. Each is described in [The interface](interface.md#the-project-toolbar).
-- 17.4,26 **A generated screen**: A real React + Tailwind component, rendered live. Double-click to use it, right-click for its menu.
-- 30.3,19.1 **A cable**: A link from an element of one screen to the screen it opens — the map of the prototype `Demo` plays.
-- 67.4,13.4 **A document**: A flyer, a report, a post: fixed pages. Its `Download` pill gives a PDF, a `.pptx` or PNG images.
-- 10.9,95.6 **Zoom bar**: Zoom, `Fit all`, the latest screen, `Arrange`, and the switch that shows or hides the cables.
-- 49.4,85.5 **Screen type**: What the next screen is — a dashboard, a pricing page — or which document. It stays armed for the project.
-- 45.3,94.6 **The prompt**: Describe a screen in your own words. With a screen selected, the same field describes a change to it.
-- 69.7,94.9 **Generate**: Creates the screen. With screens selected, it reads `Update` and edits them instead.
+:::hotspots src=assets/ui/canvas.webp alt="A project: the top bar, the creation workshop, screens linked by cables, the inspector and the zoom bar"
+- 62.1,3.2 **Canvas tools**: Select, link, interact, modify, annotate — what a click on a screen does. See [The interface](interface.md#the-project-workspace).
+- 79.2,3.2 **Share**: A link to one screen, or the whole project sent to a client for approval.
+- 86.6,3.2 **Export**: Every way out: the runnable project as a `.zip`, the selected screen as PNG, PowerPoint or `.tsx`, and the media.
+- 10.4,9.2 **The creation workshop**: The composer, as a column: describe a screen, choose its format and options, generate. With screens selected, it edits them.
+- 36.9,41.9 **A generated screen**: A real React + Tailwind component, rendered live. Double-click to use it, right-click for its menu.
+- 30.5,65 **A document**: A flyer, a report, a post: fixed pages. Its `Download` pill gives a PDF, a `.pptx` or PNG images.
+- 48.3,15.1 **Floating tools**: For the one selected screen: edit, polish, regenerate, share, export, and its whole menu under `⋯`.
+- 86.3,53.4 **The inspector**: A rail of six panels that is always there — style, versions, audit, approval, campaign, links — and the one that is open.
+- 31.8,96.1 **Zoom bar**: Zoom, `Fit all`, the latest screen, `Arrange`, and the switch that shows or hides the cables.
+- 16.5,38.8 **Generate**: Creates the screen. With screens selected, it reads `Update` and edits them instead.
 :::
 
 ---

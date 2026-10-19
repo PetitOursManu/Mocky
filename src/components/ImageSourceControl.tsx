@@ -32,17 +32,20 @@ export default function ImageSourceControl({
   onChange,
   size = 14,
   className = '',
+  bare = false,
 }: {
   value: ImageChoice
   choices: ImageChoice[]
   onChange: (choice: ImageChoice) => void
   size?: number
   className?: string
+  /** The choice alone — see SourceChoices. */
+  bare?: boolean
 }) {
   if (choices.length < 2) return null
   const options = choices.map((id) => [id, ...SOURCE_OPTIONS[id]] as [ImageChoice, string, string])
   return (
-    <SourceChoices value={value} onChange={onChange} options={options} size={size} className={className} lit={value !== 'ai'} />
+    <SourceChoices value={value} onChange={onChange} options={options} size={size} className={className} lit={value !== 'ai'} bare={bare} />
   )
 }
 
@@ -67,12 +70,15 @@ export function DocumentImageControl({
   onChange,
   size = 14,
   className = '',
+  bare = false,
 }: {
   value: DocumentImageChoice
   choices: DocumentImageChoice[]
   onChange: (choice: DocumentImageChoice) => void
   size?: number
   className?: string
+  /** The choice alone — see SourceChoices. */
+  bare?: boolean
 }) {
   const options = choices.map((id) => [id, ...DOCUMENT_OPTIONS[id]] as [DocumentImageChoice, string, string])
   return (
@@ -82,6 +88,7 @@ export function DocumentImageControl({
       options={options}
       size={size}
       className={className}
+      bare={bare}
       lit={value !== 'none'}
       label="project.docImage"
     />
@@ -96,6 +103,7 @@ function SourceChoices<T extends string>({
   className,
   lit = value === 'stock',
   label = 'project.imageSource',
+  bare = false,
 }: {
   value: T
   onChange: (v: T) => void
@@ -105,14 +113,18 @@ function SourceChoices<T extends string>({
   /** Whether the label is drawn in the accent: the choice departs from the plain default. */
   lit?: boolean
   label?: string
+  /** The choice alone, for a tile that already says what it is (OptionTileChoice). */
+  bare?: boolean
 }) {
   const t = useT()
   return (
     <span className={`inline-flex items-center gap-1 ${className}`}>
-      <span className={`inline-flex items-center gap-1 ${lit ? 'text-accent-ink' : 'text-ink-muted'}`}>
-        <Icon name="image" size={size} />
-        {t(label)}
-      </span>
+      {!bare && (
+        <span className={`inline-flex items-center gap-1 ${lit ? 'text-accent-ink' : 'text-ink-muted'}`}>
+          <Icon name="image" size={size} />
+          {t(label)}
+        </span>
+      )}
       <span role="group" aria-label={t(label)} className="inline-flex overflow-hidden rounded border border-line">
         {options.map(([id, optionLabel, title]) => (
           <button
@@ -122,7 +134,7 @@ function SourceChoices<T extends string>({
             aria-pressed={value === id}
             title={t(title)}
             className={`px-1.5 py-0.5 text-caption transition ${
-              value === id ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
+              value === id ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5'
             }`}
           >
             {t(optionLabel)}

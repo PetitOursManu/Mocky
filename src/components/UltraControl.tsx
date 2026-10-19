@@ -2,6 +2,7 @@ import { useT } from '../i18n'
 import { Icon } from '../ui'
 import type { ProjectUltra } from '../lib/project'
 import { ULTRA_IMAGE_COUNTS } from '../lib/ultra/storyboard'
+import { OptionTile, OptionToggle } from './ComposerOptions'
 
 /**
  * Motion Ultra in a composer — one component for both, so the first screen of a
@@ -26,6 +27,7 @@ export default function UltraControl({
   allowedCounts = ULTRA_IMAGE_COUNTS,
   size = 14,
   className = '',
+  variant = 'chip',
 }: {
   ultra: ProjectUltra | undefined
   paused: boolean
@@ -41,6 +43,13 @@ export default function UltraControl({
   allowedCounts?: readonly number[]
   size?: number
   className?: string
+  /**
+   * `row`: an option row of the composer (ComposerOptions) — one switch for the
+   * project, and the series size and the video background under it once it is
+   * on. The switch turns the PROJECT setting on and off; a session's pause (the
+   * chip's middle state) reads as off and the switch resumes it.
+   */
+  variant?: 'chip' | 'row' | 'tile'
 }) {
   const t = useT()
   const counts = ULTRA_IMAGE_COUNTS.filter((c) => allowedCounts.includes(c))
@@ -48,6 +57,74 @@ export default function UltraControl({
   // A project saved at a size this account may no longer use shows the size
   // it WILL use — the generation makes the same substitution.
   const shown = ultra && counts.includes(ultra.count) ? ultra.count : counts[0]
+
+  if (variant === 'row' || variant === 'tile') {
+    const on = !!ultra && !paused
+    const toggle = () => {
+      if (!ultra) onSetUltra({ count: counts[0] })
+      else if (paused) onTogglePause()
+      else onSetUltra(null)
+    }
+    const title = t(!ultra ? 'project.ultraEnableTitle' : paused ? 'project.ultraPausedTitle' : 'project.ultraDisable')
+    const details = on && ultra && (
+      <div className={`flex flex-wrap items-center gap-2 ${variant === 'row' ? 'mb-1 ml-9 mr-2' : ''}`}>
+        <span role="group" aria-label={t('project.ultraChip')} className="inline-flex gap-0.5 rounded-md border border-line p-0.5">
+          {counts.map((count) => (
+            <button
+              key={count}
+              type="button"
+              onClick={() => onSetUltra({ ...ultra, count })}
+              aria-pressed={shown === count}
+              title={t('project.ultraCountTitle', { count, minutes: count === 3 ? '1' : '2–3' })}
+              className={`rounded px-1.5 py-0.5 text-caption tabular-nums transition ${
+                shown === count ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5'
+              }`}
+            >
+              ×{count}
+            </button>
+          ))}
+        </span>
+        <span className="text-caption tabular-nums text-ink-faint">
+          {t('project.ultraCost', { minutes: shown === 3 ? '1' : '2–3' })}
+        </span>
+        {videoAvailable && (
+          <button
+            type="button"
+            onClick={() => onSetUltra({ ...ultra, video: !ultra.video })}
+            aria-pressed={!!ultra.video}
+            title={t('project.ultraVideoTitle')}
+            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption transition ${
+              ultra.video ? 'border-accent/40 bg-selected text-on-selected' : 'border-line text-ink-muted hover:bg-ink/5'
+            }`}
+          >
+            <Icon name="play" size={11} />
+            {t('project.ultraVideo')}
+            {ultra.video && <span className="tabular-nums">{t('project.ultraVideoCost')}</span>}
+          </button>
+        )}
+      </div>
+    )
+    if (variant === 'tile') {
+      return (
+        <OptionTile icon="film" label={t('project.ultraChip')} hint={t('workspace.hintUltra')} on={on} onClick={toggle} title={title}>
+          {details}
+        </OptionTile>
+      )
+    }
+    return (
+      <div className={className}>
+        <OptionToggle
+          icon="film"
+          label={t('project.ultraChip')}
+          hint={t('workspace.hintUltra')}
+          on={on}
+          title={title}
+          onClick={toggle}
+        />
+        {details}
+      </div>
+    )
+  }
 
   if (!ultra) {
     return (
@@ -89,7 +166,7 @@ export default function UltraControl({
               aria-pressed={shown === count}
               title={t('project.ultraCountTitle', { count, minutes: count === 3 ? '1' : '2–3' })}
               className={`px-1.5 py-0.5 text-caption tabular-nums transition ${
-                shown === count ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
+                shown === count ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5'
               }`}
             >
               ×{count}
@@ -115,7 +192,7 @@ export default function UltraControl({
           aria-pressed={!!ultra.video}
           title={t('project.ultraVideoTitle')}
           className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-caption transition ${
-            ultra.video ? 'border-accent bg-accent text-on-accent' : 'border-line text-ink-muted hover:bg-ink/5'
+            ultra.video ? 'border-accent/40 bg-selected text-on-selected' : 'border-line text-ink-muted hover:bg-ink/5'
           }`}
         >
           <Icon name="play" size={11} />

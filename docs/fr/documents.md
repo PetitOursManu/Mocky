@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: ba9846a10c51
+source_hash: f949b17eb97d
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -45,10 +45,10 @@ fichier, et l’endroit où un champ à remplir y tombe.
 :::
 
 :::hotspots src=../assets/ui/fr/types.webp alt="Le menu Type d’écran : documents, réseaux sociaux et écrans"
-- 50,5.2 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
-- 25.7,31.8 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
-- 25.7,89.7 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
-- 25.7,119.7 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
+- 50,3.6 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
+- 50,19.1 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
+- 50,98 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
+- 50,130.4 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
 :::
 
 Le type reste armé après la génération, et un projet s’ouvre sur le type et le
@@ -238,12 +238,12 @@ l’écran une entrée `Télécharger…`. Les deux ouvrent `Télécharger le do
 cinq boutons :
 
 :::hotspots src=../assets/ui/fr/download.webp alt="Télécharger le document : PDF, PowerPoint / Google Slides / Canva, images PNG, PSD, SVG"
-- 50,14.2 **Le format**: Le format de page du document. Le fichier se télécharge directement — sans fenêtre d’impression.
-- 50,25.1 **PDF**: Pour imprimer ou envoyer. Le texte reste sélectionnable ; chaque champ devient un vrai champ de formulaire.
-- 50,42.9 **PowerPoint / Google Slides / Canva**: Pour continuer à modifier : chaque texte en zone modifiable, chaque image dans une forme en cadre. Importez-le dans Canva, ou ouvrez-le dans Google Slides depuis Drive.
-- 50,60.7 **Images PNG**: Pour publier : une image par page, dans un `.zip` s’il y en a plusieurs. Un post sort à ses pixels exacts.
-- 50,74.6 **PSD**: Pour Photoshop ou Photopea : la page en un calque, chaque image dans une forme en calque à part.
-- 50,88.5 **SVG**: Pour Figma, Illustrator ou Inkscape : chaque image dans une forme est un masque nommé qui la contient.
+- 50,13.2 **Le format**: Le format de page du document. Le fichier se télécharge directement — sans fenêtre d’impression.
+- 52.9,21.7 **PDF**: Pour imprimer ou envoyer. Le texte reste sélectionnable ; chaque champ devient un vrai champ de formulaire.
+- 52.9,36.3 **PowerPoint / Google Slides / Canva**: Pour continuer à modifier : chaque texte en zone modifiable, chaque image dans une forme en cadre. Importez-le dans Canva, ou ouvrez-le dans Google Slides depuis Drive.
+- 52.9,58.3 **Images PNG**: Pour publier : une image par page, dans un `.zip` s’il y en a plusieurs. Un post sort à ses pixels exacts.
+- 52.9,71.4 **PSD**: Pour Photoshop ou Photopea : la page en un calque, chaque image dans une forme en calque à part.
+- 52.9,86.9 **SVG**: Pour Figma, Illustrator ou Inkscape : chaque image dans une forme est un masque nommé qui la contient.
 :::
 
 | Bouton | Ce que vous obtenez | Pour |
@@ -298,13 +298,14 @@ au-delà du bord d’une page, Mocky le dit — une notice nomme le document et 
 — parce que sur papier ce contenu est tout simplement coupé.
 
 :::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
-- 50,5.8 **Télécharger…**: Un document seulement : PDF à champs remplissables, PowerPoint / Google Slides / Canva, images PNG, PSD ou SVG.
-- 50,12.5 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
-- 50,19.2 **Régénérer**: La même demande à nouveau, pour un autre design.
-- 50,25.8 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
-- 50,39.1 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
-- 50,52.5 **Partager**: Un lien public temporaire et un QR code.
-- 50,94.2 **Supprimer l’écran**: Une confirmation, et il disparaît.
+- 50,4.4 **Modifier par message**: Sélectionne le document et place le curseur dans le composeur.
+- 50,10.6 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
+- 50,16.7 **Régénérer une variante**: La même demande à nouveau, pour un autre design.
+- 50,35.1 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
+- 50,43 **Exporter ›**: `Télécharger…` — PDF à champs remplissables, PowerPoint / Google Slides / Canva, images PNG, PSD ou SVG — et le `.tsx`.
+- 50,49.1 **Partager**: Un lien public temporaire et un QR code.
+- 50,69.3 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
+- 50,95.6 **Supprimer l’écran**: Une confirmation, et il disparaît.
 :::
 
 **Clic droit sur le document → `Ajuster à la page`** demande au modèle de regagner
@@ -400,19 +401,19 @@ Avec `Appareil` activé, la démo montre un document comme il sera vu :
 Un flyer, tenu :
 
 :::hotspots src=../assets/ui/fr/demo-hand.webp alt="Le mode démo : un flyer tenu dans une main"
-- 29.7,3.1 **Appareil**: Activé pour un document imprimé : il est tenu dans une main, du même trait que les appareils.
-- 17.4,26 **La page**: Le vrai document, une page à la fois ; un sélecteur de page apparaît dessous s’il y en a plusieurs.
-- 66.1,82 **La main**: Seul le pouce se pose sur la feuille, le long du bord ; le reste de la page reste cliquable.
+- 30.4,3.5 **Appareil**: Activé pour un document imprimé : il est tenu dans une main, du même trait que les appareils.
+- 44,46.5 **La page**: Le vrai document, une page à la fois ; un sélecteur de page apparaît dessous s’il y en a plusieurs.
+- 58.8,63.6 **La main**: Seul le pouce se pose sur la feuille, le long du bord ; le reste de la page reste cliquable.
 - 50,95.3 **Légende**: Le format de page.
 :::
 
 Un carrousel, dans son fil :
 
 :::hotspots src=../assets/ui/fr/demo-phone.webp alt="Le mode démo : un carrousel Instagram sur un téléphone, dans son fil"
-- 10.7,12.4 **Ligne d’auteur**: Le fil dessiné autour du post : générique, à l’encre du téléphone — ni logo, ni interface copiée.
-- 17.4,24.9 **Le post**: Sur toute la largeur de l’écran, là où la plateforme le place.
-- 27.1,16.2 **Compteur du carrousel**: La page affichée et la longueur du carrousel.
-- 8,38.4 **Actions et légende**: Sous l’image sur Instagram ; au-dessus sur Facebook et LinkedIn.
+- 40.7,23.1 **Ligne d’auteur**: Le fil dessiné autour du post : générique, à l’encre du téléphone — ni logo, ni interface copiée.
+- 50,43.2 **Le post**: Sur toute la largeur de l’écran, là où la plateforme le place.
+- 59,27.7 **Compteur du carrousel**: La page affichée et la longueur du carrousel.
+- 40.4,62.9 **Actions et légende**: Sous l’image sur Instagram ; au-dessus sur Facebook et LinkedIn.
 - 50,94.7 **Pages**: Tourne les pages du carrousel. Une story, elle, remplit l’écran.
 :::
 

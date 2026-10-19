@@ -73,7 +73,7 @@ export default function AuditSection() {
               onClick={() => setGroup(g)}
               className={
                 'tap-target min-h-8 border px-2.5 text-body-sm ' +
-                (on ? 'border-line bg-ink text-surface' : 'border-line-soft text-ink-muted hover:text-ink')
+                (on ? 'border-accent/40 bg-selected text-on-selected' : 'border-line-soft text-ink-muted hover:text-ink')
               }
             >
               {t(`dashboard.audit.group.${g ?? 'all'}`)}

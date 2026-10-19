@@ -23,12 +23,13 @@ export function Chip({
 }) {
   const t = useT()
   const look = {
-    default: 'border-line-soft text-ink',
-    accent: 'border-accent bg-accent text-on-accent',
-    muse: 'border-muse text-muse-ink',
+    default: 'border-line bg-raised text-ink-muted',
+    // The reference's selected chip: the lime on its own wash, not a solid block.
+    accent: 'border-accent/40 bg-accent-wash/10 text-accent-ink',
+    muse: 'border-muse/40 bg-muse/10 text-muse-ink',
   }[tone]
   return (
-    <span className={`tap-target inline-flex min-h-8 items-center gap-1.5 border px-2 text-body-sm ${look}`}>
+    <span className={`tap-target inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2 text-body-sm ${look}`}>
       <span className="max-w-[14rem] truncate">{children}</span>
       {onRemove && (
         <button
@@ -69,8 +70,8 @@ export function Segmented<T extends string>({
   label: string
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex border border-line-soft">
-      {options.map((opt, i) => {
+    <div role="group" aria-label={label} className="inline-flex gap-0.5 rounded-lg border border-line bg-raised p-0.5">
+      {options.map((opt) => {
         const active = value === opt.value
         return (
           <button
@@ -82,13 +83,10 @@ export function Segmented<T extends string>({
             // is no way back to plain selection without picking another mode.
             onClick={() => onChange(active ? null : opt.value)}
             className={
-              'tap-target inline-flex min-h-8 items-center gap-1.5 border-b-2 px-2.5 text-body-sm font-medium transition ' +
-              (i > 0 ? 'border-l border-l-line-soft ' : '') +
-              // The inversion carries the state; the accent rule underneath is
-              // what makes it findable at a glance, the way a tab is underlined.
-              (active
-                ? 'border-b-accent bg-ink text-surface'
-                : 'border-b-transparent text-ink-muted hover:text-ink')
+              'tap-target inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-body-sm font-medium transition ' +
+              // The reference's tool group: segments inside one raised tray,
+              // the active one in the lime on its tinted ground.
+              (active ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5 hover:text-ink')
             }
           >
             {opt.icon && <span aria-hidden>{opt.icon}</span>}

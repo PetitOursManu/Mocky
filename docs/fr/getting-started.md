@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: 20a7e9836930
+source_hash: ac0cece9dd56
 ---
 
 # Démarrage
@@ -73,16 +73,16 @@ serveur affiche un avertissement, et `/api/health` répond `503` avec
 Le bandeau est le même sur tous les écrans :
 
 :::hotspots src=../assets/ui/fr/header.webp alt="Le bandeau : le produit, le projet, la navigation, le thème et le compte"
-- 12.5,46.4 **Mocky**: Retour à vos projets, de partout.
-- 28.9,46.4 **Le projet ouvert**: Le projet où vous êtes. Son nom est aussi le titre de sa carte à la une sur la page des projets.
-- 59.6,46.4 **Accueil**: Vos projets, leurs dossiers, et `Nouveau projet`.
-- 65.7,46.4 **DESIGN.md**: Le système de design dont part chaque génération, en Markdown que vous pouvez modifier ou charger.
-- 71.3,46.4 **Média**: Toutes les images, clips et films générés ou importés.
-- 76.7,46.4 **Réglages**: Votre fournisseur de modèle, votre clé et votre modèle, votre compte, et le carillon de fin de génération.
-- 82.2,46.4 **Admin**: Le tableau de bord de l’instance. Visible des seuls administrateurs.
-- 87.1,46.4 **Docs**: Cette documentation, dans un nouvel onglet.
-- 91.2,46.4 **Thème**: Papier ou Encre. L’icône montre où vous allez, pas où vous êtes.
-- 95.6,46.4 **Compte**: Votre image et votre nom ; le menu vous déconnecte.
+- 13,49.1 **Mocky**: Retour à vos projets, de partout.
+- 28.9,49.1 **Le projet ouvert**: Le projet où vous êtes. Son nom est aussi le titre de sa carte à la une sur la page des projets.
+- 60.5,49.1 **Accueil**: Vos projets, leurs dossiers, et `Nouveau projet`.
+- 66.5,49.1 **DESIGN.md**: Le système de design dont part chaque génération, en Markdown que vous pouvez modifier ou charger.
+- 72,49.1 **Média**: Toutes les images, clips et films générés ou importés.
+- 77.3,49.1 **Réglages**: Votre fournisseur de modèle, votre clé et votre modèle, votre compte, et le carillon de fin de génération.
+- 82.5,49.1 **Admin**: Le tableau de bord de l’instance. Visible des seuls administrateurs.
+- 87.2,49.1 **Docs**: Cette documentation, dans un nouvel onglet.
+- 91.2,49.1 **Thème**: Papier ou Encre. L’icône montre où vous allez, pas où vous êtes.
+- 95.6,49.1 **Compte**: Votre image et votre nom ; le menu vous déconnecte.
 :::
 
 :::steps id=first-run
@@ -105,16 +105,18 @@ Qui devient l’administrateur de l’instance ?
 
 Le [[composeur|composer]], où l’on décrit un écran :
 
-:::hotspots src=../assets/ui/fr/composer.webp alt="Le composeur : formats, type d’écran, les trois interrupteurs, la demande, Améliorer et Générer"
-- 38.9,84.7 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
-- 51.3,84.7 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
-- 33.7,89.4 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
-- 43.9,89.4 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
-- 52.3,89.4 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
-- 64.8,89.4 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
-- 45.5,94.3 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
-- 65.4,94.6 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
-- 69.9,94.6 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+:::hotspots src=../assets/ui/fr/composer.webp alt="L’atelier de création : format, type d’écran, la demande, les options, Améliorer, Générer, Créer aussi et l’historique récent"
+- 11.9,13.5 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 26.6,22.1 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 49.8,32.1 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 49.8,53.2 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 49.8,62.8 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 49.8,68.6 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 49.8,82.9 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 21.2,43 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 78.8,43 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+- 49.8,66.2 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
+- 49.8,81.5 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
 :::
 
 Un projet garde **une seule** [[direction de design|direction]], pour que ses écrans aient
@@ -143,13 +145,14 @@ vous avez sélectionné. Les deux sont dans
 
 L’accueil après une première génération :
 
-:::hotspots src=../assets/ui/fr/home.webp alt="La page des projets : le projet à la une, les dossiers, Nouveau dossier et Nouveau projet"
-- 73.3,2.9 **Navigation**: La même sur toutes les pages.
-- 91.2,2.9 **Thème**: Papier ou Encre, retenu par le navigateur.
+:::hotspots src=../assets/ui/fr/home.webp alt="La page des projets : le dernier projet, les cartes des projets, Nouveau dossier et Nouveau projet"
+- 60.5,2.9 **Navigation**: La même sur toutes les pages.
+- 91.2,2.9 **Thème**: Encre (sombre, le défaut) ou Papier, retenu par le navigateur.
 - 95.6,2.9 **Compte**: Connecté : vos projets vous suivent d’un appareil à l’autre.
-- 93.2,15.9 **Nouveau projet**: Un canevas vide, nommé d’après sa première demande.
-- 82.1,15.9 **Nouveau dossier**: Les dossiers sont des noms posés sur les projets ; glissez ou classez un projet pour en remplir un.
-- 12.5,28.7 **Le projet à la une**: Le plus récent, avec ses écrans. `Ouvrir` y entre ; les autres sont listés dessous, par dossier.
+- 93,15.8 **Nouveau projet**: Une toile vide, nommée d’après sa première demande.
+- 71.7,15.8 **Nouveau dossier**: Les dossiers sont des noms posés sur les projets ; classez un projet pour en remplir un.
+- 8.5,31.4 **Le dernier projet**: Le dernier touché, en grande carte avec son image et sa demande. `Ouvrir` y entre.
+- 13.3,82.5 **Une carte de projet**: Chacun des autres projets, avec son image, sa demande, ses écrans et son âge ; classez-le ou supprimez-le d’ici.
 :::
 
 ### Les règles de compte
@@ -200,11 +203,11 @@ La clé est conservée dans le `localStorage` de ce navigateur, sous
 `/__provider` en en-tête `Authorization`, le temps de chaque requête.
 
 :::hotspots src=../assets/ui/fr/settings.webp alt="Réglages : fournisseur, URL de base, clé d’API, modèle et Tester la connexion"
-- 25.6,33.5 **Fournisseur**: Seize, groupés : les éditeurs de modèles, les hébergeurs de modèles ouverts, et `Compatible OpenAI` pour le reste.
-- 25.6,42.4 **URL de base**: Remplie par le fournisseur. Ne la changez que pour votre propre serveur.
-- 22.5,53.8 **Clé d’API**: Gardée dans ce navigateur seulement, envoyée en jeton Bearer avec chaque requête.
-- 24.2,66.9 **Modèle**: Listé depuis le fournisseur une fois la clé saisie ; vous pouvez aussi taper un nom.
-- 56.3,50.5 **Tester la connexion**: Une petite requête qui dit si la clé et le modèle répondent.
+- 25.9,33.3 **Fournisseur**: Seize, groupés : les éditeurs de modèles, les hébergeurs de modèles ouverts, et `Compatible OpenAI` pour le reste.
+- 25.9,42.1 **URL de base**: Remplie par le fournisseur. Ne la changez que pour votre propre serveur.
+- 22.7,53.5 **Clé d’API**: Gardée dans ce navigateur seulement, envoyée en jeton Bearer avec chaque requête.
+- 24.5,66.5 **Modèle**: Listé depuis le fournisseur une fois la clé saisie ; vous pouvez aussi taper un nom.
+- 57.1,50.4 **Tester la connexion**: Une petite requête qui dit si la clé et le modèle répondent.
 :::
 
 *Réglages. C’est le mode par navigateur : la clé ne quitte pas cette machine.*
@@ -221,7 +224,7 @@ Plus bas sur la même page, `Notification` décide si Mocky vous prévient quand
 génération se termine pendant que vous êtes dans un autre onglet :
 
 :::hotspots src=../assets/ui/fr/chime.webp alt="Réglages → Notification : le carillon de fin de génération"
-- 43.3,62.3 **Son de fin de génération**: Un carillon bref quand une génération se termine alors que Mocky n’est pas l’onglet affiché, plus grave si elle a échoué, et ✓ ou ⚠ dans le titre de l’onglet.
+- 45,45 **Son de fin de génération**: Un carillon bref quand une génération se termine alors que Mocky n’est pas l’onglet affiché, plus grave si elle a échoué, et ✓ ou ⚠ dans le titre de l’onglet.
 - 90.7,48 **Tester**: Le joue tout de suite, pour vérifier vos haut-parleurs.
 :::
 
@@ -234,9 +237,9 @@ Réglages personnels de chacun sont alors ignorés.
 `server/text/config.js` déclare seize fournisseurs.
 
 :::hotspots src=../assets/ui/fr/admin.webp alt="Admin → Fournisseurs : le menu du tableau de bord et les modèles de texte de l’instance"
-- 9.2,53 **Le tableau de bord**: Vue d’ensemble, activité en direct, utilisateurs, sessions, système, fournisseurs, journal d’audit, annonce, maintenance. Voir [Le tableau de bord d’administration](admin-dashboard.md).
-- 37.4,91.1 **Génération des écrans**: Un fournisseur choisi ici sert à tous les comptes, et les Réglages personnels sont ignorés. `Aucun` laisse chacun sur sa propre clé.
-- 76.5,97.1 **Muse — dossier de design**: Un second modèle facultatif, moins cher, pour Muse ; `Aucun` réutilise le modèle de génération.
+- 9.2,316.7 **Le tableau de bord**: Vue d’ensemble, activité en direct, utilisateurs, sessions, système, fournisseurs, journal d’audit, annonce, maintenance. Voir [Le tableau de bord d’administration](admin-dashboard.md).
+- 37.7,77.9 **Génération des écrans**: Un fournisseur choisi ici sert à tous les comptes, et les Réglages personnels sont ignorés. `Aucun` laisse chacun sur sa propre clé.
+- 77.3,77.9 **Muse — dossier de design**: Un second modèle facultatif, moins cher, pour Muse ; `Aucun` réutilise le modèle de génération.
 :::
 
 *Admin. Un modèle défini ici sert à tous les comptes, et les Réglages personnels de chacun sont alors ignorés.*

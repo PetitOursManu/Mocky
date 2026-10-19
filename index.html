@@ -14,7 +14,7 @@
     -->
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="dark light" />
     <title>Mocky — chat-to-UI generator</title>
     <script>
       // Theme before first paint. This used to run from main.tsx, i.e. after the
@@ -25,12 +25,12 @@
         try {
           var t = localStorage.getItem('mocky.theme')
           if (t === 'logo') t = 'light' // the old third theme
-          if (t !== 'light' && t !== 'dark') {
-            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-          }
+          // Dark unless light was CHOSEN: the redesign is dark first, and the
+          // OS preference no longer picks the theme for someone who never did.
+          if (t !== 'light' && t !== 'dark') t = 'dark'
           document.documentElement.dataset.theme = t
         } catch (_) {
-          document.documentElement.dataset.theme = 'light'
+          document.documentElement.dataset.theme = 'dark'
         }
       })()
     </script>

@@ -505,16 +505,17 @@ export default function Bibliotheque({
   const visibleTabs = (['images', 'videos', ...(showFilms ? (['films'] as const) : [])] as MediaTab[])
 
   const tabs = (
-    <span className="flex shrink-0 overflow-hidden border border-line-soft">
+    // The reference's tool tray: segments in one raised box, the active one in
+    // the lime on its tinted ground.
+    <span className="inline-flex shrink-0 gap-0.5 rounded-lg border border-line bg-raised p-0.5">
       {visibleTabs.map((id) => (
         <button
           key={id}
           type="button"
           onClick={() => setTab(id)}
-          className={`kicker border-b-2 px-2.5 py-1 ${
-            tab === id
-              ? 'border-b-accent bg-ink text-surface'
-              : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+          aria-pressed={tab === id}
+          className={`rounded-md px-2.5 py-1 text-body-sm font-medium transition ${
+            tab === id ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
           }`}
         >
           {t(TAB_KEYS[id])}
@@ -668,7 +669,8 @@ export default function Bibliotheque({
   ) : error ? (
     <Banner tone="warn">{t(error)}</Banner>
   ) : images.length === 0 ? (
-    <div className="flex h-40 flex-col items-center justify-center gap-1 text-body text-ink-faint">
+    <div className="flex h-48 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-line text-body text-ink-faint">
+      <Icon name="image" size={22} className="mb-1 text-ink-faint" />
       <span>{q || onlyFav || onlyProject ? t('library.noMatch') : t('library.emptyTitle')}</span>
       <span className="text-body-sm">{t('library.emptyHint')}</span>
     </div>
@@ -770,7 +772,7 @@ export default function Bibliotheque({
               // an image could be pinned at all was to own a mouse.
               className={`kicker absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-1 transition ${
                 isPinned(img.hash)
-                  ? 'border border-muse bg-muse text-surface'
+                  ? 'border border-muse bg-muse text-on-accent'
                   : 'border border-line bg-raised text-ink opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
               }`}
               title={t('library.pinHint')}
@@ -822,7 +824,7 @@ export default function Bibliotheque({
             >
               <img src={videoPosterUrl(v.hash, v.recutAt)} alt="" className="h-full w-full object-cover" loading="lazy" />
               <span className="absolute inset-0 flex items-center justify-center bg-sunken/0 transition group-hover:bg-sunken/40">
-                <span className="flex h-11 w-11 items-center justify-center border border-line bg-raised/90 text-ink opacity-0 transition group-hover:opacity-100">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full border border-line bg-raised/90 text-ink opacity-0 transition group-hover:opacity-100">
                   <Icon name="play" size={18} />
                 </span>
               </span>
@@ -881,7 +883,7 @@ export default function Bibliotheque({
                 onClick={() => onPinVideo?.(chosen ? null : v)}
                 className={`kicker absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-1 transition ${
                   chosen
-                    ? 'border border-muse bg-muse text-surface'
+                    ? 'border border-muse bg-muse text-on-accent'
                     : 'border border-line bg-raised text-ink opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
                 }`}
                 title={t('library.useVideoHint')}
@@ -1029,9 +1031,10 @@ export default function Bibliotheque({
   if (isPage) {
     return (
       <main className="page-wide py-8">
-        <div className="kicker text-accent-ink">{t('library.kicker')}</div>
-        <div className="section-head flex-wrap">
-          <h2 className="text-h3 text-ink">{t('library.mediaTitle')}</h2>
+        {/* The same head as the projects page: a label, a title, the counts. */}
+        <div className="kicker">{t('library.kicker')}</div>
+        <div className="mb-5 mt-1 flex flex-wrap items-baseline gap-3 border-b border-line-soft pb-5">
+          <h2 className="text-h2 text-ink">{t('library.mediaTitle')}</h2>
           <span className="text-body-sm text-ink-faint">
             <span className="font-mono text-accent-ink">{images.length}</span>{' '}
             {t(images.length === 1 ? 'library.imageWord_one' : 'library.imageWord_other')}
@@ -1079,7 +1082,7 @@ export default function Bibliotheque({
 
   // ---- Modal (inside a project, with pinning) ----
   return (
-    <div className="fixed inset-0 z-modal flex flex-col bg-ink/60" onClick={onClose}>
+    <div className="fixed inset-0 z-modal flex flex-col bg-black/60" onClick={onClose}>
       <div
         className="mx-auto mt-8 flex h-[calc(100vh-4rem)] w-full max-w-5xl flex-col rounded-2xl border border-line bg-raised shadow-2xl"
         onClick={(e) => e.stopPropagation()}

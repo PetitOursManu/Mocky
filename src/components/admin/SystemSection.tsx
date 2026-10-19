@@ -126,7 +126,7 @@ export default function SystemSection({ live }: { live: Live }) {
       <div className="mt-10 grid gap-x-10 gap-y-8 lg:grid-cols-2">
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.system.storage')}</span>
+            <span className="kicker">{t('dashboard.system.storage')}</span>
           </div>
           <div className="space-y-4">
             {d.storage.disk && (
@@ -153,7 +153,7 @@ export default function SystemSection({ live }: { live: Live }) {
 
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.system.worker')}</span>
+            <span className="kicker">{t('dashboard.system.worker')}</span>
           </div>
           <WorkerLine d={d} />
         </div>
@@ -181,7 +181,7 @@ function InfoStrip({ d, f }: { d: Overview; f: Fmt }) {
     [t('dashboard.system.uptime'), f.duration(d.now - i.startedAt)],
   ]
   return (
-    <dl className="grid gap-x-8 gap-y-2 border border-line-soft bg-ink/5 p-3 sm:grid-cols-2 xl:grid-cols-3">
+    <dl className="grid gap-x-8 gap-y-2 rounded-lg border border-line-soft bg-ink/5 p-3 sm:grid-cols-2 xl:grid-cols-3">
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
           <dt className="text-caption uppercase tracking-wide text-ink-muted">{k}</dt>

@@ -1,5 +1,5 @@
 /*
- * Mocky design tokens — "editorial".
+ * Mocky design tokens — "dark studio".
  * ---------------------------------------------------------------------------
  *
  * WHY THIS FILE EXISTS
@@ -18,119 +18,128 @@
  *
  * THE DIRECTION
  *
- * Black and white, 1px rules, no radius, no shadow, one signature flat. Swiss
- * poster rather than dashboard.
+ * The values below are read off the reference the redesign was drawn from,
+ * `plans/refonte/modele-dark-glitch.html` (its "acid" accent): a near-black
+ * studio, neutral greys and one lime accent. Dark is the
+ * default theme; the light one is the same roles at the other end of the scale.
  *
- * That is not only taste. Mocky is a tool for *judging colour*: mockups sit
- * side by side on the canvas and the chrome surrounds them. The old palette was
- * `slate`, a distinctly blue-leaning grey — a warm mockup placed on it reads
- * more yellow than it is, a blue one reads flat. A neutral achromatic shell is
- * the only one that does not lie about what it frames, and pure black/white is
- * the most complete version of that.
+ * What survived from the previous, editorial direction is the reason it was
+ * achromatic: Mocky is a tool for judging colour, mockups sit side by side on
+ * the canvas and the chrome surrounds them. The old palette was `slate`, a
+ * blue-leaning grey — a warm mockup placed on it read more yellow than it was.
+ * So the greys here stay neutral (a channel apart at most).
  *
  * Consequences worth knowing before editing:
- *   - `--line` is the strong structural rule. Used everywhere it would hatch
- *     the interface into a grid of boxes, so repeated divisions inside a panel
- *     use `--line-soft`. One weight (1px), two strengths, no more.
- *   - the accent is the logo's teal, and it is the ONLY chromatic colour in the
- *     chrome besides the status colours. It marks the primary action and the
- *     active state — nothing else. Previously the same buttons were indigo in
- *     one theme and teal in another.
- *   - status colours are deliberately desaturated: they must never shout louder
- *     than the mockup next to them.
+ *   - `--line` and `--line-soft` are soft on purpose: a surface is told apart
+ *     from the next one by its VALUE, and the rule only finishes the edge.
+ *     A form field is the exception — WCAG 1.4.11 wants 3:1 on what identifies
+ *     an input — and it has its own token, `--field`.
+ *   - the accent is the ONLY chromatic colour in the chrome besides the status
+ *     colours. It marks the primary action, the focus and the active state.
+ *   - `--selected` / `--on-selected` are the active state: a tinted ground and
+ *     the accent on it, as the reference draws its active tool. It replaces the
+ *     inverted block (`bg-ink text-surface`), which on a dark shell is a white
+ *     slab in the middle of the toolbar.
  */
 
 :root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Elevation — three levels, distinguished by value. Neutral blacks: the
+     reference's #0b0b0d / #121214 / #19191d, a channel of blue at most. */
+  --sunken: 11 11 13; /* the canvas behind the frames, the page */
+  --surface: 18 18 20; /* panels, the top bar, the composer column */
+  --raised: 25 25 29; /* popovers, menus, modals, floating tools */
+
+  /* Rules — soft; see the header. */
+  --line: 43 43 49; /* #2b2b31 — the edge of a floating surface */
+  --line-soft: 34 34 39; /* #222227 — rows, separators */
+  /* The edge of a form field: 3.3:1 on --surface, 3.1:1 on --raised. */
+  --field: 104 104 114;
+
+  --ink: 239 239 242;
+  --ink-muted: 160 160 170; /* 7.2:1 on --surface */
+  /* The floor. The reference's dim grey (#6c6c77) is 3.5:1 — fine for an
+     ornament, not for a label — so the floor is raised to 4.9:1. */
+  --ink-faint: 133 133 143;
+
+  /* The lime. One value serves fills and text on these grounds (15.8:1). */
+  --accent: 212 255 70;
+  --accent-ink: 212 255 70;
+  --on-accent: 16 14 21;
+  /* Tinted washes: row hovers, the selected chip, the selection ring. */
+  --accent-wash: 212 255 70;
+
+  /* The active state: the lime on a lime-tinted ground. */
+  --selected: 36 41 24;
+  --on-selected: 212 255 70;
+
+  --danger: 255 122 112;
+  --on-danger: 0 0 0;
+  --warn: 246 203 112;
+  --ok: 66 214 160;
+  /* Muse is a mode of Mocky, not a separate product: it wears the house colour. */
+  --muse: 212 255 70;
+  --muse-ink: 212 255 70;
+
+  --ring: 212 255 70;
+
+  /* Canvas texture */
+  --dot: 255 255 255 / 0.1;
+
+  /* Shadows: their colour, and a strength every step is multiplied by. */
+  --shadow: 0 0 0;
+  --shadow-k: 1;
+}
+
 [data-theme='light'] {
   color-scheme: light;
 
-  /* Elevation — three levels, distinguished by value, not by borders.
-     Newsprint, not screen white: a very slightly warm, slightly grey stock.
-     Pure #fff reads as "app"; this reads as paper, and it is kinder to look at
-     for the hours someone spends staring at generated screens. */
-  --sunken: 232 229 222; /* the press bed — the canvas behind the frames */
-  --surface: 250 248 243; /* the sheet: panels, cards, the masthead */
-  --raised: 253 252 249; /* a sheet laid on top: popovers, menus, modals */
+  /* The same roles at the other end of the scale: neutral, never warm. */
+  --sunken: 234 234 237;
+  --surface: 248 248 250;
+  --raised: 255 255 255;
 
-  /* Rules */
-  --line: 0 0 0; /* structural: panel edges, the masthead rule */
-  --line-soft: 201 197 188; /* hairline: rows inside a list, field borders */
+  --line: 214 214 220;
+  --line-soft: 230 230 234;
+  --field: 128 128 138; /* 3.7:1 on --surface */
 
-  /* Text — warm black, the colour of ink soaked into paper, never pure #000 */
-  --ink: 22 20 17;
-  --ink-muted: 87 82 74; /* 6.4:1 on --surface */
-  --ink-faint: 116 110 100; /* 4.6:1 — the floor, still AA */
+  --ink: 20 20 22;
+  --ink-muted: 85 85 94;
+  --ink-faint: 105 105 115; /* 5.2:1 — the floor */
 
-  /* The signature flat — #228477.
-     Measured: white on it is 4.53:1, so buttons pass AA. As SMALL TEXT on paper
-     it is 4.27:1, which does not — hence --accent-ink below, a hair darker
-     (#20796C, 4.93:1) and visually indistinguishable at text sizes. Two tokens
-     is what lets the colour be used liberally without shipping unreadable text. */
-  --accent: 34 132 119;
-  --accent-ink: 32 121 108;
+  /* Lime cannot be read on white (1.1:1), so the light theme keeps its hue and
+     drops its value: an olive that clears 4.5:1 as text and under white. */
+  --accent: 84 120 0;
+  --accent-ink: 74 106 0;
   --on-accent: 255 255 255;
-  /* Tinted washes: row hovers, active backgrounds, the lead-story panel. */
-  --accent-wash: 34 132 119;
+  --accent-wash: 84 120 0;
 
-  /* Status — one step desaturated from the usual defaults, on purpose */
+  --selected: 234 245 200;
+  --on-selected: 62 90 0;
+
   --danger: 176 26 26;
   --on-danger: 255 255 255;
   --warn: 141 88 0;
   --ok: 18 106 70;
-  /* Muse used to carry its own magenta. On a paper-and-ink shell it read as a
-     third colour competing with the accent for no reason — Muse is a mode of
-     Mocky, not a separate product. It now wears the house colour. */
-  --muse: 34 132 119;
-  --muse-ink: 32 121 108;
+  --muse: 84 120 0;
+  --muse-ink: 74 106 0;
 
-  /* Focus ring */
-  --ring: 0 0 0;
+  --ring: 84 120 0;
 
-  /* Canvas texture */
-  --dot: 0 0 0 / 0.16;
-}
+  --dot: 0 0 0 / 0.12;
 
-[data-theme='dark'] {
-  color-scheme: dark;
-
-  /* The negative of the same press: warm blacks, never blue-black. */
-  --sunken: 10 9 8;
-  --surface: 26 24 22;
-  --raised: 36 34 31;
-
-  --line: 245 243 238;
-  --line-soft: 68 65 60;
-
-  --ink: 245 243 238;
-  --ink-muted: 174 168 158; /* 8.4:1 on --surface */
-  --ink-faint: 140 134 125; /* 5.4:1 — the floor */
-
-  /* On ink, the same green has to come up to meet the paper: 8.4:1 on the
-     surface, so one value serves both fills and text here. */
-  --accent: 45 199 176;
-  --accent-ink: 45 199 176;
-  --on-accent: 0 0 0;
-  --accent-wash: 45 199 176;
-
-  --danger: 255 122 112;
-  --on-danger: 0 0 0;
-  --warn: 224 168 62;
-  --ok: 78 205 156;
-  --muse: 45 199 176;
-  --muse-ink: 45 199 176;
-
-  --ring: 255 255 255;
-
-  --dot: 255 255 255 / 0.18;
+  --shadow: 24 24 32;
+  --shadow-k: 0.4;
 }
 
 /*
- * There is deliberately no `@media (prefers-color-scheme: dark)` block here.
+ * There is deliberately no `@media (prefers-color-scheme)` block here.
  *
- * It used to exist and restate all twenty tokens a third time — which is
- * precisely the duplication that let the old themes drift apart. The OS
- * preference is honoured earlier and better: the inline script in index.html
- * sets `data-theme` synchronously before first paint (see loadTheme()). If that
- * script never runs, the `:root` defaults above apply, and light is a safe,
- * legible fallback.
+ * It used to exist and restate every token a third time — which is precisely
+ * the duplication that let the old themes drift apart. The choice is made
+ * earlier: the inline script in index.html sets `data-theme` synchronously
+ * before first paint (see loadTheme()). If that script never runs, the `:root`
+ * defaults above apply, and they are the dark theme — the default.
  */

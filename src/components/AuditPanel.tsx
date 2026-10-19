@@ -226,7 +226,7 @@ export default function AuditPanel({
       ) : (
         <>
           <div className="border-b border-line-soft p-3">
-            <div className="kicker mb-2 text-accent-ink">{t('audit.pickScreen')}</div>
+            <div className="kicker mb-2">{t('audit.pickScreen')}</div>
             <ul className="grid grid-cols-3 gap-2">
               {screens.map((s) => (
                 <li key={s.id}>
@@ -330,7 +330,7 @@ export default function AuditPanel({
               ) : (
                 <>
                   <div className="section-head mt-4">
-                    <span className="kicker text-accent-ink">{t('audit.findings')}</span>
+                    <span className="kicker">{t('audit.findings')}</span>
                     {correctable.length > 0 && active && (
                       <Button
                         size="sm"
@@ -360,7 +360,7 @@ export default function AuditPanel({
           )}
 
           <div className="border-t border-line-soft p-3">
-            <div className="kicker mb-1 text-accent-ink">{t('audit.exportSection')}</div>
+            <div className="kicker mb-1">{t('audit.exportSection')}</div>
             <p className="measure mb-2 text-caption text-ink-faint">{t('audit.exportBlurb')}</p>
             {exportFindings === null ? null : exportFindings.length === 0 ? (
               <p className="flex items-center gap-1.5 text-body-sm text-ok">
@@ -443,7 +443,7 @@ function FamilyBreakdown({ families }: { families: FamilyScore[] }) {
   return (
     <div className="mt-4">
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('audit.families')}</span>
+        <span className="kicker">{t('audit.families')}</span>
       </div>
       <p className="measure mb-1.5 text-caption text-ink-faint">{t('audit.familiesBlurb')}</p>
       <ul className="border-y border-line-soft">

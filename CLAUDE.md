@@ -54,6 +54,14 @@ broken link or an unknown block (CI runs it).
 - The site is built, not fetched live: `docs-site/Dockerfile` serves it, and a
   pushed page reaches readers when that resource redeploys
   (`docs/deployment.md`, "The documentation").
+- The annotated screenshots (`docs/assets/ui/**`, `:::hotspots` blocks) are
+  made by `scripts/capture-docs.mjs`, run from the manual workflow
+  `docs-captures` (a scripted browser may not start on Windows): it seeds an
+  account from `scripts/capture-docs/fixtures.mjs`, photographs both languages
+  at 2880 px and rewrites every block's `x,y`. A block's lines follow its
+  capture's `spots` list, in order — change one, change the other. Elements are
+  found by their accessible name; the few without one carry `data-doc` /
+  `data-screen`, which nothing else reads.
 
 ## The generation pipeline
 

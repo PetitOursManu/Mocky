@@ -78,7 +78,7 @@ export default function RunnerPanel({ status, onChanged }: { status: RunnerStatu
   return (
     <div className="space-y-4">
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('mcp.runner.title')}</span>
+        <span className="kicker">{t('mcp.runner.title')}</span>
         <span className={`ml-auto font-mono text-caption ${status.available ? 'text-ok' : 'text-danger'}`}>
           {status.available ? t('mcp.runner.available') : t('mcp.runner.unavailable')}
         </span>
@@ -92,7 +92,7 @@ export default function RunnerPanel({ status, onChanged }: { status: RunnerStatu
         </Button>
         <span className="text-caption text-ink-muted">{t('mcp.runner.checkHelp')}</span>
       </div>
-      {image && <img src={image} alt={t('mcp.runner.checkAlt')} className="max-w-full border border-line-soft" />}
+      {image && <img src={image} alt={t('mcp.runner.checkAlt')} className="max-w-full rounded-lg border border-line-soft" />}
 
       <Field label={t('mcp.runner.tryLabel')} hint={t('mcp.runner.tryHelp')}>
         {(p) => <Textarea {...p} rows={2} value={brief} onChange={(e) => setBrief(e.currentTarget.value)} placeholder={t('mcp.runner.tryPlaceholder')} />}
@@ -106,7 +106,7 @@ export default function RunnerPanel({ status, onChanged }: { status: RunnerStatu
       {job?.status === 'done' && job.result && (
         <div className="space-y-2">
           {job.result.shot && (
-            <img src={api.admin.mcp.shotUrl(job.result.shot)} alt={t('mcp.runner.resultAlt')} className="max-w-full border border-line-soft" />
+            <img src={api.admin.mcp.shotUrl(job.result.shot)} alt={t('mcp.runner.resultAlt')} className="max-w-full rounded-lg border border-line-soft" />
           )}
           {[...(job.result.warning ? [job.result.warning] : []), ...job.result.notices].map((n, i) => (
             <p key={i} className="text-caption text-ink-muted">{n}</p>

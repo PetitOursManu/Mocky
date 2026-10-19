@@ -67,6 +67,8 @@ export function useVersions({
   const cache = useRef(new Map<string, VersionFull>())
   const tRef = useRef(t)
   tRef.current = t
+  const enabledRef = useRef(enabled)
+  enabledRef.current = enabled
   const branchName = (b: string) => (b === MAIN_BRANCH ? tRef.current('versions.mainBranch') : b)
 
   const refresh = useCallback(async () => {
@@ -121,6 +123,33 @@ export function useVersions({
     (label: string, kind: VersionKind = 'manual') =>
       run(async () => (await saveVersion({ ...projectSnapshot(getProject()), kind, label })).version),
     [getProject, run],
+  )
+
+  /**
+   * An automatic version of one screen — taken by ProjectView each time a
+   * screen's code settles after a change, so the Versions panel holds every
+   * state a screen went through without anybody pressing "Save".
+   *
+   * Silent, unlike every other action here: no `working`, no error banner. It
+   * runs behind generations the person is watching, and a version that could
+   * not be kept (offline, the disk budget) is no reason to interrupt them — the
+   * next change tries again (degrade, never fail). `code` saves a state the
+   * screen is no longer in: the one it had before its first change of the
+   * session, which nothing had kept yet.
+   */
+  const autoSaveScreen = useCallback(
+    async (screenId: string, label: string, code?: string) => {
+      const snap = screenSnapshot(getProject(), screenId)
+      if (!snap.screens.length) return
+      const screens = code === undefined ? snap.screens : snap.screens.map((s) => ({ ...s, code }))
+      try {
+        const res = await saveVersion({ ...snap, screens, kind: 'auto', label })
+        if (!res.unchanged && enabledRef.current) void refresh()
+      } catch {
+        /* kept next time */
+      }
+    },
+    [getProject, refresh],
   )
 
   const saveScreen = useCallback(
@@ -300,6 +329,7 @@ export function useVersions({
     load,
     saveProject,
     saveScreen,
+    autoSaveScreen,
     restore,
     restoreScreen,
     keepBeside,

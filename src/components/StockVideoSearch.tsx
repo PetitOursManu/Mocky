@@ -158,7 +158,7 @@ export default function StockVideoSearch({
   return (
     <section className="mb-5 border border-line-soft p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="kicker flex items-center gap-1.5 text-accent-ink">
+        <span className="kicker flex items-center gap-1.5">
           <Icon name="search" size={14} />
           {t(w.title)}
         </span>
@@ -171,7 +171,7 @@ export default function StockVideoSearch({
                 aria-pressed={p === provider}
                 onClick={() => switchTo(p)}
                 className={`kicker border-b-2 px-2 py-0.5 ${p === 'pixabay' ? 'border-l border-l-line-soft' : ''} ${
-                  p === provider ? 'border-b-accent bg-ink text-surface' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+                  p === provider ? 'border-b-accent bg-selected text-on-selected' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
                 }`}
               >
                 {STOCK_LABELS[p]}

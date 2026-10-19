@@ -171,11 +171,11 @@ export default function SettingsPanel() {
   const modelOptions = Array.from(new Set([settings.model, ...models].filter(Boolean)))
 
   return (
-    <div className="border border-line bg-surface px-6 py-6">
+    <div className="rounded-2xl border border-line bg-surface px-6 py-6">
       <header className="rule-double pb-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1">
           <div>
-            <span className="kicker text-accent-ink">{t('settings.title')}</span>
+            <span className="kicker">{t('settings.title')}</span>
             <h2 className="mt-1 text-h2 text-ink">{t('settings.heading')}</h2>
           </div>
           <span
@@ -216,7 +216,7 @@ export default function SettingsPanel() {
       {source && (
         <section className="mt-6">
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('settings.textSource')}</span>
+            <span className="kicker">{t('settings.textSource')}</span>
           </div>
           <div role="radiogroup" aria-label={t('settings.textSource')} className="grid gap-3 md:grid-cols-2">
             <SourceChoice
@@ -250,7 +250,7 @@ export default function SettingsPanel() {
         {managed ? (
           <section>
             <div className="section-head">
-              <span className="kicker text-accent-ink">{t('settings.instanceModel')}</span>
+              <span className="kicker">{t('settings.instanceModel')}</span>
             </div>
             <h3 className="text-h3 text-accent-ink">{managed.model || '—'}</h3>
             {managed.provider && <p className="kicker mt-1.5">{managed.provider}</p>}
@@ -268,7 +268,7 @@ export default function SettingsPanel() {
         ) : (
           <section>
             <div className="section-head">
-              <span className="kicker text-accent-ink">{t('settings.providerConnection')}</span>
+              <span className="kicker">{t('settings.providerConnection')}</span>
             </div>
             <div className="space-y-4">
               <Field label={t('settings.provider')}>
@@ -430,9 +430,9 @@ export default function SettingsPanel() {
               or the instance's. */}
           <div>
             <div className="section-head">
-              <span className="kicker text-accent-ink">{t('settings.generation')}</span>
+              <span className="kicker">{t('settings.generation')}</span>
             </div>
-            <label className="flex cursor-pointer items-start gap-3 border border-line-soft bg-ink/5 p-3">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-soft bg-ink/5 p-3">
               <input
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-accent"
@@ -453,7 +453,7 @@ export default function SettingsPanel() {
           {!managed && (
             <div>
               <div className="section-head">
-                <span className="kicker text-accent-ink">{t('settings.test')}</span>
+                <span className="kicker">{t('settings.test')}</span>
               </div>
               <Button variant="primary" onClick={onTest} disabled={test.status === 'testing'}>
                 {test.status === 'testing' ? t('settings.testing') : t('settings.test')}
@@ -472,7 +472,7 @@ export default function SettingsPanel() {
 
         <section>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('lang.label')}</span>
+            <span className="kicker">{t('lang.label')}</span>
           </div>
           <p className="measure mb-3 text-body text-ink-muted">{t('settings.langHelp')}</p>
           <Segmented
@@ -522,7 +522,7 @@ function PasswordSection({
     return (
       <section>
         <div className="section-head">
-          <span className="kicker text-accent-ink">{t('account.password')}</span>
+          <span className="kicker">{t('account.password')}</span>
         </div>
         <p className="measure text-body text-ink-muted">
           {t('settings.signInToChangePassword')}
@@ -558,7 +558,7 @@ function PasswordSection({
   return (
     <section>
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('account.password')}</span>
+        <span className="kicker">{t('account.password')}</span>
       </div>
       <p className="measure mb-4 text-body text-ink-muted">
         {t('settings.accountIs')}{' '}
@@ -701,7 +701,7 @@ function AvatarSection({
   return (
     <section className="mb-10">
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('account.picture')}</span>
+        <span className="kicker">{t('account.picture')}</span>
       </div>
 
       {error && (
@@ -711,7 +711,7 @@ function AvatarSection({
       )}
 
       <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-line-soft bg-ink/5">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-line-soft bg-ink/5">
           {url ? (
             <img src={url} alt="" className="h-full w-full object-cover" />
           ) : (

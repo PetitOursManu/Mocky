@@ -102,7 +102,7 @@ export default function ReviewPanel({
     <Panel title={t('review.panelTitle')} onClose={onClose} className="absolute right-4 top-11 w-80 rounded-xl shadow-2xl">
       <div className="space-y-3 px-3 py-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="kicker text-accent-ink">{t('review.statusLabel')}</span>
+          <span className="kicker">{t('review.statusLabel')}</span>
           <ReviewStatusPill status={status} />
         </div>
         {error && <Banner tone="danger">{error}</Banner>}
@@ -134,7 +134,7 @@ export default function ReviewPanel({
         {/* The current round */}
         {current && (
           <section className="space-y-2 border-t border-line-soft pt-3">
-            <div className="kicker text-accent-ink">{t('review.currentRound')}</div>
+            <div className="kicker">{t('review.currentRound')}</div>
             <p className="text-caption text-ink-faint">
               {t('review.roundMeta', { sent: date(current.createdAt), until: date(current.expiresAt) })}
             </p>
@@ -228,7 +228,7 @@ export default function ReviewPanel({
 
         {older.length > 0 && (
           <section className="space-y-1.5 border-t border-line-soft pt-3">
-            <div className="kicker text-accent-ink">{t('review.earlierRounds')}</div>
+            <div className="kicker">{t('review.earlierRounds')}</div>
             {older.map((r) => (
               <button
                 key={r.token}

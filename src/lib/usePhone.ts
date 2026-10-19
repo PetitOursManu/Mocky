@@ -19,22 +19,31 @@ import { useEffect, useState } from 'react'
 const QUERY = '(pointer: coarse) and (max-width: 767px)'
 
 export function usePhone(): boolean {
-  const [phone, setPhone] = useState(() =>
+  return useMedia(QUERY)
+}
+
+/**
+ * Any media query, followed as it changes. The project's layout reads two
+ * widths with it: from `md` the composer is a column beside the canvas, from
+ * `xl` the inspector is one too — below those they float over the canvas.
+ */
+export function useMedia(query: string): boolean {
+  const [match, setMatch] = useState(() =>
     typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia(QUERY).matches
+      ? window.matchMedia(query).matches
       : false,
   )
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mq = window.matchMedia(QUERY)
-    const onChange = () => setPhone(mq.matches)
+    const mq = window.matchMedia(query)
+    const onChange = () => setMatch(mq.matches)
     mq.addEventListener('change', onChange)
     // Re-read on mount: the query can have changed between the initial state
     // and the effect, and on a rotation during load it usually has.
     onChange()
     return () => mq.removeEventListener('change', onChange)
-  }, [])
+  }, [query])
 
-  return phone
+  return match
 }

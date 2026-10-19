@@ -159,11 +159,11 @@ export default function AdminDashboard({
   })()
 
   return (
-    <div ref={rootRef} className="border border-line bg-surface md:grid md:grid-cols-[13.5rem_minmax(0,1fr)]">
+    <div ref={rootRef} className="overflow-clip rounded-2xl border border-line bg-surface md:grid md:grid-cols-[13.5rem_minmax(0,1fr)]">
       <nav aria-label={t('dashboard.nav.label')} className="border-b border-line md:border-b-0 md:border-r">
         <div className="md:sticky md:top-0">
           <header className="hidden px-4 pb-3 pt-5 md:block">
-            <span className="kicker text-accent-ink">{t('nav.admin')}</span>
+            <span className="kicker">{t('nav.admin')}</span>
             <h2 className="mt-1 text-h3 text-ink">{t('dashboard.title')}</h2>
             <LiveBadge status={live.status} />
           </header>
@@ -180,9 +180,11 @@ export default function AdminDashboard({
                     aria-current={active ? 'page' : undefined}
                     onClick={() => setSection(s.id)}
                     className={
-                      'tap-target flex w-full items-center gap-2.5 whitespace-nowrap border-b-2 px-4 py-2 text-left text-body-sm transition md:border-b-0 md:border-l-2 ' +
+                      // A rounded row inside the column from md, as the inspector's
+                      // tabs and the screen menu draw theirs; a tab strip below.
+                      'tap-target flex w-full items-center gap-2.5 whitespace-nowrap border-b-2 px-4 py-2 text-left text-body-sm transition md:mx-2 md:w-[calc(100%-1rem)] md:rounded-md md:border-b-0 md:px-3 ' +
                       (active
-                        ? 'border-accent bg-ink text-surface'
+                        ? 'border-accent/40 bg-selected text-on-selected md:border-transparent'
                         : 'border-transparent text-ink-muted hover:bg-ink/5 hover:text-ink')
                     }
                   >
@@ -270,7 +272,7 @@ export function SectionHead({
   return (
     <header className="rule-thin mb-5 flex flex-wrap items-end gap-x-4 gap-y-2 pb-3">
       <div className="min-w-0 flex-1">
-        {kicker && <span className="kicker text-accent-ink">{kicker}</span>}
+        {kicker && <span className="kicker">{kicker}</span>}
         <h2 className="mt-1 text-h2 text-ink">{title}</h2>
         {blurb && <p className="measure mt-1.5 text-body text-ink-muted">{blurb}</p>}
       </div>

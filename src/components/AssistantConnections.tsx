@@ -115,7 +115,7 @@ export default function AssistantConnections() {
   return (
     <section>
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('mcp.account.title')}</span>
+        <span className="kicker">{t('mcp.account.title')}</span>
       </div>
       <p className="measure mb-3 text-body text-ink-muted">{t('mcp.account.blurb')}</p>
       {error && <p className="mb-2 text-body-sm text-danger">{error}</p>}

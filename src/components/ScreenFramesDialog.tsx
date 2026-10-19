@@ -30,7 +30,7 @@ function ShapePicker({ current, onPick }: { current: string | null; onPick: (id:
     <div className="space-y-3">
       {FRAME_FAMILIES.map((family) => (
         <div key={family}>
-          <p className="kicker mb-1 text-accent-ink">{t(`frames.family.${family}`)}</p>
+          <p className="kicker mb-1">{t(`frames.family.${family}`)}</p>
           <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10">
             {FRAME_SHAPES.filter((s) => s.family === family).map((s) => (
               <button
@@ -132,7 +132,7 @@ export default function ScreenFramesDialog({
 
       {frames.length > 0 && (
         <div className="mt-5">
-          <p className="kicker text-accent-ink">{t('frames.inScreen')}</p>
+          <p className="kicker">{t('frames.inScreen')}</p>
           <ul className="mt-2 space-y-2">
             {frames.map((f) => (
               <li key={keyOf(f)} className="border border-line-soft bg-surface">
@@ -169,7 +169,7 @@ export default function ScreenFramesDialog({
                   <div className="space-y-4 border-t border-line-soft bg-ink/5 p-3">
                     <ShapePicker current={f.shape} onPick={(shape) => void apply(f, { shape })} />
                     <div>
-                      <p className="kicker mb-1 text-accent-ink">{t('frames.focus')}</p>
+                      <p className="kicker mb-1">{t('frames.focus')}</p>
                       <div className="grid w-24 grid-cols-3 gap-1" role="group" aria-label={t('frames.focus')}>
                         {FRAME_FOCI.map((focus) => {
                           const on = (f.focus ?? 'center') === focus
@@ -210,7 +210,7 @@ export default function ScreenFramesDialog({
 
       {pictures.length > 0 && (
         <div className="mt-5">
-          <p className="kicker text-accent-ink">{t('frames.pictures')}</p>
+          <p className="kicker">{t('frames.pictures')}</p>
           <p className="measure mb-2 text-caption text-ink-faint">{t('frames.picturesHint')}</p>
           <ul className="space-y-2">
             {pictures.map((p) => (

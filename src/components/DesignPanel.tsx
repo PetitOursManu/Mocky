@@ -93,9 +93,9 @@ export default function DesignPanel({
           </span>
         </div>
       ) : (
-        <div className="rule-double mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-3">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-line-soft pb-5">
           <div>
-            <div className="kicker text-accent-ink">{t('design.title')}</div>
+            <div className="kicker">{t('design.title')}</div>
             <h1 className="mt-1 text-h2 text-ink">DESIGN.md</h1>
           </div>
           <div className="flex items-center gap-3 pb-1 text-body-sm">
@@ -122,7 +122,7 @@ export default function DesignPanel({
         here because they are different intentions that were sharing one word.
       */}
       {chars > 0 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2 border border-line-soft bg-ink/5 px-3 py-2.5">
+        <div className="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-line-soft bg-ink/5 px-3 py-2.5">
           <span className="kicker mr-1 text-ink-muted">{t('design.current')}</span>
           <Button variant="ghost" size="sm" onClick={() => setDesign((d) => ({ ...d, enabled: !d.enabled }))}>
             <Icon name={active ? 'close' : 'check'} size={14} />
@@ -198,7 +198,7 @@ export default function DesignPanel({
       {/* Built-in visual styles */}
       <section className="mb-10">
         <div className="section-head justify-between">
-          <div className="kicker text-accent-ink">
+          <div className="kicker">
             {t('design.styles')} <span className="text-ink-faint">({STYLE_PRESETS.length})</span>
           </div>
           <Segmented<ThemeMode>
@@ -223,10 +223,10 @@ export default function DesignPanel({
             return (
               <div
                 key={s.id}
-                className={`overflow-hidden border transition ${
+                className={`overflow-hidden rounded-xl border transition ${
                   isActive
-                    ? 'border-accent ring-1 ring-accent ring-offset-2 ring-offset-surface'
-                    : 'border-line-soft hover:border-accent'
+                    ? 'border-accent ring-1 ring-accent ring-offset-2 ring-offset-sunken'
+                    : 'border-line hover:border-ink/25'
                 }`}
               >
                 <div className="group relative">
@@ -252,7 +252,7 @@ export default function DesignPanel({
                       e.stopPropagation()
                       setPreview({ preset: s, accentId, bgId })
                     }}
-                    className="absolute right-2 top-2 inline-flex items-center gap-1 bg-ink/80 px-2 py-1 text-caption text-surface opacity-0 backdrop-blur transition hover:bg-ink group-hover:opacity-100"
+                    className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-black/80 px-2 py-1 text-caption text-white opacity-0 backdrop-blur transition hover:bg-black group-hover:opacity-100"
                   >
                     <Icon name="fit" size={12} />
                     {t('design.preview')}
@@ -332,7 +332,7 @@ export default function DesignPanel({
           the screen. */}
       <section>
         <div className="section-head justify-between">
-          <div className="kicker text-accent-ink">{t('design.source')}</div>
+          <div className="kicker">{t('design.source')}</div>
           <span className="font-mono text-body-sm text-ink-faint">
             <span className="text-accent-ink">{chars.toLocaleString()}</span> {t('design.charsUnit')}
           </span>
@@ -444,7 +444,7 @@ export default function DesignPanel({
           const r = resolveStyle(s, mode, preview.accentId, preview.bgId)
           return (
             <div
-              className="fixed inset-0 z-modal flex items-center justify-center bg-ink/60 p-4"
+              className="fixed inset-0 z-modal flex items-center justify-center bg-black/60 p-4"
               onClick={() => setPreview(null)}
             >
               <div

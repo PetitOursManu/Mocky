@@ -72,16 +72,16 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 The masthead is the same on every screen:
 
 :::hotspots src=assets/ui/header.webp alt="The masthead: the product, the project, the navigation, the theme and the account"
-- 12.1,46.4 **Mocky**: Back to your projects from anywhere.
-- 28,46.4 **The open project**: The project you are in. Its name is also the title of its lead card on the projects page.
-- 60.3,46.4 **Home**: Your projects, their folders, and `New project`.
-- 65.9,46.4 **DESIGN.md**: The design system every generation starts from, as Markdown you can edit or load.
-- 71.5,46.4 **Media**: Every generated or uploaded picture, clip and film.
-- 76.8,46.4 **Settings**: Your model provider, key and model, your account, and the end-of-generation chime.
-- 82.2,46.4 **Admin**: The instance dashboard. Shown to administrators only.
-- 87.1,46.4 **Docs**: This documentation, in a new tab.
-- 91.2,46.4 **Theme**: Papier or Encre. The icon shows where you are going, not where you are.
-- 95.6,46.4 **Account**: Your picture and name; the menu signs you out.
+- 12.8,49.1 **Mocky**: Back to your projects from anywhere.
+- 28.3,49.1 **The open project**: The project you are in. Its name is also the title of its lead card on the projects page.
+- 61.3,49.1 **Home**: Your projects, their folders, and `New project`.
+- 66.5,49.1 **DESIGN.md**: The design system every generation starts from, as Markdown you can edit or load.
+- 72,49.1 **Media**: Every generated or uploaded picture, clip and film.
+- 77.3,49.1 **Settings**: Your model provider, key and model, your account, and the end-of-generation chime.
+- 82.5,49.1 **Admin**: The instance dashboard. Shown to administrators only.
+- 87.2,49.1 **Docs**: This documentation, in a new tab.
+- 91.2,49.1 **Theme**: Papier or Encre. The icon shows where you are going, not where you are.
+- 95.6,49.1 **Account**: Your picture and name; the menu signs you out.
 :::
 
 :::steps id=first-run
@@ -104,16 +104,18 @@ Who becomes the instance administrator?
 
 The [[composer|composer]], where a screen is described:
 
-:::hotspots src=assets/ui/composer.webp alt="The composer: formats, screen type, the three switches, the prompt, Improve and Generate"
-- 38,84.7 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
-- 49.4,84.7 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
-- 32.2,89.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 40.9,89.4 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 49.3,89.4 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 61.3,89.4 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 45.3,94.3 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 65,94.6 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 69.7,94.6 **Generate**: Creates the screen — or `Update` when screens are selected.
+:::hotspots src=assets/ui/composer.webp alt="The creation workshop: format, screen type, the prompt, the options, Improve, Generate, Also make and the recent history"
+- 11.9,14.5 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 25.7,19.2 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 49.8,29.2 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 49.8,50.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 49.8,60 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 49.8,65.7 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 49.8,80.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 19.6,40.1 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 77.7,40.1 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 49.8,66.2 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 49.8,81.5 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
 A project keeps **one** [[design direction|direction]], so its screens look like one product
@@ -139,13 +141,14 @@ with the rest of the bar.
 
 The home page after a first generation:
 
-:::hotspots src=assets/ui/home.webp alt="The projects page: the lead project, the folders, New folder and New project"
-- 73.9,2.9 **Navigation**: The same on every page.
-- 91.2,2.9 **Theme**: Papier or Encre, remembered by the browser.
+:::hotspots src=assets/ui/home.webp alt="The projects page: the last project, the project cards, New folder and New project"
+- 61.3,2.9 **Navigation**: The same on every page.
+- 91.2,2.9 **Theme**: Ink (dark, the default) or Paper, remembered by the browser.
 - 95.6,2.9 **Account**: Signed in: your projects follow you from one device to another.
-- 93.9,15.9 **New project**: An empty canvas, named after its first prompt.
-- 84.7,15.9 **New folder**: Folders are names on projects; drag or file a project to fill one.
-- 12.2,28.7 **The lead project**: The most recent, with its screens. `Open` goes in; the others are listed below, by folder.
+- 93.8,15.8 **New project**: An empty canvas, named after its first prompt.
+- 77.2,15.8 **New folder**: Folders are names on projects; file a project to fill one.
+- 8.5,31.4 **The last project**: The one touched last, as a wide card with its picture and its request. `Open` goes in.
+- 13.3,82.5 **A project card**: Every other project, with its picture, its request, its screens and its age; file it or delete it from here.
 :::
 
 ### Account rules
@@ -193,11 +196,11 @@ is never written server-side. It passes through `/__provider` as an
 `Authorization` header for the duration of each request.
 
 :::hotspots src=assets/ui/settings.webp alt="Settings: provider, base URL, API key, model and Test connection"
-- 25.6,33.5 **Provider**: Sixteen, grouped: model makers, hosts of open models, and `Compatible OpenAI` for the rest.
-- 25.6,42.4 **Base URL**: Filled in by the provider. Change it only for your own server.
-- 23,53.8 **API key**: Kept in this browser only, sent as a Bearer token with each request.
-- 24.2,65.2 **Model**: Listed from the provider once the key is set; you can also type a name.
-- 55.5,48.4 **Test connection**: One small request that says whether the key and the model answer.
+- 25.9,33.3 **Provider**: Sixteen, grouped: model makers, hosts of open models, and `Compatible OpenAI` for the rest.
+- 25.9,42.1 **Base URL**: Filled in by the provider. Change it only for your own server.
+- 23.2,53.5 **API key**: Kept in this browser only, sent as a Bearer token with each request.
+- 24.5,64.7 **Model**: Listed from the provider once the key is set; you can also type a name.
+- 56.3,48.3 **Test connection**: One small request that says whether the key and the model answer.
 :::
 
 *Settings. This is the per-browser mode: the key is stored in this browser only.*
@@ -213,8 +216,8 @@ Lower on the same page, `Notification` decides whether Mocky tells you when a
 generation finishes while you are in another tab:
 
 :::hotspots src=assets/ui/chime.webp alt="Settings → Notification: the end-of-generation chime"
-- 44.2,62.3 **Sound when a generation finishes**: A short chime when a generation ends while Mocky is not the tab on screen, a lower one if it failed, and ✓ or ⚠ in the tab’s title.
-- 91.6,48 **Test**: Plays it now, so you can check your speakers.
+- 45.9,45 **Sound when a generation finishes**: A short chime when a generation ends while Mocky is not the tab on screen, a lower one if it failed, and ✓ or ⚠ in the tab’s title.
+- 91.7,48 **Test**: Plays it now, so you can check your speakers.
 :::
 
 ### Mode B — instance-wide (administrator)
@@ -226,9 +229,9 @@ Settings are then ignored.
 `server/text/config.js` declares sixteen providers.
 
 :::hotspots src=assets/ui/admin.webp alt="Admin → Providers: the dashboard menu and the instance-wide text models"
-- 9.2,53 **The dashboard**: Overview, live activity, users, sessions, system, providers, audit log, announcement, maintenance. See [The admin dashboard](admin-dashboard.md).
-- 37.4,89.3 **Screen generation**: A provider set here is used by every account, and personal Settings are ignored. `None` keeps each user on their own key.
-- 76.5,93.3 **Muse — design dossier**: An optional second, cheaper model for Muse; `None` reuses the generation model.
+- 9.2,307 **The dashboard**: Overview, live activity, users, sessions, system, providers, audit log, announcement, maintenance. See [The admin dashboard](admin-dashboard.md).
+- 37.7,77.9 **Screen generation**: A provider set here is used by every account, and personal Settings are ignored. `None` keeps each user on their own key.
+- 77.3,77.9 **Muse — design dossier**: An optional second, cheaper model for Muse; `None` reuses the generation model.
 :::
 
 *Admin. A model set here is used by every account on the instance, and each user’s personal Settings are ignored.*

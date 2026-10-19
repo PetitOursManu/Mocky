@@ -117,58 +117,55 @@
   }
 
   /*
-   * Headlines are set in the serif. This single rule is most of what separates
-   * "a monochrome app" from "a printed page": a grotesque headline reads as UI
-   * chrome, a serif one reads as an article.
+   * Headlines are in the sans, tight and heavy — the reference's titles. They
+   * used to be set in a serif, which was the whole "printed page" direction;
+   * the redesign keeps one family for the interface and lets the mockups be
+   * the only place a serif shows up.
    */
   :where(h1, h2, h3) {
-    font-family: theme('fontFamily.serif');
-    font-weight: 600;
-    letter-spacing: -0.015em;
+    font-weight: 650;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
 
   ::selection {
-    background: rgb(var(--ink));
-    color: rgb(var(--surface));
+    background: rgb(var(--accent));
+    color: rgb(var(--on-accent));
   }
 }
 
 @layer components {
   /*
-   * ---- Newspaper devices -------------------------------------------------
-   * Four things do nearly all the work of making a screen look printed: a
-   * serif headline, a kicker above it, rules that vary in weight, and columns.
+   * ---- The devices of the reference ---------------------------------------
+   * A heavy, tight wordmark; a small monospaced label above what it names; one
+   * soft rule under the bar. These used to be a newspaper's masthead, kicker
+   * and double rule, and kept their names so the 270 places that use them
+   * changed look without changing code.
    */
 
-  /** The masthead: the paper's name, set large in the serif. */
+  /** The wordmark, and the titles that sit at the top of a page. */
   .masthead {
-    @apply font-serif font-semibold text-ink;
-    /* `tracking-tight`, written out. Since Tailwind 4 the utility also sets
+    @apply font-sans text-ink;
+    font-weight: 750;
+    /* Written out rather than `tracking-*`: since Tailwind 4 the utility sets
        `--tw-tracking`, which a `text-h2` beside it then reads in preference to
-       its own -0.02em: every masthead came out tighter than it was drawn. */
-    letter-spacing: -0.025em;
-    font-variant-ligatures: common-ligatures;
+       its own letter-spacing. */
+    letter-spacing: -0.045em;
   }
 
   /**
-   * A kicker — the small line that sits ABOVE a headline in print
-   * ("BUSINESS", "OPINION"). Used here for section labels, panel titles and
-   * field groups. Small, uppercase, widely letterspaced: unmistakably editorial
-   * and it costs no vertical space.
+   * A label — the reference's "eyebrow": section labels, panel titles, field
+   * groups. Small, monospaced, uppercase, widely tracked. It costs no vertical
+   * space and says "this is a label, not content" before it is read.
    */
   .kicker {
-    @apply text-caption font-semibold uppercase text-ink-muted;
-    letter-spacing: 0.14em;
+    @apply font-mono text-caption font-normal uppercase text-ink-faint;
+    letter-spacing: 0.12em;
   }
 
-  /**
-   * The double rule under a masthead — one heavy line, a gap, one hairline.
-   * Drawn with a border plus a box-shadow so it stays a single element.
-   */
+  /** The rule under the top bar — soft, like every rule here. */
   .rule-double {
-    border-bottom: 2px solid rgb(var(--line));
-    box-shadow: 0 3px 0 -2px rgb(var(--line) / 0.55);
+    border-bottom: 1px solid rgb(var(--line-soft));
   }
 
   /** A thin rule for section breaks inside a page. */
@@ -219,7 +216,7 @@
 
   /** A standing head: kicker + rule, the way a section starts in print. */
   .section-head {
-    @apply mb-4 flex items-baseline gap-3 border-b border-line pb-2;
+    @apply mb-4 flex items-baseline gap-3 border-b border-line-soft pb-2;
   }
 }
 
@@ -244,26 +241,56 @@
    * `outline` / `outline-2` draw in `var(--tw-outline-style)` — so the ring came
    * back at the right width and colour, in style `none`. Same bug, new door.
    */
+  /* A field is the one control told apart by its edge alone: `border-field`
+     holds 3:1, and the focus turns that edge into the accent. */
   .input {
-    @apply w-full border border-line-soft bg-surface px-3 py-2 text-body text-ink
+    @apply w-full rounded-md border border-field bg-raised px-3 py-2 text-body text-ink
       placeholder:text-ink-faint outline-hidden transition
-      focus:border-line focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-ring
+      focus:border-accent focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-ring
       focus-visible:outline-offset-2;
   }
 
   .btn-primary {
-    @apply inline-flex min-h-8 items-center justify-center gap-1.5 border border-accent bg-accent
-      px-4 py-1.5 text-body-sm font-medium text-on-accent transition
-      hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md
+      border border-accent bg-accent px-4 py-1.5 text-body-sm font-semibold text-on-accent
+      transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-ghost {
-    @apply inline-flex min-h-8 items-center justify-center gap-1.5 border border-line-soft
-      px-3 py-1.5 text-body-sm font-medium text-ink transition
-      hover:border-line disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-line
+      bg-raised px-3 py-1.5 text-body-sm font-medium text-ink transition
+      hover:border-ink/25 hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
-  /* Canvas frames: a hairline rule, not a drop shadow. */
+  /*
+   * An option of the composer — the reference's chip: a small raised box,
+   * grey until it is ON, then the lime on its own wash. One class for both
+   * composers (Welcome and the project's), so an option looks the same in both
+   * places. They used to be bare words, some set as `.kicker`, coloured by hand
+   * in each place they appeared.
+   *
+   * ON is `aria-pressed="true"` for a toggle, and `.is-on` for a chip that
+   * opens something rather than toggling (DESIGN.md, attached screenshots).
+   * A compound control (Motion Ultra's series, the image source) draws its own
+   * segments inside the box and lights its label itself.
+   */
+  .composer-chip {
+    @apply inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md border border-line bg-raised px-2.5
+      text-body-sm text-ink-muted transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .composer-chip:is(button, label):not(:disabled):hover {
+    @apply border-ink/25 text-ink;
+  }
+  .composer-chip:is([aria-pressed='true'], .is-on) {
+    @apply border-accent/40 bg-accent/10 text-accent-ink;
+  }
+
+  /* The hairline between two groups of chips. */
+  .composer-chip-rule {
+    @apply mx-1 h-4 w-px shrink-0 bg-line;
+  }
+
+  /* Canvas frames: a hairline, and a soft drop that sets them on the board. */
   .frame-shadow {
     box-shadow: theme('boxShadow.frame');
   }
@@ -446,14 +473,6 @@
     animation: none;
   }
 
-  /* No wash, but keep the word in the accent — the point of the hint is the
-     colour, and the global reset below would otherwise land it on the grey
-     end of the gradient. */
-  .muse-sweep {
-    animation: none;
-    background-position: 0% 50%;
-  }
-
   *,
   *::before,
   *::after {
@@ -544,6 +563,7 @@
      a CSS rule has nobody to add a class to. */
   .btn-primary,
   .btn-ghost,
+  .composer-chip,
   .input {
     min-height: 44px;
   }

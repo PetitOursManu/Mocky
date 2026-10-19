@@ -7,20 +7,23 @@ A tool for judging mockups and the mockups themselves answer to opposite constra
 > This is about the interface of **Mocky itself**, not the screens it generates.
 > For those, see `DESIGN.md` and the presets in `src/lib/styles.ts`.
 
-## The direction: high-contrast editorial
+## The direction: a dark studio
 
 :::why
-The eye never judges a colour in isolation: it compares it to whatever surrounds it, so a tinted frame shifts the perception of everything it frames. Since looking at mockups is precisely what Mocky is for, its shell is achromatic out of professional obligation before it is out of taste — and it is that obligation, not a graphic fashion, that then dictates the absence of shadows and the rarity of the accent.
+The eye never judges a colour in isolation: it compares it to whatever surrounds it, so a tinted frame shifts the perception of everything it frames. Since looking at mockups is precisely what Mocky is for, its shell stays neutral grey out of professional obligation before it is out of taste — and the one colour it does allow is kept rare for the same reason.
 :::
 
-Black and white, 1px rules, **no radius, no shadow**, one signature flat of colour. Swiss poster rather than dashboard.
+A near-black studio, neutral greys and **one lime accent**. The reference it was drawn from is [`plans/refonte/modele-dark-glitch.html`](../plans/refonte/modele-dark-glitch.html), with its "acid" accent; the tokens read their values off it. Its glitch effect (offset magenta and cyan hairlines) was tried and set aside: the shell carries none.
 
-This is not only a matter of taste. Mocky is a tool for **judging colour**: mockups sit side by side on a canvas, and the chrome surrounds them. The old palette was `slate` — a distinctly blue-leaning grey (`#64748b`). A warm mockup placed on it reads more yellow than it is; a blue mockup reads flat. **The chrome was lying about the colours it presented**, which is disqualifying for a design tool. An achromatic shell is the only one that does not distort what it frames, and black and white is the most complete version of it.
+Dark is the **default** theme: nothing chosen means dark, and the OS preference no longer decides. The light theme is the same roles at the other end of the scale.
 
-Two consequences, accepted deliberately:
+What survived from the previous, editorial direction is the reason it was achromatic. The old palette was `slate` — a distinctly blue-leaning grey (`#64748b`). A warm mockup placed on it reads more yellow than it is; a blue mockup reads flat. **The chrome was lying about the colours it presented**, which is disqualifying for a design tool. So the greys here are a channel apart at most.
 
-- **Rules replace shadows.** Elevation is read from value (three surface levels) and from a rule, never from a blur.
-- **The accent is rare.** One primary action per view carries it. An active tab or mode does not take the accent: it **inverts** (`bg-ink text-surface`). That is more direct, and it stays legible in both themes.
+Three consequences:
+
+- **Elevation is read from value first.** Three surface levels; rules are soft and only finish an edge; a shadow lifts only what floats (menus, the floating toolbar, modals).
+- **The accent is rare.** It marks the primary action, the focus and the active state. An active control no longer inverts: it takes the lime on a tinted ground (`--selected`), as the reference draws its active tool — an inverted block on a dark shell is a white slab in the middle of the toolbar.
+- **Corners are back**, small and graded: 4px for a thumbnail, 7px for a button or a field, 9–12px for a menu or a modal.
 
 ## The tokens
 
@@ -32,19 +35,22 @@ Everything lives in [`src/styles/tokens.css`](../src/styles/tokens.css), as raw 
 
 | Token | Role |
 |---|---|
-| `--sunken` | the canvas, behind the frames |
-| `--surface` | panels, cards, the header, the composer |
-| `--raised` | popovers, menus, modals |
-| `--line` | the **structural** rule: the outer edge of a floating surface, the rule under the header. Rare. |
-| `--line-soft` | the **hairline** rule: rows in a list, field borders, separators. The default case. |
+| `--sunken` | the canvas, behind the frames, and the page |
+| `--surface` | panels, the top bar, the composer |
+| `--raised` | popovers, menus, modals, floating tools |
+| `--line` | the edge of a floating surface. Soft. |
+| `--line-soft` | rows in a list, separators. The default case. |
+| `--field` | the edge of a form field — the one rule held to 3:1 |
 | `--ink` / `--ink-muted` / `--ink-faint` | primary / secondary text / the floor (never below it) |
-| `--accent` / `--on-accent` | the signature flat (**#228477**) and its text |
+| `--accent` / `--on-accent` | the lime (**#d4ff46**) and the text on it |
 | `--accent-ink` | the accent colour for **small text** — see below |
-| `--danger` `--warn` `--ok` | statuses, desaturated one step so they never shout louder than a mockup |
-| `--muse` | Muse's mark — a mode, not a state |
+| `--selected` / `--on-selected` | the active state: a tinted ground and the accent on it |
+| `--danger` `--warn` `--ok` | statuses |
+| `--muse` | Muse's mark — a mode, not a state; it wears the house colour |
 | `--ring` | the focus ring |
+| `--shadow` / `--shadow-k` | the shadows' colour, and a strength every step is multiplied by |
 
-Two themes, **Paper** and **Ink**, defined by the same tokens. Neither one is an override of the other.
+Two themes, **Ink** (dark, the default) and **Paper**, defined by the same tokens. Neither one is an override of the other.
 
 ## Why two accent tokens
 
@@ -52,36 +58,28 @@ Two themes, **Paper** and **Ink**, defined by the same tokens. Neither one is an
 Accessibility standards do not demand the same difference in lightness for text (4.5:1) as for a flat, a rule or an icon (3:1): one and the same brand colour can therefore be perfectly legible behind a button and illegible in small type, on the same page. Rather than forbidding that colour to text, the system declines it into two variants — close enough to be indistinguishable to the eye, distinct enough that each clears its own threshold.
 :::
 
-`#228477` measured on paper (`#faf8f3`):
+On the dark grounds the lime needs no second value: `#d4ff46` is 15.8:1 on the surface, so `--accent` and `--accent-ink` are equal there.
 
-| Usage | Contrast | Verdict |
-|---|---|---|
-| White on the flat (button) | **4.53:1** | passes AA |
-| The accent as **small text** on paper | **4.27:1** | **fails** (AA = 4.5) |
-| The accent as a flat, a rule, an icon | 4.27:1 | passes (interface component = 3:1) |
-
-Hence `--accent-ink` (`#20796C`, **4.93:1**): the same hue, a hair darker, indistinguishable at text sizes. That is what makes it possible to use the colour **liberally** without shipping unreadable text.
+On paper it is another story — lime on white is 1.1:1, invisible. The light theme keeps the hue and drops the value: an olive (`#547800`) that clears 4.5:1 under white text and as a rule, and `--accent-ink` (`#4a6a00`) a hair darker for small text.
 
 **The rule: `text-accent-ink` for text, `bg-accent` / `border-accent` for everything else.** `text-accent` is only acceptable at `text-h2` or larger, and on an icon. The contrast test checks the two tokens separately, against two different thresholds.
 
-In the Ink theme, both tokens hold the same light value (8.4:1 on the surface) — one is enough there.
-
-## The devices of print
+## The recurring devices
 
 :::why
-What makes a printed page recognisable comes down to a handful of signals that recur everywhere — a kicker, rules of differing weights, a column width, a fixed format — far more than to the drawing of any single element taken on its own. Reproducing those signals in a handful of reusable classes costs less than dressing the screens one by one, and leaves a single address to edit on the day the tone has to change.
+What makes an interface recognisable comes down to a handful of signals that recur everywhere — a label above what it names, a wordmark, a rule, a fixed format — far more than to the drawing of any single element taken on its own. Reproducing those signals in a handful of reusable classes costs less than dressing the screens one by one, and leaves a single address to edit on the day the tone has to change.
 :::
 
-Four things do almost all the work of making a screen look printed. They live in `src/index.css`.
+They live in `src/index.css`. The first three used to be a newspaper's masthead, kicker and double rule; they kept their names so the 270 places that use them changed look without changing code.
 
 | Class | Usage |
 |---|---|
-| `.masthead` | The paper's name, in the serif. Once, at the top. |
-| `.kicker` | **The kicker** — small, capitals, widely tracked. The most profitable device of the lot: panel titles, group labels, tabs. Used 69 times. |
-| `.rule-double` | The double rule (one heavy plus one hairline) under the masthead. |
+| `.masthead` | The wordmark and page titles: the sans, heavy and tight. |
+| `.kicker` | **The label** — the reference's "eyebrow": monospaced, capitals, widely tracked, in `--ink-faint`. Panel titles, group labels, tabs. |
+| `.rule-double` | The rule under the top bar — soft, like every rule. |
 | `.rule-thin` | The separating rule between sections. |
-| `.section-head` | Section head: kicker plus rule. |
-| `.measure` | 68ch — the reading width of a paragraph. **Full width does not mean 200-character lines**: that is precisely why newspapers have columns. |
+| `.section-head` | Section head: label plus rule. |
+| `.measure` | 68ch — the reading width of a paragraph. Full width does not mean 200-character lines. |
 | `.page` | **The page format**: 1440px max, centred, 24px gutter. |
 | `.page-wide` | 1760px, reserved for the image gallery — a grid of thumbnails has no reading width. |
 
@@ -91,7 +89,7 @@ Four things do almost all the work of making a screen look printed. They live in
 A layout is made of relationships between elements, and a relationship comes apart beyond a certain distance: width is therefore not a free variable that would be worth maximising, it is a format to be chosen. The format settled on is a centred ceiling, because it behaves like full width on ordinary screens and simply stops growing past that — one value, and no per-screen rule to write.
 :::
 
-A newspaper has a fixed format, and this is it. The pages were first locked into `max-w-4xl` (896px), which wasted half of a wide screen. Freeing them completely went too far the other way: on a 2000px screen the content ran edge to edge, the eye had to cross the whole width to connect a project name to its date, and nothing framed the page any more.
+A page has a fixed format, and this is it. The pages were first locked into `max-w-4xl` (896px), which wasted half of a wide screen. Freeing them completely went too far the other way: on a 2000px screen the content ran edge to edge, the eye had to cross the whole width to connect a project name to its date, and nothing framed the page any more.
 
 Measured, usable content by screen:
 
@@ -104,9 +102,9 @@ Measured, usable content by screen:
 
 Below 1440px the behaviour is that of a full width; beyond it, the page stops. **One value to set**, in `.page`.
 
-The `h1/h2/h3` headings take the serif automatically, through a rule in the `base` layer. That is the line separating "monochrome application" from "printed page": a heading in a grotesque reads as chrome, a heading in a serif reads as an article.
+The `h1/h2/h3` headings are set in the sans, heavy and tight, through a rule in the `base` layer. They used to take a serif — that was the whole "printed page" — and the redesign keeps one family for the interface, so the mockups are the only place a serif shows up.
 
-No font is downloaded. The serif stack relies on faces shipped with the system (Iowan Old Style and Palatino on macOS, Georgia on Windows) — previews have to work offline and under a strict CSP.
+No font is downloaded for the shell. The stack asks for Inter and falls back on the system's sans (Segoe UI on Windows, SF on macOS) — the self-hosted families in `public/fonts` are the mockups', and the shell keeps out of them on purpose.
 
 ## The icons
 

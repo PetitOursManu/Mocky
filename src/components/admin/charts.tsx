@@ -356,7 +356,7 @@ export function Meter({
         {detail && <span className="font-mono text-caption text-ink-muted">{detail}</span>}
       </div>
       <div
-        className="mt-1 h-1.5 w-full bg-ink/10"
+        className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-ink/10"
         role="meter"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -383,15 +383,21 @@ export function Stat({
   tone?: 'warn' | 'danger' | 'ok'
   onClick?: () => void
 }) {
-  const edge = tone === 'danger' ? 'border-l-danger' : tone === 'warn' ? 'border-l-warn' : tone === 'ok' ? 'border-l-ok' : 'border-l-line-soft'
+  // A tile, as the reference draws its cards; a figure that needs attention
+  // says so with its edge and a dot beside its label, and with words in `sub`.
+  const edge = tone === 'danger' ? 'border-danger/60' : tone === 'warn' ? 'border-warn/60' : tone === 'ok' ? 'border-ok/50' : 'border-line'
+  const dot = tone === 'danger' ? 'bg-danger' : tone === 'warn' ? 'bg-warn' : tone === 'ok' ? 'bg-ok' : null
   const body = (
     <>
-      <span className="block text-body-sm text-ink-muted">{label}</span>
+      <span className="flex items-center gap-1.5 text-body-sm text-ink-muted">
+        {dot && <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dot}`} />}
+        {label}
+      </span>
       <span className="mt-1 block text-h2 leading-none tabular-nums text-ink">{value}</span>
       {sub && <span className="mt-1.5 block text-caption text-ink-muted">{sub}</span>}
     </>
   )
-  const cls = `block w-full border border-line-soft border-l-2 ${edge} bg-surface px-3 py-2.5 text-left`
+  const cls = `block w-full rounded-xl border ${edge} bg-raised px-4 py-3 text-left`
   return onClick ? (
     <button type="button" onClick={onClick} className={`${cls} transition hover:bg-ink/5`}>
       {body}

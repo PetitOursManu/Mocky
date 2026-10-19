@@ -57,7 +57,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <div className="flex min-h-[60vh] items-center justify-center p-8">
         <div className="w-full max-w-lg border border-line bg-surface p-6">
           <header className="rule-double pb-3">
-            <p className="kicker text-accent-ink">{t('auth.error.kicker')}</p>
+            <p className="kicker">{t('auth.error.kicker')}</p>
             <h2 className="masthead mt-1.5 text-h2">{t('error.crashed')}</h2>
           </header>
           <p className="measure mt-3 text-body text-ink-muted">{t('error.crashedHelp')}</p>
@@ -86,7 +86,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
 
           <details className="mt-5 border-t border-line-soft pt-3">
-            <summary className="kicker cursor-pointer transition hover:text-accent-ink">
+            <summary className="kicker cursor-pointer transition hover:">
               {t('common.details')}
             </summary>
             <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap border border-line-soft bg-sunken p-3 text-caption text-ink-muted">

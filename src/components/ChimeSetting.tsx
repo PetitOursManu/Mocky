@@ -22,9 +22,9 @@ export default function ChimeSetting() {
   return (
     <section>
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('chime.heading')}</span>
+        <span className="kicker">{t('chime.heading')}</span>
       </div>
-      <div className="flex flex-wrap items-start gap-3 border border-line-soft bg-ink/5 p-3">
+      <div className="flex flex-wrap items-start gap-3 rounded-lg border border-line-soft bg-ink/5 p-3">
         <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
           <input
             type="checkbox"

@@ -422,6 +422,7 @@ export default function Canvas({
   modifyMode,
   interactAll,
   showFrame,
+  chromeTop = 0,
   onPickElement,
   onRemoveHotspot,
   highlightedHotspotId,
@@ -473,6 +474,12 @@ export default function Canvas({
   modifyMode: boolean
   interactAll: boolean
   showFrame: boolean
+  /**
+   * Pixels at the top that the project's own bar covers. When there is one,
+   * the hint goes to the bottom-right corner: under the bar it ran into the
+   * floating tools of a selected screen, which sit centred at the top.
+   */
+  chromeTop?: number
   onPickElement: (screenId: string, info: PickInfo) => void
   onRemoveHotspot: (screenId: string, hotspotId: string) => void
   highlightedHotspotId?: string | null
@@ -1227,6 +1234,9 @@ export default function Canvas({
           return (
             <div
               key={s.id}
+              // Where the documentation's screenshots find a screen's frame
+              // (scripts/capture-docs.mjs). Nothing in the app reads it.
+              data-screen={s.id}
               className={`absolute ${useFrame ? '' : 'frame-shadow'} ${
                 selected
                   ? 'ring-2 ring-accent'
@@ -1809,6 +1819,11 @@ export default function Canvas({
          * the bar was already being painted over. The seventh control makes it
          * 251px and needs W > 1206.
          *
+         * From md none of that applies any more: the composer is a column beside
+         * the canvas and the toolbar is in the app's top bar, so the bottom-left
+         * corner is free at every width where there is a column at all. The
+         * arithmetic below still governs the floating bar under md.
+         *
          * Budget for whoever adds the ninth: at `xl` the clearance is 1280/2
          * - 336 - 16 - width, which is 288px of controls — not the ~330 this
          * note used to say; the arithmetic was right and the total was not.
@@ -1818,7 +1833,7 @@ export default function Canvas({
          * nothing left: the next control goes into a menu. A wider breakpoint
          * is the wrong answer — the bar would spend its life at top-14.
          */
-        className="absolute left-4 top-14 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg xl:bottom-4 xl:top-auto"
+        className="absolute left-4 top-14 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg md:bottom-4 md:top-auto"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <IconButton variant="toolbar" label={t('canvas.zoomOut')} onClick={() => zoomBy(1 / 1.2)}>
@@ -1882,7 +1897,12 @@ export default function Canvas({
       </div>
 
       {/* Hint */}
-      <div className="pointer-events-none absolute right-4 top-3 text-right text-body-sm text-ink-faint">
+      <div
+        // In the bottom corner it shares the row with the zoom bar: half the
+        // width, wrapping, so the two never meet.
+        className={`pointer-events-none absolute right-4 text-right text-body-sm text-ink-faint ${chromeTop ? 'max-w-[45%]' : ''}`}
+        style={chromeTop ? { bottom: 16 } : { top: 12 }}
+      >
         {linkMode ? (
           <span className="flex items-center justify-end gap-1.5 text-accent-ink">
             <Icon name="link" size={15} />

@@ -281,7 +281,7 @@ function Section({
         <span className="font-mono text-caption tabular-nums text-ink-faint">
           {String(n).padStart(2, '0')}
         </span>
-        <span className="kicker text-accent-ink">{label}</span>
+        <span className="kicker">{label}</span>
         <span className="h-px flex-1 bg-accent/40" />
         {edit && <EditToggle open={open} onClick={() => ctx.setOpenSection(open ? null : edit)} ctx={ctx} />}
       </div>

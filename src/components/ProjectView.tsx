@@ -6,7 +6,13 @@ import { editComponent, fixComponent, generateComponent, fitComponent, detectCom
 import { deriveName, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import type { Plan } from '../lib/api'
-import { usePhone } from '../lib/usePhone'
+import { useMedia, usePhone } from '../lib/usePhone'
+import { useTimeAgo } from '../lib/timeAgo'
+import { getSyncState, onSyncState, type SyncState } from '../lib/sync'
+import { createPortal } from 'react-dom'
+import Inspector from './Inspector'
+import { OPTION_ROW, OptionAction, OptionGroup, OptionToggle } from './ComposerOptions'
+import { BarMenu, BarMenuItem, BarMenuLabel, BarMenuRule } from './ProjectBar'
 import { useAutoGrow } from '../lib/useAutoGrow'
 import { useWorkChime } from '../lib/useWorkChime'
 import { DEFAULT_PRESET_ID, getPreset } from '../lib/presets'
@@ -582,7 +588,12 @@ export default function ProjectView({
    * separate flags two of them could be — and were — open at once, painting over
    * each other with no z-index to settle it.
    */
-  const [rightSlot, setRightSlot] = useState<RightSlot>(null)
+  // Open on Style where the inspector has a column of its own (xl): the
+  // reference shows it, and an empty right edge reads as a missing panel.
+  // Narrower, it would float over the canvas the moment a project opens.
+  const [rightSlot, setRightSlot] = useState<RightSlot>(() =>
+    typeof window !== 'undefined' && window.matchMedia?.('(min-width: 1280px)').matches ? 'system' : null,
+  )
   const linkMode = rightSlot === 'links'
   const showSystem = rightSlot === 'system'
   const showAudit = rightSlot === 'audit'
@@ -622,6 +633,12 @@ export default function ProjectView({
   }, [linkMode])
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
+  /**
+   * Below md the composer is a sheet over the bottom of the canvas, and its
+   * options (format, the chips) fold away behind one button: open, they took
+   * half a 700px-high window before a single screen could be seen.
+   */
+  const [narrowOptions, setNarrowOptions] = useState(false)
   /** The toolbar's overflow menu below md. See the bar itself for why it exists. */
   const [plusMenu, setPlusMenu] = useState(false)
   const [menu, setMenu] = useState<{ screenId: string; x: number; y: number } | null>(null)
@@ -779,6 +796,7 @@ export default function ProjectView({
     t,
     enabled: rightSlot === 'versions' || historyScreenId !== null || compare !== null,
   })
+
   useEffect(() => {
     if (backfilledRef.current === project.id) return
     backfilledRef.current = project.id
@@ -974,6 +992,19 @@ export default function ProjectView({
   const [fixingIds, setFixingIds] = useState<Set<string>>(new Set())
   /** Phone: a coarse pointer AND a narrow viewport. See lib/usePhone.ts. */
   const phone = usePhone()
+  /** From md the composer is a column beside the canvas and the tools are in the top bar. */
+  const wide = useMedia('(min-width: 768px)')
+  /** From xl the inspector is a column too; below, it floats over the canvas. */
+  const docked = useMedia('(min-width: 1280px)')
+  const timeAgo = useTimeAgo()
+  /** Whether the work has reached the server — the canvas bar's right end. */
+  const [syncState, setSyncState] = useState<SyncState>(() => getSyncState())
+  useEffect(() => onSyncState(setSyncState), [])
+  /** The App bar's slot for this project's tools — see the portal in the render. */
+  const [barEl, setBarEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setBarEl(document.getElementById('mocky-project-bar'))
+  }, [wide])
   const [regenLabel, setRegenLabel] = useState(() => t('canvas.regenerating'))
 
   /**
@@ -2910,6 +2941,74 @@ export default function ProjectView({
     }
   }
 
+  /*
+   * Every state a screen goes through becomes a version, automatically.
+   *
+   * Versions used to be taken by hand, so after a few generations the panel
+   * held what the person had remembered to save and nothing else. Now each
+   * screen is watched: once its code differs from the last state kept and has
+   * stopped changing (AUTO_VERSION_SETTLE_MS — a generation streams, and no
+   * half-written screen is worth keeping) and no pass is running on it, the
+   * new state is saved as an automatic screen version. The server keeps the
+   * newest MAX_AUTO_SCREEN_VERSIONS of each screen and answers "unchanged" to a
+   * state it already has (server/versions.js).
+   *
+   * A screen already there when the project opens is NOT saved on sight —
+   * opening a project must not cost a request per screen — but the first time
+   * it changes, the state it had is kept first, so the original is never the
+   * one state missing. A screen that appears later (a generation) is new, and
+   * its first state is its first version.
+   */
+  const AUTO_VERSION_SETTLE_MS = 2000
+  const autoVersions = useRef<{ ready: boolean; known: Map<string, { code: string; kept: boolean }> }>({
+    ready: false,
+    known: new Map(),
+  })
+  const autoTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const autoSaveScreen = versions.autoSaveScreen
+  useEffect(() => {
+    const state = autoVersions.current
+    const first = !state.ready
+    state.ready = true
+    for (const s of screens) {
+      if (!s.code.trim()) continue
+      const known = state.known.get(s.id)
+      if (!known) {
+        // Already there when the project opened: remembered, not saved.
+        if (first) {
+          state.known.set(s.id, { code: s.code, kept: false })
+          continue
+        }
+      } else if (known.code === s.code) {
+        continue
+      }
+      if (generatingIds.has(s.id) || regeneratingIds.has(s.id) || fixingIds.has(s.id)) continue
+      const id = s.id
+      const timers = autoTimers.current
+      const pending = timers.get(id)
+      if (pending) clearTimeout(pending)
+      timers.set(
+        id,
+        setTimeout(() => {
+          timers.delete(id)
+          const now = screensRef.current.find((x) => x.id === id)
+          if (!now || !now.code.trim()) return
+          const before = state.known.get(id)
+          if (before && before.code === now.code) return
+          // The state it had when the project opened, kept before it is lost.
+          if (before && !before.kept) void autoSaveScreen(id, t('versions.autoOriginal'), before.code)
+          state.known.set(id, { code: now.code, kept: true })
+          void autoSaveScreen(id, before ? t('versions.autoChanged') : t('versions.autoCreated'))
+        }, AUTO_VERSION_SETTLE_MS),
+      )
+    }
+  }, [screens, generatingIds, regeneratingIds, fixingIds, autoSaveScreen, t])
+  // Pending saves are dropped with the project; the next visit starts afresh.
+  useEffect(() => {
+    const timers = autoTimers.current
+    return () => timers.forEach((h) => clearTimeout(h))
+  }, [])
+
   const editing = selectedScreens.length > 0
 
   // A rewrite is a NEW-screen brief. Selecting a screen mid-stream turns the
@@ -3201,7 +3300,7 @@ export default function ProjectView({
         enhancer={enhancer}
         onEnhance={startEnhance}
       />
-      {campaignPanel && <div className="fixed inset-0 z-30 bg-ink/10">{campaignPanel}</div>}
+      {campaignPanel && <div className="fixed inset-0 z-30 bg-black/10">{campaignPanel}</div>}
       {libraryModal}
       </>
     )
@@ -3212,7 +3311,7 @@ export default function ProjectView({
    * at md and above, as rows in the "Plus" menu below it — from this one list,
    * so the two can never drift apart.
    */
-  const foldedTools: FoldedTool[] = [
+  const allTools: FoldedTool[] = [
     {
       id: 'interact',
       icon: 'hand',
@@ -3241,10 +3340,10 @@ export default function ProjectView({
       id: 'frame',
       icon: 'phone',
       label: t('mode.frame'),
-      // Disabled, not hidden: the control still says what it would do. It was
-      // already a no-op without a phone screen — Canvas only draws the bezel on
-      // `device === 'iphone'` — so this only makes the existing behaviour
-      // visible instead of leaving a button that answers nothing.
+      // Hidden without a phone screen (the filter at the end of this list):
+      // Canvas only draws the bezel on `device === 'iphone'`, so the button
+      // answered nothing, and greyed out it was still one more control on a
+      // bar that had too many — asked for by the user.
       //
       // `showFrame` itself is deliberately NOT cleared by `toggleFrame`. It
       // lives in one global localStorage key shared by every project, so
@@ -3342,10 +3441,241 @@ export default function ProjectView({
       onClick: () => setExportMenu((v) => !v),
     },
   ]
+  const foldedTools = allTools.filter((tool) => tool.id !== 'frame' || hasPhoneScreen)
+
+  /** Link mode: the Links list in the inspector, and every frame pickable. */
+  function toggleLinkMode() {
+    setRightSlot((s) => toggleSlot(s, 'links'))
+    setModifyMode(false)
+    setAnnotateMode(false)
+  }
+
+  /** Modify mode, shared by the top bar and the floating toolbar. */
+  const modifyTool = {
+    label: t('mode.modify'),
+    title: t('project.modifyTitle'),
+    icon: 'pencil' as IconName,
+    active: modifyMode,
+    onClick: () => {
+      setModifyMode((v) => !v)
+      // See the Annotate button: Link mode only, because Modify has no
+      // panel of its own in that slot to make room for.
+      setRightSlot((s) => closeSlot(s, 'links'))
+      setAnnotateMode(false)
+      setPendingModify(null)
+    },
+  }
+
+  /**
+   * Every way something leaves Mocky — the top bar's Export menu, and the same
+   * rows in the floating toolbar's Export below md, so a narrow window loses no
+   * export the wide one has.
+   */
+  const exportItems = (close: () => void) => {
+                const one = selectedScreens.length === 1 ? selectedScreens[0] : null
+                const unexportable =
+                  !one || busy || !one.code.trim() || generatingIds.has(one.id) || regeneratingIds.has(one.id)
+                return (
+                  <>
+                    <BarMenuLabel>{t('workspace.exportProject')}</BarMenuLabel>
+                    {EXPORT_TARGETS.map(([stack, labelKey, hintKey]) => (
+                      <BarMenuItem
+                        key={stack}
+                        icon="code"
+                        label={`${t(labelKey)} (.zip)`}
+                        hint={t(hintKey)}
+                        onClick={() => {
+                          close()
+                          void handleExport(stack)
+                        }}
+                      />
+                    ))}
+                    <BarMenuRule />
+                    <BarMenuLabel>{t('workspace.exportScreen')}</BarMenuLabel>
+                    {!one ? (
+                      <BarMenuItem icon="image" label={t('workspace.exportScreenNeeds')} disabled onClick={() => {}} />
+                    ) : one.page ? (
+                      <BarMenuItem
+                        icon="download"
+                        label={t('project.docDownload')}
+                        hint={one.name}
+                        disabled={unexportable}
+                        onClick={() => {
+                          close()
+                          setDownloadDocId(one.id)
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <BarMenuItem
+                          icon="image"
+                          label={t('project.webExportPng')}
+                          hint={one.name}
+                          disabled={unexportable}
+                          onClick={() => {
+                            close()
+                            void exportWeb(one.id, 'png')
+                          }}
+                        />
+                        <BarMenuItem
+                          icon="download"
+                          label={t('project.webExportPptx')}
+                          disabled={unexportable}
+                          onClick={() => {
+                            close()
+                            void exportWeb(one.id, 'pptx')
+                          }}
+                        />
+                      </>
+                    )}
+                    {one && (
+                      <BarMenuItem
+                        icon="code"
+                        label={t('canvas.download')}
+                        onClick={() => {
+                          close()
+                          downloadTsx(one)
+                        }}
+                      />
+                    )}
+                    <BarMenuRule />
+                    <BarMenuLabel>{t('workspace.exportMedia')}</BarMenuLabel>
+                    <BarMenuItem
+                      icon="library"
+                      label={t('workspace.mediaLibrary')}
+                      onClick={() => {
+                        close()
+                        setLibraryTab('images')
+                        setShowLibrary(true)
+                      }}
+                    />
+                  </>
+                )
+  }
+
+  /** The column's recent history: the last screens made, newest first. */
+  const recentScreens = [...screens].sort((x, y) => y.createdAt - x.createdAt).slice(0, 3)
 
   return (
-    <div className="relative h-[calc(100vh-57px)]">
+    // Three columns from md — the creation column, the canvas, the inspector —
+    // ordered with `order-*` so each block stays where its state lives in this
+    // file. Below md the composer and the inspector float over the canvas.
+    <div className="relative flex h-full">
       {libraryModal}
+      {/*
+        The project's tools, in the app's top bar from md — the reference's
+        layout. ProjectView owns every one of these handlers, so it renders them
+        and the App bar only keeps a slot for them (`#mocky-project-bar`): one
+        bar across the window instead of a second toolbar floating over the
+        canvas. Below md the floating toolbar further down is still the one.
+      */}
+      {wide &&
+        barEl &&
+        createPortal(
+          <div className="flex items-center gap-2">
+            {/* The canvas modes. "Select" is no mode at all: it switches off
+                whichever one is on, the way the reference's arrow does. */}
+            <div
+              role="toolbar"
+              aria-label={t('workspace.tools')}
+              className="flex items-center gap-0.5 rounded-lg border border-line-soft bg-raised p-0.5"
+            >
+              <IconButton
+                label={t('workspace.select')}
+                title={t('workspace.selectTitle')}
+                variant="toolbar"
+                active={!linkMode && !modifyMode && !annotateMode && !interactAll}
+                onClick={() => {
+                  setRightSlot((s) => closeSlot(s, 'links'))
+                  setModifyMode(false)
+                  setPendingModify(null)
+                  setAnnotateMode(false)
+                  setInteractAll(false)
+                }}
+              >
+                <Icon name="target" size={16} />
+              </IconButton>
+              <IconButton label={t('mode.link')} title={t('project.linkTitle')} variant="toolbar" active={linkMode} onClick={toggleLinkMode}>
+                <Icon name="link" size={16} />
+              </IconButton>
+              {(['interact', 'modify', 'annotate'] as const).map((id) => {
+                const tool = id === 'modify' ? modifyTool : foldedTools.find((x) => x.id === id)
+                if (!tool) return null
+                return (
+                  <IconButton key={id} label={tool.label} title={tool.title} variant="toolbar" active={tool.active} onClick={tool.onClick}>
+                    <Icon name={tool.icon} size={16} />
+                  </IconButton>
+                )
+              })}
+            </div>
+            <span aria-hidden className="mx-1 h-5 w-px bg-line-soft" />
+            <Button
+              variant="quiet"
+              size="sm"
+              aria-label={t('mode.demo')}
+              title={t('project.demoTitle')}
+              onClick={() => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null)}
+            >
+              <Icon name="play" size={14} />
+              <span className="hidden lg:inline">{t('mode.demo')}</span>
+            </Button>
+
+            {/* Sharing and approval, together: a link to one screen, or the
+                whole project sent to a client. */}
+            <BarMenu
+              label={t('workspace.share')}
+              icon="link"
+              badge={
+                reviewState?.unread ? (
+                  <span className="font-mono text-caption text-accent-ink">{reviewState.unread}</span>
+                ) : undefined
+              }
+            >
+              {(close) => (
+                <>
+                  <BarMenuItem
+                    icon="link"
+                    label={t('workspace.shareScreen')}
+                    hint={selectedScreens.length === 1 ? selectedScreens[0].name : t('workspace.shareScreenNeeds')}
+                    disabled={selectedScreens.length !== 1}
+                    onClick={() => {
+                      close()
+                      setShareScreenId(selectedScreens[0].id)
+                    }}
+                  />
+                  <BarMenuItem
+                    icon="comment"
+                    label={
+                      reviewState?.unread
+                        ? `${t('workspace.shareReview')} (${reviewState.unread})`
+                        : t('workspace.shareReview')
+                    }
+                    hint={t('workspace.shareReviewHint')}
+                    onClick={() => {
+                      close()
+                      setRightSlot('review')
+                    }}
+                  />
+                </>
+              )}
+            </BarMenu>
+
+            {/* Every way something leaves Mocky, in one menu. */}
+            <BarMenu label={t('mode.export')} icon="download" variant="primary" title={t('project.exportTitle')}>
+              {exportItems}
+            </BarMenu>
+            <IconButton
+              label={rightSlot ? t('workspace.inspectorClose') : t('workspace.inspectorOpen')}
+              variant="toolbar"
+              active={!!rightSlot}
+              onClick={() => setRightSlot((s) => (s ? null : 'system'))}
+            >
+              <Icon name="list" size={16} />
+            </IconButton>
+          </div>,
+          barEl,
+        )}
+
       {/*
         The viewport, and only the viewport.
         On a phone the infinite canvas is replaced — see MobileProject for why
@@ -3355,6 +3685,8 @@ export default function ProjectView({
         in this component, so there is exactly one mutation path on every
         device.
       */}
+      {/* 54px = the phone bar: a 44px touch target inside p-1 and its rule. */}
+      <main className={`relative order-2 min-w-0 flex-1 ${phone ? 'pt-[54px]' : ''}`}>
       {phone ? (
         <MobileProject
           screens={screens}
@@ -3459,72 +3791,267 @@ export default function ProjectView({
         regeneratingIds={regeneratingIds}
         fixingIds={fixingIds}
         regenLabel={regenLabel}
+        // Under the tabs bar, which covers the top 44px from md.
+        chromeTop={wide ? 44 : 0}
       />
       )}
 
-      {/* Live Design-system frame (D.2) */}
-      {showSystem && (
-        <DesignSystemPanel
-          markdown={directionMd || ''}
-          onRecolor={recolorToken}
-          onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
-          onEdit={onOpenDesign}
-        />
+      {/* The bar over the canvas — the reference's tabs. "Toile" is where you
+          are; "Code" opens the selected screen's source. (The versions are the
+          inspector's, on its rail: a second door here was one too many.) The
+          right end says whether the work has reached the server, which the top
+          bar only says when it has NOT. */}
+      {wide && (
+        <div className="absolute inset-x-0 top-0 z-panel flex h-11 items-center gap-1 border-b border-line-soft bg-sunken/80 px-3 backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-raised px-2 py-1 text-body-sm text-ink">
+            <Icon name="grid" size={14} />
+            {t('workspace.tabCanvas')}
+          </span>
+          <button
+            type="button"
+            disabled={selectedScreens.length !== 1}
+            title={selectedScreens.length === 1 ? t('project.showCode') : t('workspace.tabCodeNeeds')}
+            onClick={() => selectedScreens.length === 1 && setCodeScreen(selectedScreens[0])}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body-sm text-ink-muted transition hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+          >
+            <Icon name="code" size={14} />
+            {t('workspace.tabCode')}
+          </button>
+          {/* The iPhone bezel — and only when there is a phone screen to put
+              it on. */}
+          {hasPhoneScreen && (
+            <button
+              type="button"
+              aria-pressed={showFrame}
+              title={t('project.frameTitle')}
+              onClick={toggleFrame}
+              className={`ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body-sm transition ${
+                showFrame ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+              }`}
+            >
+              <Icon name="phone" size={14} />
+              {t('mode.frame')}
+            </button>
+          )}
+          <span
+            className={`${hasPhoneScreen ? 'ml-3' : 'ml-auto'} inline-flex items-center gap-1.5 text-caption ${
+              syncState === 'failed' ? 'text-danger' : syncState === 'syncing' ? 'text-accent-ink' : 'text-ink-faint'
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 rounded-full ${
+                syncState === 'failed'
+                  ? 'bg-danger'
+                  : syncState === 'syncing'
+                    ? 'animate-pulse bg-accent'
+                    : syncState === 'paused'
+                      ? 'bg-ink-muted'
+                      : 'bg-ok'
+              }`}
+            />
+            {t(
+              syncState === 'failed'
+                ? 'workspace.saveFailed'
+                : syncState === 'syncing'
+                  ? 'workspace.saving'
+                  : syncState === 'paused'
+                    ? 'workspace.savePaused'
+                    : 'workspace.saved',
+            )}
+          </span>
+        </div>
       )}
 
-      {showReview && (
-        <ReviewPanel
-          getProject={() => projectRef.current}
-          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
-          onChanged={() => onReviewChanged?.()}
-          onClose={() => setRightSlot((s) => closeSlot(s, 'review'))}
-        />
-      )}
+      {/* The reference's floating tools, for the ONE selected screen: what you
+          do to a screen most often, without a right-click. `⋯` opens the
+          screen's whole menu under it. */}
+      {wide && selectedScreens.length === 1 && (() => {
+        const s = selectedScreens[0]
+        const writing = generatingIds.has(s.id) || regeneratingIds.has(s.id)
+        const unexportable = busy || !s.code.trim() || writing
+        return (
+          <div
+            role="toolbar"
+            aria-label={t('workspace.screenTools')}
+            className="absolute left-1/2 top-14 z-panel flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-line bg-raised/95 p-1 shadow-lg"
+          >
+            <span className="max-w-[12rem] truncate px-2 text-body-sm text-ink-muted">{s.name}</span>
+            <span aria-hidden className="mx-0.5 h-5 w-px bg-line-soft" />
+            <IconButton
+              label={t('project.menuEditMessage')}
+              variant="toolbar"
+              disabled={busy}
+              onClick={() => composerField.current?.focus()}
+            >
+              <Icon name="comment" size={16} />
+            </IconButton>
+            <IconButton label={t('project.polish')} variant="toolbar" disabled={busy} onClick={() => polishScreen(s.id)}>
+              <Icon name="sparkle" size={16} />
+            </IconButton>
+            <IconButton label={t('project.regenerate')} variant="toolbar" disabled={busy} onClick={() => regenerate(s.id)}>
+              <Icon name="refresh" size={16} />
+            </IconButton>
+            <span aria-hidden className="mx-0.5 h-5 w-px bg-line-soft" />
+            <IconButton label={t('share.menu')} variant="toolbar" onClick={() => setShareScreenId(s.id)}>
+              <Icon name="link" size={16} />
+            </IconButton>
+            <BarMenu label={t('workspace.screenExport')} icon="download" variant="toolbar" iconOnly>
+              {(close) => (
+                <>
+                  {s.page ? (
+                    <BarMenuItem
+                      icon="download"
+                      label={t('project.docDownload')}
+                      disabled={!s.code.trim() || writing}
+                      onClick={() => {
+                        close()
+                        setDownloadDocId(s.id)
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <BarMenuItem
+                        icon="image"
+                        label={t('project.webExportPng')}
+                        disabled={unexportable}
+                        onClick={() => {
+                          close()
+                          void exportWeb(s.id, 'png')
+                        }}
+                      />
+                      <BarMenuItem
+                        icon="download"
+                        label={t('project.webExportPptx')}
+                        disabled={unexportable}
+                        onClick={() => {
+                          close()
+                          void exportWeb(s.id, 'pptx')
+                        }}
+                      />
+                    </>
+                  )}
+                  <BarMenuItem
+                    icon="code"
+                    label={t('canvas.download')}
+                    onClick={() => {
+                      close()
+                      downloadTsx(s)
+                    }}
+                  />
+                </>
+              )}
+            </BarMenu>
+            <IconButton
+              label={t('workspace.screenMore')}
+              variant="toolbar"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setMenu({ screenId: s.id, x: r.left, y: r.bottom + 6 })
+              }}
+            >
+              <Icon name="more" size={16} />
+            </IconButton>
+          </div>
+        )
+      })()}
 
-      {campaignPanel}
+      </main>
 
-      {showVersions && (
-        <VersionsPanel
-          api={versions}
-          branch={currentBranch(project)}
-          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
-          screenName={(id) => screens.find((x) => x.id === id)?.name ?? null}
-          onCompare={(a, b) =>
-            setCompare(b ? { left: { kind: 'version', id: b }, right: { kind: 'version', id: a } } : { left: { kind: 'current' }, right: { kind: 'version', id: a } })
-          }
-          onClose={() => setRightSlot((s) => closeSlot(s, 'versions'))}
-        />
-      )}
-
-      {showAudit && (
-        <AuditPanel
-          className="absolute right-4 top-11 w-80 rounded-xl shadow-2xl"
-          screens={screens}
-          projectName={project.name}
-          productName={project.productName}
-          selectedId={selectedIds[0] ?? null}
-          // Selecting from the panel also frames the screen on the canvas: the
-          // report names elements, and a report about a screen you cannot see
-          // is a list of assertions you have to take on trust.
+      {/* The inspector — see Inspector.tsx: a rail of the six panels that is
+          always there from md, and the one panel that is open. Which one is
+          still the single RightSlot value (lib/rightSlot.ts); null folds the
+          panel back into the rail. */}
+      {(
+        <Inspector<NonNullable<RightSlot>>
+          tabs={[
+            { id: 'system', label: t('workspace.style'), icon: 'image' },
+            { id: 'versions', label: t('versions.toolbar'), icon: 'history' },
+            { id: 'audit', label: t('mode.audit'), icon: 'shield' },
+            { id: 'review', label: t('review.toolbar'), icon: 'comment', badge: reviewState?.unread },
+            { id: 'campaign', label: t('campaign.toolbar'), icon: 'megaphone' },
+            { id: 'links', label: t('project.links'), icon: 'link' },
+          ]}
+          active={rightSlot}
           onSelect={(id) => {
-            setSelectedIds([id])
-            setFocus({ screenId: id, nonce: Date.now() })
+            // Opening Links is entering Link mode, exactly as the tool does.
+            if (id === 'links') toggleLinkMode()
+            else setRightSlot((s) => toggleSlot(s, id))
           }}
-          onFix={fixAuditFindings}
-          // Gated on the project being idle, not just on the panel's own state:
-          // `fixAuditFindings` refuses while another screen mutation runs, and a
-          // button whose only feedback would be "the correction failed" is worse
-          // than one that says it is unavailable.
-          busy={busy}
-          onClose={() => setRightSlot((s) => closeSlot(s, 'audit'))}
-        />
-      )}
+          onClose={() => setRightSlot(null)}
+          docked={docked}
+          status={
+            <>
+              <span className={`inline-flex items-center gap-1.5 ${busy ? 'text-accent-ink' : 'text-ok'}`}>
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
+                <span className="max-w-[10rem] truncate">{busy ? busyLabel : t('workspace.ready')}</span>
+              </span>
+              <span>{t('workspace.stack')}</span>
+              <span className="ml-auto font-mono">{screens.length}</span>
+            </>
+          }
+        >
+          {showSystem && (
+            <DesignSystemPanel
+              markdown={directionMd || ''}
+              onRecolor={recolorToken}
+              onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
+              onEdit={onOpenDesign}
+            />
+          )}
 
-      {/* Links panel (link mode) */}
+          {showReview && (
+            <ReviewPanel
+              getProject={() => projectRef.current}
+              busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+              onChanged={() => onReviewChanged?.()}
+              onClose={() => setRightSlot((s) => closeSlot(s, 'review'))}
+            />
+          )}
+
+          {campaignPanel}
+
+          {showVersions && (
+            <VersionsPanel
+              api={versions}
+              branch={currentBranch(project)}
+              busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+              screenName={(id) => screens.find((x) => x.id === id)?.name ?? null}
+              onCompare={(a, b) =>
+                setCompare(b ? { left: { kind: 'version', id: b }, right: { kind: 'version', id: a } } : { left: { kind: 'current' }, right: { kind: 'version', id: a } })
+              }
+              onClose={() => setRightSlot((s) => closeSlot(s, 'versions'))}
+            />
+          )}
+
+          {showAudit && (
+            <AuditPanel
+              screens={screens}
+              projectName={project.name}
+              productName={project.productName}
+              selectedId={selectedIds[0] ?? null}
+              // Selecting from the panel also frames the screen on the canvas: the
+              // report names elements, and a report about a screen you cannot see
+              // is a list of assertions you have to take on trust.
+              onSelect={(id) => {
+                setSelectedIds([id])
+                setFocus({ screenId: id, nonce: Date.now() })
+              }}
+              onFix={fixAuditFindings}
+              // Gated on the project being idle, not just on the panel's own state:
+              // `fixAuditFindings` refuses while another screen mutation runs, and a
+              // button whose only feedback would be "the correction failed" is worse
+              // than one that says it is unavailable.
+              busy={busy}
+              onClose={() => setRightSlot((s) => closeSlot(s, 'audit'))}
+            />
+          )}
+
+          {/* Links panel (link mode) */}
       {linkMode && (
-        <div className="absolute right-4 top-11 flex max-h-[70vh] w-72 flex-col rounded-xl border border-line bg-raised shadow-2xl">
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-line-soft px-3 py-2">
-            <span className="kicker text-accent-ink">
+            <span className="kicker">
               {t('project.links')} ·{' '}
               <span className="font-mono">{screens.reduce((a, s) => a + s.links.length, 0)}</span>
             </span>
@@ -3635,6 +4162,9 @@ export default function ProjectView({
         </div>
       )}
 
+        </Inspector>
+      )}
+
       {/*
         Top-left toolbar.
 
@@ -3660,8 +4190,15 @@ export default function ProjectView({
         3 makes the row a scroll container, and a scroll container clips a menu
         anchored inside it.
       */}
-      <div className="absolute left-4 top-3 max-w-[calc(100vw-2rem)]">
-        <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 shadow-lg">
+      {/* On a phone the bar is a real bar, full width, and MobileProject starts
+          under it (the `pt-` on <main>): floating at top-left it covered the
+          strip of screens, the one control that view has. */}
+      <div className={`${phone ? 'absolute inset-x-0 top-0' : 'absolute left-4 top-3 max-w-[calc(100vw-2rem)]'} z-panel md:hidden`}>
+        <div
+          className={`flex items-center gap-1 overflow-x-auto border-line bg-surface p-1 ${
+            phone ? 'border-b' : 'rounded-lg border shadow-lg'
+          }`}
+        >
           <Button variant="toolbar" size="sm" onClick={leaveProject} title={t('error.backToProjects')}>
             <Icon name="chevronLeft" size={16} />
             {/* Every label on the bar is wrapped, including the ones inside the
@@ -3672,34 +4209,11 @@ export default function ProjectView({
             <span className="hidden md:inline">{t('project.back')}</span>
           </Button>
           <div className="mx-1 h-5 w-px bg-line-soft" />
-          <Button
-            variant="toolbar"
-            size="sm"
-            active={linkMode}
-            onClick={() => {
-              setRightSlot((s) => toggleSlot(s, 'links'))
-              setModifyMode(false)
-              setAnnotateMode(false)
-            }}
-            title={t('project.linkTitle')}
-          >
+          <Button variant="toolbar" size="sm" active={linkMode} onClick={toggleLinkMode} title={t('project.linkTitle')}>
             <Icon name="link" size={16} />
             <span className="hidden md:inline">{t('mode.link')}</span>
           </Button>
-          <Button
-            variant="toolbar"
-            size="sm"
-            active={modifyMode}
-            onClick={() => {
-              setModifyMode((v) => !v)
-              // See the Annotate button: Link mode only, because Modify has no
-              // panel of its own in that slot to make room for.
-              setRightSlot((s) => closeSlot(s, 'links'))
-              setAnnotateMode(false)
-              setPendingModify(null)
-            }}
-            title={t('project.modifyTitle')}
-          >
+          <Button variant="toolbar" size="sm" active={modifyMode} onClick={modifyTool.onClick} title={modifyTool.title}>
             <Icon name="pencil" size={16} />
             <span className="hidden md:inline">{t('mode.modify')}</span>
           </Button>
@@ -3762,7 +4276,7 @@ export default function ProjectView({
                     className={`flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left text-body transition disabled:opacity-40 ${
                       // Inverted, not tinted — the same way an active toolbar
                       // button reads, and legible in both themes.
-                      tool.active ? 'bg-ink text-surface' : 'text-ink hover:bg-ink/5'
+                      tool.active ? 'bg-selected text-on-selected' : 'text-ink hover:bg-ink/5'
                     }`}
                   >
                     <Icon name={tool.icon} size={tool.iconSize ?? 16} />
@@ -3781,30 +4295,38 @@ export default function ProjectView({
                 the panel opened at x 657–881 on a 390px screen — entirely past
                 the edge, because the button it hangs from is itself pushed to
                 the right of the bar. */}
-            <div className="absolute left-0 top-full z-menu mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-xl md:left-auto md:right-0">
-              <div className="kicker px-2 py-1 text-accent-ink">{t('project.exportHeading')}</div>
-              {EXPORT_TARGETS.map(([stack, labelKey, hintKey]) => (
-                <button
-                  key={stack}
-                  type="button"
-                  onClick={() => handleExport(stack)}
-                  className="group block w-full rounded-md px-2.5 py-1.5 text-left text-body-sm text-ink transition hover:bg-ink/5"
-                >
-                  <span className="font-medium transition group-hover:text-accent-ink">{t(labelKey)}</span>
-                  <span className="block text-caption text-ink-faint">{t(hintKey)}</span>
-                </button>
-              ))}
+            <div className="absolute left-0 top-full z-menu mt-1 w-max min-w-[16rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-xl">
+              {exportItems(() => setExportMenu(false))}
             </div>
           </>
         )}
       </div>
 
-      {/* Floating composer */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+      {/* The creation column — the reference's "Atelier de création". From md
+          the composer is a column beside the canvas instead of a bar floating
+          over it: the canvas keeps its whole height, and the composer stops
+          covering the bottom of every screen it is asked to change. Below md
+          it is the floating bar it always was. */}
+      <aside className="pointer-events-none absolute inset-x-0 bottom-0 z-panel flex justify-center md:pointer-events-auto md:static md:order-1 md:w-[300px] md:shrink-0 md:flex-col md:justify-start md:border-r md:border-line-soft md:bg-surface md:px-0">
+        <header className="hidden shrink-0 border-b border-line-soft px-4 pb-3 pt-4 md:block">
+          <p className="kicker">{t('workspace.atelier')}</p>
+          <h2 className="mt-1.5 text-lead font-semibold text-ink">
+            {!editing
+              ? t('workspace.newScreen')
+              : selectedScreens.length === 1
+                ? t('workspace.editOne')
+                : t('workspace.editMany', { count: selectedScreens.length })}
+          </h2>
+          <p className="mt-0.5 text-caption text-ink-muted">
+            {editing
+              ? t('workspace.editHint')
+              : t(screens.length === 1 ? 'workspace.screens_one' : 'workspace.screens_other', { count: screens.length })}
+          </p>
+        </header>
         {/* The whole bar takes a dropped screenshot, not only the field: a drop
             aimed at "the composer" lands wherever the pointer happens to be. */}
         <div
-          className={`pointer-events-auto w-full max-w-2xl rounded-2xl border bg-surface p-2 shadow-2xl transition ${
+          className={`pointer-events-auto w-full max-w-2xl rounded-t-2xl border border-b-0 bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl transition md:min-h-0 md:border-b md:max-w-none md:flex-1 md:overflow-y-auto md:rounded-none md:border-0 md:bg-transparent md:p-3 md:shadow-none ${
             siteDragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
           }`}
           {...siteDropHandlers((files) => void addSiteFiles(files), setSiteDragOver)}
@@ -3885,7 +4407,7 @@ export default function ProjectView({
                   <button
                     type="button"
                     onClick={() => setAnnotations((arr) => arr.filter((x) => x.id !== a.id))}
-                    className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
+                    className="absolute right-0 top-0 rounded-bl bg-black/60 p-0.5 text-white opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
                     aria-label={t('project.removeRefN', { n: i + 1 })}
                     title={t('project.removeRef')}
                   >
@@ -3918,7 +4440,7 @@ export default function ProjectView({
               {selectedScreens.map((s) => (
                 <span
                   key={s.id}
-                  className="flex max-w-[200px] items-center gap-1 rounded-md border border-accent bg-ink py-0.5 pl-2 pr-1 text-body-sm font-medium text-surface"
+                  className="flex max-w-[200px] items-center gap-1 rounded-md border border-accent/40 bg-selected py-0.5 pl-2 pr-1 text-body-sm font-medium text-on-selected"
                 >
                   <span className="flex min-w-0 items-center gap-1.5">
                     <Icon name="grid" size={12} />
@@ -3926,7 +4448,7 @@ export default function ProjectView({
                   </span>
                   <button
                     type="button"
-                    className="rounded p-0.5 text-surface/70 transition hover:bg-surface/20 hover:text-surface"
+                    className="rounded p-0.5 text-on-selected/70 transition hover:bg-on-selected/20 hover:text-on-selected"
                     onClick={() => setSelectedIds((ids) => ids.filter((i) => i !== s.id))}
                     aria-label={t('project.removeFromSelectionOf', { name: s.name })}
                     title={t('project.removeFromSelection')}
@@ -4001,9 +4523,12 @@ export default function ProjectView({
             </div>
           )}
 
-          {/* Format preset — only relevant when creating a new screen */}
+          {/* The same order as the first composer (Welcome): WHAT is made, the
+              request, HOW it is made, then the buttons. The options used to sit
+              ABOVE the field as a row of bare capitalised words, and the
+              buttons beside it squeezed the field on a narrow window. */}
           {!editing && (
-            <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className={`mb-2 flex-wrap items-center gap-2 md:flex ${narrowOptions ? 'flex' : 'hidden'}`}>
               <span className="kicker">{t('project.format')}</span>
               <PresetPicker
                 value={presetId}
@@ -4016,253 +4541,292 @@ export default function ProjectView({
               <ScreenThemePicker
                 value={themeId}
                 onChange={chooseTheme}
-                placement="up"
+                // Down in the column, which starts under the top bar; up from
+                // the floating bar, which sits at the bottom of the screen.
+                placement={wide ? 'down' : 'up'}
                 disabled={busy || enhancer.running}
                 ignored={themeIgnored}
               />
+              {/* Flat sheet or folded leaflet, for a type that folds and a size
+                  that can take it (lib/folds.ts): a property of the format. */}
+              {composerFolds.length > 0 && (
+                <FoldControl
+                  value={composerFold}
+                  folds={composerFolds}
+                  onChange={setFoldId}
+                  className="composer-chip"
+                />
+              )}
             </div>
           )}
 
-          {/* Two rows, not one.
-              The three toggles grew from two words to a sentence each, and on
-              one line they squeezed the prompt field down to a few characters
-              and the Generate button to an initial. The field is the point of
-              this bar; it gets the width.
+          <EnhanceNotice enhancer={enhancer} className="mb-2" />
+          {/* min-w-0: a textarea's automatic minimum size comes from `cols`
+              (20 by default), which is wider than a 390px row. */}
+          <textarea
+            ref={composerField}
+            rows={2}
+            className="input min-w-0 resize-none md:min-h-[7.5rem]"
+            placeholder={
+              editing
+                ? t(
+                    selectedScreens.length === 1 ? 'project.composerEdit_one' : 'project.composerEdit_other',
+                    { count: selectedScreens.length },
+                  )
+                : siteShots.length
+                  ? t('project.sitePlaceholder')
+                  : t('composer.placeholder')
+            }
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={onComposerKey}
+            onPaste={onComposerPaste}
+            // The brief is being written INTO the field: a keystroke now would
+            // be overwritten by the next chunk, or overwrite it.
+            readOnly={enhancer.running}
+            aria-busy={enhancer.running || undefined}
+          />
 
-              They were also bare `.kicker` text: 11px, 16px tall, no padding at
-              all — three of the smallest hit targets in the product, and a
-              design-system violation besides, since caption 11px is for badges
-              only. They are controls, so they take body-sm 13px and a real box.
-              `text-body-sm` after `kicker` is not redundant: Tailwind emits
-              utilities after components, so that is what actually overrides the
-              `@apply text-caption` inside `.kicker` while the rest of the
-              device — capitals, tracking, weight — stays.
-
-              `tap-target` because these are hand-rolled `<button>`s and not the
-              `Button` primitive, so the 44px touch floor in index.css does not
-              reach them on its own. `-mx-2` pays back the `px-2` each toggle now
-              carries, so the labels still line up with the Format row above
-              instead of sitting 8px in. */}
-          <div className="-mx-2 mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-            {/* One direction per project, and this is the only way to change it
-                from the composer: tick it, and THIS prompt writes the design
-                every following screen will follow. Hidden while editing — an
-                edit reworks what a direction produced, and letting it rewrite
-                that direction would reattribute every other screen in the
-                project to a document written for a change to one of them.
-                DESIGN.md itself is still reachable from the header and from a
-                screen's context menu; what it is not any more is a thing the
-                composer silently rewrote on every generation. */}
-            {!editing && (
-              <button
-                type="button"
-                onClick={() => setRedesign((v) => !v)}
-                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center px-2 py-1.5 text-body-sm transition ${
-                  redesign ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-                }`}
-                title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
-                aria-pressed={redesign}
-              >
-                {redesign ? '● ' : '○ '}
-                {t('project.redesignChip')}
-              </button>
-            )}
+          {/* The buttons, right under the field, as a message box has them: in
+              the column the options below can scroll, and Generate must not
+              scroll away with them. */}
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+            {/* The fold of the sheet, below md only. */}
             <button
               type="button"
-              onClick={toggleMuse}
-              className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                museConfig.enabled ? 'text-muse-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-              title={museHint ? t('project.museHint') : t('project.museToggle')}
-              aria-pressed={museConfig.enabled}
+              aria-expanded={narrowOptions}
+              onClick={() => setNarrowOptions((v) => !v)}
+              className="composer-chip md:hidden"
             >
-              <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
-              <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
+              <Icon name="settings" size={14} />
+              {t('workspace.options')}
+              <Icon name="chevronDown" size={12} className={`transition-transform ${narrowOptions ? 'rotate-180' : ''}`} />
             </button>
-            {/* New screens only: an edit keeps the flow its screen already has. */}
-            {!editing && (
-              <button
-                type="button"
-                onClick={toggleFlows}
-                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                  flowsOn ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-                }`}
-                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
-                aria-pressed={flowsOn}
-              >
-                <Icon name="cable" size={14} />
-                {t('flows.toggle')}
-              </button>
-            )}
-            {/* The account's brand, for this project (lib/brand.ts): offered once
-                a brand exists, remembered on the project, read by every
-                generation and edit until switched off. */}
-            {!editing && brandAvailable && (
-              <button
-                type="button"
-                onClick={() => onSetUseBrand?.(!project.useBrand)}
-                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                  project.useBrand ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-                }`}
-                title={t(project.useBrand ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
-                aria-pressed={!!project.useBrand}
-              >
-                <Icon name="star" size={14} />
-                {t('brand.toggle')}
-              </button>
-            )}
-            {/* New screens only: an edit reworks a screen that already is, or
-                is not, Motion Ultra — the pass that builds one is a storyboard
-                and a series of pictures, not an instruction to an edit. */}
-            {!editing && (
-              <UltraControl
-                ultra={project.ultra}
-                paused={ultraPaused}
-                onSetUltra={onSetUltra}
-                onTogglePause={() => setUltraPaused((v) => !v)}
-                videoAvailable={ultraVideoAvailable}
-                allowedCounts={ultraCounts}
-                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
-              />
-            )}
-            {/* A document has a choice of its own, "Sans image" first, drawn
-                whenever a page format is active: it is where a paid picture is
-                decided, so no other condition may hide it
-                (lib/documentPictures.ts). */}
-            {/* Flat sheet or folded leaflet, for a type that folds and a size
-                that can take it (lib/folds.ts). */}
-            {!editing && composerFolds.length > 0 && (
-              <FoldControl
-                value={composerFold}
-                folds={composerFolds}
-                onChange={setFoldId}
-                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
-              />
-            )}
-            {!editing && composerPage ? (
-              <DocumentImageControl
-                value={docImageShown}
-                choices={docImageChoicesNow}
-                onChange={setDocImageChoice}
-                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
-              />
-            ) : (
-              !editing &&
-              imageChoiceAvailable && (
-                <ImageSourceControl
-                  value={imageChoiceShown}
-                  choices={imageChoices}
-                  onChange={onImageChoice}
-                  className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
-                />
-              )
-            )}
-            {/* Screenshots of an existing site. The same files also arrive by
-                paste into the field and by a drop anywhere on the bar; the
-                button is the one of the three a phone has. Shown while editing
-                too: there they are references, like the annotations. */}
-            <SiteAttachButton
-              onFiles={(files) => void addSiteFiles(files)}
-              disabled={busy}
-              size={14}
-              labelled
-              className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                siteShots.length ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-            />
-          </div>
-
-          <EnhanceNotice enhancer={enhancer} className="mb-2" />
-          <div className="flex items-end gap-2">
-            {/* min-w-0: a textarea's automatic minimum size comes from `cols`
-                (20 by default), which is wider than the room left beside the
-                two buttons at 390px — so without this the row overflowed the
-                composer instead of the field giving way. */}
-            <textarea
-              ref={composerField}
-              rows={2}
-              className="input min-w-0 resize-none"
-              placeholder={
-                editing
-                  ? t(
-                      selectedScreens.length === 1 ? 'project.composerEdit_one' : 'project.composerEdit_other',
-                      { count: selectedScreens.length },
-                    )
-                  : siteShots.length
-                    ? t('project.sitePlaceholder')
-                    : t('composer.placeholder')
-              }
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={onComposerKey}
-              onPaste={onComposerPaste}
-              // The brief is being written INTO the field: a keystroke now would
-              // be overwritten by the next chunk, or overwrite it.
-              readOnly={enhancer.running}
-              aria-busy={enhancer.running || undefined}
-            />
             {/* New screens only. An edit instruction must stay narrow — EDIT_RULES
                 change only what is asked — and a 200-word brief would read as a
                 redesign of the selected screens. */}
-            {!editing && (
+            {!editing ? (
               <PromptEnhanceButton
                 enhancer={enhancer}
                 onStart={startEnhance}
                 disabled={busy || !prompt.trim()}
                 disabledReason={enhanceBlocked}
-                compact
-                className="mb-0.5"
               />
+            ) : (
+              <span />
             )}
-            <button
-              type="button"
-              className="btn-primary mb-0.5 flex shrink-0 items-center gap-2"
-              onClick={generate}
-              // Screenshots are a request on their own for a new screen; an
-              // edit still needs the words saying what to change.
-              disabled={busy || enhancer.running || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
-            >
-              {busy ? (
-                <>
-                  {/* MockyLoader porte deja role="status" + aria-label : le texte
-                      visible est masque aux lecteurs d'ecran pour que l'etat ne
-                      soit pas annonce deux fois.
-
-                      64px de signature plus le libelle plus le bouton Arreter,
-                      tous shrink-0, ne laissaient que ~74px au champ de saisie
-                      sur un telephone : la barre annoncait ce qu'elle faisait au
-                      prix de ce a quoi elle sert. Le mot passe a 32 et le
-                      libelle disparait sous sm — le champ garde ~190px, et le
-                      nom accessible du loader dit toujours l'etat. */}
-                  <MockyLoader size={32} label={busyLabel} className="shrink-0" />
-                  <span aria-hidden className="hidden sm:inline">
-                    {busyLabel}
-                  </span>
-                </>
-              ) : editing ? (
-                t('composer.update', { count: selectedScreens.length })
-              ) : (
-                t('composer.generate')
+            </div>
+            <div className="flex items-center gap-2">
+              {busy && (
+                <button
+                  type="button"
+                  className="btn-ghost shrink-0"
+                  onClick={cancelGenerate}
+                  title={t('project.stopTitle')}
+                >
+                  {t('composer.stop')}
+                </button>
               )}
-            </button>
-            {busy && (
               <button
                 type="button"
-                className="btn-ghost mb-0.5 shrink-0 px-3 py-2 text-body-sm"
-                onClick={cancelGenerate}
-                title={t('project.stopTitle')}
+                className="btn-primary flex shrink-0 items-center gap-2"
+                onClick={generate}
+                // Screenshots are a request on their own for a new screen; an
+                // edit still needs the words saying what to change.
+                disabled={busy || enhancer.running || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
               >
-                {t('composer.stop')}
+                {busy ? (
+                  <>
+                    {/* MockyLoader porte deja role="status" + aria-label : le texte
+                        visible est masque aux lecteurs d'ecran pour que l'etat ne
+                        soit pas annonce deux fois. Le libelle disparait sous sm. */}
+                    <MockyLoader size={32} label={busyLabel} className="shrink-0" />
+                    <span aria-hidden className="hidden sm:inline">
+                      {busyLabel}
+                    </span>
+                  </>
+                ) : editing ? (
+                  t('composer.update', { count: selectedScreens.length })
+                ) : (
+                  `${t('composer.generate')} ↵`
+                )}
               </button>
-            )}
+            </div>
           </div>
+          {/* HOW the screen is made, in three named groups of rows — what it
+              follows, what helps write it, where its pictures come from. They
+              were chips, and the column's line breaks decided where a group
+              ended (see ComposerOptions). While EDITING only Muse and the
+              screenshots remain: the rest decide what a new screen is. */}
+          <div className={`mt-3 flex-col gap-3 border-t border-line-soft pt-3 md:flex ${narrowOptions ? 'flex' : 'hidden'}`}>
+            {/* One direction per project, and this is the only way to change it
+                from the composer: tick it, and THIS prompt writes the design
+                every following screen will follow. Hidden while editing — an
+                edit reworks what a direction produced, and letting it rewrite
+                that direction would reattribute every other screen in the
+                project to a document written for a change to one of them. */}
+            {!editing && (
+              <OptionGroup label={t('workspace.groupStyle')}>
+                <OptionToggle
+                  icon="wand"
+                  label={t('project.redesignChip')}
+                  hint={t('workspace.hintRedesign')}
+                  on={redesign}
+                  onClick={() => setRedesign((v) => !v)}
+                  title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
+                />
+                {/* The account's brand, for this project (lib/brand.ts): offered
+                    once a brand exists, remembered on the project. */}
+                {brandAvailable && (
+                  <OptionToggle
+                    icon="star"
+                    label={t('brand.toggle')}
+                    hint={t('workspace.hintBrand')}
+                    on={!!project.useBrand}
+                    onClick={() => onSetUseBrand?.(!project.useBrand)}
+                    title={t(project.useBrand ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
+                  />
+                )}
+              </OptionGroup>
+            )}
+            <OptionGroup label={t('workspace.groupHelp')}>
+              <OptionToggle
+                icon="sparkle"
+                label={t('muse.title')}
+                hint={t('workspace.hintMuse')}
+                on={museConfig.enabled}
+                onClick={toggleMuse}
+                sweep={museHint}
+                title={museHint ? t('project.museHint') : t('project.museToggle')}
+              />
+              {/* New screens only: an edit reworks a screen that already is, or
+                  is not, Motion Ultra — the pass that builds one is a storyboard
+                  and a series of pictures, not an instruction to an edit. */}
+              {!editing && (
+                <UltraControl
+                  variant="row"
+                  ultra={project.ultra}
+                  paused={ultraPaused}
+                  onSetUltra={onSetUltra}
+                  onTogglePause={() => setUltraPaused((v) => !v)}
+                  videoAvailable={ultraVideoAvailable}
+                  allowedCounts={ultraCounts}
+                />
+              )}
+              {/* New screens only: an edit keeps the flow its screen already has. */}
+              {!editing && (
+                <OptionToggle
+                  icon="cable"
+                  label={t('flows.toggle')}
+                  hint={t('workspace.hintFlows')}
+                  on={flowsOn}
+                  onClick={toggleFlows}
+                  title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
+                />
+              )}
+            </OptionGroup>
+            <OptionGroup label={t('workspace.groupPictures')}>
+              {/* A document has a choice of its own, "Sans image" first, drawn
+                  whenever a page format is active: it is where a paid picture is
+                  decided, so no other condition may hide it
+                  (lib/documentPictures.ts). */}
+              {!editing && composerPage ? (
+                <DocumentImageControl
+                  value={docImageShown}
+                  choices={docImageChoicesNow}
+                  onChange={setDocImageChoice}
+                  className="flex w-full justify-between px-2 py-1.5 text-body-sm"
+                />
+              ) : (
+                !editing &&
+                imageChoiceAvailable && (
+                  <ImageSourceControl
+                    value={imageChoiceShown}
+                    choices={imageChoices}
+                    onChange={onImageChoice}
+                    className="flex w-full justify-between px-2 py-1.5 text-body-sm"
+                  />
+                )
+              )}
+              {/* Screenshots of an existing site. The same files also arrive by
+                  paste into the field and by a drop anywhere on the composer;
+                  the button is the one of the three a phone has. Shown while
+                  editing too: there they are references, like the annotations. */}
+              <SiteAttachButton
+                onFiles={(files) => void addSiteFiles(files)}
+                disabled={busy}
+                size={16}
+                labelled
+                className={`${OPTION_ROW} text-body-sm font-medium ${siteShots.length ? 'text-ink [&>svg]:text-accent-ink' : 'text-ink-muted [&>svg]:text-ink-faint'}`}
+              />
+            </OptionGroup>
+          </div>
+
         </div>
-      </div>
+        {/* The foot of the column: the other things this workshop makes, and
+            what was made last. Column only — on a phone the composer is a
+            floating bar again and has no room for either. */}
+        <div className="hidden max-h-[45%] shrink-0 overflow-y-auto border-t border-line-soft px-4 py-3 md:block">
+          {!editing && (
+            <>
+              <OptionGroup label={t('workspace.alsoMake')}>
+                <OptionAction
+                  icon="megaphone"
+                  label={t('workspace.alsoCampaign')}
+                  hint={t('workspace.alsoCampaignHint')}
+                  lit={showCampaign}
+                  title={t('campaign.toolbarTitle')}
+                  onClick={() => setRightSlot((sl) => toggleSlot(sl, 'campaign'))}
+                />
+                {/* A film is made from the media library, not from a screen —
+                    which is why it lives here, with what this column makes, and
+                    not in a screen's menu. "A film", because "Motion Ultra" is
+                    also the name of the option above. */}
+                <OptionAction
+                  icon="film"
+                  label={t('workspace.alsoFilm')}
+                  hint={t('workspace.alsoFilmHint')}
+                  lit={showVideoExport}
+                  title={t('video.toolbarTitle')}
+                  onClick={() => setShowVideoExport((v) => !v)}
+                />
+              </OptionGroup>
+              <div className="mb-3" />
+            </>
+          )}
+          <p className="kicker mb-1.5">{t('workspace.history')}</p>
+          <ul className="space-y-0.5">
+            {recentScreens.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  title={t('workspace.historyTitle')}
+                  onClick={() => {
+                    setSelectedIds([s.id])
+                    setFocus({ screenId: s.id, nonce: Date.now() })
+                  }}
+                  className="flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-left transition hover:bg-ink/5"
+                >
+                  <Icon name="history" size={14} className="mt-0.5 shrink-0 text-ink-faint" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body-sm text-ink">{s.name}</span>
+                    <span className="block text-caption text-ink-faint">{timeAgo(s.createdAt)}</span>
+                  </span>
+                  {selectedIds.includes(s.id) && (
+                    <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
 
       {/* Target picker — the list behind the cable's "Choose from the list" */}
       {pendingLink?.list && (
         <div
-          className="absolute inset-0 z-40 flex items-center justify-center bg-ink/60 p-4"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
           onClick={() => setPendingLink(null)}
         >
           <div
@@ -4272,7 +4836,7 @@ export default function ProjectView({
             className="w-full max-w-sm rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="kicker mb-1 text-accent-ink">{t('project.linkKicker')}</div>
+            <div className="kicker mb-1">{t('project.linkKicker')}</div>
             <h3 id="link-target-title" className="mb-1 text-lead text-ink">
               {pendingLink.info.label
                 ? t('project.linkElement', { label: pendingLink.info.label })
@@ -4317,14 +4881,14 @@ export default function ProjectView({
       {/* No-code element editor (Modify mode) */}
       {pendingModify && (
         <div
-          className="absolute inset-0 z-40 flex items-center justify-center bg-ink/60 p-4"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
           onClick={() => setPendingModify(null)}
         >
           <div
             className="w-full max-w-md rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="kicker mb-1 flex items-center gap-1.5 text-accent-ink">
+            <div className="kicker mb-1 flex items-center gap-1.5">
               <Icon name="pencil" size={14} />
               {t('mode.modify')}
             </div>
@@ -4535,188 +5099,196 @@ export default function ProjectView({
                 }}
               />
               <ContextMenuShell x={menu.x} y={menu.y}>
-                {s.page && (
-                  <MenuItem
-                    icon="download"
-                    label={t('project.docDownload')}
-                    // As the pill on the frame: a document still being written
-                    // would export half a page.
-                    disabled={!s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
-                    onClick={() => { close(); setDownloadDocId(s.id) }}
-                  />
-                )}
-                {/* A document only: pages are what a fit is measured against. */}
-                {s.page && (
-                  <MenuItem
-                    icon="fit"
-                    label={t('project.docFit')}
-                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
-                    onClick={() => { close(); void fitDocument(s.id) }}
-                  />
-                )}
-                <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
-                <MenuItem icon="sparkle" label={t('project.polish')} disabled={busy} onClick={() => { close(); polishScreen(s.id) }} />
-                {/* Only on a screen that carries a film: the one place a film made
-                    at the first prompt can still be changed rather than replaced. */}
-                {s.attachedMedia?.kind === 'film' && (
-                  <MenuItem icon="pencil" label={t('project.motionRevise')} disabled={busy} onClick={() => { close(); setReviseFilmScreenId(s.id) }} />
-                )}
-                <MenuItem
-                  icon="pencil"
-                  label={t('canvas.rename')}
-                  onClick={() => {
-                    close()
-                    const n = window.prompt(t('project.screenNamePrompt'), s.name)
-                    if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
-                  }}
-                />
-                <MenuItem
-                  icon="note"
-                  label={s.userNotes?.length ? t('notes.menuCount', { count: s.userNotes.length }) : t('notes.menu')}
-                  onClick={() => { close(); setNotesScreenId(s.id) }}
-                />
-                <MenuItem icon="history" label={t('versions.screenMenu')} onClick={() => { close(); setHistoryScreenId(s.id) }} />
-                <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
-                <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
-                <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
-                {/* Not offered on a document: its chrome is <Doc>/<Page>, which an
-                    app screen has no kit for, and `pickReference` passes a pinned
-                    document over anyway. Still there to UNPIN one. */}
-                {(!s.page || isRef) && (
-                  <MenuItem
-                    icon="pin"
-                    label={t(isRef ? 'project.unpinReference' : 'project.pinReference')}
-                    onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
-                  />
-                )}
-                {/* An ordinary screen as files a person can send: the whole page
-                    as a picture, or cut into slides (lib/docExport/web.ts). */}
-                {!s.page && (
-                  <MenuItem
-                    icon="image"
-                    label={t('project.webExportPng')}
-                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
-                    onClick={() => { close(); void exportWeb(s.id, 'png') }}
-                  />
-                )}
-                {!s.page && (
-                  <MenuItem
-                    icon="download"
-                    label={t('project.webExportPptx')}
-                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
-                    onClick={() => { close(); void exportWeb(s.id, 'pptx') }}
-                  />
-                )}
-                <MenuItem icon="download" label={t('canvas.download')} onClick={() => { close(); downloadTsx(s) }} />
-                {s.previousCode && (
-                  <MenuItem icon="undo" label={t('common.revert')} onClick={() => { close(); onRevertScreen(s.id) }} />
-                )}
-                <MenuItem
-                  icon="wand"
-                  label={t(derivingDesignId === s.id ? 'project.deriveDesignBusy' : 'project.deriveDesign')}
-                  onClick={() => { close(); deriveDesignFrom(s) }}
-                />
-                <MenuItem icon="image" label={t('project.editDesign')} onClick={() => { close(); onOpenDesign() }} />
-                <MenuItem
-                  icon="library"
-                  label={t('project.changeImages')}
-                  onClick={() => { close(); setImagesForScreen(s.id) }}
-                />
-                <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
+                {/* Three groups, in the order a person reaches for them: what
+                    CHANGES the screen, then what LEAVES with it, then
+                    housekeeping. It was one flat list of twenty-odd entries in
+                    the order they were added, with three exports scattered
+                    among renaming and pinning. The groups carry no title — the
+                    rule between them is enough, as in the reference menu. */}
+                {(() => {
+                  const writing = generatingIds.has(s.id) || regeneratingIds.has(s.id)
+                  const unexportable = busy || !s.code.trim() || writing
+                  return (
+                    <>
+                      {/* Editing a screen is selecting it: the composer turns to it. */}
+                      <MenuItem
+                        icon="comment"
+                        label={t('project.menuEditMessage')}
+                        hint="↵"
+                        disabled={busy}
+                        onClick={() => {
+                          close()
+                          setSelectedIds([s.id])
+                          requestAnimationFrame(() => composerField.current?.focus())
+                        }}
+                      />
+                      <MenuItem icon="sparkle" label={t('project.polish')} disabled={busy} onClick={() => { close(); polishScreen(s.id) }} />
+                      <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
+                      <MenuItem icon="library" label={t('project.changeImages')} onClick={() => { close(); setImagesForScreen(s.id) }} />
+                      <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
+                      {/* A page does not move: animations mean nothing on a document. */}
+                      {!s.page && (
+                        <SubMenu icon="pulse" label={t('project.menuAnimations')}>
+                          <MenuLabel>{t('project.addAnimations')}</MenuLabel>
+                          {ANIMATION_LEVELS.map((lvl) => (
+                            <MenuItem
+                              key={lvl}
+                              icon="plus"
+                              label={t(ANIMATION_LEVEL_KEYS[lvl])}
+                              disabled={busy || !s.code.trim()}
+                              onClick={() => { close(); addAnimations(s.id, lvl) }}
+                            />
+                          ))}
+                          <MenuRule />
+                          {/* Whether this screen PLAYS its animations — distinct
+                              from adding them, which rewrites the code. Both
+                              states are listed and the current one is checked: a
+                              single item that changed wording never showed which
+                              state you were on. */}
+                          <MenuLabel>{t('project.playAnimations')}</MenuLabel>
+                          {(
+                            [
+                              [undefined, 'project.playOn'],
+                              [false, 'project.playOff'],
+                            ] as const
+                          ).map(([value, labelKey]) => (
+                            <MenuItem
+                              key={String(value)}
+                              icon="play"
+                              label={t(labelKey)}
+                              checked={value === false ? s.animations === false : s.animations !== false}
+                              onClick={() => { close(); onUpdateScreen(s.id, { animations: value }) }}
+                            />
+                          ))}
+                        </SubMenu>
+                      )}
+                      {/* Only on a screen that carries a film: the one place a
+                          film made at the first prompt can still be changed rather
+                          than replaced. Making a NEW film stays in the toolbar: a
+                          cut is made from the media library and reads no screen. */}
+                      {s.attachedMedia?.kind === 'film' && (
+                        <MenuItem icon="film" label={t('project.motionRevise')} disabled={busy} onClick={() => { close(); setReviseFilmScreenId(s.id) }} />
+                      )}
+                      {/* A document only: pages are what a fit is measured against. */}
+                      {s.page && (
+                        <MenuItem
+                          icon="fit"
+                          label={t('project.docFit')}
+                          disabled={busy || !s.code.trim() || writing}
+                          onClick={() => { close(); void fitDocument(s.id) }}
+                        />
+                      )}
+                      {s.previousCode && (
+                        <MenuItem icon="undo" label={t('common.revert')} onClick={() => { close(); onRevertScreen(s.id) }} />
+                      )}
 
-                {/* A document's size is its page format, and a page does not
-                    move: neither the viewport formats nor the animation
-                    controls below mean anything for it. */}
-                {!s.page && (<>
-                <div className="my-1 border-t border-line-soft" />
-                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.displayFormat')}</div>
-                <div className="flex gap-1 px-2 pb-1.5">
-                  {([
-                    ['mobile', 'project.formatMobile'],
-                    ['tablet', 'project.formatTablet'],
-                    ['desktop', 'project.formatDesktop'],
-                    ['full', 'project.formatFull'],
-                  ] as [ViewportFormat, string][]).map(([f, labelKey]) => (
-                    <button
-                      key={f}
-                      type="button"
-                      aria-label={
-                        f === 'full' ? t('project.formatFullTitle') : t('project.formatOf', { name: t(labelKey) })
-                      }
-                      title={f === 'full' ? t('project.formatFullTitle') : t(labelKey)}
-                      onClick={() => { close(); setFormat(s.id, f) }}
-                      className="flex-1 rounded-md border border-line-soft py-1 text-caption font-medium transition hover:border-accent hover:text-accent-ink"
-                    >
-                      {t(labelKey)}
-                    </button>
-                  ))}
-                </div>
+                      <MenuRule />
+                      {/* Every way a screen leaves Mocky, in one place. */}
+                      <SubMenu icon="download" label={t('project.menuExport')}>
+                        {s.page ? (
+                          <MenuItem
+                            icon="download"
+                            label={t('project.docDownload')}
+                            // As the pill on the frame: a document still being
+                            // written would export half a page.
+                            disabled={!s.code.trim() || writing}
+                            onClick={() => { close(); setDownloadDocId(s.id) }}
+                          />
+                        ) : (
+                          <>
+                            {/* The whole page as a picture, or cut into slides
+                                (lib/docExport/web.ts). */}
+                            <MenuItem
+                              icon="image"
+                              label={t('project.webExportPng')}
+                              disabled={unexportable}
+                              onClick={() => { close(); void exportWeb(s.id, 'png') }}
+                            />
+                            <MenuItem
+                              icon="download"
+                              label={t('project.webExportPptx')}
+                              disabled={unexportable}
+                              onClick={() => { close(); void exportWeb(s.id, 'pptx') }}
+                            />
+                          </>
+                        )}
+                        <MenuItem icon="code" label={t('canvas.download')} onClick={() => { close(); downloadTsx(s) }} />
+                      </SubMenu>
+                      <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
 
-                <div className="my-1 border-t border-line-soft" />
-                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.addAnimations')}</div>
-                <div className="flex gap-1 px-2 pb-1.5">
-                  {ANIMATION_LEVELS.map((lvl) => (
-                    <button
-                      key={lvl}
-                      type="button"
-                      disabled={busy || !s.code.trim()}
-                      title={t('project.animTitle', { level: t(ANIMATION_LEVEL_KEYS[lvl]).toLowerCase() })}
-                      onClick={() => { close(); addAnimations(s.id, lvl) }}
-                      className="flex-1 rounded-md border border-line-soft py-1 text-caption font-medium transition hover:border-accent hover:text-accent-ink disabled:opacity-40"
-                    >
-                      {t(ANIMATION_LEVEL_KEYS[lvl])}
-                    </button>
-                  ))}
-                </div>
+                      <MenuRule />
+                      <MenuItem
+                        icon="pencil"
+                        label={t('canvas.rename')}
+                        onClick={() => {
+                          close()
+                          const n = window.prompt(t('project.screenNamePrompt'), s.name)
+                          if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
+                        }}
+                      />
+                      <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
+                      <MenuItem
+                        icon="note"
+                        label={s.userNotes?.length ? t('notes.menuCount', { count: s.userNotes.length }) : t('notes.menu')}
+                        onClick={() => { close(); setNotesScreenId(s.id) }}
+                      />
+                      <MenuItem icon="history" label={t('versions.screenMenu')} onClick={() => { close(); setHistoryScreenId(s.id) }} />
+                      {/* A document's size is its page format: the viewport
+                          formats mean nothing for it. */}
+                      {!s.page && (
+                        <SubMenu icon="phone" label={t('project.displayFormat')}>
+                          {([
+                            ['mobile', 'project.formatMobile'],
+                            ['tablet', 'project.formatTablet'],
+                            ['desktop', 'project.formatDesktop'],
+                            ['full', 'project.formatFull'],
+                          ] as [ViewportFormat, string][]).map(([f, labelKey]) => (
+                            <MenuItem
+                              key={f}
+                              icon={f === 'full' ? 'fit' : 'phone'}
+                              label={f === 'full' ? t('project.formatFullTitle') : t(labelKey)}
+                              onClick={() => { close(); setFormat(s.id, f) }}
+                            />
+                          ))}
+                        </SubMenu>
+                      )}
+                      <SubMenu icon="wand" label={t('project.menuDesign')}>
+                        <MenuItem
+                          icon="wand"
+                          label={t(derivingDesignId === s.id ? 'project.deriveDesignBusy' : 'project.deriveDesign')}
+                          onClick={() => { close(); deriveDesignFrom(s) }}
+                        />
+                        <MenuItem icon="pencil" label={t('project.editDesign')} onClick={() => { close(); onOpenDesign() }} />
+                        {/* Not offered on a document: its chrome is <Doc>/<Page>,
+                            which an app screen has no kit for, and `pickReference`
+                            passes a pinned document over anyway. Still there to
+                            UNPIN one. */}
+                        {(!s.page || isRef) && (
+                          <MenuItem
+                            icon="pin"
+                            label={t(isRef ? 'project.unpinReference' : 'project.pinReference')}
+                            onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
+                          />
+                        )}
+                      </SubMenu>
+                      <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
 
-                <div className="my-1 border-t border-line-soft" />
-                {/* Whether this screen PLAYS its animations. Distinct from
-                    "Ajouter des animations" just above, which rewrites the
-                    code; this only decides whether what is already there runs.
-                    Three visible choices rather than one cycling label: in a
-                    menu, a single item that changes wording never shows what
-                    the other states are, or which one you are on. */}
-                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.playAnimations')}</div>
-                <div className="flex gap-1 px-2 pb-1.5">
-                  {(
-                    [
-                      [undefined, 'project.playOn', 'project.playOnTitle'],
-                      [false, 'project.playOff', 'project.playOffTitle'],
-                    ] as const
-                  ).map(([value, labelKey, titleKey]) => (
-                    <button
-                      key={String(value)}
-                      type="button"
-                      title={t(titleKey)}
-                      onClick={() => {
-                        close()
-                        onUpdateScreen(s.id, { animations: value })
-                      }}
-                      className={`flex-1 rounded-md border py-1 text-caption font-medium transition ${
-                        (value === false ? s.animations === false : s.animations !== false)
-                          ? 'border-accent bg-ink text-surface'
-                          : 'border-line-soft hover:border-accent hover:text-accent-ink'
-                      }`}
-                    >
-                      {t(labelKey)}
-                    </button>
-                  ))}
-                </div>
-                </>)}
-
-                <div className="my-1 border-t border-line-soft" />
-                <MenuItem
-                  icon="trash"
-                  label={t('canvas.delete')}
-                  danger
-                  onClick={() => {
-                    close()
-                    if (confirm(t('project.deleteScreenConfirm'))) {
-                      onRemoveScreen(s.id)
-                      setSelectedIds((ids) => ids.filter((i) => i !== s.id))
-                    }
-                  }}
-                />
+                      <MenuRule />
+                      <MenuItem
+                        icon="trash"
+                        label={t('canvas.delete')}
+                        danger
+                        onClick={() => {
+                          close()
+                          if (confirm(t('project.deleteScreenConfirm'))) {
+                            onRemoveScreen(s.id)
+                            setSelectedIds((ids) => ids.filter((i) => i !== s.id))
+                          }
+                        }}
+                      />
+                    </>
+                  )
+                })()}
               </ContextMenuShell>
             </>
           )
@@ -4862,7 +5434,7 @@ export default function ProjectView({
 
       {codeScreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           onClick={() => setCodeScreen(null)}
         >
           <div
@@ -4871,7 +5443,7 @@ export default function ProjectView({
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
               <span className="min-w-0">
-                <span className="kicker block text-accent-ink">{t('project.codeKicker')}</span>
+                <span className="kicker block">{t('project.codeKicker')}</span>
                 <span className="block truncate text-body text-ink">{codeScreen.name}</span>
               </span>
               <IconButton label={t('project.closeCode')} variant="quiet" onClick={() => setCodeScreen(null)}>
@@ -4927,7 +5499,7 @@ function ContextMenuShell({ x, y, children }: { x: number; y: number; children: 
   return (
     <div
       ref={ref}
-      className="menu-in fixed z-50 w-max min-w-[15rem] max-w-[min(24rem,calc(100vw-1rem))] overflow-hidden rounded-lg border border-line bg-raised py-1 text-body text-ink shadow-2xl"
+      className="menu-in fixed z-50 w-max min-w-[15rem] max-w-[min(24rem,calc(100vw-1rem))] rounded-lg border border-line bg-raised p-1 text-body-sm text-ink shadow-2xl"
       style={{
         left: pos.left,
         top: pos.top,
@@ -4942,33 +5514,135 @@ function ContextMenuShell({ x, y, children }: { x: number; y: number; children: 
   )
 }
 
+/** One row of a menu: the reference's 31px row, rounded inside the shell. */
+const MENU_ROW =
+  'flex min-h-8 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition disabled:opacity-40'
+
 function MenuItem({
   icon,
   label,
   onClick,
   danger,
   disabled,
+  hint,
+  checked,
 }: {
   icon: IconName
   label: string
   onClick: () => void
   danger?: boolean
   disabled?: boolean
+  /** A shortcut or a symbol, set faint at the end of the row. */
+  hint?: string
+  /** Marks the current state among siblings (a radio-like choice). */
+  checked?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition disabled:opacity-40 ${
-        danger ? 'text-danger hover:bg-danger/10' : 'hover:bg-ink/5'
+      role={checked === undefined ? undefined : 'menuitemradio'}
+      aria-checked={checked}
+      className={`${MENU_ROW} ${
+        danger ? 'text-danger hover:bg-danger/10' : checked ? 'bg-selected text-on-selected' : 'hover:bg-ink/5'
       }`}
     >
       {/* shrink-0 so a long label never squeezes the icon into a sliver. */}
-      <Icon name={icon} size={16} className="shrink-0" />
-      {/* No `truncate`: the frame now sizes to the content, so cutting the
-          label was hiding text that had room to be read. */}
+      <Icon name={icon} size={15} className={`shrink-0 ${checked || danger ? '' : 'text-ink-muted'}`} />
+      {/* No `truncate`: the frame sizes to the content, so cutting the label
+          was hiding text that had room to be read. */}
       <span className="whitespace-nowrap">{label}</span>
+      {checked && <Icon name="check" size={14} className="ml-auto shrink-0" />}
+      {hint && !checked && <span className="ml-auto pl-3 text-caption text-ink-faint">{hint}</span>}
     </button>
+  )
+}
+
+/** A rule between two groups of a menu. */
+function MenuRule() {
+  return <div className="mx-1 my-1 border-t border-line-soft" />
+}
+
+/** A small label above the rows it names, inside a submenu. */
+function MenuLabel({ children }: { children: React.ReactNode }) {
+  return <div className="kicker px-2.5 pb-1 pt-1.5">{children}</div>
+}
+
+/**
+ * A row that opens a second panel beside the menu — "Animations ›",
+ * "Exporter ›". Hover opens it, the way every desktop menu works; so do a click
+ * and → for a keyboard or a touch screen, where there is no hover.
+ *
+ * The panel opens to the right unless that would cross the window, then to the
+ * left, and it is lifted when it would run off the bottom. Both are measured
+ * after it mounts — its height depends on what the screen offers. It sits in a
+ * transparent gutter rather than behind a margin, so the pointer crossing from
+ * the row to the panel never leaves the submenu and closes it.
+ */
+function SubMenu({
+  icon,
+  label,
+  children,
+  disabled,
+}: {
+  icon: IconName
+  label: string
+  children: React.ReactNode
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [side, setSide] = useState<'right' | 'left'>('right')
+  const [lift, setLift] = useState(0)
+  const row = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (!open || !row.current || !panel.current) return
+    const r = row.current.getBoundingClientRect()
+    const p = panel.current.getBoundingClientRect()
+    const M = 8
+    setSide(r.right + p.width + M > window.innerWidth && r.left - p.width - M > 0 ? 'left' : 'right')
+    setLift(Math.max(0, r.top + p.height + M - window.innerHeight))
+  }, [open])
+
+  return (
+    <div
+      ref={row}
+      className="relative"
+      onMouseEnter={() => !disabled && setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') setOpen(true)
+          if (e.key === 'ArrowLeft') setOpen(false)
+        }}
+        className={`${MENU_ROW} ${open ? 'bg-ink/5' : 'hover:bg-ink/5'}`}
+      >
+        <Icon name={icon} size={15} className="shrink-0 text-ink-muted" />
+        <span className="whitespace-nowrap">{label}</span>
+        <Icon name="chevronRight" size={14} className="ml-auto shrink-0 text-ink-faint" />
+      </button>
+      {open && (
+        <div
+          className={`absolute z-50 ${side === 'right' ? 'left-full pl-1.5' : 'right-full pr-1.5'}`}
+          style={{ top: -5 - lift }}
+        >
+          <div
+            ref={panel}
+            role="menu"
+            className="w-max min-w-[12rem] rounded-lg border border-line bg-raised p-1 shadow-2xl"
+          >
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

@@ -90,7 +90,7 @@ export default function VersionsPanel({
 
       {/* Branches */}
       <section className="border-b border-line-soft px-3 py-3">
-        <div className="kicker mb-2 text-accent-ink">{t('versions.branches')}</div>
+        <div className="kicker mb-2">{t('versions.branches')}</div>
         <ul className="flex flex-col gap-1">
           {branches.map((b) => {
             const here = b.name === branch
@@ -203,7 +203,7 @@ export default function VersionsPanel({
       {/* History */}
       <section className="px-3 py-3">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="kicker text-accent-ink">{t('versions.history')}</span>
+          <span className="kicker">{t('versions.history')}</span>
           <Segmented
             value={scope}
             // Clicking the active segment answers null; a history always shows something.

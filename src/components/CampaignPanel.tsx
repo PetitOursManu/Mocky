@@ -179,7 +179,7 @@ export default function CampaignPanel({
 
         {/* The brief */}
         <section className="space-y-2">
-          <label htmlFor="campaign-brief" className="kicker text-accent-ink">
+          <label htmlFor="campaign-brief" className="kicker">
             {t('campaign.brief')}
           </label>
           <Textarea
@@ -195,7 +195,7 @@ export default function CampaignPanel({
         {/* The key facts */}
         <section className="space-y-2 border-t border-line-soft pt-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="kicker text-accent-ink">{t('campaign.facts')}</span>
+            <span className="kicker">{t('campaign.facts')}</span>
             <Button size="sm" variant="quiet" disabled={locked || !draft.brief.trim()} onClick={() => void readFacts()}>
               {reading ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="wand" size={14} />}
               {t('campaign.readFacts')}
@@ -247,7 +247,7 @@ export default function CampaignPanel({
 
         {/* The formats */}
         <section className="space-y-2 border-t border-line-soft pt-3">
-          <span className="kicker text-accent-ink">{t('campaign.formats')}</span>
+          <span className="kicker">{t('campaign.formats')}</span>
           <ul className="space-y-1">
             {CAMPAIGN_FORMATS.map((f) => {
               const on = draft.formats.includes(f.id)
@@ -300,7 +300,7 @@ export default function CampaignPanel({
         {/* The pieces */}
         {pieces.length > 0 && (
           <section className="space-y-2 border-t border-line-soft pt-3">
-            <span className="kicker text-accent-ink">{t('campaign.pieces', { count: pieces.length })}</span>
+            <span className="kicker">{t('campaign.pieces', { count: pieces.length })}</span>
             <ul className="space-y-1.5">
               {pieces.map((p) => {
                 const changes = factChanges(draft.facts, p.campaign)

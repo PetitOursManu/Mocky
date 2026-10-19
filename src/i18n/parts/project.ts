@@ -299,7 +299,13 @@ export const project = {
     'project.colorFuchsia': 'Fuchsia',
 
     // ---- screen context menu ----
-    'project.regenerate': 'Régénérer (nouvelle variante)',
+    'project.regenerate': 'Régénérer une variante',
+    // The menu's groups (ProjectView): what changes the screen first, then what
+    // leaves with it, then housekeeping.
+    'project.menuEditMessage': 'Modifier par message',
+    'project.menuAnimations': 'Animations',
+    'project.menuExport': 'Exporter',
+    'project.menuDesign': 'DESIGN.md',
     'project.copyOf': '{name} (copie)',
     'project.screenNamePrompt': 'Nom de l’écran',
     'project.showCode': 'Voir le code',
@@ -645,7 +651,13 @@ export const project = {
     'project.colorFuchsia': 'Fuchsia',
 
     // ---- screen context menu ----
-    'project.regenerate': 'Regenerate (new variant)',
+    'project.regenerate': 'Regenerate a variant',
+    // The menu's groups (ProjectView): what changes the screen first, then what
+    // leaves with it, then housekeeping.
+    'project.menuEditMessage': 'Edit with a message',
+    'project.menuAnimations': 'Animations',
+    'project.menuExport': 'Export',
+    'project.menuDesign': 'DESIGN.md',
     'project.copyOf': '{name} (copy)',
     'project.screenNamePrompt': 'Screen name',
     'project.showCode': 'Show code',

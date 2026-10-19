@@ -50,8 +50,9 @@ function contrast(a, b) {
 }
 
 const THEMES = {
-  light: tokensIn(':root,\n[data-theme=\'light\']'),
-  dark: tokensIn("[data-theme='dark']"),
+  dark: tokensIn(":root,\n[data-theme='dark']"),
+  // From the line start: the header comment quotes a `[data-theme='light']` rule.
+  light: tokensIn("\n[data-theme='light'] {"),
 }
 
 /** [foreground, background, minimum, what it is]. */
@@ -78,7 +79,13 @@ const PAIRS = [
   ['ok', 'surface', 4.5, 'success text'],
   ['muse', 'surface', 3.0, 'the Muse mark as a fill or rule'],
   ['muse-ink', 'surface', 4.5, 'the Muse mark as small text'],
-  ['line', 'surface', 3.0, 'the structural rule — a UI boundary needs 3:1'],
+  // The rules are soft on purpose: a surface is told apart by its value and
+  // the rule only finishes the edge. What WCAG 1.4.11 asks 3:1 of is the
+  // boundary that IDENTIFIES a component, and the one control that has nothing
+  // else to be recognised by is a form field — so the floor moved to --field.
+  ['field', 'surface', 3.0, 'the edge of a form field'],
+  ['field', 'raised', 3.0, 'the edge of a form field inside a popover'],
+  ['on-selected', 'selected', 4.5, 'the label of an active control'],
 ]
 
 for (const [theme, tokens] of Object.entries(THEMES)) {

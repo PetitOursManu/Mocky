@@ -77,7 +77,7 @@ export default function AuthModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-ink/60 p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
       // No handler at all when an account is required — a click that is quietly
       // ignored looks like a bug. The explanatory line below says why instead.
       onClick={dismissible ? onClose : undefined}
@@ -88,7 +88,7 @@ export default function AuthModal({
         className="w-full max-w-sm border border-line bg-raised p-6 shadow-2xl"
       >
         <header className="rule-double pb-3">
-          <p className="kicker text-accent-ink">Mocky&nbsp;· Chat&nbsp;→&nbsp;UI</p>
+          <p className="kicker">Mocky&nbsp;· Chat&nbsp;→&nbsp;UI</p>
           <h2 className="masthead mt-1.5 text-h2">
             {cfg?.setup ? t('account.createAdmin') : mode === 'login' ? t('account.signIn') : t('account.create')}
           </h2>

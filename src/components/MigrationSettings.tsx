@@ -52,7 +52,7 @@ export default function MigrationSettings() {
   return (
     <section>
       <div className="section-head">
-        <span className="kicker text-accent-ink">{t('migration.heading')}</span>
+        <span className="kicker">{t('migration.heading')}</span>
       </div>
       <p className="measure text-body text-ink-muted">{t('migration.blurb')}</p>
 

@@ -141,7 +141,7 @@ export function DesignLibrarySection({
   return (
     <section className="mb-10">
       <div className="section-head">
-        <div className="kicker text-accent-ink">
+        <div className="kicker">
           {t('design.library')} <span className="text-ink-faint">({entries.length})</span>
         </div>
       </div>

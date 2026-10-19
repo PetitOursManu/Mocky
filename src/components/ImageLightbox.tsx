@@ -90,7 +90,7 @@ export default function ImageLightbox({
   return (
     <div
       ref={scrollRef}
-      className="fixed inset-0 z-top overflow-y-auto overscroll-contain bg-ink/60"
+      className="fixed inset-0 z-top overflow-y-auto overscroll-contain bg-black/60"
       onClick={onClose}
     >
       {/* Pinned actions — reachable no matter how long the prompt is. */}
@@ -192,7 +192,7 @@ export default function ImageLightbox({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="rule-thin mb-1.5 flex items-center justify-between gap-2 pb-1.5">
-            <span className="kicker text-accent-ink">{t('library.promptLabel')}</span>
+            <span className="kicker">{t('library.promptLabel')}</span>
             {info?.prompt && (
               <Button variant="ghost" size="sm" onClick={copyPrompt}>
                 <Icon name={copied ? 'check' : 'copy'} size={14} />

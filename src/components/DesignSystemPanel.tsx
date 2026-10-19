@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { parseDesignSystem, type DesignToken } from '../lib/designTokens'
-import { Button, Icon, IconButton } from '../ui'
+import { Button, Icon, IconButton, usePanelDock } from '../ui'
 import { useT } from '../i18n'
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -40,9 +40,18 @@ export default function DesignSystemPanel({
   }
 
   const hasColors = ds.colors.length > 0
+  const docked = usePanelDock()
 
   return (
-    <div className="absolute right-4 top-11 flex max-h-[80vh] w-80 flex-col rounded-xl border border-line bg-raised shadow-2xl backdrop-blur">
+    <div
+      className={
+        docked
+          ? 'flex min-h-0 flex-1 flex-col'
+          : 'absolute right-4 top-11 flex max-h-[80vh] w-80 flex-col rounded-xl border border-line bg-raised shadow-2xl backdrop-blur'
+      }
+    >
+      {/* Docked in the inspector, the tab is the title and the column closes
+          itself: only the way into DESIGN.md is left of this header. */}
       <div className="flex items-center justify-between gap-2 border-b border-line-soft px-3 py-1.5">
         <span className="flex min-w-0 items-center gap-2">
           <Icon name="image" size={16} className="text-accent" />
@@ -52,9 +61,11 @@ export default function DesignSystemPanel({
           <Button variant="quiet" size="sm" onClick={onEdit} title={t('design.editHint')}>
             {t('design.edit')}
           </Button>
-          <IconButton label={t('common.close')} variant="quiet" onClick={onClose}>
-            <Icon name="close" size={16} />
-          </IconButton>
+          {!docked && (
+            <IconButton label={t('common.close')} variant="quiet" onClick={onClose}>
+              <Icon name="close" size={16} />
+            </IconButton>
+          )}
         </div>
       </div>
 
@@ -70,7 +81,7 @@ export default function DesignSystemPanel({
         ) : (
           <>
             {/* Palette — click a swatch to recolor that token */}
-            <div className="kicker mb-1.5 text-accent-ink">{t('design.palette')}</div>
+            <div className="kicker mb-1.5">{t('design.palette')}</div>
             <div className="mb-3 grid grid-cols-2 gap-1.5">
               {ds.colors.map((c) => (
                 <button
@@ -119,7 +130,7 @@ export default function DesignSystemPanel({
 
             {/* Live sample rendered from the resolved roles */}
             <div className="rule-thin mb-3" />
-            <div className="kicker mb-1.5 text-accent-ink">{t('design.preview')}</div>
+            <div className="kicker mb-1.5">{t('design.preview')}</div>
             <div className="overflow-hidden border border-line-soft" style={{ background: r.bg, borderRadius: ds.radius }}>
               <div className="flex flex-col gap-3 p-3">
                 <div>

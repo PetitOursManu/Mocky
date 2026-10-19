@@ -100,6 +100,12 @@ system's accent colour, the one colour on the page the theme cannot reach.
 
 ### Lead, index, drafts
 
+The project touched last opens the page as a wide card — its picture, its name,
+the request that made its first screen, `Open`. The others follow as a grid of
+cards (one to four columns with the window), each with its picture, its name,
+that request, its screen count and age, and two buttons: file it, delete it.
+Folders are the sections of that grid; empty drafts come last, as small tags.
+
 | | Control | What it does | Cost |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg> | `Open` | Opens the project. | free |
@@ -123,24 +129,64 @@ currently filed, since otherwise the button would undo nothing.
 
 ---
 
+## The project workspace
+
+From `md` (768px) a project is three columns under one bar, as the reference
+the redesign was drawn from lays it out:
+
+| Where | What |
+|---|---|
+| **The top bar** | The wordmark (back to the projects), `Projects / name` (click the name to rename), then the project's tools: the canvas modes — `Select`, `Link`, `Interact`, `Modify`, `Annotate` — then `Demo`, `Share ▾`, `Export ▾` and the inspector's switch. The site navigation (DESIGN.md, Media, Settings) is one click away, on the wordmark. |
+| **Left: the creation workshop** | The composer as a column instead of a floating bar: a title that says what the next message does (`New screen`, or `Edit the screen` when screens are selected), the composer itself, `Also make` (`Campaign`, `Motion Ultra` films), and the four screens made last — click one to frame it on the canvas. |
+| **Centre: the canvas** | All of its height: nothing floats over the bottom of the screens any more. The zoom bar is bottom-left; `Frame` (the iPhone bezel) bottom-right, and only when the project has a phone screen. |
+| **Right: the inspector** | A rail of six icons that is always there — `Style`, `Versions`, `Audit`, `Approval`, `Campaign`, `Links` — and the panel the lit one opens beside it. Click an icon to open its panel, click it again (or `✕`) to fold the panel back into the rail. The panel is a column from `xl` (1280px), open on `Style` when a project opens; narrower, it floats over the canvas beside the rail. A status line at its foot says whether Mocky is working. |
+
+**`Share ▾`** puts sharing and approval together: `Link to the screen (QR code)`
+for the one selected screen, and `Send for approval…`, which opens the approval
+panel in the inspector. The number beside it is the client's unread comments.
+
+**`Export ▾`** is every way something leaves Mocky: the runnable project
+(`Ready for shadcn`, `Tailwind only`, `daisyUI`, each a `.zip`), the selected
+screen (PNG, PowerPoint, `.tsx` — or `Download…` for a document), and the media
+library. A screen's own menu keeps the same exports under `Export ›`.
+
+**The bar over the canvas** — `Canvas` is where you are; `Code` opens the
+selected screen's source (one screen selected). `Frame` (the iPhone bezel) sits here when the project has a
+phone screen. The right end says whether your work has reached the server — `All
+changes saved`, `Saving…`, or a failure. The canvas' own hint (what a click does
+in the current mode) moves to the bottom-right corner.
+
+**The floating tools** — with exactly one screen selected, a small bar at the
+top of the canvas names it and offers what is done to a screen most often:
+`Edit with a message` (puts the cursor in the composer), `Polish`, `Regenerate a
+variant`, `Share`, an export menu (PNG, PowerPoint, `.tsx`, or `Download…` for a
+document) and `⋯`, which opens the screen's whole menu under it.
+
+Below `md` the workspace folds back: the floating toolbar described next (a
+full-width bar on a phone, above the strip of screens), and the composer as a
+sheet along the bottom of the canvas. The sheet shows the field and its buttons;
+`Options` unfolds the format and the chips, which otherwise took half of a small
+window. The toolbar's `Export` holds the same rows as the top bar's.
+
+---
+
 ## The project toolbar
 
-Top-left of the canvas, and the densest thing in the product. Three defences
+Below `md` only — from `md` its tools are in the top bar (above). Top-left of
+the canvas, and the densest thing in the product. Three defences
 keep it on screen: labels fold away below `md`, everything past `Modify` folds
 into `More`, and the row scrolls itself rather than pushing the page sideways.
 
-:::hotspots src=assets/ui/toolbar.webp alt="The project toolbar"
-- 4.1,50 **Back**: Leaves the project — and aborts a generation in flight.
-- 12.7,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
-- 20.7,50 **Modify**: Click an element and describe a change, or edit its text directly.
-- 29.7,50 **Interact**: Every preview becomes clickable at once.
-- 39.4,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
-- 48.6,50 **Frame**: The iPhone frame around mobile screens. Greyed out when the project has none.
-- 57.2,50 **System**: The live design system: your tokens, and a way to recolour them.
-- 65.6,50 **Audit**: SEO and accessibility. Opening it evaluates nothing.
-- 75.7,50 **Motion Ultra**: Cut a film from the media library.
-- 87,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
-- 95.3,50 **Export**: A runnable Vite + React + Tailwind project, as a `.zip`.
+:::hotspots src=assets/ui/toolbar.webp alt="The project’s tools, in the top bar"
+- 4.6,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
+- 10.9,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
+- 17.1,50 **Interact**: Every preview becomes clickable at once.
+- 23.4,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 29.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
+- 45,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
+- 62.5,50 **Share**: A link to the selected screen, or the project sent for approval.
+- 82.2,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
+- 95.9,50 **Inspector**: Shows or hides the column of panels on the right.
 :::
 
 ### The three that never fold
@@ -194,20 +240,22 @@ it.
 
 ### The zoom bar
 
-Bottom-left of the canvas from `xl` up; below that it moves to the top and
-tucks under the toolbar. Geometry, not taste: the bar is pinned to the left
+Bottom-left of the canvas from `md` up, where the composer is a column and no
+longer covers that corner; below `md` it moves to the top and tucks under the
+floating toolbar. Geometry, not taste — this was the reasoning when the composer
+floated at every width: the bar is pinned to the left
 margin and the composer is a centred 672px block, so seven controls only clear
 it past roughly 1200px of window. Any narrower and the bottom-left corner sits
 behind the composer, which is opaque — which is how the only zoom control in
 the product came to be invisible on a laptop.
 
 :::hotspots src=assets/ui/zoombar.webp alt="The zoom bar"
-- 7.7,50 **Zoom out**: Around the centre of the view. `Ctrl/⌘ + wheel` does the same.
-- 37.2,50 **Zoom in**: Around the centre of the view.
-- 54.4,50 **Fit all**: Frames every screen, and keeps doing so until you move the view.
-- 67,50 **Latest screen**: Frames the most recent screen.
-- 79.6,50 **Arrange**: Repacks the board by each screen’s real size.
-- 92.3,50 **Cables**: Shows or hides the cables between screens outside link mode.
+- 8.6,50 **Zoom out**: Around the centre of the view. `Ctrl/⌘ + wheel` does the same.
+- 37.5,50 **Zoom in**: Around the centre of the view.
+- 54.3,50 **Fit all**: Frames every screen, and keeps doing so until you move the view.
+- 66.7,50 **Latest screen**: Frames the most recent screen.
+- 79,50 **Arrange**: Repacks the board by each screen’s real size.
+- 91.4,50 **Cables**: Shows or hides the cables between screens outside link mode.
 :::
 
 | | Control | What it does | Cost |
@@ -357,23 +405,31 @@ words too, not only on what a page looks like.
 
 Right-click a screen, or use <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> in its label bar.
 
+The menu is in three groups, a rule between them: what **changes** the screen
+(edit, polish, regenerate, media, frames, animations, revert), what **leaves**
+with it (`Export ›`, `Share`), and **housekeeping** (rename, duplicate, notes,
+versions, display format, DESIGN.md, code) — then `Delete screen`. An item with
+`›` opens a second panel beside the menu, on hover, on a click, or with `→`.
+
 The menu of a document, which opens on its own two items:
 
 :::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
-- 50,5.8 **Download…**: A document only: PDF with fillable fields, PowerPoint / Google Slides, or PNG images.
-- 50,12.5 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
-- 50,19.2 **Regenerate**: The same prompt again, for a different design.
-- 50,25.8 **Polish**: Checks the design against named rules and corrects what it finds.
-- 50,39.1 **Notes**: Private notes on this screen, never sent to a model.
-- 50,52.5 **Share**: A temporary public link and a QR code.
-- 50,94.2 **Delete screen**: One confirmation, and it is gone.
+- 50,4.4 **Edit with a message**: Selects the document and puts the cursor in the composer.
+- 50,10.6 **Polish**: Checks the design against named rules and corrects what it finds.
+- 50,16.7 **Regenerate a variant**: The same prompt again, for a different design.
+- 50,35.1 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
+- 50,43 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides, or PNG images — and the `.tsx`.
+- 50,49.1 **Share**: A temporary public link and a QR code.
+- 50,69.3 **Notes**: Private notes on this screen, never sent to a model.
+- 50,95.6 **Delete screen**: One confirmation, and it is gone.
 :::
 
 | | Item | What it does | Cost |
 |---|---|---|---|
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/></svg> | `Edit with a message` | Selects the screen and puts the cursor in the composer: what you type next is an edit of this screen, sent with `Update`. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Download…` | A document only: opens `Download the document` — PDF with fillable fields, PowerPoint / Google Slides, PNG images. See [Documents](documents.md#downloading). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> | `Fit to page` | A document only: measures what runs past the page, asks the model to win it back, measures the answer and keeps it only if it fits better, on the same number of pages. See [Documents](documents.md#when-content-runs-past-the-page). | model |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Regenerate (new variant)` | Re-runs the screen's own original prompt for a different result. The previous code is kept, so `Revert to the previous version` undoes it. | model |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Regenerate a variant` | Re-runs the screen's own original prompt for a different result. The previous code is kept, so `Revert to the previous version` undoes it. | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Polish (detect and correct)` | The quality pass: check, correct, check again. See [Quality pass](quality.md). | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Rename` | A browser prompt. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 8v4.5l3 2"/></svg> | `Versions of this screen` | Every saved state of this screen — its own versions and every project version that held it — to compare with the current one or restore. See [Versions and branches](versions.md). | free |
@@ -392,60 +448,81 @@ The menu of a document, which opens on its own two items:
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Frames…` | Changes the shape, picture, framing or shadow of each picture in a shape on the screen, or puts one of its pictures in a frame. Rewrites the source with no model call; `Revert` undoes it. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Delete screen` | One confirmation. | free |
 
-### The three groups of small buttons
+### The submenus
 
-At the bottom of the menu, three rows that look alike and are not.
+Four items open a second panel instead of acting at once.
 
-**`Display format` — `Mobile` · `Tablet` · `Desktop` · `Full`.** Resizes the
-frame and tells later passes what device this is. `Full` means full height,
-fitted to the content. Free: no code is rewritten.
+**`Animations ›`** holds two things that look alike and are not.
+`Add animations` — `Subtle` · `Moderate` · `Rich` — rewrites the code to add
+motion, keeping content and layout: it costs **model**, and is revertable.
+`Play animations` — `Yes` · `No`, the current one checked — only decides whether
+the motion already in the code runs. Free. Both states are listed, because in a
+menu a single item that changes wording never shows you what the other states
+are. Not on a document: a page does not move.
 
-**`Add animations` — `Subtle` · `Moderate` · `Rich`.** Rewrites the code to add
-motion, keeping content and layout. Costs **model**, and is revertable.
+**`Export ›`** is every way the screen leaves Mocky: `Download…` for a document,
+`Export as a PNG image (whole page)` and `Export as PowerPoint` for a screen, and
+`Download .tsx` for both. Free.
 
-**`Play animations` — `Auto` · `Yes` · `No`.** Decides whether the motion
-already in the code runs. Free. Three visible choices rather than one cycling
-label, because in a menu a single item that changes wording never shows you what
-the other states are.
+**`Display format ›`** — `Mobile` · `Tablet` · `Desktop` · full height. Resizes
+the frame and tells later passes what device this is. Free: no code is
+rewritten. Not on a document, whose size is its page format.
 
-The middle one spends tokens. The two beside it do not.
+**`DESIGN.md ›`** — `Make this screen my DESIGN.md` (model), `Edit DESIGN.md`,
+and `Pin as layout reference`.
 
 ---
 
 ## The composer
 
-The floating bar at the bottom. It is the only control in the product that
+The creation column on the left from `md` (see [the workspace](#the-project-workspace)); below it, the floating bar at the bottom. It is the only control in the product that
 changes verb depending on what is selected.
 
-:::hotspots src=assets/ui/composer.webp alt="The composer: formats, screen type, the three switches, the prompt, Improve and Generate"
-- 38,84.7 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
-- 49.4,84.7 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
-- 32.2,89.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 40.9,89.4 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 49.3,89.4 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 61.3,89.4 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 45.3,94.3 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 65,94.6 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 69.7,94.6 **Generate**: Creates the screen — or `Update` when screens are selected.
+:::hotspots src=assets/ui/composer.webp alt="The creation workshop: format, screen type, the prompt, the options, Improve, Generate, Also make and the recent history"
+- 11.9,14.5 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 25.7,19.2 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 49.8,29.2 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 49.8,50.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 49.8,60 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 49.8,65.7 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 49.8,80.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 19.6,40.1 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 77.7,40.1 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 49.8,66.2 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 49.8,81.5 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
 `Screen type` opens this menu — a [[screen type|screen-type]] for a screen, or a [[document|document]]:
 
 :::hotspots src=assets/ui/types.webp alt="The Screen type menu: documents, social media and screens"
-- 50,5.4 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
-- 25.7,29.4 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
-- 25.7,86.2 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
-- 25.7,115.8 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
+- 50,3.6 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
+- 50,19.1 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
+- 50,91.6 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
+- 50,123.9 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
 :::
 
-### The chips above the field
+### The options under the field
+
+The composer asks its questions in the order they come: **what** is made
+(`Format`, `Screen type`, a fold — above the field), the request, then **how**
+it is made — options in three named groups: **Style** (`New direction`,
+`Brand`), **Generation aids** (`Muse`, `Motion Ultra`, `Flows`) and
+**Pictures** (where new pictures come from, and `Screenshots of a site`). Each
+option is a row: its name, one line of what it does, and a switch that says
+whether it is on. `Motion Ultra` shows its settings (×3 / ×6, the video
+background) under its row once it is on. In the project's column the buttons
+sit right under the field and the options below them, so `Generate` never
+scrolls away. The first composer, on an empty project, is wider and shows the
+same options as one row of equal tiles — icon and switch, name, and what the
+option does in full — with `DESIGN.md` first and `Campaign` beside the format.
+
 
 | | Chip | What it does | Cost |
 |---|---|---|---|
 | | `New direction` | This prompt writes the project's art direction, which every screen after it follows. **It unticks itself once the screen is generated.** Hidden while editing a screen — an edit reworks what a direction produced, and letting it rewrite that direction would reattribute every other screen in the project. | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, art direction and real copy. Turning it on changes what a generation costs — see [Muse](muse/overview.md). | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Flows` | On by default. New screens are pages of a **working prototype**: forms, a simulated sign-in, filters and a shared cart work in the demo, and the screens a flow leads to (`account`, `cart`, `confirmation`…) are **created automatically** after the screen, three at most. Off, a screen is generated on its own, as before. Hidden while editing. See [Working prototypes](flows.md). | each created screen is one generation |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg> `Campaign` | On an empty project, beside `Flows`: opens the Campaign panel, which turns one brief into several formats. See [Campaign Studio](campaign.md). | each piece is one generation |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg> `Campaign` | On an empty project, beside the format: opens the Campaign panel, which turns one brief into several formats. See [Campaign Studio](campaign.md). | each piece is one generation |
 | | `Format` | The viewport preset for the next screen. Only shown when creating, not when editing. With a document type, the same chips become **page formats** (A4, A3, US Letter, 16:9, or the social sizes). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Screen type` | What kind of screen the next one is — dashboard, planning, kanban, landing page, pricing… — or, under `Documents to print or export` and `Social media`, what kind of document. The type's structure guides the generation; your words still win. **It stays armed**, and a project opens on the type of its latest screen; the ✕ beside it removes it. Ignored in `Reproduce`. | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Picture` · `No picture` / `Generated` / `Free photo` | A document only: whether it carries one picture, and where it comes from. `No picture` composes with shapes and colour. Remembered by the browser. | Generated: the image model's price |
@@ -460,6 +537,9 @@ there, it is unreachable. And, when screens are selected, one chip per screen
 with `Remove from selection`, plus `clear`.
 
 ### The field and its two buttons
+
+The buttons sit on a row of their own, so the field keeps the whole width:
+`Improve` on the left, `Generate` (or `Update`) on the right.
 
 | Control | What it does | Cost |
 |---|---|---|
@@ -516,7 +596,7 @@ refused up front, with a sentence saying so.
 
 ## The side panels
 
-All three open at the same place, on the right, under the toolbar.
+From `md` they are tabs of the inspector, on the right (see [the workspace](#the-project-workspace)); below it they float at the same place, on the right, under the toolbar.
 
 ### Links
 
@@ -711,12 +791,12 @@ signed-in user, the cart, the forms sent — while you move between them:
 on a recorded screen with recorded data (`+` records the current state).
 
 :::hotspots src=assets/ui/demo-device.webp alt="Demo mode: a screen shown in a line-drawn laptop"
-- 4.4,3.1 **Exit demo**: Back to the canvas. `Esc` does the same.
-- 3.9,9.7 **Back**: The previous screen of the path you followed.
-- 16.9,3.1 **Restart**: Back to the first screen.
-- 23.2,3.1 **Device**: The line-drawn frame: a computer, a tablet or a phone by the screen’s size; a hand for a printed document, a phone feed for a post.
-- 38.8,3.1 **Screen switcher**: Previous, a list of every screen, next — or ← →. Each step counts as a followed link.
-- 17.4,26 **The screen**: Live and clickable: the linked elements take you to their screens.
+- 4.5,3.5 **Exit demo**: Back to the canvas. `Esc` does the same.
+- 11.2,3.5 **Back**: The previous screen of the path you followed.
+- 17.3,3.5 **Restart**: Back to the first screen.
+- 23.9,3.5 **Device**: The line-drawn frame: a computer, a tablet or a phone by the screen’s size; a hand for a printed document, a phone feed for a post.
+- 38.3,3.5 **Screen switcher**: Previous, a list of every screen, next — or ← →. Each step counts as a followed link.
+- 50,47.4 **The screen**: Live and clickable: the linked elements take you to their screens.
 - 50,95.3 **Caption**: The size the screen was designed at, and the device it was given.
 :::
 
@@ -772,12 +852,12 @@ model, everything is revertable from the screen menu.
 | This | Not this | The difference |
 |---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1.5V4a1.5 1.5 0 0 1 3 0v7m0-1.5a1.5 1.5 0 0 1 3 0V13m-9 0a1.5 1.5 0 0 0-3 0v2a7 7 0 0 0 7 7h1a7 7 0 0 0 7-7v-4"/></svg> `Interact` (toolbar) | Double-clicking one screen | The toolbar button makes **every** preview clickable at once. The double-click makes exactly one, and that one wears an `Interactive — click outside to leave` badge. |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> `Add animations` (context menu) | `Play animations` (context menu) | The first **rewrites the code** to add motion — a model call, revertable. The second only decides whether motion that is already there runs. They sit two rows apart in the same menu. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> `Add animations` (context menu) | `Play animations` (context menu) | The first **rewrites the code** to add motion — a model call, revertable. The second only decides whether motion that is already there runs. Both are in the menu's `Animations ›` submenu, under two labels. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> `Use this design` (beside a frame) | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> `Make this screen my DESIGN.md` (context menu) | The first restores a **recorded** document, exactly, for free. The second asks a model to **read the screen and write a new one**. Same intent, opposite mechanism, and only one of them costs anything. |
 | `Apply` in the System panel | A `Recolor` swatch in the Element card | The System panel rewrites a token in DESIGN.md: free, and it changes **future** generations only. The Element swatch is a model edit of **this** element, right now, and leaves DESIGN.md alone. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z"/></svg> `Pin as layout reference` | `Use this design` | The pin governs **layout** for the next screens. The design card governs the **art direction**. A screen can be one, the other, both or neither. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> `System` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> `Edit DESIGN.md` | Same icon, two depths: the panel shows the tokens and recolours them; the page is the document itself. `Edit` inside the panel is the bridge. |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> `Regenerate (new variant)` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` | The first throws the screen away and asks again from the same prompt: a different design. The second keeps the design and fixes named defects in it. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> `Regenerate a variant` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` | The first throws the screen away and asks again from the same prompt: a different design. The second keeps the design and fixes named defects in it. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> `Audit` findings | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` findings | Two catalogues, two scores, two correction prompts. One is about markup, the other about taste. Neither one's score appears in the other's field. |
 | `Generate` | `Update ({count})` | The same button. If a screen is selected you are editing, not creating. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> `Fit to page` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` | Both rewrite a document and keep the design. The first answers one measured problem — content past the page — and only tightens; the second answers a list of design findings. |
@@ -837,7 +917,7 @@ this is the complete list.
 | `Update ({count})` | Composer | One call per selected screen. |
 | `Improve` | Composer | One call that rewrites your prompt; nothing is generated until you press `Generate`. |
 | Repair | Automatic, after a failed render | The only unprompted model call — and it only happens after a generation you asked for produced code that will not run. Capped at two attempts. |
-| `Regenerate (new variant)` | Screen context menu | |
+| `Regenerate a variant` | Screen context menu | |
 | `Polish (detect and correct)` | Screen context menu | The check itself calls a model for the rules a regex cannot settle, then up to two corrections. |
 | `Add animations` — `Subtle` / `Moderate` / `Rich` | Screen context menu | |
 | `Fit to page` | A document's context menu | One call, and two off-screen renders to measure before and after. |

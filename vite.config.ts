@@ -73,10 +73,12 @@ export default defineConfig({
   server: {
     // In dev, forward account/data API calls and SSO callbacks to the backend
     // (npm run server). SSO needs same-origin so the session cookie set by the
-    // backend applies to the SPA.
+    // backend applies to the SPA. The port follows the backend's own MOCKY_PORT,
+    // or a backend moved off a busy 8787 left the SPA talking to whatever else
+    // was listening there.
     proxy: {
-      '/api': { target: 'http://localhost:8787', changeOrigin: true },
-      '/sso': { target: 'http://localhost:8787', changeOrigin: true },
+      '/api': { target: `http://localhost:${process.env.MOCKY_PORT || 8787}`, changeOrigin: true },
+      '/sso': { target: `http://localhost:${process.env.MOCKY_PORT || 8787}`, changeOrigin: true },
     },
   },
 })

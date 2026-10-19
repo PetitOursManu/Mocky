@@ -348,7 +348,7 @@ export default function DemoPlayer({
       {showData && (
         <div className="max-h-48 overflow-auto border-b border-line bg-raised px-3 py-2">
           <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="kicker text-accent-ink">{t('canvas.demoDataHeading')}</span>
+            <span className="kicker">{t('canvas.demoDataHeading')}</span>
             <Button size="sm" variant="quiet" disabled={!flowKeys.length} onClick={() => flow.onReset()}>
               {t('canvas.demoDataClear')}
             </Button>

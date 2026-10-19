@@ -1,7 +1,7 @@
 ---
 description: Enregistrer un projet ou un écran, comparer deux états côte à côte, revenir à n’importe lequel, et essayer une autre direction artistique sur une branche.
 badge: Nouveau
-source_hash: 5ac0e9bbc219
+source_hash: 7f95bf2d4d7f
 ---
 
 # Versions et branches
@@ -12,8 +12,9 @@ regarder deux états **côte à côte**, et de **revenir** à n’importe lequel
 branches permettent d’essayer **une autre direction** sur le même projet sans
 risquer celle que vous aviez.
 
-Ouvrez-les avec `Versions` dans la barre d’outils du projet. L’historique propre
-à un écran est dans son menu contextuel : `Versions de cet écran`.
+Ouvrez-les avec l’icône `Versions` de la barre de l’inspecteur, à droite d’un
+projet. L’historique propre à un écran est dans son menu contextuel :
+`Versions de cet écran`.
 
 ## Enregistrer une version
 
@@ -32,6 +33,32 @@ changé coûte cet écran-là.
 :::
 
 Un écran peut aussi être enregistré seul, depuis `Versions de cet écran`.
+
+## Les versions automatiques d’un écran
+
+:::why
+Une version prise à la main, c’est une version prise quand on y pense. Après
+quelques générations, l’historique gardait les états que l’on avait pensé à
+enregistrer et aucun des autres, qui sont en général ceux que l’on veut
+retrouver.
+:::
+
+Chaque état par lequel passe un écran est aussi enregistré **tout seul** : à sa
+création, puis chaque fois que son code change — une modification, un
+polissage, une régénération, des animations ajoutées, une réparation. La
+version est prise une fois que l’écran ne bouge plus depuis deux secondes et
+qu’aucune passe ne tourne dessus : un écran encore en cours d’écriture n’est
+jamais gardé à moitié. Elles apparaissent dans le panneau `Versions` sous
+`Écran créé` ou `Modification`, avec le nom de l’écran, et se comparent et se
+restaurent comme les autres.
+
+Un écran qui était déjà là à l’ouverture du projet n’est pas enregistré d’emblée
+; la première fois qu’il change, l’état qu’il avait est gardé d’abord, sous
+`État d’origine`.
+
+Les **30 plus récentes** versions automatiques de chaque écran sont gardées, par
+branche ; au-delà, la plus ancienne part quand la nouvelle arrive. Une version
+enregistrée à la main, et toute version du projet, ne part jamais ainsi.
 
 ## Comparer
 
@@ -107,6 +134,6 @@ vous êtes ne peut pas être supprimée — changez d’abord.
 |---|---|
 | Appels au modèle | Aucun. Enregistrer, comparer, restaurer et changer de branche n’appellent jamais un modèle. |
 | Disque | Celui du serveur, compté dans la limite de stockage de l’instance (`MOCKY_MAX_STORAGE_MB`). Un code identique n’est stocké qu’une fois. |
-| Limites | 200 versions par projet, 1 500 par compte, 80 écrans par version. Supprimez les anciennes versions depuis l’historique. |
+| Limites | 200 versions par projet, 1 500 par compte, 80 écrans par version. Les versions automatiques d’un écran se font de la place (la plus ancienne part) ; pour les autres, supprimez les anciennes versions depuis l’historique. |
 
 Supprimer un compte supprime ses versions.

@@ -166,7 +166,7 @@ export default function ReviewBoard({
             aria-current={s.id === target}
             onClick={() => setTarget(s.id)}
             className={`flex shrink-0 items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-body-sm transition ${
-              s.id === target ? 'border-accent bg-ink text-surface' : 'border-line-soft text-ink hover:border-line'
+              s.id === target ? 'border-accent/40 bg-selected text-on-selected' : 'border-line-soft text-ink hover:border-line'
             }`}
           >
             <span className="truncate">{s.name}</span>
@@ -182,7 +182,7 @@ export default function ReviewBoard({
           aria-current={target === null}
           onClick={() => setTarget(null)}
           className={`flex shrink-0 items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-body-sm transition ${
-            target === null ? 'border-accent bg-ink text-surface' : 'border-line-soft text-ink-muted hover:border-line'
+            target === null ? 'border-accent/40 bg-selected text-on-selected' : 'border-line-soft text-ink-muted hover:border-line'
           }`}
         >
           <span className="truncate">{t('review.general')}</span>

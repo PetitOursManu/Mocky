@@ -174,7 +174,7 @@ export default function AnnouncementSection({ live }: { live: Live }) {
 
             {/* A date in the text is an instant: every reader sees it on their
                 own clock (lib/announcementText.ts). */}
-            <div className="mt-3 border border-line-soft bg-ink/5 p-3">
+            <div className="mt-3 rounded-lg border border-line-soft bg-ink/5 p-3">
               <span className="block text-body-sm font-medium text-ink">{t('dashboard.announce.moment')}</span>
               <span className="measure mt-0.5 block text-caption text-ink-muted">{t('dashboard.announce.momentHelp')}</span>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -280,7 +280,7 @@ export default function AnnouncementSection({ live }: { live: Live }) {
 
         <div>
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('dashboard.announce.preview')}</span>
+            <span className="kicker">{t('dashboard.announce.preview')}</span>
           </div>
           {/* The same markup the banner uses, so the preview is not a promise. */}
           <div className={`border-b ${tone === 'warn' ? 'border-warn bg-warn/10' : 'border-accent bg-accent/10'}`}>
@@ -301,7 +301,7 @@ export default function AnnouncementSection({ live }: { live: Live }) {
           </p>
 
           <div className="section-head mt-6">
-            <span className="kicker text-accent-ink">{t('dashboard.announce.current')}</span>
+            <span className="kicker">{t('dashboard.announce.current')}</span>
           </div>
           {!current ? (
             <p className="text-body-sm text-ink-muted">{t('dashboard.announce.none')}</p>

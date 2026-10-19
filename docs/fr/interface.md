@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: fe55f2afeecc
+source_hash: 944b7a0c8d3e
 ---
 
 # L’interface
@@ -104,6 +104,13 @@ système d’exploitation, la seule couleur de la page que le thème n’atteint
 
 ### À la une, index, brouillons
 
+Le dernier projet touché ouvre la page en grande carte — son image, son nom, la
+demande qui a fait son premier écran, `Ouvrir`. Les autres suivent en grille de
+cartes (d’une à quatre colonnes selon la fenêtre), chacune avec son image, son
+nom, cette demande, son nombre d’écrans et son âge, et deux boutons : le classer,
+le supprimer. Les dossiers sont les sections de cette grille ; les brouillons
+vides viennent en dernier, en petites étiquettes.
+
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg> | `Ouvrir` | Ouvre le projet. | libre |
@@ -128,25 +135,70 @@ projets choisis est actuellement classé, sans quoi le bouton ne déferait rien.
 
 ---
 
+## L’espace de travail d’un projet
+
+À partir de `md` (768 px), un projet tient en trois colonnes sous une seule
+barre, comme dans la référence dont la refonte est tirée :
+
+| Où | Quoi |
+|---|---|
+| **La barre du haut** | Le logotype (retour aux projets), `Projets / nom` (cliquez le nom pour le renommer), puis les outils du projet : les modes de la toile — `Sélectionner`, `Lier`, `Interagir`, `Modifier`, `Annoter` — puis `Démo`, `Partager ▾`, `Exporter ▾` et l’interrupteur de l’inspecteur. La navigation du site (DESIGN.md, Média, Réglages) est à un clic, sur le logotype. |
+| **À gauche : l’atelier de création** | Le composeur en colonne au lieu d’une barre flottante : un titre qui dit ce que fera le prochain message (`Nouvel écran`, ou `Modifier l’écran` quand des écrans sont sélectionnés), le composeur lui-même, `Créer aussi` (`Campagne`, les films `Motion Ultra`), et les quatre derniers écrans créés — cliquez-en un pour le cadrer sur la toile. |
+| **Au centre : la toile** | Toute sa hauteur : plus rien ne flotte sur le bas des écrans. La barre de zoom est en bas à gauche ; `Cadre` (le contour d’iPhone) en bas à droite, et seulement quand le projet a un écran mobile. |
+| **À droite : l’inspecteur** | Une barre de six icônes toujours présente — `Style`, `Versions`, `Audit`, `Validation`, `Campagne`, `Liens` — et le panneau que l’icône allumée ouvre à côté. Cliquez une icône pour ouvrir son panneau, recliquez-la (ou `✕`) pour le replier dans la barre. Le panneau est une colonne à partir de `xl` (1280 px), ouvert sur `Style` à l’ouverture d’un projet ; plus étroit, il flotte sur la toile à côté de la barre. Une ligne d’état, en bas, dit si Mocky travaille. |
+
+**`Partager ▾`** réunit le partage et la validation : `Lien vers l’écran (QR
+code)` pour l’écran sélectionné, et `Envoyer en validation…`, qui ouvre le
+panneau de validation dans l’inspecteur. Le nombre à côté, ce sont les
+commentaires du client pas encore lus.
+
+**`Exporter ▾`** réunit toutes les façons dont quelque chose quitte Mocky : le
+projet exécutable (`Prêt pour shadcn`, `Tailwind seul`, `daisyUI`, chacun en
+`.zip`), l’écran sélectionné (PNG, PowerPoint, `.tsx` — ou `Télécharger…` pour un
+document), et la médiathèque. Le menu d’un écran garde les mêmes exports sous
+`Exporter ›`.
+
+**La barre au-dessus de la toile** — `Toile`, c’est là où vous êtes ; `Code`
+ouvre la source de l’écran sélectionné (un seul écran sélectionné). `Cadre` (le contour d’iPhone) s’y
+trouve quand le projet a un écran mobile. L’extrémité droite dit si votre
+travail a atteint le serveur — `Toutes les modifications enregistrées`,
+`Enregistrement…`, ou un échec. L’aide de la toile (ce que fait un clic dans le
+mode en cours) passe dans le coin en bas à droite.
+
+**Les outils flottants** — avec exactement un écran sélectionné, une petite
+barre en haut de la toile le nomme et propose ce qu’on fait le plus souvent à un
+écran : `Modifier par message` (place le curseur dans le composeur),
+`Peaufiner`, `Régénérer une variante`, `Partager`, un menu d’export (PNG,
+PowerPoint, `.tsx`, ou `Télécharger…` pour un document) et `⋯`, qui ouvre tout
+le menu de l’écran juste dessous.
+
+Sous `md`, l’espace se replie : la barre d’outils flottante décrite ensuite (une
+barre pleine largeur sur un téléphone, au-dessus de la bande des écrans), et le
+composeur en panneau le long du bas de la toile. Le panneau montre le champ et
+ses boutons ; `Options` déplie le format et les puces, qui prenaient sinon la
+moitié d’une petite fenêtre. L’`Exporter` de la barre d’outils contient les
+mêmes lignes que celui de la barre du haut.
+
+---
+
 ## La barre d’outils du projet
 
-En haut à gauche du canevas, et l’endroit le plus dense du produit. Trois
+Sous `md` seulement — à partir de `md`, ses outils sont dans la barre du haut
+(ci-dessus). En haut à gauche du canevas, et l’endroit le plus dense du produit. Trois
 défenses la maintiennent à l’écran : les libellés disparaissent sous `md`, tout
 ce qui suit `Modifier` se replie dans `Plus`, et la rangée défile d’elle-même
 plutôt que de pousser la page de côté.
 
-:::hotspots src=../assets/ui/fr/toolbar.webp alt="La barre d’outils du projet"
-- 4.6,50 **Retour**: Quitte le projet — et interrompt une génération en cours.
-- 13.3,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
-- 21.3,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
-- 30.7,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
-- 40,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
-- 48.5,50 **Cadre**: Le cadre d’iPhone autour des écrans mobiles. Grisé quand le projet n’en a pas.
-- 57.1,50 **Système**: Le système de design en direct : vos jetons, et de quoi les recolorer.
-- 65.6,50 **Audit**: SEO et accessibilité. L’ouvrir n’évalue rien.
-- 75.3,50 **Motion Ultra**: Monter un film à partir de la médiathèque.
-- 86.3,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](interface.md#le-mode-demo).
-- 94.9,50 **Exporter**: Un projet Vite + React + Tailwind exécutable, en `.zip`.
+:::hotspots src=../assets/ui/fr/toolbar.webp alt="Les outils du projet, dans la barre du haut"
+- 4.4,50 **Sélectionner**: Aucun mode : un clic sélectionne un écran. Coupe le mode qui était actif.
+- 10.3,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
+- 16.2,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
+- 22.2,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
+- 28.1,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
+- 42.6,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](interface.md#le-mode-demo).
+- 60.8,50 **Partager**: Un lien vers l’écran sélectionné, ou le projet envoyé en validation.
+- 82,50 **Exporter**: Le projet exécutable en `.zip`, l’écran sélectionné, les médias.
+- 96.2,50 **Inspecteur**: Affiche ou masque la colonne des panneaux, à droite.
 :::
 
 ### Les trois qui ne se replient jamais
@@ -200,8 +252,10 @@ contredirait.
 
 ### La barre de zoom
 
-En bas à gauche du canevas à partir de `xl` ; en dessous, elle remonte en haut
-et se glisse sous la barre d’outils. Question de géométrie, pas de goût : la
+En bas à gauche du canevas à partir de `md`, où le composeur est une colonne et
+ne couvre plus ce coin ; sous `md`, elle remonte en haut et se glisse sous la
+barre d’outils flottante. Question de géométrie, pas de goût — c’était le
+raisonnement quand le composeur flottait à toutes les largeurs : la
 barre est calée sur la marge gauche et le composeur est un bloc de 672 px
 centré, si bien que sept contrôles ne le dégagent qu’au-delà de 1200 px de
 fenêtre environ. Plus étroit, le coin inférieur gauche passe derrière le
@@ -209,12 +263,12 @@ composeur, qui est opaque — et c’est ainsi que le seul contrôle de zoom du
 produit était devenu invisible sur un portable.
 
 :::hotspots src=../assets/ui/fr/zoombar.webp alt="La barre de zoom"
-- 7.7,50 **Dézoomer**: Autour du centre de la vue. `Ctrl/⌘ + molette` fait de même.
-- 37.2,50 **Zoomer**: Autour du centre de la vue.
-- 54.4,50 **Tout afficher**: Cadre tous les écrans, et continue tant que vous ne bougez pas la vue.
-- 67,50 **Dernier écran**: Cadre l’écran le plus récent.
-- 79.6,50 **Réorganiser**: Range le plateau selon la taille réelle de chaque écran.
-- 92.3,50 **Câbles**: Montre ou masque les câbles entre les écrans hors du mode liens.
+- 8.6,50 **Dézoomer**: Autour du centre de la vue. `Ctrl/⌘ + molette` fait de même.
+- 8.6,50 **Zoomer**: Autour du centre de la vue.
+- 54.3,50 **Tout afficher**: Cadre tous les écrans, et continue tant que vous ne bougez pas la vue.
+- 66.7,50 **Dernier écran**: Cadre l’écran le plus récent.
+- 79,50 **Réorganiser**: Range le plateau selon la taille réelle de chaque écran.
+- 91.4,50 **Câbles**: Montre ou masque les câbles entre les écrans hors du mode liens.
 :::
 
 | | Contrôle | Ce qu’il fait | Coût |
@@ -375,23 +429,32 @@ design se juge aussi sur ses mots, pas seulement sur l’allure d’une page.
 
 Clic droit sur un écran, ou <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> dans sa barre de nom.
 
+Le menu est en trois groupes, séparés par un filet : ce qui **change** l’écran
+(modifier, peaufiner, régénérer, médias, cadres, animations, revenir en
+arrière), ce qui **sort** avec lui (`Exporter ›`, `Partager`), et le
+**rangement** (renommer, dupliquer, notes, versions, format d’affichage,
+DESIGN.md, code) — puis `Supprimer l’écran`. Une entrée marquée `›` ouvre un
+second panneau à côté du menu, au survol, au clic ou avec `→`.
+
 Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 
 :::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
-- 50,5.8 **Télécharger…**: Un document seulement : PDF à champs remplissables, PowerPoint / Google Slides, ou images PNG.
-- 50,12.5 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
-- 50,19.2 **Régénérer**: La même demande à nouveau, pour un autre design.
-- 50,25.8 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
-- 50,39.1 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
-- 50,52.5 **Partager**: Un lien public temporaire et un QR code.
-- 50,94.2 **Supprimer l’écran**: Une confirmation, et il disparaît.
+- 50,4.4 **Modifier par message**: Sélectionne le document et place le curseur dans le composeur.
+- 50,10.6 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
+- 50,16.7 **Régénérer une variante**: La même demande à nouveau, pour un autre design.
+- 50,35.1 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
+- 50,43 **Exporter ›**: `Télécharger…` — PDF à champs remplissables, PowerPoint / Google Slides, ou images PNG — et le `.tsx`.
+- 50,49.1 **Partager**: Un lien public temporaire et un QR code.
+- 50,69.3 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
+- 50,95.6 **Supprimer l’écran**: Une confirmation, et il disparaît.
 :::
 
 | | Entrée | Ce qu’elle fait | Coût |
 |---|---|---|---|
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/></svg> | `Modifier par message` | Sélectionne l’écran et place le curseur dans le composeur : ce que vous tapez ensuite est une modification de cet écran, envoyée avec `Mettre à jour`. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Télécharger…` | Un document seulement : ouvre `Télécharger le document` — PDF à champs remplissables, PowerPoint / Google Slides, images PNG. Voir [Documents](documents.md#telecharger). | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> | `Ajuster à la page` | Un document seulement : mesure ce qui dépasse de la page, demande au modèle de le regagner, mesure la réponse et ne la garde que si elle tient mieux, sur le même nombre de pages. Voir [Documents](documents.md#quand-le-contenu-depasse-de-la-page). | modèle |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Régénérer (nouvelle variante)` | Relance la demande d’origine de l’écran pour obtenir un autre résultat. Le code précédent est conservé, donc `Revenir à la version précédente` le défait. | modèle |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Régénérer une variante` | Relance la demande d’origine de l’écran pour obtenir un autre résultat. Le code précédent est conservé, donc `Revenir à la version précédente` le défait. | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Peaufiner (détecter et corriger)` | La passe qualité : vérifier, corriger, revérifier. Voir [Passe de qualité](quality.md). | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Renommer` | Une invite du navigateur. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 8v4.5l3 2"/></svg> | `Versions de cet écran` | Tous les états enregistrés de cet écran — ses propres versions et chaque version du projet qui le contenait — pour les comparer à l’état actuel ou les restaurer. Voir [Versions et branches](versions.md). | libre |
@@ -410,62 +473,85 @@ Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Cadres…` | Change la forme, l’image, le cadrage ou l’ombre de chaque image en forme de l’écran, ou met l’une de ses images dans un cadre. Réécrit la source sans appel au modèle ; `Revenir à la version précédente` l’annule. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Supprimer l’écran` | Une confirmation. | libre |
 
-### Les trois groupes de petits boutons
+### Les sous-menus
 
-En bas du menu, trois rangées qui se ressemblent et n’ont rien à voir.
+Quatre entrées ouvrent un second panneau au lieu d’agir tout de suite.
 
-**`Format d’affichage` — `Mobile` · `Tablette` · `Bureau` · `Complet`.**
-Redimensionne le cadre et indique aux passes suivantes de quel appareil il
-s’agit. `Complet` signifie hauteur complète, ajustée au contenu. Libre : aucun
-code n’est réécrit.
+**`Animations ›`** réunit deux choses qui se ressemblent et n’ont rien à voir.
+`Ajouter des animations` — `Subtiles` · `Modérées` · `Riches` — réécrit le code
+pour y mettre du mouvement, en conservant contenu et mise en page : cela coûte du
+**modèle**, et se défait. `Lire les animations` — `Oui` · `Non`, l’état courant
+coché — décide seulement si le mouvement déjà présent s’exécute. Libre. Les deux
+états sont listés, parce que dans un menu, une entrée dont le texte change ne
+montre jamais quels sont les autres états. Absent d’un document : une page ne
+bouge pas.
 
-**`Ajouter des animations` — `Subtiles` · `Modérées` · `Riches`.** Réécrit le
-code pour y mettre du mouvement, en conservant contenu et mise en page. Coûte du
-**modèle**, et se défait.
+**`Exporter ›`** réunit toutes les façons dont l’écran quitte Mocky :
+`Télécharger…` pour un document, `Exporter en image PNG (page entière)` et
+`Exporter en PowerPoint` pour un écran, et `Télécharger le .tsx` pour les deux.
+Libre.
 
-**`Lire les animations` — `Auto` · `Oui` · `Non`.** Décide si le mouvement déjà
-présent dans le code s’exécute. Libre. Trois choix visibles plutôt qu’un libellé
-qui tourne, parce que dans un menu, une entrée dont le texte change ne montre
-jamais quels sont les autres états.
+**`Format d’affichage ›`** — `Mobile` · `Tablette` · `Bureau` · hauteur
+complète. Redimensionne le cadre et indique aux passes suivantes de quel appareil
+il s’agit. Libre : aucun code n’est réécrit. Absent d’un document, dont la taille
+est son format de page.
 
-Celui du milieu consomme des jetons. Les deux qui l’encadrent, non.
+**`DESIGN.md ›`** — `Faire de cet écran mon DESIGN.md` (modèle),
+`Modifier DESIGN.md`, et `Épingler comme référence de mise en page`.
 
 ---
 
 ## Le composeur
 
-La barre flottante en bas. C’est le seul contrôle du produit qui change de verbe
+La colonne de création à gauche à partir de `md` (voir [l’espace de travail](#lespace-de-travail-dun-projet)) ; en dessous, la barre flottante en bas. C’est le seul contrôle du produit qui change de verbe
 selon ce qui est sélectionné.
 
-:::hotspots src=../assets/ui/fr/composer.webp alt="Le composeur : formats, type d’écran, les trois interrupteurs, la demande, Améliorer et Générer"
-- 38.9,84.7 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
-- 51.3,84.7 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
-- 33.7,89.4 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
-- 43.9,89.4 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
-- 52.3,89.4 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
-- 64.8,89.4 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
-- 45.5,94.3 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
-- 65.4,94.6 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
-- 69.9,94.6 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+:::hotspots src=../assets/ui/fr/composer.webp alt="L’atelier de création : format, type d’écran, la demande, les options, Améliorer, Générer, Créer aussi et l’historique récent"
+- 11.9,13.5 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 26.6,22.1 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 49.8,32.1 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 49.8,53.2 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 49.8,62.8 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 49.8,68.6 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 49.8,82.9 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 21.2,43 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 78.8,43 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+- 49.8,66.2 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
+- 49.8,81.5 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
 :::
 
 `Type d’écran` ouvre ce menu — un [[type d’écran|screen-type]] pour un écran, ou un [[document|document]] :
 
 :::hotspots src=../assets/ui/fr/types.webp alt="Le menu Type d’écran : documents, réseaux sociaux et écrans"
-- 50,5.2 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
-- 25.7,31.8 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
-- 25.7,89.7 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
-- 25.7,119.7 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
+- 50,3.6 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
+- 50,19.1 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
+- 50,98 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
+- 50,130.4 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
 :::
 
-### Les puces au-dessus du champ
+### Les options sous le champ
+
+Le composeur pose ses questions dans l’ordre où elles viennent : **ce qu’on
+fait** (`Format`, `Type d’écran`, un pli — au-dessus du champ), la demande, puis
+**comment** on le fait — des options en trois groupes nommés : **Style**
+(`Nouvelle direction`, `Marque`), **Aides à la génération** (`Muse`,
+`Motion Ultra`, `Parcours`) et **Images** (d’où viennent les nouvelles images,
+et `Captures d’un site`). Chaque option est une ligne : son nom, une phrase sur
+ce qu’elle fait, et un interrupteur qui dit si elle est active. `Motion Ultra`
+montre ses réglages (×3 / ×6, le fond vidéo) sous sa ligne une fois activé. Dans
+la colonne du projet, les boutons sont juste sous le champ et les options en
+dessous, pour que `Générer` ne défile jamais hors de vue. Le premier composeur,
+sur un projet vide, est plus large et montre les mêmes options en une rangée de
+tuiles égales — icône et interrupteur, nom, et ce que fait l’option en entier —
+avec `DESIGN.md` en premier et `Campagne` à côté du format.
+
 
 | | Puce | Ce qu’elle fait | Coût |
 |---|---|---|---|
 | | `Nouvelle direction` | Ce prompt-ci écrira la direction artistique du projet, que tous les écrans suivants suivront. **La case se décoche toute seule après la génération.** Cachée pendant une édition — une édition retravaille ce qu’une direction a produit, et la laisser réécrire cette direction reviendrait à réattribuer tous les autres écrans du projet. | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, direction artistique et vraie copie. L’activer change ce que coûte une génération — voir [Muse](muse/overview.md). | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Parcours` | Activé par défaut. Les nouveaux écrans sont des pages d’un **prototype qui fonctionne** : formulaires, connexion simulée, filtres et panier partagé marchent en démo, et les écrans vers lesquels mène un parcours (`account`, `cart`, `confirmation`…) sont **créés automatiquement** après l’écran, trois au plus. Désactivé, un écran est généré seul, comme avant. Masqué pendant une modification. Voir [Des prototypes qui fonctionnent](flows.md). | une génération par écran créé |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg> `Campagne` | Sur un projet vide, à côté de `Parcours` : ouvre le panneau Campagne, qui décline un brief en plusieurs formats. Voir [Campagne](campaign.md). | une génération par création |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg> `Campagne` | Sur un projet vide, à côté du format : ouvre le panneau Campagne, qui décline un brief en plusieurs formats. Voir [Campagne](campaign.md). | une génération par création |
 | | `Format` | Le gabarit du prochain écran. Affiché seulement en création, pas en édition. Avec un type de document, les mêmes puces deviennent des **formats de page** (A4, A3, US Letter, 16:9, ou les tailles des réseaux). | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Type d’écran` | Le genre du prochain écran — tableau de bord, planning, kanban, page d’accueil, tarifs… — ou, sous `Documents à imprimer ou exporter` et `Réseaux sociaux`, le genre de document. La structure du type guide la génération ; vos mots l’emportent toujours. **Il reste armé**, et un projet s’ouvre sur le type de son dernier écran ; la croix à côté le retire. Ignoré en `Reproduire`. | libre (arme la prochaine génération) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Image` · `Sans image` / `Générée` / `Photo libre` | Un document seulement : s’il porte une image, et d’où elle vient. `Sans image` compose avec des formes et des couleurs. Retenu par le navigateur. | Générée : le prix du modèle d’image |
@@ -481,6 +567,9 @@ des écrans sont sélectionnés, une puce par écran avec `Retirer de la sélect
 plus `tout désélectionner`.
 
 ### Le champ et ses deux boutons
+
+Les boutons ont leur propre rangée, pour que le champ garde toute la largeur :
+`Améliorer` à gauche, `Générer` (ou `Mettre à jour`) à droite.
 
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|
@@ -540,7 +629,7 @@ vision est refusé d’emblée, avec une phrase qui le dit.
 
 ## Les panneaux latéraux
 
-Les trois s’ouvrent au même endroit, à droite, sous la barre d’outils.
+À partir de `md`, ce sont des onglets de l’inspecteur, à droite (voir [l’espace de travail](#lespace-de-travail-dun-projet)) ; en dessous, ils flottent au même endroit, à droite, sous la barre d’outils.
 
 ### Liens
 
@@ -743,12 +832,12 @@ pendant que vous passez de l’un à l’autre : `Données (N)` les montre,
 écran et des données enregistrés (`+` enregistre l’état actuel).
 
 :::hotspots src=../assets/ui/fr/demo-device.webp alt="Le mode démo : un écran montré dans un ordinateur dessiné au trait"
-- 5.6,3.1 **Quitter la démo**: Retour au canevas. `Échap` fait de même.
-- 4.4,9.7 **Retour**: L’écran précédent du parcours suivi.
-- 21.5,3.1 **Recommencer**: Retour au premier écran.
-- 29.7,3.1 **Appareil**: Le cadre dessiné au trait : un ordinateur, une tablette ou un téléphone selon la taille de l’écran ; une main pour un document imprimé, un fil de téléphone pour un post.
-- 46.1,3.1 **Changer d’écran**: Précédent, la liste de tous les écrans, suivant — ou ← →. Chaque pas compte comme un lien suivi.
-- 17.4,26 **L’écran**: Vivant et cliquable : les éléments liés mènent à leurs écrans.
+- 5.6,3.5 **Quitter la démo**: Retour au canevas. `Échap` fait de même.
+- 13.9,3.5 **Retour**: L’écran précédent du parcours suivi.
+- 22,3.5 **Recommencer**: Retour au premier écran.
+- 30.4,3.5 **Appareil**: Le cadre dessiné au trait : un ordinateur, une tablette ou un téléphone selon la taille de l’écran ; une main pour un document imprimé, un fil de téléphone pour un post.
+- 45.9,3.5 **Changer d’écran**: Précédent, la liste de tous les écrans, suivant — ou ← →. Chaque pas compte comme un lien suivi.
+- 50,47.4 **L’écran**: Vivant et cliquable : les éléments liés mènent à leurs écrans.
 - 50,95.3 **Légende**: La taille pour laquelle l’écran a été conçu, et l’appareil qui lui a été donné.
 :::
 
@@ -807,12 +896,12 @@ modèle, tout est réversible depuis le menu de l’écran.
 | Ceci | Pas ceci | La différence |
 |---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1.5V4a1.5 1.5 0 0 1 3 0v7m0-1.5a1.5 1.5 0 0 1 3 0V13m-9 0a1.5 1.5 0 0 0-3 0v2a7 7 0 0 0 7 7h1a7 7 0 0 0 7-7v-4"/></svg> `Interagir` (barre d’outils) | Double-cliquer un écran | Le bouton de la barre rend **tous** les aperçus cliquables d’un coup. Le double-clic n’en rend qu’un, et celui-là porte la pastille `Interactif — clic dehors pour sortir`. |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> `Ajouter des animations` (menu contextuel) | `Lire les animations` (menu contextuel) | Le premier **réécrit le code** pour y ajouter du mouvement : appel au modèle, réversible. Le second décide seulement si le mouvement déjà présent s’exécute. Ils sont à deux rangées d’écart dans le même menu. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> `Ajouter des animations` (menu contextuel) | `Lire les animations` (menu contextuel) | Le premier **réécrit le code** pour y ajouter du mouvement : appel au modèle, réversible. Le second décide seulement si le mouvement déjà présent s’exécute. Les deux sont dans le sous-menu `Animations ›` du menu, sous deux libellés. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> `Reprendre ce design` (à côté d’un cadre) | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> `Faire de cet écran mon DESIGN.md` (menu contextuel) | Le premier restaure un document **enregistré**, à l’identique, gratuitement. Le second demande à un modèle de **lire l’écran et d’en écrire un nouveau**. Même intention, mécanique inverse, et un seul des deux coûte quelque chose. |
 | `Appliquer` dans le panneau Système | Une pastille de `Recolorer` dans la carte Élément | Le panneau Système réécrit un token du DESIGN.md : libre, et cela ne change que les générations **futures**. La pastille de la carte Élément est une édition de **cet** élément par le modèle, tout de suite, et elle ne touche pas au DESIGN.md. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z"/></svg> `Épingler comme référence de mise en page` | `Reprendre ce design` | L’épingle gouverne la **mise en page** des prochains écrans. La carte de design gouverne la **direction artistique**. Un écran peut être l’un, l’autre, les deux ou aucun. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> `Système` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> `Modifier DESIGN.md` | Même icône, deux profondeurs : le panneau montre les tokens et les recolore ; la page est le document lui-même. `Modifier`, dans le panneau, est le pont entre les deux. |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> `Régénérer (nouvelle variante)` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Peaufiner (détecter et corriger)` | Le premier jette l’écran et redemande à partir de la même demande : un autre design. Le second garde le design et corrige des défauts nommés dedans. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> `Régénérer une variante` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Peaufiner (détecter et corriger)` | Le premier jette l’écran et redemande à partir de la même demande : un autre design. Le second garde le design et corrige des défauts nommés dedans. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> Les points de l’`Audit` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> Les points de `Peaufiner (détecter et corriger)` | Deux catalogues, deux notes, deux prompts de correction. L’un porte sur le balisage, l’autre sur le goût. Aucune des deux notes ne s’écrit dans le champ de l’autre. |
 | `Générer` | `Mettre à jour ({count})` | Le même bouton. Si un écran est sélectionné, vous modifiez, vous ne créez pas. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> `Ajuster à la page` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Peaufiner (détecter et corriger)` | Les deux réécrivent un document en gardant le design. Le premier répond à un seul problème mesuré — du contenu hors de la page — et ne fait que resserrer ; le second répond à une liste de défauts de design. |
@@ -876,7 +965,7 @@ ci-dessous est un clic, et la liste est complète.
 | `Mettre à jour ({count})` | Composeur | Un appel par écran sélectionné. |
 | `Améliorer` | Composeur | Un appel qui réécrit votre prompt ; rien n’est généré tant que vous n’appuyez pas sur `Générer`. |
 | Réparation | Automatique, après un affichage raté | Le seul appel au modèle non sollicité — et il n’arrive qu’après qu’une génération que vous avez demandée a produit du code qui ne tourne pas. Plafonné à deux tentatives. |
-| `Régénérer (nouvelle variante)` | Menu contextuel d’un écran | |
+| `Régénérer une variante` | Menu contextuel d’un écran | |
 | `Peaufiner (détecter et corriger)` | Menu contextuel d’un écran | La vérification elle-même appelle un modèle pour les règles qu’une expression régulière ne tranche pas, puis jusqu’à deux corrections. |
 | `Ajouter des animations` — `Subtiles` / `Modérées` / `Riches` | Menu contextuel d’un écran | |
 | `Ajuster à la page` | Menu contextuel d’un document | Un appel, et deux rendus hors écran pour mesurer avant et après. |

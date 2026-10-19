@@ -222,7 +222,7 @@ export default function VersionCompare({
               aria-pressed={s.id === active}
               onClick={() => setScreenId(s.id)}
               className={`rounded-md border px-2 py-1 text-caption transition ${
-                s.id === active ? 'border-accent bg-ink text-surface' : 'border-line-soft text-ink hover:border-line'
+                s.id === active ? 'border-accent/40 bg-selected text-on-selected' : 'border-line-soft text-ink hover:border-line'
               }`}
             >
               {s.name}

@@ -46,8 +46,8 @@ export const auth = {
     'auth.welcome.placeholder':
       'Par exemple : une landing page SaaS épurée, avec un hero, trois cartes de fonctionnalités et un pied de page…',
     'auth.welcome.designTitle': 'Gérer le DESIGN.md',
-    'auth.welcome.designOn': '● DESIGN.md actif',
-    'auth.welcome.designOff': '○ DESIGN.md inactif',
+    'auth.welcome.designOn': 'DESIGN.md actif',
+    'auth.welcome.designOff': 'DESIGN.md inactif',
     'auth.welcome.museTitle': 'Muse — inspiration, direction artistique et vrais textes',
     'auth.welcome.museHint':
       'Essayez Muse : elle cherche des références, écrit une direction artistique et remplace le faux texte par de vrais contenus. Cliquez pour l’activer.',
@@ -98,8 +98,8 @@ export const auth = {
     'auth.welcome.placeholder':
       'e.g. A clean SaaS landing page with a hero, three feature cards, and a footer…',
     'auth.welcome.designTitle': 'Manage DESIGN.md',
-    'auth.welcome.designOn': '● DESIGN.md on',
-    'auth.welcome.designOff': '○ DESIGN.md off',
+    'auth.welcome.designOn': 'DESIGN.md on',
+    'auth.welcome.designOff': 'DESIGN.md off',
     'auth.welcome.museTitle': 'Muse — inspiration, art direction & real copy',
     'auth.welcome.museHint':
       'Try Muse: it finds references, writes an art direction, and replaces lorem ipsum with real copy. Click to turn it on.',
