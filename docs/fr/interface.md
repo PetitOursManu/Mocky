@@ -507,17 +507,17 @@ La colonne de création à gauche à partir de `md` (voir [l’espace de travail
 selon ce qui est sélectionné.
 
 :::hotspots src=../assets/ui/fr/composer.webp alt="L’atelier de création : format, type d’écran, la demande, les options, Améliorer, Générer, Créer aussi et l’historique récent"
-- 11.9,13.5 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
-- 26.6,22.1 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
-- 49.8,32.1 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
-- 49.8,53.2 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
-- 49.8,62.8 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
-- 49.8,68.6 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
-- 49.8,82.9 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
-- 21.2,43 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
-- 78.8,43 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
-- 49.8,66.2 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
-- 49.8,81.5 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
+- 11.9,11 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 26.6,18 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 49.8,26.1 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 49.8,43.4 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 49.8,51.1 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 49.8,55.8 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 49.8,67.5 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 21.2,35 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 78.8,35 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+- 49.8,72.3 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
+- 49.8,84.8 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
 :::
 
 `Type d’écran` ouvre ce menu — un [[type d’écran|screen-type]] pour un écran, ou un [[document|document]] :

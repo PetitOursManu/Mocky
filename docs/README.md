@@ -17,11 +17,11 @@ A project, open. Click the numbers to see what each part is:
 - 79.2,3.2 **Share**: A link to one screen, or the whole project sent to a client for approval.
 - 86.6,3.2 **Export**: Every way out: the runnable project as a `.zip`, the selected screen as PNG, PowerPoint or `.tsx`, and the media.
 - 10.4,9.2 **The creation workshop**: The composer, as a column: describe a screen, choose its format and options, generate. With screens selected, it edits them.
-- 36.9,41.9 **A generated screen**: A real React + Tailwind component, rendered live. Double-click to use it, right-click for its menu.
-- 30.5,65 **A document**: A flyer, a report, a post: fixed pages. Its `Download` pill gives a PDF, a `.pptx` or PNG images.
+- 36.9,41.8 **A generated screen**: A real React + Tailwind component, rendered live. Double-click to use it, right-click for its menu.
+- 30.5,64.9 **A document**: A flyer, a report, a post: fixed pages. Its `Download` pill gives a PDF, a `.pptx` or PNG images.
 - 48.3,15.1 **Floating tools**: For the one selected screen: edit, polish, regenerate, share, export, and its whole menu under `⋯`.
-- 86.3,53.4 **The inspector**: A rail of six panels that is always there — style, versions, audit, approval, campaign, links — and the one that is open.
-- 31.8,96.1 **Zoom bar**: Zoom, `Fit all`, the latest screen, `Arrange`, and the switch that shows or hides the cables.
+- 86.3,53.3 **The inspector**: A rail of six panels that is always there — style, versions, audit, approval, campaign, links — and the one that is open.
+- 31.8,95.9 **Zoom bar**: Zoom, `Fit all`, the latest screen, `Arrange`, and the switch that shows or hides the cables.
 - 16.5,38.8 **Generate**: Creates the screen. With screens selected, it reads `Update` and edits them instead.
 :::
 
