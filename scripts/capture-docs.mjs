@@ -418,6 +418,12 @@ async function run(lang) {
       ],
     })
     await btn(demo, t('canvas.demoExit')).click()
+    // The other projects are opened once each, so the projects page has their
+    // pictures (a thumbnail is taken in the project view, never on that page).
+    for (const p of data.projects.slice(2)) {
+      await page.goto(`${base}/p/${p.id}`)
+      await settle(page, 3000)
+    }
     // Back to the café, so the header names it as the open project.
     await page.goto(`${base}/p/${data.ids.cafe}`)
     await settle(page, 2000)

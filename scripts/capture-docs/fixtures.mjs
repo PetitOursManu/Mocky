@@ -282,7 +282,9 @@ export function fixtures(lang) {
     id: 'docs-cafe',
     name: t.cafe,
     createdAt: now - 90 * min,
-    updatedAt: now - 2 * min,
+    // Ahead of the clock on purpose: opening a project marks it as touched, and
+    // the capture opens the others after this one — it must stay the lead.
+    updatedAt: now + 60 * min,
     screens: [
       screen('cafe-home', t.home, t.cafeDeck, home(t), { x: 0, y: 0, w: 1440, h: 900 }, {
         createdAt: now - 80 * min,
