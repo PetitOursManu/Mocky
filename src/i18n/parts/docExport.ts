@@ -63,6 +63,8 @@ export const docExport = {
     'docExport.notice.fallback':
       'Page {pages} dessinée par le moteur de secours de ce navigateur : flous, masques et certains effets peuvent manquer.',
     'docExport.notice.assets': 'Une image ou une police n’a pas pu être intégrée (page {pages}).',
+    'docExport.notice.external':
+      'Des images chargées depuis un autre site ({hosts}) manquent (page {pages}) : un export n’emporte que les images de Mocky. Ajoutez-les à la bibliothèque, placez-les dans le document, puis exportez à nouveau.',
     'docExport.notice.raster.pdf':
       'La page {pages} n’a pas pu être dessinée : elle est blanche dans le PDF, seuls ses champs à remplir y sont.',
     'docExport.notice.raster.pptx':
@@ -123,6 +125,8 @@ export const docExport = {
     'docExport.notice.fallback':
       'Page {pages} was drawn by this browser’s fallback renderer: blurs, masks and some effects may be missing.',
     'docExport.notice.assets': 'A picture or a font could not be embedded (page {pages}).',
+    'docExport.notice.external':
+      'Pictures loaded from another site ({hosts}) are missing (page {pages}): an export only carries Mocky’s own pictures. Add them to the library, put them in the document, then export again.',
     'docExport.notice.raster.pdf': 'Page {pages} could not be drawn: it is blank in the PDF, with only its fillable fields.',
     'docExport.notice.raster.pptx': 'Page {pages} could not be drawn: its background is blank, but its text stays editable.',
     'docExport.notice.raster.png': 'Page {pages} could not be drawn: the image is blank.',

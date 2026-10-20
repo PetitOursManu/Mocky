@@ -163,6 +163,7 @@ export default function DocumentDownloadDialog({
     if (n.code === 'tilted') return t('docExport.notice.tilted', { pages })
     if (n.code === 'fallback') return t('docExport.notice.fallback', { pages })
     if (n.code === 'assets') return t('docExport.notice.assets', { pages })
+    if (n.code === 'external') return t('docExport.notice.external', { pages, hosts: n.hosts.join(', ') })
     // What survives a page neither renderer could draw depends on the file:
     // the .pptx keeps its editable text, the PDF only its fillable fields (its
     // text layer is invisible by design), a PNG nothing at all — and the

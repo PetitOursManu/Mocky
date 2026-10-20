@@ -238,7 +238,7 @@ A document's frame carries a `Download` pill, and the screen context menu a
 | Button | What you get | For |
 |---|---|---|
 | `PDF` / `PDF — fillable fields` | The pages as drawn — at 500 dpi for paper, three times for a slide and four times its pixels for a post, so it stays sharp zoomed in as well as printed (on an iPhone or an iPad, as high as Safari allows, about 350 dpi on A4) — with the text still selectable and every field fillable. | Printing, sending. |
-| `PowerPoint / Google Slides / Canva (.pptx) — editable text and frames` | One slide per page: the design as the slide's background picture, and every run of text as an editable text box over it. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Import it into Canva, or upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
+| `PowerPoint / Google Slides / Canva (.pptx) — editable text and frames` | One slide per page: the design as one picture under everything — the slide's background when the page has pictures in a shape, otherwise a picture you can select (Canva refused that background on a page without any) — and every run of text as an editable text box over it. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Import it into Canva, or upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
 | `PNG images` | One image per page, in a `.zip` when there are several. A social post comes out at exactly its format's pixels. | Posting. |
 | `PSD — Photoshop, Photopea` | One layer for the page, then one per picture in a shape, with its outline, tape and shadow as layers of their own. The text is part of the page. | Finishing in Photoshop. |
 | `SVG — Figma, Illustrator, Inkscape` | The page, and each picture in a shape as a named mask group holding it, with its outline and tape over it. The text is part of the page. | Finishing in Figma or Illustrator. |
@@ -250,7 +250,9 @@ automatic download from the same page.
 When something could not be exported perfectly, the dialog says so under the
 link rather than hiding it: content cut at the page edge, rotated text left in
 the picture of a slide, a page drawn by the fallback renderer, a picture or font
-that could not be embedded.
+that could not be embedded — and, named apart with its site, a picture the page
+loads from another site. Those never travel: an export carries only Mocky's own
+pictures, so add them to the library and put them in the document.
 
 ### Pictures in a shape, in the files
 

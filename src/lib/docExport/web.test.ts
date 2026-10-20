@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { planSlides, sliceSnapshot, slideSize, webFormat } from './web'
-import { pinViewportHeights } from './render'
+import { externalPictures, pinViewportHeights } from './render'
 import type { PageSnapshot, TextBlock } from './types'
 
 const block = (y: number, h: number): TextBlock => ({
@@ -83,5 +83,32 @@ describe('pinViewportHeights', () => {
     expect(els[5].set['max-height']).toBe('none')
     // The root keeps growing with its content: only its floor is pinned.
     expect(els[0].set).toEqual({ 'min-height': '900px' })
+  })
+})
+
+describe('externalPictures', () => {
+  const here = 'http://mocky.test'
+  const el = (tagName: string, attrs: Record<string, string>, currentSrc = '') => ({
+    tagName,
+    currentSrc,
+    getAttribute: (n: string) => attrs[n] ?? null,
+    getAttributeNS: () => null,
+  })
+  const page = (els: unknown[]) => ({ ownerDocument: { baseURI: `${here}/` }, querySelectorAll: () => els }) as unknown as Element
+
+  it('names one host per picture from another site, and none for the library’s', () => {
+    const hosts = externalPictures(
+      page([
+        el('IMG', { src: 'https://cloud.example.org/f/qr1/?raw=1' }),
+        el('IMG', { src: 'https://cloud.example.org/f/qr2/?raw=1' }),
+        el('IMG', { src: '/api/images/' + 'c'.repeat(64) }),
+        el('IMG', {}, 'https://images.pexels.com/photos/2/b.jpeg'),
+        el('image', { href: 'https://logo.example.net/l.svg' }),
+        el('image', { href: '#local' }),
+        el('IMG', { src: 'data:image/png;base64,AA==' }),
+      ]),
+      here,
+    )
+    expect(hosts).toEqual(['cloud.example.org', 'cloud.example.org', 'images.pexels.com', 'logo.example.net'])
   })
 })
