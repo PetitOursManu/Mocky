@@ -212,14 +212,38 @@ describe('a slide', () => {
     expect(fieldBoxXml(field({ type: 'checkbox' }), 9, 'fr-FR')).toBeNull()
   })
 
-  it('puts the page in the slide’s background, not on it, and gives every shape its own id', () => {
-    const xml = slideXml(flyerPage(0), 'fr-FR')
-    // A full-slide picture is an element: Canva replaced it with a photo dropped a little off its frame.
-    expect(xml).toContain('<p:cSld><p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId2"/>')
-    expect(xml).not.toContain('<p:pic>')
+  it('with no frame, puts the page as a full-slide picture under everything, on a plain ground', () => {
+    // Canva refused a frameless flyer whose page was the slide's blipFill
+    // background, and imported the same picture as a <p:pic> (slideXml says how
+    // that was bisected).
+    const xml = slideXml({ ...flyerPage(0), ground: { r: 249, g: 247, b: 248, a: 1 } }, 'fr-FR')
+    expect(xml).toContain('<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="F9F7F8"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>')
+    expect(xml).not.toContain('<a:blipFill')
+    // The first element of the tree, right after its header: under every word.
+    const tree = xml.slice(xml.indexOf('</p:grpSpPr>') + '</p:grpSpPr>'.length)
+    expect(tree.startsWith('<p:pic><p:nvPicPr><p:cNvPr id="2" name="Fond de la page"/>')).toBe(true)
+    expect(xml.match(/<p:pic>/g)).toHaveLength(1)
+    const pic = xml.slice(xml.indexOf('<p:pic>'), xml.indexOf('</p:pic>'))
+    expect(pic).toContain('<p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>')
+    expect(pic).toContain(`<a:off x="0" y="0"/><a:ext cx="${pxToEmu(794)}" cy="${pxToEmu(1123)}"/>`)
+    expect(xml.indexOf('</p:pic>')).toBeLessThan(xml.indexOf('name="Text: '))
     const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
-    expect(ids).toEqual([1, 2, 3, 4, 5])
+    expect(ids).toEqual([1, 2, 3, 4, 5, 6])
     expect(wellFormed(xml)).toBeNull()
+  })
+
+  it('grounds a frameless slide in white when the page paints no colour of its own', () => {
+    const xml = slideXml(flyerPage(0), 'en-US')
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill>')
+    expect(xml).toContain('name="Page background"')
+  })
+
+  it('packs a frameless page with its picture still at rId2', () => {
+    const entries = pptxEntries([{ snapshot: flyerPage(0), background: TINY_JPEG }], a4, { title: 'x', created })
+    const slide = entries.find((e) => e.name === 'ppt/slides/slide1.xml')!.content as string
+    const rels = entries.find((e) => e.name === 'ppt/slides/_rels/slide1.xml.rels')!.content as string
+    expect(slide).toContain('<p:pic>')
+    expect(rels).toContain('Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page1.jpeg"')
   })
 })
 
@@ -267,6 +291,17 @@ describe('a frame on a slide', () => {
     // Not a picture cropped to a shape: Canva kept those square.
     expect(xml).not.toContain('<p:pic>')
     expect(wellFormed(xml)).toBeNull()
+  })
+
+  it('keeps the page as the slide’s BACKGROUND, never an element a photo could land on', () => {
+    const xml = slideXml({ ...flyerPage(0), ground: { r: 249, g: 247, b: 248, a: 1 } }, 'fr-FR', [frame()])
+    // A full-slide picture is an element: Canva replaced it with a photo dropped a little off its frame.
+    expect(xml).toContain('<p:cSld><p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId2"/><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>')
+    expect(xml).not.toContain('<a:solidFill><a:srgbClr val="F9F7F8"/>')
+    expect(xml).not.toContain('<p:pic>')
+    const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
+    expect(ids[1]).toBe(2)
+    expect(xml).toContain('<p:cNvPr id="2" name="Cadre 1 — Blob 3"/>')
   })
 
   it('sits over the page and under the words, and the ids stay unique', () => {

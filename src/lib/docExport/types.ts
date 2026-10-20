@@ -147,6 +147,12 @@ export interface PageSnapshot {
    * turned into text (see `makeTiltTest`). Optional for the same reason.
    */
   tilted?: number
+  /**
+   * The page's own background colour, when it paints an opaque one. The .pptx
+   * of a page with no frame grounds the slide in it (pptx.ts, `slideXml`).
+   * Optional for the same reason.
+   */
+  ground?: Rgba
 }
 
 /** One page, rasterised and measured. */

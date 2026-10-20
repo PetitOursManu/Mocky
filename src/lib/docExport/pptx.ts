@@ -12,7 +12,9 @@ import type { FieldBox, FrameOverlay, PageSnapshot, Rgba, RunStyle, TextAlign, T
  * does not reflow — a slide is a canvas of positioned boxes, like the page — and
  * it opens a .pptx from Drive with every text box still a text box. So a page
  * becomes one slide of the page's own size: the page, with its text taken out,
- * as the slide's background picture (shapes, colours, photographs), and each block of text
+ * as one picture under everything (shapes, colours, photographs) — the slide's
+ * background when the page has frames, its first element when it has none
+ * (`slideXml` says why) — and each block of text
  * as an editable box at the place it was measured, in its size, weight, colour
  * and face. PowerPoint and Keynote read the same file. A picture in a shape
  * (`<ShapeFrame>`) is a shape of its own over the page, filled with the
@@ -356,6 +358,24 @@ export function frameStackXml(f: PptxFrame, firstId: number, rel: string): strin
 /** The relationship id of a page's `j`-th frame picture: rId1 is the layout, rId2 the background. */
 const frameRel = (j: number) => `rId${j + 3}`
 
+/** A slide's side in EMU: PowerPoint refuses one outside 1–56 in; every format here is well inside. */
+const slideEmu = (px: number) => Math.min(51206400, Math.max(914400, pxToEmu(px)))
+
+/**
+ * The page's picture as the first element of the slide, under everything, the
+ * size of the slide. Written as the Canva test that took it was: a bare
+ * `<p:pic>` with its aspect locked, nothing else.
+ */
+export function pagePictureXml(page: Pick<PageSnapshot, 'width' | 'height'>, id: number, lang: string): string {
+  const name = /^fr\b/i.test(lang) ? 'Fond de la page' : 'Page background'
+  return (
+    `<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="${name}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>` +
+    `<p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
+    `<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${slideEmu(page.width)}" cy="${slideEmu(page.height)}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`
+  )
+}
+
 export function slideXml(page: PageSnapshot, lang: string, frames: readonly PptxFrame[] = []): string {
   // Shape ids are unique per slide; 1 is the tree.
   let next = 2
@@ -365,15 +385,34 @@ export function slideXml(page: PageSnapshot, lang: string, frames: readonly Pptx
     shapes.push(xml)
     next++
   }
+  // Where the page goes depends on whether it has frames, and both answers
+  // were settled in Canva, one file at a time.
+  //
+  // WITH frames, the page is the slide's BACKGROUND, not a picture on it. As a
+  // full-slide picture it was an element like any other: Canva replaced it with
+  // the photo someone meant for a frame and missed by a few pixels, and every
+  // editor let it be dragged while a word was being clicked.
+  //
+  // WITHOUT frames, that background is what Canva refused. A one-page flyer
+  // with no frame at all failed to import outright ("Impossible d'appliquer
+  // votre design", nothing in the console), and bisecting it cleared everything
+  // else: the dates in the zip, the theme, master and layout (Mocky's took
+  // another tool's slide; another tool's took Mocky's and failed), the JPEG and
+  // its colour profile (re-encoded without one, still refused), the text boxes.
+  // The same picture as a full-slide `<p:pic>` over a plain ground imported.
+  // With no frame on the page there is no photo to land on it by mistake, so
+  // the picture is an element again — the FIRST one, under every word — and
+  // the slide's own background is the page's ground colour, white when it has
+  // none to read.
+  const ground: Rgba = page.ground ?? { r: 255, g: 255, b: 255, a: 1 }
+  if (!frames.length) add(pagePictureXml(page, next, lang))
   // Over the page and under its words, in the page's order.
   frames.forEach((f, j) => frameStackXml(f, next, frameRel(j)).forEach(add))
   for (const b of page.blocks) add(textBoxXml(b, next, page.width, lang))
   for (const f of page.fields) add(fieldBoxXml(f, next, lang))
-  // The page is the slide's BACKGROUND, not a picture on it. As a full-slide
-  // picture it was an element like any other: Canva replaced it with the photo
-  // someone meant for a frame and missed by a few pixels, and every editor let
-  // it be dragged while a word was being clicked.
-  const bg = '<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId2"/><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>'
+  const bg = frames.length
+    ? '<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId2"/><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>'
+    : `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${toHex6(ground)}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>`
   return (
     XML_DECL +
     `<p:sld ${PML_NS}><p:cSld>${bg}<p:spTree>${GROUP_HEADER}${shapes.join('')}</p:spTree></p:cSld>` +
@@ -418,9 +457,8 @@ export function contentTypesXml(slides: number): string {
 }
 
 export function presentationXml(format: Pick<PageFormat, 'w' | 'h'>, slides: number): string {
-  // PowerPoint refuses a slide size outside 1–56 in; every format here is well inside.
-  const cx = Math.min(51206400, Math.max(914400, pxToEmu(format.w)))
-  const cy = Math.min(51206400, Math.max(914400, pxToEmu(format.h)))
+  const cx = slideEmu(format.w)
+  const cy = slideEmu(format.h)
   return (
     XML_DECL +
     `<p:presentation ${PML_NS} saveSubsetFonts="1">` +

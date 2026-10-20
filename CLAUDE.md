@@ -1052,9 +1052,13 @@ data: URL of the path. Three things:
    top, and a frame with its outline over it took none. The outline goes under,
    twice as wide; the tape stays over, one shape per strip, each in a box of its
    OWN (`ownBox`) — to an editor an element is its box, and a strip written in
-   the frame's whole box covered the frame all the same. And the page is the
-   slide's BACKGROUND (`<p:bg>`), never a full-slide picture: as an element,
-   Canva replaced it with the photo meant for a frame a few pixels away.
+   the frame's whole box covered the frame all the same. And on a page WITH
+   frames the page is the slide's BACKGROUND (`<p:bg>`), never a full-slide
+   picture: as an element, Canva replaced it with the photo meant for a frame a
+   few pixels away. On a page with NO frame it is the reverse: Canva refused the
+   `<p:bg>` blipFill outright ("Impossible d'appliquer votre design") and took
+   the same picture as a full-slide `<p:pic>`, first in the tree, over a plain
+   ground (`slideXml` has the bisection). Do not unify the two.
 
 ## Fonts in a generated page
 

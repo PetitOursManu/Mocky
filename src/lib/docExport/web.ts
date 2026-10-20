@@ -92,6 +92,7 @@ export function sliceSnapshot(snap: PageSnapshot, start: number, slideH: number,
     lines: blocks.flatMap((b) => b.lines),
     fields: [],
     links: snap.links.filter((l) => inBand(l.rect)).map((l) => ({ ...l, rect: shift(l.rect, start) })),
+    ...(snap.ground ? { ground: snap.ground } : {}),
   }
 }
 

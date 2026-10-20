@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FIELD_ATTR, FIELD_TYPE_ATTR, PAGE_ATTR } from '../pageFormats'
 import { safeLinkHref } from './files'
-import { snapshotPage } from './measure'
+import { groundOf, snapshotPage } from './measure'
 
 /**
  * A DOM small enough to write by hand — there is none in this test environment.
@@ -291,5 +291,17 @@ describe('snapshotPage', () => {
     ]
     const snap = mount(pageEl().add(select))
     expect(snap.fields[0]).toMatchObject({ type: 'select', options: ['S', 'M'], value: '', placeholder: 'Choisissez…' })
+  })
+})
+
+describe('groundOf', () => {
+  it('reads an opaque page colour, and nothing else', () => {
+    expect(groundOf('rgb(249, 247, 248)')).toEqual({ ground: { r: 249, g: 247, b: 248, a: 1 } })
+    expect(groundOf('rgba(0, 0, 0, 0)')).toEqual({})
+    expect(groundOf('rgba(255, 255, 255, 0.5)')).toEqual({})
+    // parseCssColor answers black for what it cannot read: no ground beats a black one.
+    expect(groundOf('oklch(0.98 0.01 300)')).toEqual({})
+    expect(groundOf('')).toEqual({})
+    expect(groundOf(undefined)).toEqual({})
   })
 })

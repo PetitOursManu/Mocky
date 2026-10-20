@@ -7,7 +7,7 @@ import {
   parseCssColor,
   splitAcrossRects,
 } from './lines'
-import type { BlockInfo, FieldBox, LinkBox, OutsideItem, PageSnapshot, Rect, Word } from './types'
+import type { BlockInfo, FieldBox, LinkBox, OutsideItem, PageSnapshot, Rect, Rgba, Word } from './types'
 
 /**
  * The DOM walk: what the browser drew on one page, as numbers.
@@ -195,6 +195,19 @@ export function orderPages<T extends { getAttribute(name: string): string | null
     })
     .sort((a, b) => a.key - b.key || a.i - b.i)
     .map((x) => x.el)
+}
+
+/**
+ * A page's ground, if it paints one a slide can be filled with: opaque, and
+ * read. A translucent or missing colour says nothing about what is under it,
+ * and the slide stays white. Only the two forms `parseCssColor` really reads:
+ * it answers black for an `oklch()`, and a black slide under a pale page is a
+ * worse guess than white.
+ */
+export function groundOf(backgroundColor: string | null | undefined): { ground?: Rgba } {
+  if (!backgroundColor || !/^\s*(?:#|rgba?\()/i.test(backgroundColor)) return {}
+  const c = parseCssColor(backgroundColor)
+  return c.a >= 0.999 ? { ground: c } : {}
 }
 
 export function snapshotPage(
@@ -480,5 +493,6 @@ export function snapshotPage(
         }
       : {}),
     tilted: tiltedWords,
+    ...groundOf(styleOf(page).backgroundColor),
   }
 }
