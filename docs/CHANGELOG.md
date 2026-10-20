@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `export` | avis dédié aux images chargées depuis un autre site | `c5955f6` |
 | `ui` | le premier composer montre ses options en une rangée de tuiles | `271f772` |
 | `versions` | chaque état d'un écran devient une version, automatiquement | `add06eb` |
 | `ui` | options du composer en groupes nommés, inspecteur en barre permanente | `2decbe5` |
@@ -53,6 +54,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `pptx` | page sans cadre en <p:pic> pleine page, fond uni ; dates ZIP valides | `21d27e0` |
 | `ui` | la tuile Motion Ultra ne change plus la taille du premier composer | `54189a2` |
 | `docs` | captures — Café Atelier reste en tête, chaque projet a sa vignette | `70e6b31` |
 | `docs` | captures — la page photographiée reste au premier plan | `bb9ea09` |
