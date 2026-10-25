@@ -48,7 +48,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 🏷️ **My brand** — your logo, colours, typefaces and tone kept once in your account, and applied to a project with one button. Any web screen also exports as a **whole-page PNG** or a **PowerPoint** with editable text. See [My brand](docs/brand.md).
 - 🎯 **Campaign Studio** — one brief becomes an A3 poster, an A4 flyer, an Instagram post and story, a LinkedIn and a Facebook visual, each **composed for its own format** rather than resized, sharing the key facts, the art direction and one key visual. Change the date in the brief, then pick which pieces to update: where a piece writes the old value as it is, the text is replaced in place with no model call; otherwise one targeted touch-up. See [Campaign Studio](docs/campaign.md).
 - 📣 **Social media posts** — Instagram, Facebook and LinkedIn visuals in the sizes the platforms ask for (1:1, 4:5, a 9:16 story, 1.91:1), one image or a carousel of several; exported as PNG at exactly those pixels, or as a PDF for a LinkedIn document post.
-- ✨ **Muse — design intelligence** — one toggle turns a prompt into a distinctive art direction with real copy, a coherent palette, and genuine generated imagery (see [✨ Muse](#-muse--design-intelligence) below). Grounded in live award-winning references via local MCP servers; zero keys required.
+- ✨ **Muse — design intelligence** — on by default, it turns a prompt into a distinctive art direction with real copy, a coherent palette, and real pictures for the page (see [✨ Muse](#-muse--design-intelligence) below). Grounded in live award-winning references via local MCP servers; zero keys required.
 - 🎨 **Production-ready output** — the prompt enforces real colors, spacing, rounded corners, shadows, interactive states, and realistic content (no wireframes).
 - 🔎 **Quality pass, on demand** — right-click a screen and Mocky checks what it generated against 59 deterministic rules plus a judged pass, scores it out of 20, and can correct what it found (see [Quality pass](#quality-pass) below). Never automatic.
 - 🎞️ **Motion Ultra** — a project setting that storyboards each new screen, generates a series of ×3 or ×6 pictures for it in one shared style, and writes it as a motion-led page: living backgrounds, glass, display type, scroll reveals. See [docs/motion-ultra.md](docs/motion-ultra.md).
@@ -146,7 +146,7 @@ npm start              # backend serves dist/ + API + model proxy on :8787
    - **Per browser** (default) — **Settings** → provider `Ollama Cloud`, base URL `https://ollama.com`, your API key, then pick a model from the list and hit **Test connection**. The key is kept in that browser's `localStorage` and never reaches the server.
    - **Instance-wide** (admin) — **Admin** → *Modèle de texte*. The key is stored server-side and used for everyone; each user's own Settings are then greyed out. Pick this if you would rather not paste a key into every browser.
 
-4. Describe a screen and generate. Turn on ✨ **Muse** for a full art direction with real copy and generated imagery — see [✨ Muse](#-muse--design-intelligence).
+4. Describe a screen and generate. ✨ **Muse** is on by default and builds a full art direction with real copy and pictures first; switch it off in the composer for the plain generation — see [✨ Muse](#-muse--design-intelligence).
 
 ### Housekeeping
 
@@ -417,13 +417,16 @@ Deterministic detection is built on **[`impeccable`](https://github.com/pbakaus/
 
 > **Why it works this way —** A model asked for "a landing page for a bakery" reaches for the same indigo gradient every time, because that gradient is roughly what the average of its training data looks like. Muse's answer is to settle the art direction before any code exists — palette, layout grammar, written copy, imagery — and then deliver that decision into the exact slot the design system already occupied in the prompt. Slotting it there rather than rewiring the generator is what makes the feature cheap to reason about when it is on, and completely inert when it is not.
 
-Muse is an optional pass that lifts generation above generic "AI slop". Flip the
-**✨ Muse** toggle next to the prompt and Mocky will, before building anything:
+Muse is the pass that lifts generation above generic "AI slop". It is **on by
+default** (the **✨ Muse** switch next to the prompt turns it off), and before
+building anything Mocky will:
 
 1. **Gather inspiration** — match your request to a curated registry of
    fetch-friendly galleries (Awwwards, land-book, …) and any URLs you paste, then
    fetch them through a **local, free MCP server** (`fetcher-mcp`, Playwright +
-   Readability). Optional — off unless you tick **"Inspiration live"**.
+   Readability). Always attempted — there is no box to tick any more; the panel
+   only asks for the links you want looked at. Skipped when the server has no
+   fetcher, and Muse then writes from its offline patterns.
 2. **Distill** each page into a structured *InspirationCard* (palette, style
    adjectives, layout grammar, motion notes, clichés to avoid) — vocabulary and
    grammar only, never a copy of any specific design.
@@ -432,8 +435,12 @@ Muse is an optional pass that lifts generation above generic "AI slop". Flip the
    language** (headline, subheadline, value props, CTA labels, footer), and an
    imagery plan. It cites which reference drove which choice, and a
    distinctiveness self-critique revises anything too generic.
-4. **Generate imagery** — a hero image via a zero-key provider and inject it into
-   the mockup, served from Mocky's own origin.
+4. **Make the pictures** — as many as the panel's **Pictures to create** asks
+   (`Auto` · 1–4; `Auto` is one generated picture or up to three free photos),
+   via a zero-key provider by default, served from Mocky's own origin. When the
+   pictures are generated and the model can see, Muse also paints an
+   **inspiration plate** of its own — shown to the model as an art-direction
+   reference, never placed in the page.
 
 The Dossier drives generation as the design authority — but for the **project**,
 not for that one screen. The first one written becomes the project's direction
@@ -468,9 +475,11 @@ placeholders rather than breaking the run.
 Every generated image is saved to a **global library** (`data/image-library/`),
 deduplicated by content hash, reusable across projects. Browse it from the
 **Média** tab — images and scroll sequences side by side: search, filter,
-favourite, download, "Tout télécharger" (ZIP + `manifest.json`), and **pin**
-images into the next run (pinned images fill slots before any new image is
-generated). Deleting a project never deletes library media; only explicit
+favourite, download, "Tout télécharger" (ZIP + `manifest.json`), and **choose**
+images for the next run with the box on each picture's corner. A chosen picture
+is ticked **In the project** (it fills a slot before any new image is
+generated), **Inspiration** (shown to Muse and the model as a mood reference,
+never placed — it needs a model with vision), or both. Deleting a project never deletes library media; only explicit
 deletion does.
 
 ### Your own images and clips
@@ -537,9 +546,10 @@ exact failure this feature exists to fix.
 
 Muse can also generate a **clip for the hero** and let the visitor scrub through
 it with the scroll wheel — the clip advances frame by frame, pinned full-height,
-and runs backwards when you scroll up. Tick **Vidéo au défilement** in the Muse
-panel; it is off by default, because unlike every other Muse option it costs
-money per use and adds minutes to a generation.
+and runs backwards when you scroll up. Choose it in the Muse panel's **Video**
+row (*None*, *AI-generated* or *Free*); it is *None* by default, because unlike
+every other Muse option a generated clip costs money per use and adds minutes to
+a generation.
 
 Two prerequisites, reported separately in **Admin → Génération d'images → Vidéo**
 so you know which one is missing:
@@ -580,7 +590,7 @@ ChatGPT: see [Connect Claude or ChatGPT](#connect-claude-or-chatgpt-mcp).
 
 Higgsfield.ai has no free API, so it isn't integrated. To use it: generate an
 image on Higgsfield, download it, then drop it into Mocky's Image Library (or a
-project) and pin it — Muse will use it like any other image.
+project) and tick it — Muse will use it like any other image.
 
 ### Ethics & ToS
 

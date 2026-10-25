@@ -1,5 +1,5 @@
 ---
-source_hash: dc9a44fd6b86
+source_hash: 607fc7bfbbe7
 ---
 
 # Le moteur d'inspiration
@@ -20,6 +20,11 @@ export async function runInspiration(args, deps) { … }
 // args : { prompt, urls?, useFetch?, language?, projectName?, userMedia? }
 // deps : { fetcher?, llm?|null, patterns, blacklist, onProgress?, onNotice? }
 ```
+
+Depuis octobre 2026, le navigateur envoie toujours `useFetch: true` :
+l'inspiration en direct n'est plus une case à cocher, c'est ce que fait un
+passage de Muse. Ce qui décide encore, c'est le serveur — sans `fetcher` à
+lancer, Discover est sautée et le passage continue sur les patterns hors ligne.
 
 ---
 

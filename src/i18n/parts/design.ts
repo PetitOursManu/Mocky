@@ -57,6 +57,8 @@ export const design = {
 
     // Design system panel (on the canvas)
     'design.edit': 'Modifier',
+    'design.fromScreen': 'Le projet n’a pas encore de DESIGN.md : voici celui de l’écran « {name} ». Le recolorer en fait celui du projet.',
+    'design.selectedScreen': 'Écran sélectionné · {name}',
     'design.editHint': 'Ouvrir l’éditeur complet du DESIGN.md',
     'design.empty':
       'Aucun système de design pour l’instant. Choisissez un style sur un nouveau projet, ou',
@@ -184,6 +186,8 @@ export const design = {
 
     // Design system panel (on the canvas)
     'design.edit': 'Edit',
+    'design.fromScreen': 'The project has no DESIGN.md yet: this is the one screen “{name}” was built from. Recolouring it makes it the project’s.',
+    'design.selectedScreen': 'Selected screen · {name}',
     'design.editHint': 'Open the full DESIGN.md editor',
     'design.empty': 'No design system yet. Pick a style on a new project, or',
     'design.editDesignMd': 'edit DESIGN.md',

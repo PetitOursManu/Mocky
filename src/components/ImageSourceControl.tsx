@@ -1,3 +1,4 @@
+import { haptic } from '../lib/touch'
 import { useT } from '../i18n'
 import { Icon } from '../ui'
 import type { ImageChoice } from '../lib/stockImages'
@@ -130,7 +131,10 @@ function SourceChoices<T extends string>({
           <button
             key={id}
             type="button"
-            onClick={() => onChange(id)}
+            onClick={() => {
+              haptic()
+              onChange(id)
+            }}
             aria-pressed={value === id}
             title={t(title)}
             className={`px-1.5 py-0.5 text-caption transition ${

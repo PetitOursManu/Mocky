@@ -32,6 +32,17 @@ describe('every exit asks before discarding work', () => {
    * through dialogs. A third bare one is a navigation somebody forgot.
    */
   const ENTERING = ["setRoute('project')"]
+  /**
+   * The browser's own back gesture (`popstate`), which cannot go through
+   * `navigate` — the browser has already moved when it is heard — so it asks
+   * `navigationHold()` itself and puts the page back on refusal. Named here so
+   * a second one has to be argued for too.
+   */
+  const HISTORY = ["setRoute(gone ? 'home' : entry.route)"]
+
+  it('the back gesture asks the same question before it leaves', () => {
+    expect(app).toMatch(/function onPop[\s\S]*?navigationHold\(\)[\s\S]*?window\.confirm[\s\S]*?setRoute\(gone \? 'home' : entry\.route\)/)
+  })
 
   it('routes every LEAVING navigation through the guard', () => {
     const bare = app
@@ -42,6 +53,7 @@ describe('every exit asks before discarding work', () => {
       // real; everything else must go through it.
       .filter(({ line }) => !line.includes('setRoute(next)'))
       .filter(({ line }) => !ENTERING.some((ok) => line.includes(ok)))
+      .filter(({ line }) => !HISTORY.some((ok) => line.includes(ok)))
 
     expect(bare.map((b) => `${b.n}: ${b.line}`)).toEqual([])
   })

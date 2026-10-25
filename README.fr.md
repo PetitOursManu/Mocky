@@ -48,7 +48,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - 🏷️ **Ma marque** — votre logo, vos couleurs, vos polices et votre ton gardés une fois dans votre compte, et appliqués à un projet d’un bouton. Tout écran web s’exporte aussi en **PNG de la page entière** ou en **PowerPoint** au texte modifiable. Voir [Ma marque](docs/fr/brand.md).
 - 🎯 **Campagne** — un brief devient une affiche A3, un flyer A4, un post et une story Instagram, un visuel LinkedIn et un visuel Facebook, chacun **composé pour son format** plutôt que redimensionné, avec les mêmes infos clés, la même direction artistique et un seul visuel clé. Changez la date dans le brief, puis choisissez les créations à mettre à jour : là où une création écrit l’ancienne valeur telle quelle, le texte est remplacé sur place sans appel au modèle ; sinon, une retouche ciblée. Voir [Campagne](docs/fr/campaign.md).
 - 📣 **Posts pour les réseaux sociaux** — des visuels Instagram, Facebook et LinkedIn aux tailles que les plateformes demandent (1:1, 4:5, story 9:16, 1,91:1), une image ou un carrousel de plusieurs ; exportés en PNG exactement à ces pixels, ou en PDF pour un post document LinkedIn.
-- ✨ **Muse — intelligence du design** — un seul interrupteur transforme un prompt en direction artistique singulière, avec de vrais textes, une palette cohérente et de véritables images générées (voir [✨ Muse](#-muse--intelligence-du-design) plus bas). Ancrée dans des références primées consultées en direct via des serveurs MCP locaux ; aucune clé requise.
+- ✨ **Muse — intelligence du design** — activé par défaut, il transforme un prompt en direction artistique singulière, avec de vrais textes, une palette cohérente et de vraies images pour la page (voir [✨ Muse](#-muse--intelligence-du-design) plus bas). Ancrée dans des références primées consultées en direct via des serveurs MCP locaux ; aucune clé requise.
 - 🎨 **Un rendu prêt pour la production** — le prompt impose de vraies couleurs, des espacements, des angles arrondis, des ombres, des états interactifs et un contenu réaliste (pas de wireframes).
 - 🔎 **Passe de qualité, à la demande** — clic droit sur un écran et Mocky confronte ce qu'il a généré à 59 règles déterministes et à une passe jugée, le note sur 20, et sait corriger ce qu'il a trouvé (voir [Passe de qualité](#passe-de-qualité) plus bas). Jamais automatique.
 - 🎞️ **Motion Ultra** — un réglage de projet qui storyboarde chaque nouvel écran, génère pour lui une série de ×3 ou ×6 images dans un style commun, et l'écrit comme une page portée par le mouvement : fonds vivants, verre, typographie d'affichage, apparitions au défilement. Voir [docs/fr/motion-ultra.md](docs/fr/motion-ultra.md).
@@ -146,7 +146,7 @@ npm start              # le backend sert dist/ + l'API + le proxy modèle sur :8
    - **Par navigateur** (par défaut) — **Réglages** → fournisseur `Ollama Cloud`, URL de base `https://ollama.com`, votre clé d'API, puis choisissez un modèle dans la liste et appuyez sur **Tester la connexion**. La clé est conservée dans le `localStorage` de ce navigateur et n'atteint jamais le serveur.
    - **Pour toute l'instance** (administrateur) — **Administration** → *Modèle de texte*. La clé est stockée côté serveur et sert à tout le monde ; les Réglages de chaque utilisateur sont alors grisés. Choisissez cette voie si vous préférez ne pas coller une clé dans chaque navigateur.
 
-4. Décrivez un écran et générez. Activez ✨ **Muse** pour obtenir une direction artistique complète, avec de vrais textes et des images générées — voir [✨ Muse](#-muse--intelligence-du-design).
+4. Décrivez un écran et générez. ✨ **Muse** est activé par défaut et construit d'abord une direction artistique complète, avec de vrais textes et des images ; désactivez-le dans le composeur pour la génération simple — voir [✨ Muse](#-muse--intelligence-du-design).
 
 ### Entretien
 
@@ -397,14 +397,16 @@ La détection déterministe s'appuie sur **[`impeccable`](https://github.com/pba
 
 > **Pourquoi c'est ainsi —** Un modèle à qui l'on demande « une page d'accueil pour une boulangerie » ressort le même dégradé indigo à chaque fois, parce que ce dégradé est à peu près ce à quoi ressemble la moyenne de ses données d'entraînement. La réponse de Muse consiste à trancher la direction artistique avant qu'aucun code n'existe — palette, grammaire de mise en page, textes rédigés, imagerie — puis à déposer cette décision exactement dans l'emplacement que le système de design occupait déjà dans le prompt. C'est ce placement, plutôt qu'un recâblage du générateur, qui rend la fonctionnalité facile à raisonner quand elle est active, et totalement inerte quand elle ne l'est pas.
 
-Muse est une passe optionnelle qui hisse la génération au-dessus du « slop » générique
-produit par les IA. Basculez l'interrupteur **✨ Muse** à côté du prompt et Mocky
-va, avant de construire quoi que ce soit :
+Muse est la passe qui hisse la génération au-dessus du « slop » générique produit
+par les IA. Il est **activé par défaut** (l'interrupteur **✨ Muse** à côté du
+prompt le désactive), et avant de construire quoi que ce soit Mocky va :
 
 1. **Rassembler de l'inspiration** — apparier votre demande à un registre organisé de
    galeries faciles à consulter (Awwwards, land-book, …) et à toute URL que vous collez, puis
    les récupérer via un **serveur MCP local et gratuit** (`fetcher-mcp`, Playwright +
-   Readability). Optionnel — inactif sauf si vous cochez **« Inspiration live »**.
+   Readability). Toujours tenté — il n'y a plus de case à cocher ; le panneau ne
+   demande que les liens que vous voulez faire regarder. Sauté quand le serveur
+   n'a pas de récupérateur, et Muse écrit alors à partir de ses motifs hors ligne.
 2. **Distiller** chaque page en une *InspirationCard* structurée (palette, adjectifs
    de style, grammaire de mise en page, notes de mouvement, clichés à éviter) — du vocabulaire et
    de la grammaire seulement, jamais la copie d'un design particulier.
@@ -413,8 +415,12 @@ va, avant de construire quoi que ce soit :
    votre langue** (titre, sous-titre, arguments, libellés de boutons d'action, pied de page) et
    un plan d'imagerie. Il cite quelle référence a motivé quel choix, et une
    autocritique de singularité révise tout ce qui serait trop générique.
-4. **Générer l'imagerie** — une image de héros via un fournisseur sans clé, injectée dans
-   la maquette et servie depuis l'origine de Mocky elle-même.
+4. **Faire les images** — autant que le demande la ligne **Images à créer** du
+   panneau (`Auto` · 1–4 ; `Auto`, c'est une image générée ou jusqu'à trois
+   photos libres), via un fournisseur sans clé par défaut, servies depuis
+   l'origine de Mocky elle-même. Quand les images sont générées et que le modèle
+   voit, Muse peint aussi sa propre **planche d'inspiration** — montrée au modèle
+   comme référence de direction artistique, jamais insérée dans la page.
 
 Le Dossier pilote la génération en tant qu'autorité de design — mais pour le
 **projet**, pas pour ce seul écran. Le premier rédigé devient la direction du
@@ -450,9 +456,12 @@ images de remplacement plutôt que d'interrompre la génération.
 Chaque image générée est enregistrée dans une **bibliothèque globale** (`data/image-library/`),
 dédoublonnée par empreinte de contenu, réutilisable d'un projet à l'autre. Parcourez-la depuis
 l'onglet **Média** — images et séquences au défilement côte à côte : recherche, filtrage,
-favoris, téléchargement, « Tout télécharger » (ZIP + `manifest.json`), et **épinglage**
-d'images pour la génération suivante (les images épinglées remplissent les emplacements avant qu'aucune nouvelle image ne soit
-générée). Supprimer un projet ne supprime jamais les médias de la bibliothèque ; seule une
+favoris, téléchargement, « Tout télécharger » (ZIP + `manifest.json`), et **choix**
+d'images pour la génération suivante, par la case au coin de chaque image. Une
+image choisie est cochée **Dans le projet** (elle remplit un emplacement avant
+qu'aucune nouvelle image ne soit générée), **Inspiration** (montrée à Muse et au
+modèle comme référence d'ambiance, jamais insérée — il faut un modèle doté de
+vision), ou les deux. Supprimer un projet ne supprime jamais les médias de la bibliothèque ; seule une
 suppression explicite le fait.
 
 ### Vos propres images et clips
@@ -521,9 +530,10 @@ fonctionnalité existe pour corriger.
 
 Muse peut aussi générer un **clip pour le héros** et laisser le visiteur le parcourir
 à la molette — le clip avance image par image, épinglé en pleine hauteur,
-et repart en arrière quand on remonte. Cochez **Vidéo au défilement** dans le panneau
-Muse ; l'option est inactive par défaut, car contrairement à toutes les autres options de Muse elle coûte
-de l'argent à chaque usage et ajoute des minutes à une génération.
+et repart en arrière quand on remonte. Choisissez-le dans la ligne **Vidéo** du
+panneau Muse (*Aucune*, *Générée par IA* ou *Gratuite*) ; c'est *Aucune* par
+défaut, car contrairement à toutes les autres options de Muse un clip généré
+coûte de l'argent à chaque usage et ajoute des minutes à une génération.
 
 Deux prérequis, rapportés séparément dans **Administration → Génération d'images → Vidéo**
 pour que vous sachiez lequel manque :
@@ -564,7 +574,7 @@ Claude ou ChatGPT : voir [Connecter Claude ou ChatGPT](#connecter-claude-ou-chat
 
 Higgsfield.ai n'a pas d'API gratuite, il n'est donc pas intégré. Pour l'utiliser : générez une
 image sur Higgsfield, téléchargez-la, puis déposez-la dans la bibliothèque d'images de Mocky (ou dans un
-projet) et épinglez-la — Muse s'en servira comme de n'importe quelle autre image.
+projet) et cochez-la — Muse s'en servira comme de n'importe quelle autre image.
 
 ### Éthique et conditions d'utilisation
 

@@ -1,3 +1,4 @@
+import { haptic } from '../lib/touch'
 import { useT } from '../i18n'
 import { Icon } from '../ui'
 import type { ProjectUltra } from '../lib/project'
@@ -73,7 +74,10 @@ export default function UltraControl({
             <button
               key={count}
               type="button"
-              onClick={() => onSetUltra({ ...ultra, count })}
+              onClick={() => {
+                haptic()
+                onSetUltra({ ...ultra, count })
+              }}
               aria-pressed={shown === count}
               title={t('project.ultraCountTitle', { count, minutes: count === 3 ? '1' : '2–3' })}
               className={`rounded px-1.5 py-0.5 text-caption tabular-nums transition ${
@@ -90,7 +94,10 @@ export default function UltraControl({
         {videoAvailable && (
           <button
             type="button"
-            onClick={() => onSetUltra({ ...ultra, video: !ultra.video })}
+            onClick={() => {
+            haptic()
+            onSetUltra({ ...ultra, video: !ultra.video })
+          }}
             aria-pressed={!!ultra.video}
             title={t('project.ultraVideoTitle')}
             className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-caption transition ${
@@ -162,7 +169,10 @@ export default function UltraControl({
             <button
               key={count}
               type="button"
-              onClick={() => onSetUltra({ ...ultra, count })}
+              onClick={() => {
+                haptic()
+                onSetUltra({ ...ultra, count })
+              }}
               aria-pressed={shown === count}
               title={t('project.ultraCountTitle', { count, minutes: count === 3 ? '1' : '2–3' })}
               className={`px-1.5 py-0.5 text-caption tabular-nums transition ${
@@ -188,7 +198,10 @@ export default function UltraControl({
       {!paused && videoAvailable && (
         <button
           type="button"
-          onClick={() => onSetUltra({ ...ultra, video: !ultra.video })}
+          onClick={() => {
+            haptic()
+            onSetUltra({ ...ultra, video: !ultra.video })
+          }}
           aria-pressed={!!ultra.video}
           title={t('project.ultraVideoTitle')}
           className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-caption transition ${

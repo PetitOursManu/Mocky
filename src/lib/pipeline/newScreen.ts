@@ -70,19 +70,20 @@ import {
   buildVideoPrompt,
   describeUserMedia,
   imageAsDataUrl,
-  profileForMode,
   buildInspirationPrompt,
   INSPIRATION_NEGATIVE,
+  padImageryPlan,
   type MuseConfig,
   type MuseDossier,
   type MuseResult,
   type MuseImageMode,
+  type MusePreambleImages,
   type GeneratedSlotImage,
   type GeneratedVideo,
   type MuseVideoAvailability,
 } from '../muse'
 import { buildDesignPreamble, extractDesignColors } from '../design'
-import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../imageLibrary'
+import { imageUrl, listLibrary, pinInserts, pinInspires, type LibraryImage, type PinnedImage } from '../imageLibrary'
 import { videoBase, type PinnedVideo } from '../videoLibrary'
 import { awaitVideoJob, motionNotices, proposeVideoTimeline, startVideoRender, type MotionKindOffer } from '../video/client'
 import { toRenderInputFrom } from '../video/draft'
@@ -486,10 +487,18 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
       (!videoAvail?.access || videoAvail.access.generate || videoAvail.access.stock)
         ? pinnedVideo
         : null
-    // The saved preference is kept as-is; a model without vision can only
-    // honour "content", so THIS RUN degrades without touching the setting.
-    const effectiveImageMode: MuseImageMode =
-      museVision === false && museConfig.imageMode !== 'content' ? 'content' : museConfig.imageMode
+    /*
+     * The person's own pictures, split by what they ticked them for in the
+     * library: the page, a mood reference, or both. A model without vision
+     * cannot look at a reference, so on one the references are dropped for
+     * THIS run — a picture ticked for both still goes in the page.
+     */
+    const insertPins = pinnedImages.filter(pinInserts)
+    const inspirePins = museVision === false ? [] : pinnedImages.filter(pinInspires)
+    /** What the prompt is told this run's pictures are for; settled with them below. */
+    let museImageUse: MusePreambleImages = 'content'
+    /** What the screen records about its card picture (`Screen.imageRole`). */
+    let museImageRole: MuseImageMode = 'content'
     /*
      * A redesign reads the site's CONTENT first — brand, navigation, sections,
      * copy — as words. Without it Muse wrote its dossier from "Refonte
@@ -540,10 +549,13 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
          * without vision: Muse runs exactly as it did before.
          */
         let userMedia = null
+        // A reference first: it was chosen to be designed from, which is
+        // exactly what this description is for.
+        const mediaPin = inspirePins[0] ?? insertPins[0]
         const mediaSource = runPin
           ? { url: absoluteUrl(runPin.poster), kind: 'video' as const }
-          : pinnedImages[0]
-            ? { url: absoluteUrl(pinnedImages[0].url), kind: 'image' as const }
+          : mediaPin
+            ? { url: absoluteUrl(mediaPin.url), kind: 'image' as const }
             : null
         if (mediaSource) {
           hooks.setMuseStage(t('project.museStageMedia'))
@@ -558,7 +570,6 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         const res = await runMuseDossier(museBrief, {
           language: siteLang,
           urls: parseUrls(museConfig.urls),
-          useFetch: museConfig.useFetch,
           projectName: project.name,
           userMedia,
           // With Muse on, the dossier plans the picture and the document's own
@@ -569,11 +580,18 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           signal: signal,
         })
         hooks.setMuseResult(res)
-        const plan = res.dossier.imageryPlan || []
-        // Pinned library images (possibly from other projects) fill the
-        // first slots BEFORE any new generation (§4.3). URLs must be absolute
-        // for the null-origin preview iframe (M6).
-        const pins: GeneratedSlotImage[] = pinnedImages.map((p, i) => ({
+        /*
+         * As many page slots as the person asked for. The dossier plans the
+         * pictures it thinks the page wants — usually a hero and a couple of
+         * others — and a count above that reuses its subjects from another
+         * angle rather than inventing one it did not plan.
+         */
+        const wanted = museConfig.contentImages
+        const plan = padImageryPlan(res.dossier.imageryPlan || [], wanted ?? 0)
+        // Library pictures ticked "in the project" (possibly from other
+        // projects) fill the first slots BEFORE any new generation (§4.3). URLs
+        // must be absolute for the null-origin preview iframe (M6).
+        const pins: GeneratedSlotImage[] = insertPins.map((p, i) => ({
           slot: plan[i]?.slot || plan[i]?.id || `image-${i + 1}`,
           id: plan[i]?.id || `pin-${i + 1}`,
           url: absoluteUrl(p.url),
@@ -598,78 +616,110 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
             : []
         let imgs: GeneratedSlotImage[] = [...pins, ...reused]
         if (imgs.length) hooks.setMuseImages(imgs)
-        // Generate a new hero only when no pin already covers a slot (capped
-        // to keep the run fast; multi-image is a later increment).
-        const remaining = plan.slice(pins.length)
-        // Motion Ultra generates its own series further down, planned as
-        // one shoot. Muse's hero on top of it would be a seventh picture
-        // nobody placed, paid for on every run.
-        if (remaining.length && pins.length === 0 && !runUltra && picturesAllowed) {
-          // A mood/art-direction reference and a hero photo are different
-          // jobs, so they run on different image models (Admin → profils).
-          const profile = profileForMode(effectiveImageMode)
-          hooks.setMuseStage(
-            t(profile === 'inspiration' ? 'project.museStageInspiration' : 'project.museStageHero'),
+
+        /*
+         * Muse's own mood plate, whenever pictures are GENERATED here.
+         *
+         * It used to be one of three answers to "what is the generated image
+         * for", and the answer that took it also took the picture out of the
+         * page. Two jobs, two pictures now: this one is looked at and never
+         * embedded — an abstract art-direction plate built from the dossier's
+         * palette and mood (`buildInspirationPrompt`) — and the page's pictures
+         * are made below, as many as asked. Not when the person brought a
+         * reference of their own (theirs is the plate), nor without vision,
+         * where nobody could look at it, nor beside Motion Ultra's own series.
+         */
+        let plate: GeneratedSlotImage | null = null
+        const plateWanted =
+          !runUltra &&
+          picturesAllowed &&
+          museImageSource === 'ai' &&
+          imageGenOk !== false &&
+          museVision !== false &&
+          inspirePins.length === 0
+        if (plateWanted) {
+          hooks.setMuseStage(t('project.museStageInspiration'))
+          const made = await generateSlotImages(
+            [{ id: 'art-direction', slot: 'inspiration', prompt: buildInspirationPrompt(res.dossier), negative: INSPIRATION_NEGATIVE }],
+            project.id,
+            {
+              max: 1,
+              profile: 'inspiration',
+              signal: signal,
+              onImage: (im) => hooks.setMuseImages((a) => [...a, im]),
+              onError: (msg) => hooks.setMuseImageError(msg),
+            },
           )
-          // In 'inspiration' the image is never embedded — it exists only to
-          // be looked at. So it is not the hero photo routed to another
-          // model (which is what it used to be, and why the mode so often
-          // changed nothing): it is an abstract art-direction plate built
-          // from the dossier's own palette and mood.
-          const slotsToRun =
-            profile === 'inspiration'
-              ? [
-                  {
-                    id: 'art-direction',
-                    slot: 'inspiration',
-                    prompt: buildInspirationPrompt(res.dossier),
-                    negative: INSPIRATION_NEGATIVE,
-                  },
-                ]
-              : remaining
+          plate = made[0] ?? null
+        }
+
+        // The page's own pictures, past the ones the library already covers.
+        // Motion Ultra generates its own series further down, planned as one
+        // shoot: Muse's on top of it would be pictures nobody placed, paid for
+        // on every run.
+        const remaining = plan.slice(pins.length)
+        if (remaining.length && !runUltra && picturesAllowed) {
           /*
-           * Free photos instead of a model. Up to three slots rather than
+           * Free photos instead of a model. "Auto" is up to three rather than
            * one: the cap on generation is Pollinations' pace and a price per
-           * picture, and a search has neither — a page with its real
-           * product shots is worth three quick requests. In 'inspiration'
-           * the found photo of the HERO is the reference; an abstract mood
-           * plate is something a model paints, not something a library has.
+           * picture, and a search has neither — a page with its real product
+           * shots is worth three quick requests. "Auto" also adds nothing past
+           * a library pick, which is what a pin always did.
            */
-          let gen: GeneratedSlotImage[]
-          if (museImageSource === 'stock') {
+          const autoMax = museImageSource === 'stock' ? 3 : 1
+          const count = wanted == null ? (pins.length ? 0 : autoMax) : Math.max(0, wanted - pins.length)
+          let gen: GeneratedSlotImage[] = []
+          if (count > 0 && museImageSource === 'stock') {
             hooks.setMuseStage(t('project.museStageStock'))
             const finder = await stockFinder()
             gen = await pickStockSlotImages(remaining, finder, {
-              max: profile === 'inspiration' ? 1 : 3,
+              max: count,
               signal: signal,
               onImage: (im) => hooks.setMuseImages((a) => [...a, im]),
               onError: (msg) => hooks.setMuseImageError(msg),
             })
-            // Only where nothing else shows them: 'inspiration' and 'both'
-            // already attach the hero at full size, with their own words.
-            if (effectiveImageMode === 'content') photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
-          } else {
-            gen = await generateSlotImages(slotsToRun, project.id, {
-              max: 1,
-              profile,
+            // Shown to the model unless a reference already takes that place.
+            if (!inspirePins.length && !plate) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
+          } else if (count > 0) {
+            hooks.setMuseStage(t('project.museStageHero'))
+            gen = await generateSlotImages(remaining, project.id, {
+              max: count,
+              profile: 'content',
               signal: signal,
               onImage: (im) => hooks.setMuseImages((a) => [...a, im]),
               onError: (msg) => hooks.setMuseImageError(msg),
             })
           }
           imgs = [...imgs, ...gen]
-        } else if (!remaining.length && !imgs.length && !runUltra) {
+        } else if (!remaining.length && !imgs.length && !plate && !runUltra) {
           // No imagery slot at all. The dossier now guarantees a hero, so
           // this means something upstream produced nothing — say so rather
           // than finishing silently with an image-less screen.
           hooks.setMuseImageError(t('project.museNoImage'))
         }
-        // "inspiration" and "both" show the image to the model. In "both"
-        // it is the same image it will embed, so it can design around it.
-        if (effectiveImageMode !== 'content' && imgs.length) {
-          const dataUrl = await imageAsDataUrl(imgs[0].url, signal)
+
+        /*
+         * What the model is shown. A reference the person chose wins over the
+         * plate. A picture ticked for BOTH is the old "both": looked at, and
+         * the very picture the page embeds.
+         */
+        const reference = inspirePins[0] ? absoluteUrl(inspirePins[0].url) : plate ? plate.url : null
+        if (reference) {
+          const dataUrl = await imageAsDataUrl(reference, signal)
           if (dataUrl) museVisionRef = dataUrl
         }
+        const referenceIsEmbedded = !!inspirePins[0] && pinInserts(inspirePins[0])
+        museImageUse = !museVisionRef
+          ? 'content'
+          : referenceIsEmbedded
+            ? 'both'
+            : imgs.length
+              ? 'separate'
+              : 'inspiration'
+        museImageRole = museImageUse === 'separate' ? 'content' : museImageUse
+        // The card beside the frame shows the page's picture, the plate when
+        // the page has none.
+        if (!imgs.length && plate) imgs = [plate]
         // Remember which image backs this screen so the canvas can show it.
         if (imgs.length) museImageHash = imgs[0].url.split('/').pop() || undefined
 
@@ -788,8 +838,9 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         : { colors: extractDesignColors(dir.markdown).slice(0, 12) }
       musePreamble = buildMusePreamble(
         dir.markdown,
-        museImgs,
-        effectiveImageMode,
+        // The plate is attached, never listed: listing it would embed it.
+        museImageUse === 'inspiration' ? [] : museImgs,
+        museImageUse,
         museDossier ? { ...museDossier, tokens } : undefined,
         museVideo,
       )
@@ -1074,7 +1125,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
       // the badge could only ever say "Image Muse", which is exactly the
       // ambiguity that made it impossible to tell whether inspiration mode
       // had done anything.
-      imageRole: museImageHash ? effectiveImageMode : ultraImageHash || sitePics.length || docPicture || provided ? 'content' : undefined,
+      imageRole: museImageHash ? museImageRole : ultraImageHash || sitePics.length || docPicture || provided ? 'content' : undefined,
       ultra: ultraRecord,
       // Persisted as a pair so a reload can rebuild the sequence without
       // asking the server what it cut.

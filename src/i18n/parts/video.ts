@@ -448,7 +448,7 @@ export const video = {
     // serait une génération.
     'video.attachTitle': 'Attacher ce montage à un écran',
     'video.attachHint':
-      'Le montage s’affichera sur une carte à côté de l’écran, dans le canevas — à côté de l’image Muse et du DESIGN.md. Le code de l’écran n’est pas modifié.',
+      'Le montage s’affichera sur une carte à côté de l’écran, dans le canevas, sous l’image Muse quand il y en a une. Le code de l’écran n’est pas modifié.',
     'video.attachedHere': 'Attaché ici',
     'video.attachNoProject':
       'Ce panneau a été ouvert depuis Média, hors d’un projet : il n’y a aucun écran auquel rattacher ce montage. Ouvrez un projet pour le faire.',
@@ -900,7 +900,7 @@ export const video = {
     // generation rather than an attachment.
     'video.attachTitle': 'Attach this cut to a screen',
     'video.attachHint':
-      'The cut will show on a card beside the screen, on the canvas — next to the Muse image and the DESIGN.md. The screen’s code is not modified.',
+      'The cut will show on a card beside the screen, on the canvas, under the Muse image when there is one. The screen’s code is not modified.',
     'video.attachedHere': 'Attached here',
     'video.attachNoProject':
       'This panel was opened from Media, outside a project: there is no screen to attach the cut to. Open a project to do that.',

@@ -63,6 +63,8 @@ export type IconName =
   | 'cpu'
   | 'key'
   | 'megaphone'
+  | 'formats'
+  | 'globe'
   | 'list'
   | 'plug'
   | 'coins'
@@ -141,6 +143,12 @@ const PATHS: Record<IconName, string> = {
   cpu: 'M7 7h10v10H7zM10 10h4v4h-4zM9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4',
   key: 'M8 20a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM10.9 13.1 20 4M16 8l2.5 2.5M18.5 5.5 21 8',
   megaphone: 'M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11',
+  // One brief, several sizes: a poster, a square post and a banner, side by side.
+  // Campaign Studio's sign. The megaphone it replaced said "announcement" (it is
+  // also the admin's announcement banner) and not "the same thing in every format".
+  formats: 'M3 4h7v16H3zM13 4h8v8h-8zM13 15h8v5h-8z',
+  // The web: what Muse's live inspiration reads.
+  globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9M12 3C9.5 5.6 8.3 8.6 8.3 12s1.2 6.4 3.7 9',
   list: 'M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z',
   plug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v4',
   // A stack of coins: what the models cost (Admin → Spending).

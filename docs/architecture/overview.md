@@ -637,9 +637,11 @@ override the caller's own first framing.
 
 ### `contentBox()` — the column that hangs off the side
 
-The image/design column beside a frame is drawn **outside** the frame's box, so
-bounding the project on `x + w` framed it with every card sliced down the middle.
-Only screens that actually draw one (`imageHash`) are widened; adding the
+The card column beside a frame — the Muse picture, the attached media — is drawn
+**outside** the frame's box, so bounding the project on `x + w` framed it with
+every card sliced down the middle. (A DESIGN.md card sat in that column too until
+2026-10; the design now shows in the Style panel.) Only screens that actually
+draw a card (`imageHash`, `attachedMedia`) are widened; adding the
 column's width unconditionally would loosen the fit of a project that has no
 cards at all, which is most of them.
 
@@ -999,7 +1001,7 @@ they do not think unless asked, and some refuse more than 64K.
 | `mocky.projects.v1` | Projects, with screens, positions and links — and each project's own design direction |
 | `mocky.design.v1` | The global `DESIGN.md` and its toggle — the fallback for a project that has no direction of its own |
 | `mocky.settings.v1` | Provider, base URL, **API key**, planner on or off |
-| `mocky.muse.v1` | Muse configuration: inspiration URLs, image mode, video, pinned media |
+| `mocky.muse.v1` | Muse configuration: on/off (on by default; `rev` reads a config saved before that as on, once), inspiration URLs, how many pictures to create, video, the chosen clip |
 | `mocky.animations.v1` | `auto`, `on` or `off` |
 
 ### On the server

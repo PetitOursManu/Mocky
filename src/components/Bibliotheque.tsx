@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ImageLightbox from './ImageLightbox'
+import { autoFocusOk, haptic } from '../lib/touch'
 import {
   listLibrary,
   toggleFavoriteImage,
@@ -11,6 +12,8 @@ import {
   ACCEPTED_IMAGE_TYPES,
   type LibraryImage,
   type LibraryFilters,
+  pinInserts,
+  pinInspires,
   type PinnedImage,
 } from '../lib/imageLibrary'
 import {
@@ -118,6 +121,7 @@ export default function Bibliotheque({
   projectNames,
   pinned = [],
   onTogglePin,
+  onPinUse,
   pinnedVideo = null,
   onPinVideo,
   initialTab = 'images',
@@ -139,6 +143,8 @@ export default function Bibliotheque({
   projectNames?: Record<string, string>
   pinned?: PinnedImage[]
   onTogglePin?: (img: LibraryImage) => void
+  /** What a chosen picture is for: in the page, a mood reference, or both. */
+  onPinUse?: (hash: string, use: { insert: boolean; inspire: boolean }) => void
   /** The sequence chosen for the next run — at most one, it is the hero. */
   pinnedVideo?: PinnedVideo | null
   onPinVideo?: (v: LibraryVideo | null) => void
@@ -570,9 +576,9 @@ export default function Bibliotheque({
    */
   const selectionNote =
     pinned.length || pinnedVideo ? (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-muse/40 bg-muse/5 px-2.5 py-1.5 text-body-sm text-ink-muted">
-        <span className="flex items-center gap-1.5 text-muse-ink">
-          <Icon name="pin" size={14} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-accent/40 bg-accent/5 px-3 py-2 text-body-sm text-ink-muted">
+        <span className="flex items-center gap-1.5 text-accent-ink">
+          <Icon name="check" size={14} />
           {t('library.selectionTitle')}
         </span>
         {pinned.length > 0 && (
@@ -580,6 +586,38 @@ export default function Bibliotheque({
             <span className="font-mono text-accent-ink">{pinned.length}</span>{' '}
             {t(pinned.length === 1 ? 'library.selectedImage_one' : 'library.selectedImage_other')}
           </span>
+        )}
+        {/* What each chosen picture is FOR, decided here where it was chosen:
+            in the page, a mood reference for Muse and the model, or both. */}
+        {pinned.length > 0 && onPinUse && (
+          <ul className="flex w-full flex-col gap-1.5">
+            {pinned.map((p) => {
+              const insert = pinInserts(p)
+              const inspire = pinInspires(p)
+              const set = (patch: { insert?: boolean; inspire?: boolean }) => {
+                haptic()
+                const next = { insert, inspire, ...patch }
+                if (!next.insert && !next.inspire) {
+                  const img = images.find((i) => i.hash === p.hash)
+                  if (img) onTogglePin?.(img)
+                } else onPinUse(p.hash, next)
+              }
+              return (
+                <li key={p.hash} className="flex items-center gap-2.5">
+                  <img src={imageUrl(p.hash)} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
+                  <span className="min-w-0 flex-1 truncate text-caption">{p.label}</span>
+                  <label className="tap-target inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-caption text-ink">
+                    <input type="checkbox" className="h-4 w-4 accent-accent" checked={insert} onChange={(e) => set({ insert: e.target.checked })} />
+                    {t('muse.useInsert')}
+                  </label>
+                  <label className="tap-target inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-caption text-ink" title={t('muse.useInspireHint')}>
+                    <input type="checkbox" className="h-4 w-4 accent-accent" checked={inspire} onChange={(e) => set({ inspire: e.target.checked })} />
+                    {t('muse.useInspire')}
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
         )}
         {pinnedVideo && (
           <span className="flex min-w-0 items-center gap-1.5">
@@ -636,7 +674,8 @@ export default function Bibliotheque({
         placeholder={t('library.search')}
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        autoFocus={!isPage}
+        // Not on a phone: the keyboard would cover the pictures the dialog was opened to show.
+        autoFocus={!isPage && autoFocusOk()}
       />
       {projectId && (
         <label className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-body-sm text-ink-muted">
@@ -686,22 +725,51 @@ export default function Bibliotheque({
         <div
           key={img.hash}
           className={`group relative overflow-hidden rounded-xl border bg-surface ${
-            isPinned(img.hash) ? 'border-muse ring-2 ring-muse/40' : 'border-line-soft'
+            isPinned(img.hash) ? 'border-accent ring-2 ring-accent/50' : 'border-line-soft'
           }`}
         >
-          <button
-            type="button"
-            className="block aspect-[4/3] w-full overflow-hidden bg-sunken"
-            title={t('library.openFull')}
-            onClick={() => openImage(img.hash)}
-          >
-            <img
-              src={imageUrl(img.hash)}
-              alt={img.prompt}
-              className="h-full w-full object-cover transition group-hover:scale-[1.03]"
-              loading="lazy"
-            />
-          </button>
+          {/* The picture and its checkbox share a box, so the box sits on the
+              picture's corner — the action strip owns the top of the tile. */}
+          <div className="relative">
+            <button
+              type="button"
+              className="block aspect-[4/3] w-full overflow-hidden bg-sunken"
+              title={t('library.openFull')}
+              onClick={() => openImage(img.hash)}
+            >
+              <img
+                src={imageUrl(img.hash)}
+                alt={img.prompt}
+                className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                loading="lazy"
+              />
+            </button>
+            {/* A checkbox on the picture, not a "Pin" word under it: the word
+                said nothing about what pinning did, and a ticked box is the one
+                sign of "chosen" everybody reads, at a size a thumb can hit. */}
+            {canPin && (
+              <label
+                className={`absolute bottom-1.5 left-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border shadow-sm transition ${
+                  isPinned(img.hash)
+                    ? 'border-accent bg-accent text-on-accent'
+                    : 'border-line bg-raised/90 text-transparent hover:border-accent/60'
+                }`}
+                title={t('library.pinHint')}
+              >
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={isPinned(img.hash)}
+                  aria-label={t(isPinned(img.hash) ? 'library.pinned' : 'library.pin')}
+                  onChange={() => {
+                    haptic()
+                    onTogglePin?.(img)
+                  }}
+                />
+                <Icon name="check" size={20} />
+              </label>
+            )}
+          </div>
           <div className="p-1.5">
             <div className="truncate text-caption text-ink-muted transition group-hover:text-accent-ink" title={img.prompt}>
               {img.prompt}
@@ -764,24 +832,7 @@ export default function Bibliotheque({
               <Icon name="trash" size={16} />
             </IconButton>
           </div>
-          {canPin && (
-            <button
-              type="button"
-              onClick={() => onTogglePin?.(img)}
-              // Damped, never hidden: at opacity-0 the only way to discover that
-              // an image could be pinned at all was to own a mouse.
-              className={`kicker absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-1 transition ${
-                isPinned(img.hash)
-                  ? 'border border-muse bg-muse text-on-accent'
-                  : 'border border-line bg-raised text-ink opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
-              }`}
-              title={t('library.pinHint')}
-            >
-              <Icon name="pin" size={14} />
-              {isPinned(img.hash) ? t('library.pinned') : t('library.pin')}
-            </button>
-          )}
-          {img.favorite && !isPinned(img.hash) && (
+          {img.favorite && (
             <span className="absolute left-1 top-1 flex border border-line bg-raised p-1 text-accent">
               <Icon name="star" size={14} />
             </span>
@@ -1084,7 +1135,10 @@ export default function Bibliotheque({
   return (
     <div className="fixed inset-0 z-modal flex flex-col bg-black/60" onClick={onClose}>
       <div
-        className="mx-auto mt-8 flex h-[calc(100vh-4rem)] w-full max-w-5xl flex-col rounded-2xl border border-line bg-raised shadow-2xl"
+        // 100vh on Android Chrome is the viewport WITHOUT its address bar, so
+        // the dialog's foot — "Terminé" — sat under the browser's own toolbar.
+        // `dvh` is what is actually visible; a phone gets the whole of it.
+        className="mx-auto flex h-dvh w-full max-w-5xl flex-col border-line bg-raised shadow-2xl sm:mt-8 sm:h-[calc(100dvh-4rem)] sm:rounded-2xl sm:border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* This row used to be a single unwrapped line whose min-content was

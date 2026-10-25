@@ -1,5 +1,5 @@
 ---
-source_hash: f339aa1aa009
+source_hash: b0a1558f20da
 ---
 
 # Motion Ultra — pages
@@ -136,8 +136,8 @@ Fond vidéo actif, aucun autre film Motion Ultra n'est fabriqué pour le même �
   premier — avec la consigne de les réutiliser partout où une image a sa place,
   sauf si sa demande dit le contraire. Rien n'est généré pour ça.
 - Le contrôle de lisibilité (texte posé sur une image) tourne après **chaque**
-  nouvel écran qui contient une image, celles de Muse et les images épinglées
-  comprises — pas seulement Motion Ultra.
+  nouvel écran qui contient une image, celles de Muse et celles choisies dans la
+  bibliothèque comprises — pas seulement Motion Ultra.
 
 ## Avec Muse et les films Motion Ultra
 

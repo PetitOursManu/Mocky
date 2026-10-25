@@ -1,5 +1,5 @@
 ---
-source_hash: 6d271ae829d8
+source_hash: adf49acada59
 ---
 
 # Vue d'ensemble de l'architecture
@@ -675,9 +675,12 @@ re-cadrer là écraserait le premier cadrage demandé par l'appelant.
 
 ### `contentBox()` — la colonne qui pend sur le côté
 
-La colonne image/design d'un cadre est dessinée **hors** de la boîte de ce cadre :
-borner le projet sur `x + w` le cadrait donc avec chaque carte tranchée en deux.
-Seuls les écrans qui en dessinent une (`imageHash`) sont élargis ; ajouter la
+La colonne de cartes d'un cadre — l'image Muse, le média attaché — est dessinée
+**hors** de la boîte de ce cadre : borner le projet sur `x + w` le cadrait donc
+avec chaque carte tranchée en deux. (Une carte DESIGN.md se trouvait aussi dans
+cette colonne jusqu'en octobre 2026 ; le design s'affiche désormais dans le
+panneau Style.) Seuls les écrans qui dessinent une carte (`imageHash`,
+`attachedMedia`) sont élargis ; ajouter la
 largeur de la colonne sans condition relâcherait le cadrage d'un projet qui n'a
 aucune carte, c'est-à-dire de la plupart d'entre eux.
 
@@ -1054,7 +1057,7 @@ refusent plus de 64K.
 | `mocky.projects.v1` | Les projets, avec écrans, positions et liens — et la direction de design propre à chaque projet |
 | `mocky.design.v1` | Le `DESIGN.md` global et son interrupteur — le repli d'un projet qui n'a pas de direction à lui |
 | `mocky.settings.v1` | Fournisseur, URL de base, **clé d'API**, planificateur activé ou non |
-| `mocky.muse.v1` | La configuration Muse : URL d'inspiration, mode image, vidéo, média épinglé |
+| `mocky.muse.v1` | La configuration Muse : activé ou non (activé par défaut ; `rev` relit une fois comme activée une configuration enregistrée avant), URL d'inspiration, combien d'images créer, vidéo, le clip choisi |
 | `mocky.animations.v1` | `auto`, `on` ou `off` |
 
 ### Sur le serveur

@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: ac0cece9dd56
+source_hash: 7b076ced1b95
 ---
 
 # Démarrage
@@ -118,6 +118,12 @@ Le [[composeur|composer]], où l’on décrit un écran :
 - 49.8,72.3 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
 - 49.8,84.8 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
 :::
+
+[[Muse|muse]] est **activé par défaut** : avant que le premier écran soit écrit,
+il cherche des références en direct, écrit une direction artistique avec de
+vrais textes, et fait les images de la page. Désactivez-le dans le composeur et
+une génération est la génération simple, à l'octet près — rien d'autre ne
+change.
 
 Un projet garde **une seule** [[direction de design|direction]], pour que ses écrans aient
 l’air d’un produit et non de cinq esquisses. Elle est fixée par le premier écran
@@ -419,7 +425,8 @@ bon marché. C'est le chemin d'origine, sans configuration, et Pollinations en e
 le défaut.
 
 **`inspiration`** produit l'unique planche de direction artistique montrée au
-modèle. Elle doit convaincre, donc elle mérite un modèle plus lent et plus cher.
+modèle — la planche d'inspiration de Muse, faite à chaque passage de Muse dont
+les images sont générées. Elle doit convaincre, donc elle mérite un modèle plus lent et plus cher.
 Laisser son fournisseur vide le fait retomber sur `content`.
 
 **`edit`** fait de l'image-vers-image : une image existante entre, une dérivée

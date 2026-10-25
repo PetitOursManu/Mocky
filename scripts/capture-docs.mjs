@@ -306,7 +306,7 @@ async function run(lang) {
         ['The creation workshop', column.getByText(t('workspace.atelier'), { exact: true })],
         ['A generated screen', page.locator('[data-screen="cafe-home"]')],
         ['A document', page.locator('[data-screen="cafe-flyer"]')],
-        ['Floating tools', page.getByRole('toolbar', { name: t('workspace.screenTools') })],
+        ['Screen tools', page.getByRole('toolbar', { name: t('workspace.screenTools') })],
         ['The inspector', page.getByRole('complementary', { name: t('workspace.inspector') })],
         ['Zoom bar', zoomBar],
         ['Generate', btn(column, startsWith(t('composer.update').split('(')[0].trim()))],
@@ -341,8 +341,8 @@ async function run(lang) {
     })
 
     // ---- a document's menu, and its download dialog ----------------------------
-    // The menu from the floating tools' `⋯`: a frame's own label is too small
-    // to click once the whole board is framed.
+    // The menu from the screen tools' `⋯`, in the top bar: a frame's own label
+    // is too small to right-click once the whole board is framed.
     const pick = (id) =>
       column.locator(`button[title="${t('workspace.historyTitle')}"]`).filter({ hasText: names[id] }).click()
     await pick('cafe-flyer')

@@ -118,6 +118,11 @@ The [[composer|composer]], where a screen is described:
 - 49.8,84.4 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
+[[Muse|muse]] is **on by default**: before the first screen is written it looks
+up references live, writes an art direction with real copy, and makes the page's
+pictures. Switch it off in the composer and a generation is the plain one, byte
+for byte — nothing else changes.
+
 A project keeps **one** [[design direction|direction]], so its screens look like one product
 rather than five sketches. It is set by the first screen you generate and then
 left alone. **New direction** is the exception: tick it and the prompt you are
@@ -400,7 +405,8 @@ The three jobs are genuinely different, so they have separate settings.
 backgrounds. There can be several per screen, so it should be fast and cheap.
 This is the original zero-configuration path, and Pollinations is its default.
 
-**`inspiration`** produces the single art-direction reference shown to the model.
+**`inspiration`** produces the single art-direction reference shown to the model
+— Muse's inspiration plate, made on every Muse run whose pictures are generated.
 It has to be convincing, so it is worth a slower and more expensive model.
 Leaving its provider empty makes it fall back to `content`.
 

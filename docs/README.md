@@ -19,7 +19,7 @@ A project, open. Click the numbers to see what each part is:
 - 10.4,9.2 **The creation workshop**: The composer, as a column: describe a screen, choose its format and options, generate. With screens selected, it edits them.
 - 36.9,41.8 **A generated screen**: A real React + Tailwind component, rendered live. Double-click to use it, right-click for its menu.
 - 30.5,64.9 **A document**: A flyer, a report, a post: fixed pages. Its `Download` pill gives a PDF, a `.pptx` or PNG images.
-- 48.3,15.1 **Floating tools**: For the one selected screen: edit, polish, regenerate, share, export, and its whole menu under `⋯`.
+- 48.3,15.1 **Screen tools**: In the top bar, for the one selected screen: edit, polish, regenerate, notes, animations, delete, and its whole menu under `⋯`.
 - 86.3,53.3 **The inspector**: A rail of six panels that is always there — style, versions, audit, approval, campaign, links — and the one that is open.
 - 31.8,95.9 **Zoom bar**: Zoom, `Fit all`, the latest screen, `Arrange`, and the switch that shows or hides the cables.
 - 16.5,38.8 **Generate**: Creates the screen. With screens selected, it reads `Update` and edits them instead.
@@ -90,7 +90,7 @@ Seven steps. Steps 1 and 3 are optional.
 
 | # | Step | Where | Notes |
 |---|---|---|---|
-| 1 | **Muse** builds a design dossier | Server, via `POST /api/muse/dossier` | Optional. Produces an art direction, real copy and a generated image |
+| 1 | **Muse** builds a design dossier | Server, via `POST /api/muse/dossier` | On by default, and can be switched off. Produces an art direction, real copy and the page's pictures |
 | 2 | **`selectCapabilities()`** picks a shortlist | Browser | Deterministic keyword matching. No model call |
 | 3 | **`planScreen()`** refines the shortlist | Browser | Optional. Returns `null` on any failure, and the shortlist is used unchanged |
 | 4 | **`applyAnimationMode()`** applies your motion preference | Browser | Three states: `auto`, `on`, `off` |
@@ -106,8 +106,9 @@ Each step is covered in the [architecture overview](architecture/overview.md).
 
 They explain a lot of the code you will read.
 
-**Muse off means nothing changes.** With the toggle off, the request sent to the
-model is byte-for-byte what it was before Muse existed. The dossier enters through
+**Muse off means nothing changes.** Muse is on by default, and with the toggle
+off the request sent to the model is byte-for-byte what it was before Muse
+existed. The dossier enters through
 `extraSystem`, the same parameter `DESIGN.md` already used.
 
 **No optional step may block.** The planner resolves to `null` on any failure. A

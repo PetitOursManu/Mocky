@@ -9,20 +9,32 @@ icons, and a grey "Trusted by" logo strip.
 
 That is not a rendering fault. It is the centre of gravity of the training data.
 
-**Muse moves that centre of gravity.** Flip one toggle next to the prompt and
-Mocky builds an **art direction** first, then generates the screen from it
-instead of from the bare prompt.
+**Muse moves that centre of gravity.** It is **on by default**: before the
+screen is written, Mocky builds an **art direction**, then generates the screen
+from it instead of from the bare prompt. The `Muse` switch next to the prompt
+turns it off, and off means the plain generation, byte for byte (invariant M1).
 
 | Without Muse | With Muse |
 |---|---|
 | The model invents a palette | A coherent palette, traceable to its references |
 | Generic copy, often in English | Real copy, in the language of the request |
-| No images, or flat colour blocks | A generated image, served from Mocky's origin |
+| No images, or flat colour blocks | Pictures made or found for the page, served from Mocky's origin |
 | No record of the reasoning | A `DESIGN-DOSSIER.md` citing what inspired what |
 | Nothing prevents clichés | A versioned blacklist and a self-critique pass |
 
 Muse needs the back end. In pure `localStorage` mode the toggle is hidden — it
 must never *appear* to work while doing nothing.
+
+The Muse panel asks its questions in labelled rows, each saying what it does:
+`Inspiration` (links you want looked at — optional, since Muse always looks for
+references live), `Your pictures` (chosen in the library, each ticked for what
+it is for), `Pictures to create` (`Auto` · `1` · `2` · `3` · `4`) and, when your
+account may use one, `Video`. Under them, the stage the run is at and the
+dossier's moodboard.
+
+A browser that had saved Muse's settings before it was on by default reads them
+as **on**, once: that saved `off` was the old default, not a choice anybody
+made. Switching it off after that is kept like any other setting.
 
 ---
 
@@ -33,7 +45,7 @@ orchestrated by `server/muse/inspire/engine.js`.
 
 | # | Stage | Model calls | Optional? |
 |---|---|---|---|
-| 1 | **Discover** — gather inspiration | None | Yes, only when "live inspiration" is ticked |
+| 1 | **Discover** — gather inspiration | None | Runs on every Muse run; skipped when the server has no page fetcher |
 | 2 | **Distill** — turn pages into vocabulary | One per page, at most 6 | Only runs if Discover found something |
 | 3 | **Dossier** — write the art direction | One, with one retry | No, but degrades to a deterministic dossier |
 | 4 | **Refine** — self-critique | One score, at most one revision | Yes |
@@ -52,8 +64,12 @@ references always get a slot in the quota.
 Pages are fetched through a **local, free MCP server** — `fetcher-mcp`, which is
 Playwright plus Readability.
 
-This stage is **optional**. It only runs when the user ticks "live inspiration".
-Otherwise Muse goes straight to the dossier using its offline pattern library.
+This stage is **not a choice any more**: it runs whenever Muse runs. It used to
+wait for a "live inspiration" box that was off by default, so a run nobody had
+configured wrote from the offline patterns alone. The panel now only asks for the
+links you want looked at. The server still skips the stage when it has no
+fetcher to run — no Chromium, no MCP server — and Muse then goes straight to the
+dossier using its offline pattern library.
 
 ### 2. Distill
 
@@ -156,27 +172,59 @@ work.
 
 ---
 
-## The three image modes
+## Pictures: the page's, and Muse's own plate
 
 ![The Media library](../assets/06-media.png)
 
 *Every image Muse generates lands in the Media library, shared across projects and searchable by the prompt that made it.*
 
-The generated image can serve three different purposes, and it is an explicit
-choice in the Muse panel.
+A picture can do two jobs: be **in** the page, or be **looked at** by the model
+as an art-direction reference — palette, light, composition — without ever being
+placed. Until 2026-10 one switch in the Muse panel, `Generated image` ·
+`Content` / `Inspiration` / `Both`, asked what the ONE generated picture was
+for. People could not tell what each answer would do, and `Inspiration` quietly
+meant a page with no picture in it. So the two jobs are now two pictures, and
+the switch is gone.
 
-| Mode | The image is… | Needs vision? | Image profile |
-|---|---|---|---|
-| `content` | placed in the screen as an `<img>` | No | `content` |
-| `inspiration` | shown to the model, **never** placed | Yes | `inspiration` |
-| `both` | shown **and** placed — one image, one cost | Yes | `content` |
+**Muse's inspiration plate.** Whenever the page's pictures are **generated**
+(`Images · AI`), Muse also paints a plate of its own: looked at by the model,
+never embedded. It is not made when the model cannot see images (nobody could
+look at it), when Motion Ultra is on (its series is planned as one shoot), or
+when you brought a reference of your own (yours is the plate). One more
+generation on some runs — decided with the user: simpler beats cheaper here. It
+runs on the `inspiration` image profile.
 
-The saved preference is never changed silently. If the active model has no
-vision, **this run** degrades to `content` and the setting stays as it was.
+**The page's pictures.** The Muse panel's `Pictures to create` row says how many
+Muse adds to the page: `Auto` · `1` · `2` · `3` · `4`. `Auto` is one generated
+picture, or up to three free photos — and none when library pictures you chose
+already cover the page. A number above what the dossier planned re-shoots its
+subjects from another angle rather than inventing one it did not plan.
 
-### Why `inspiration` does not generate the same image as `content`
+**Your own pictures.** A picture chosen in the library carries two boxes, in the
+library's selection note and in the Muse panel's `Your pictures` row:
 
-It used to, and that is why the mode "often changed nothing".
+| Ticked | The picture is… | Needs vision? |
+|---|---|---|
+| `In the project` (the default) | placed in the screen as an `<img>`, before any new picture | No |
+| `Inspiration` | shown to Muse and the model as a mood reference, **never** placed — and it replaces Muse's plate | Yes |
+| both | shown **and** placed: the model designs around the very picture the page embeds | Yes |
+
+Unticking both removes the picture from the selection. On a model without
+vision, a reference is dropped for **that run** and a picture ticked for both
+still goes in the page.
+
+What the generation prompt is told follows from that: pictures to embed, a
+reference to look at, both in one picture, or — new — pictures to embed **and a
+different picture attached** as a reference (`separate`): the plate beside
+generated pictures, or a library picture ticked `Inspiration` beside others
+ticked `In the project`. The prompt names that reference as *not one of the
+images listed above*, because a model shown an unexplained picture pastes it in
+as content.
+
+### Why the plate is not a second hero photo
+
+It used to be, and that is why the old `Inspiration` mode "often changed
+nothing".
 
 An inspiration image was generated from the imagery plan's own prompt — the same
 photographic subject as the hero, merely routed to a different model. That is not
@@ -193,16 +241,21 @@ dossier's own tokens:
 > product: no people, no objects, no scene, no story.
 
 The canvas records `imageRole` on the screen — `content`, `inspiration` or
-`both`. The badge previously said only "Muse image", which made it impossible to
-verify that inspiration mode had done anything at all.
+`both` — and the card beside the frame shows it. A run that embedded pictures
+**and** looked at a separate plate records `content`: the card shows the page's
+picture, which is the one you can find in it. The badge previously said only
+"Muse image", which made it impossible to verify that a reference had done
+anything at all.
 
 ---
 
 ## Designing from your own media
 
-Selecting an image or a sequence from the library does more than fill a slot. The
+Choosing an image or a sequence in the library does more than fill a slot. The
 media is read **before** the dossier is written, and the dossier is built around
-it.
+it. Among several pictures, the one read is the first ticked `Inspiration`, or
+else the first ticked `In the project`: a reference was chosen to be designed
+from, which is exactly what this reading is for.
 
 There are two channels, because they fail differently.
 
@@ -311,7 +364,7 @@ whatever the panel shows — the panel only hides what would be refused.
 
 **Photos can be free too.** The same keys serve Pexels' and Pixabay's photos, in
 two places. By hand: Media's Images tab gains the same search, and an imported
-photo is stored like an upload, with its author's credit shown on its card — pin
+photo is stored like an upload, with its author's credit shown on its card — tick
 it and Muse uses it like any picture of yours. Automatically: the composer's
 `Images · AI / Free / None` choice (*None* makes no new picture: the dossier
 still writes the direction and the copy, and the pictures the project's screens
@@ -325,10 +378,12 @@ space-exploration page; a photo that fits nothing is worse than no photo,
 because the whole page is then built around it. A model without vision takes
 the search's first result. Nothing found or nothing fitting is a notice, not a
 failure — and never a quiet fall-back to a paid generation the person turned
-off. In *Inspiration* mode, the found photo of the hero is the reference; in
-the default mode, the thumbnails of the photos found are shown to the model that
-writes the page, so the page is designed around the pictures it embeds rather
-than around a dossier written before they were found. Who
+off. Muse paints no inspiration plate on *Free* — a mood plate is something a
+model paints, not something a library has — so the thumbnails of the photos
+found are shown to the model that writes the page instead, and the page is
+designed around the pictures it embeds rather than around a dossier written
+before they were found. A library picture you ticked `Inspiration` takes that
+place when there is one. Who
 may use this is its own list, in Admin → Images → Free stock photos.
 
 ---
@@ -387,7 +442,7 @@ These are invariants M2, M4, M5 and M7. See
 
 Higgsfield.ai has no free API, so it is not integrated. The manual workaround
 works: generate the image on Higgsfield, download it, drop it into Mocky's media
-library and pin it.
+library and tick it.
 
 Muse will use it like any other image — which means measuring its palette and
 writing the dossier around it.

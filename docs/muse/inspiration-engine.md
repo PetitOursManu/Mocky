@@ -16,6 +16,11 @@ export async function runInspiration(args, deps) { … }
 // deps : { fetcher?, llm?|null, patterns, blacklist, onProgress?, onNotice? }
 ```
 
+Since 2026-10 the browser always sends `useFetch: true`: live inspiration is no
+longer a box to tick, it is what a Muse run does. What still decides is the
+server — with no `fetcher` to run, Discover is skipped and the run continues on
+the offline patterns.
+
 ---
 
 ## The MCP host

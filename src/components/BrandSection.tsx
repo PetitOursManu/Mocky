@@ -90,8 +90,13 @@ export default function BrandSection() {
         </div>
       )}
 
-      <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
-        <div className="flex items-center gap-4 md:col-span-2">
+      {/* `grid-cols-1` below md for the reason SettingsPanel gives on its own
+          grids: an implicit column is as wide as its widest content. */}
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+        {/* Stacked below sm. Side by side, a 160px logo frame and "Remplacer le
+            logo" asked for more than a phone's column holds, and the hint
+            beside them was squeezed to a word per line. */}
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4 md:col-span-2">
           <div className="flex h-20 w-40 shrink-0 items-center justify-center border border-line-soft bg-ink/5 p-2">
             {brand.logo ? (
               <img src={imageUrl(brand.logo.hash)} alt={t('brand.logo')} className="max-h-full max-w-full object-contain" />
@@ -127,9 +132,11 @@ export default function BrandSection() {
           {(p) => <Input {...p} value={brand.website ?? ''} maxLength={120} onChange={(e) => change({ website: e.target.value || undefined })} placeholder="exemple.fr" />}
         </Field>
 
-        <fieldset className="md:col-span-2">
+        {/* `min-w-0`: a fieldset's default `min-inline-size` is min-content —
+            the one element that will not shrink to its column on its own. */}
+        <fieldset className="min-w-0 md:col-span-2">
           <legend className="mb-2 text-body-sm font-medium text-ink">{t('brand.colors')}</legend>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
             {BRAND_COLOR_KEYS.map((k) => (
               <label key={k} className="flex items-center gap-2 text-body-sm text-ink-muted">
                 <input

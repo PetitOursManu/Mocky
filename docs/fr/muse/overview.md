@@ -1,5 +1,5 @@
 ---
-source_hash: d2f6ae36928b
+source_hash: adf64065203e
 ---
 
 # Vue d'ensemble de Muse
@@ -14,20 +14,34 @@ avec des icônes génériques, et un bandeau de logos gris marqué « Trusted by
 Ce n'est pas un défaut d'affichage. C'est le centre de gravité des données
 d'entraînement.
 
-**Muse déplace ce centre de gravité.** Un interrupteur à côté du prompt, et Mocky
-construit d'abord une **direction artistique**, puis génère l'écran à partir
-d'elle plutôt qu'à partir du prompt nu.
+**Muse déplace ce centre de gravité.** Il est **activé par défaut** : avant
+d'écrire l'écran, Mocky construit une **direction artistique**, puis génère
+l'écran à partir d'elle plutôt qu'à partir du prompt nu. L'interrupteur `Muse`
+à côté du prompt le désactive, et désactivé veut dire la génération simple, à
+l'octet près (invariant M1).
 
 | Sans Muse | Avec Muse |
 |---|---|
 | Le modèle invente une palette | Une palette cohérente, dont on sait d'où elle vient |
 | De la copie générique, souvent en anglais | De la vraie copie, dans la langue de la demande |
-| Aucune image, ou des aplats de couleur | Une image générée, servie depuis l'origine de Mocky |
+| Aucune image, ou des aplats de couleur | Des images faites ou trouvées pour la page, servies depuis l'origine de Mocky |
 | Aucune trace du raisonnement | Un `DESIGN-DOSSIER.md` qui cite ce qui a inspiré quoi |
 | Rien n'empêche les clichés | Une liste noire versionnée et une passe d'autocritique |
 
 Muse a besoin du back-end. En mode `localStorage` pur, l'interrupteur est masqué :
 il ne doit jamais *sembler* fonctionner tout en ne faisant rien.
+
+Le panneau Muse pose ses questions en lignes titrées, chacune disant ce qu'elle
+fait : `Inspiration` (les liens que vous voulez faire regarder — facultatif,
+puisque Muse cherche toujours des références en direct), `Vos images` (choisies
+dans la bibliothèque, chacune cochée selon ce à quoi elle sert), `Images à
+créer` (`Auto` · `1` · `2` · `3` · `4`) et, quand votre compte y a droit,
+`Vidéo`. En dessous, l'étape où en est le passage et le moodboard du dossier.
+
+Un navigateur qui avait enregistré les réglages de Muse avant qu'il soit activé
+par défaut les relit comme **activés**, une fois : ce `désactivé` enregistré
+était l'ancien défaut, pas un choix de quelqu'un. Le désactiver ensuite est
+conservé comme n'importe quel réglage.
 
 ---
 
@@ -38,7 +52,7 @@ orchestré par `server/muse/inspire/engine.js`.
 
 | # | Étape | Appels au modèle | Facultative ? |
 |---|---|---|---|
-| 1 | **Discover** — rassembler l'inspiration | Aucun | Oui, seulement si « inspiration live » est coché |
+| 1 | **Discover** — rassembler l'inspiration | Aucun | Tourne à chaque passage de Muse ; sautée quand le serveur n'a pas de récupérateur de pages |
 | 2 | **Distill** — transformer les pages en vocabulaire | Un par page, 6 au maximum | Ne tourne que si Discover a trouvé quelque chose |
 | 3 | **Dossier** — écrire la direction artistique | Un, avec une seconde tentative | Non, mais dégrade vers un dossier déterministe |
 | 4 | **Refine** — autocritique | Une note, au plus une révision | Oui |
@@ -58,9 +72,13 @@ une place dans le quota.
 Les pages sont récupérées par un **serveur MCP local et gratuit** :
 `fetcher-mcp`, qui est du Playwright plus Readability.
 
-Cette étape est **facultative**. Elle ne tourne que si l'utilisateur coche
-« inspiration live ». Sinon, Muse passe directement au dossier en utilisant sa
-bibliothèque de patterns hors ligne.
+Cette étape **n'est plus un choix** : elle tourne chaque fois que Muse tourne.
+Elle attendait une case « inspiration live », désactivée par défaut, si bien
+qu'un passage que personne n'avait réglé écrivait à partir des seuls patterns
+hors ligne. Le panneau ne demande plus que les liens que vous voulez faire
+regarder. Le serveur saute toujours l'étape quand il n'a pas de récupérateur à
+lancer — pas de Chromium, pas de serveur MCP — et Muse passe alors directement
+au dossier en utilisant sa bibliothèque de patterns hors ligne.
 
 ### 2. Distill
 
@@ -169,29 +187,64 @@ l'effet ne peut pas fonctionner.
 
 ---
 
-## Les trois modes d'image
+## Les images : celles de la page, et la planche de Muse
 
 ![La bibliothèque Média](../../assets/06-media.png)
 
 *Chaque image produite par Muse arrive dans la bibliothèque Média, partagée entre les projets et cherchable par la demande qui l’a créée.*
 
-L'image générée peut servir à trois choses différentes, et c'est un choix
-explicite dans le panneau Muse.
+Une image peut faire deux métiers : être **dans** la page, ou être **regardée**
+par le modèle comme référence de direction artistique — palette, lumière,
+composition — sans jamais être posée. Jusqu'en octobre 2026, un seul sélecteur
+du panneau Muse, `Image générée` · `Contenu` / `Inspiration` / `Les deux`,
+demandait à quoi servait l'unique image générée. On ne savait pas dire ce que ferait
+chaque réponse, et `Inspiration` voulait dire, sans le dire, une page sans
+aucune image. Les deux métiers sont donc désormais deux images, et le sélecteur
+a disparu.
 
-| Mode | L'image est… | Vision requise ? | Profil d'image |
-|---|---|---|---|
-| `content` | posée dans l'écran dans une `<img>` | Non | `content` |
-| `inspiration` | montrée au modèle, **jamais** posée | Oui | `inspiration` |
-| `both` | montrée **et** posée — une seule image, un seul coût | Oui | `content` |
+**La planche d'inspiration de Muse.** Chaque fois que les images de la page sont
+**générées** (`Images · IA`), Muse peint aussi une planche à lui : regardée par
+le modèle, jamais insérée. Elle n'est pas faite quand le modèle ne voit pas les
+images (personne ne pourrait la regarder), quand Motion Ultra est actif (sa
+série est prévue comme une seule prise de vue), ni quand vous avez apporté une
+référence à vous (la vôtre est la planche). Une génération de plus sur certains
+passages — décidé avec l'utilisateur : plus simple vaut mieux que moins cher
+ici. Elle passe par le profil d'image `inspiration`.
 
-La préférence enregistrée n'est jamais modifiée en silence. Si le modèle actif
-n'a pas la vision, **ce passage-là** dégrade en `content`, et le réglage reste
-tel quel.
+**Les images de la page.** La ligne `Images à créer` du panneau Muse dit combien
+Muse en ajoute à la page : `Auto` · `1` · `2` · `3` · `4`. `Auto`, c'est une
+image générée, ou jusqu'à trois photos libres — et aucune quand des images de la
+bibliothèque que vous avez choisies couvrent déjà la page. Un nombre au-delà de
+ce que le dossier a prévu reprend ses sujets sous un autre angle plutôt que d'en
+inventer un qu'il n'a pas prévu.
 
-### Pourquoi `inspiration` ne génère pas la même image que `content`
+**Vos propres images.** Une image choisie dans la bibliothèque porte deux cases,
+dans la note de sélection de la bibliothèque et dans la ligne `Vos images` du
+panneau Muse :
 
-C'était le cas au départ, et c'est pour cela que le mode « ne changeait souvent
-rien ».
+| Cochée | L'image est… | Vision requise ? |
+|---|---|---|
+| `Dans le projet` (par défaut) | posée dans l'écran dans une `<img>`, avant toute nouvelle image | Non |
+| `Inspiration` | montrée à Muse et au modèle comme référence d'ambiance, **jamais** posée — et elle remplace la planche de Muse | Oui |
+| les deux | montrée **et** posée : le modèle compose autour de l'image même que la page insère | Oui |
+
+Décocher les deux retire l'image de la sélection. Sur un modèle sans vision, une
+référence est écartée pour **ce passage-là**, et une image cochée pour les deux
+va quand même dans la page.
+
+Ce que le prompt de génération apprend en découle : des images à insérer, une
+référence à regarder, les deux en une seule image, ou — c'est nouveau — des
+images à insérer **et une autre image jointe** comme référence (`separate`) : la
+planche à côté d'images générées, ou une image de la bibliothèque cochée
+`Inspiration` à côté d'autres cochées `Dans le projet`. Le prompt nomme cette
+référence comme *n'étant pas l'une des images listées plus haut*, parce qu'un
+modèle à qui l'on montre une image sans explication la colle dans la page comme
+contenu.
+
+### Pourquoi la planche n'est pas une deuxième photo de visuel principal
+
+Elle l'était au départ, et c'est pour cela que l'ancien mode `Inspiration` « ne
+changeait souvent rien ».
 
 Une image d'inspiration était générée à partir du prompt du plan d'imagerie,
 c'est-à-dire le même sujet photographique que le visuel principal, simplement
@@ -208,9 +261,12 @@ construit à partir des jetons du dossier lui-même :
 > texture, soft directional light. It is a MOOD BOARD PLATE, not a picture of a
 > product: no people, no objects, no scene, no story.
 
-Le canevas enregistre `imageRole` sur l'écran : `content`, `inspiration` ou
-`both`. Le badge n'affichait auparavant que « image Muse », ce qui rendait
-impossible de vérifier que le mode inspiration avait fait quoi que ce soit.
+Le canevas enregistre `imageRole` sur l'écran — `content`, `inspiration` ou
+`both` — et la carte à côté du cadre l'affiche. Un passage qui a inséré des
+images **et** regardé une planche à part enregistre `content` : la carte montre
+l'image de la page, celle qu'on peut y retrouver. Le badge n'affichait
+auparavant que « image Muse », ce qui rendait impossible de vérifier qu'une
+référence avait fait quoi que ce soit.
 
 ---
 
@@ -218,7 +274,10 @@ impossible de vérifier que le mode inspiration avait fait quoi que ce soit.
 
 Choisir une image ou une séquence dans la bibliothèque ne se contente pas de
 remplir un emplacement. Le média est lu **avant** l'écriture du dossier, et le
-dossier est construit autour de lui.
+dossier est construit autour de lui. Parmi plusieurs images, celle qui est lue
+est la première cochée `Inspiration`, sinon la première cochée `Dans le projet` :
+une référence a été choisie pour qu'on dessine à partir d'elle, ce qui est
+exactement le rôle de cette lecture.
 
 Il y a deux canaux, parce qu'ils échouent différemment.
 
@@ -344,7 +403,7 @@ fait que cacher ce qui serait refusé.
 **Les photos aussi peuvent être libres.** Les mêmes clés servent les photos de
 Pexels et Pixabay, à deux endroits. À la main : l'onglet Images de Média gagne la
 même recherche, et une photo importée est rangée comme un import, avec le crédit
-de son auteur sur sa carte — épinglez-la et Muse l'utilise comme n'importe
+de son auteur sur sa carte — cochez-la et Muse l'utilise comme n'importe
 laquelle de vos images. Automatiquement : le choix `Images · IA / Libres /
 Aucune` du composeur (*Aucune* ne crée aucune nouvelle image : le dossier écrit
 toujours la direction et les textes, et les images que les écrans du projet
@@ -359,11 +418,13 @@ masque à gaz sur une page d'exploration spatiale ; une photo qui ne sert rien
 est pire qu'aucune photo, parce que toute la page est ensuite construite autour.
 Un modèle sans vision prend le premier résultat de la recherche. Rien trouvé ou
 rien qui convienne, c'est un message, pas un échec — et jamais un repli
-silencieux sur une génération payante que la personne a écartée. En mode *Inspiration*, la photo
-trouvée du héros sert de référence ; dans le mode par défaut, les vignettes des
-photos trouvées sont montrées au modèle qui écrit la page, pour qu'elle soit
+silencieux sur une génération payante que la personne a écartée. Muse ne peint
+pas de planche d'inspiration sur *Libres* — une planche d'ambiance, un modèle la
+peint, une bibliothèque ne l'a pas —, alors ce sont les vignettes des photos
+trouvées qui sont montrées au modèle qui écrit la page, pour qu'elle soit
 dessinée autour des images qu'elle contient plutôt qu'autour d'un dossier écrit
-avant qu'elles soient trouvées. Qui peut s'en servir est une liste à part,
+avant qu'elles soient trouvées. Une image de la bibliothèque cochée
+`Inspiration` prend cette place quand il y en a une. Qui peut s'en servir est une liste à part,
 dans Admin → Images → Photos libres de droits.
 
 ---
@@ -428,7 +489,7 @@ Ce sont les invariants M2, M4, M5 et M7. Voir
 
 Higgsfield.ai n'a pas d'API gratuite, donc il n'est pas intégré. Le contournement
 manuel fonctionne : générez l'image sur Higgsfield, téléchargez-la, déposez-la
-dans la bibliothèque média de Mocky et épinglez-la.
+dans la bibliothèque média de Mocky et cochez-la.
 
 Muse l'utilisera comme n'importe quelle autre image, c'est-à-dire en mesurant sa
 palette et en écrivant le dossier autour d'elle.

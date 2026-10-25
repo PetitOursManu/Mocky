@@ -171,7 +171,9 @@ export default function SettingsPanel() {
   const modelOptions = Array.from(new Set([settings.model, ...models].filter(Boolean)))
 
   return (
-    <div className="rounded-2xl border border-line bg-surface px-6 py-6">
+    // `px-4` below sm: inside `.page`'s own 24px gutter, 24 more left 277px of a
+    // 375px phone for the forms.
+    <div className="rounded-2xl border border-line bg-surface px-4 py-5 sm:px-6 sm:py-6">
       <header className="rule-double pb-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1">
           <div>
@@ -218,7 +220,7 @@ export default function SettingsPanel() {
           <div className="section-head">
             <span className="kicker">{t('settings.textSource')}</span>
           </div>
-          <div role="radiogroup" aria-label={t('settings.textSource')} className="grid gap-3 md:grid-cols-2">
+          <div role="radiogroup" aria-label={t('settings.textSource')} className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <SourceChoice
               checked={!source.own}
               disabled={sourceBusy}
@@ -244,7 +246,17 @@ export default function SettingsPanel() {
         </section>
       )}
 
-      <div className="mt-6 grid gap-x-12 gap-y-8 lg:grid-cols-2">
+      {/* `grid-cols-1`, and on all three grids of this page, is the fix for the
+          page being 621px wide on a 375px phone. A grid with no template below
+          lg has one IMPLICIT column, sized `auto` — and an auto track is never
+          narrower than the widest min-content in it. One section with an
+          unbreakable line (the Claude Code command under "Assistants
+          connectés", 550px of `whitespace-nowrap`) widened the column, and
+          every section in the column — "Ma marque" first — was laid out at
+          572px and cut by the screen's edge. `grid-cols-1` is
+          `minmax(0, 1fr)`: the column is the card's width whatever is in it,
+          so the next long line scrolls inside its own box instead. */}
+      <div className="mt-6 grid grid-cols-1 gap-x-12 gap-y-8 lg:grid-cols-2">
         {/* An admin can set one model for the whole instance. When they have,
             this page has nothing to ask for — it only says who is in charge. */}
         {managed ? (
@@ -348,7 +360,7 @@ export default function SettingsPanel() {
                   <div className="flex gap-2">
                     <Input
                       {...p}
-                      className="flex-1"
+                      className="min-w-0 flex-1"
                       type={showKey ? 'text' : 'password'}
                       autoComplete="off"
                       spellCheck={false}
@@ -370,9 +382,13 @@ export default function SettingsPanel() {
                 {(p) => (
                   <div className="space-y-2">
                     <div className="flex gap-2">
+                      {/* `min-w-0`: a select is as wide as its longest option,
+                          and a model id like `accounts/fireworks/models/…` is
+                          longer than a phone — as a flex item it refused to
+                          shrink below it. */}
                       <Select
                         {...p}
-                        className="flex-1"
+                        className="min-w-0 flex-1"
                         value={modelOptions.includes(settings.model) ? settings.model : ''}
                         onChange={(e) => update('model', e.currentTarget.value)}
                       >
@@ -464,7 +480,7 @@ export default function SettingsPanel() {
         </section>
       </div>
 
-      <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 lg:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-x-12 gap-y-8 border-t border-line pt-8 lg:grid-cols-2">
         {account && <BrandSection />}
         <AvatarSection account={account} onChanged={setAccount} />
         <PasswordSection account={account} onChanged={setAccount} />
@@ -649,7 +665,9 @@ function TestBanner({ result, onPick }: { result: TestResult; onPick: (m: string
           <div className="kicker mb-1.5">{t('settings.availableModels')}</div>
           <div className="flex flex-wrap gap-1.5">
             {result.models.map((m) => (
-              <Button key={m} size="sm" onClick={() => onPick(m)} title={t('settings.useThisModel')}>
+              // A model id has no space to wrap at; `break-all` lets one longer
+              // than a phone break inside its own button.
+              <Button key={m} size="sm" className="max-w-full break-all text-left" onClick={() => onPick(m)} title={t('settings.useThisModel')}>
                 {m}
               </Button>
             ))}

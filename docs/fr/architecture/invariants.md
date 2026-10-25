@@ -1,5 +1,5 @@
 ---
-source_hash: b89364568816
+source_hash: 090e0b75e7f6
 ---
 
 # Invariants
@@ -339,6 +339,11 @@ envoyé au fournisseur est ce qui était envoyé avant Muse.
 
 C'est ce qui rend la fonctionnalité adoptable : elle ne peut pas casser ce qui
 marchait.
+
+Muse est **activé par défaut** depuis octobre 2026, et cela ne change rien ici.
+La règle porte sur le chemin Muse désactivé, qui reste la charge utile d'avant
+Muse à l'octet près : activé par défaut veut dire que plus de monde prend le
+chemin de Muse, pas que l'autre a le droit de dériver.
 
 Lu strictement, l'invariant décide aussi du moment où les résultats de Muse ont
 le droit d'exister. Un tour qui échouait à mi-chemin laissait le préambule non
@@ -729,8 +734,8 @@ faits ont dessiné les règles.
 storyboard, aucune image générée, la capacité `ultra` n'est pas ajoutée, et le
 prompt est celui d'avant Motion Ultra.
 
-**Ce que ça protège.** La même promesse que M1 : une fonctionnalité à activer ne
-doit rien coûter à ceux qui ne l'activent pas. Le kit est ajouté de force, jamais
+**Ce que ça protège.** La promesse que M1 fait pour Muse désactivé : une
+fonctionnalité que quelqu'un n'a pas activée ne doit rien lui coûter. Le kit est ajouté de force, jamais
 déclenché par mot-clé, justement pour qu'un prompt contenant « landing » ne se
 mette pas à recevoir une typographie géante et une aurore.
 

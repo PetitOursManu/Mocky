@@ -12,6 +12,7 @@ import type { ImageChoice } from '../lib/stockImages'
 import type { DocumentImageChoice } from '../lib/documentPictures'
 import type { MediaTab } from './Bibliotheque'
 import { useState } from 'react'
+import { autoFocusOk } from '../lib/touch'
 import type { SiteRefMode, SiteShot } from '../lib/siteReference'
 import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
 import ScreenThemePicker from './ScreenThemePicker'
@@ -60,6 +61,9 @@ type Props = {
   onOpenLibrary: (tab?: MediaTab) => void
   pinned: PinnedImage[]
   onUnpin: (hash: string) => void
+  onPinChange: (hash: string, use: { insert: boolean; inspire: boolean }) => void
+  /** Whether Muse paints its own mood plate on the next run. */
+  musePlateOn: boolean
   museImageError: string | null
   museVision: boolean | null
   museVideo: MuseVideoAvailability | null
@@ -134,6 +138,8 @@ export default function Welcome({
   onOpenLibrary,
   pinned,
   onUnpin,
+  onPinChange,
+  musePlateOn,
   museImageError,
   museVision,
   museVideo,
@@ -202,7 +208,10 @@ export default function Welcome({
     // little taller, and a scrollbar appearing then narrowed the whole composer
     // by its width.
     <div className="h-full overflow-y-auto [scrollbar-gutter:stable]">
-    <div className="flex min-h-full items-center justify-center px-6 py-10">
+    {/* Less air on a phone, where the page is taller than the screen anyway
+        and 40px above and below plus the style row's own padding left a band
+        of nothing under the last control. */}
+    <div className="flex min-h-full items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
       {/* max-w-4xl: the tiles under the field want one row of five or six,
           and the field itself reads no worse wider. */}
       <div className="w-full max-w-4xl">
@@ -245,7 +254,7 @@ export default function Welcome({
               format, as the alternative to it. */}
           {onOpenCampaign && (
             <button type="button" onClick={onOpenCampaign} className="composer-chip" title={t('campaign.toolbarTitle')}>
-              <Icon name="megaphone" size={15} />
+              <Icon name="formats" size={15} />
               {t('campaign.toolbar')}
             </button>
           )}
@@ -260,8 +269,12 @@ export default function Welcome({
           {...siteDropHandlers(onAddSiteFiles, setDragOver)}
         >
           <textarea
-            autoFocus
-            className="input min-h-[120px] resize-y border-0 bg-transparent text-lead focus-visible:outline-0"
+            // Not on a phone: the keyboard would open over the page the person
+            // has only just arrived on, before they chose to type.
+            autoFocus={autoFocusOk()}
+            // Taller on a phone: a request is a paragraph, and the three or four
+            // lines of 120px were all a thumb could see of it before it scrolled.
+            className="input min-h-[220px] resize-y sm:min-h-[120px] border-0 bg-transparent text-lead focus-visible:outline-0"
             placeholder={siteShots.length ? t('project.sitePlaceholder') : t('auth.welcome.placeholder')}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -418,6 +431,8 @@ export default function Welcome({
               onOpenLibrary={onOpenLibrary}
               pinned={pinned}
               onUnpin={onUnpin}
+              onPinChange={onPinChange}
+              plateOn={musePlateOn}
               imageError={museImageError}
               vision={museVision}
               video={museVideo}
@@ -428,7 +443,7 @@ export default function Welcome({
         {/* First-run style picker (D.1) — sets a DESIGN.md so the very first
             screen is on-brand. Hidden once a design system is active. */}
         {!designActive && (
-          <div className="rule-thin mt-8 pb-6">
+          <div className="rule-thin mt-8 pb-2 sm:pb-6">
             <div className="mb-3 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-center">
               <span className="kicker">{t('auth.welcome.pickStyle')}</span>
               <span className="text-caption text-ink-faint">{t('auth.welcome.pickStyleHint')}</span>

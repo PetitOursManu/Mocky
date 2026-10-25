@@ -451,6 +451,8 @@ export default function ProjectView({
   const [museImageError, setMuseImageError] = useState<string | null>(null)
   /** null until probed: does the active model accept images? */
   const [museVision, setMuseVision] = useState<boolean | null>(null)
+  /** Whether Muse will paint its own mood plate on the next run — the pipeline's rule, for the panel's words. */
+  const musePlateOn = !runPicturesOff && effectiveImageSource === 'ai' && imageGenOk !== false && museVision !== false && !ultraActive
   /** auto (Mocky decides) · on (force) · off (hold still). See lib/animations. */
   /**
    * One screen's own answer about motion: animated (the default) or held still.
@@ -547,6 +549,10 @@ export default function ProjectView({
         : [...arr, { hash: img.hash, url: imageUrl(img.hash), label: img.prompt.slice(0, 40) }],
     )
   }, [])
+  /** What a chosen picture is for — ticked in the library or in the Muse panel. */
+  const setPinUse = useCallback((hash: string, use: { insert: boolean; inspire: boolean }) => {
+    setPinnedImages((arr) => arr.map((p) => (p.hash === hash ? { ...p, ...use } : p)))
+  }, [])
   const abortRef = useRef<AbortController | null>(null)
   /** The screen whose Motion film the revise dialog is asking about, or null when it is closed. */
   const [reviseFilmScreenId, setReviseFilmScreenId] = useState<string | null>(null)
@@ -641,7 +647,10 @@ export default function ProjectView({
   const [narrowOptions, setNarrowOptions] = useState(false)
   /** The toolbar's overflow menu below md. See the bar itself for why it exists. */
   const [plusMenu, setPlusMenu] = useState(false)
-  const [menu, setMenu] = useState<{ screenId: string; x: number; y: number } | null>(null)
+  /** The screen menu; `only: 'export'` is the download pill's short version of it. */
+  const [menu, setMenu] = useState<{ screenId: string; x: number; y: number; only?: 'export' } | null>(null)
+  /** The screen whose original request is shown (the screen menu's "see the request"). */
+  const [promptScreenId, setPromptScreenId] = useState<string | null>(null)
   // An id, not the object. Holding the Screen froze whatever it contained at
   // click time: a regeneration or an auto-repair behind the open viewer left it
   // showing — and offering to copy — source the screen no longer had. Resolving
@@ -1389,6 +1398,19 @@ export default function ProjectView({
     return () => window.clearTimeout(timer)
   }, [screens, busy])
   const selectedScreens = screens.filter((s) => selectedIds.includes(s.id))
+  /*
+   * What the Style panel shows: the project's direction, or — when there is
+   * none — the design a screen was built from, the selected one first, then the
+   * newest that recorded one. Never an empty panel while a screen on the board
+   * says which design made it.
+   */
+  const styleScreen = selectedScreens.length === 1 ? selectedScreens[0] : null
+  const styleFromScreen = directionMd
+    ? null
+    : styleScreen?.design?.trim()
+      ? styleScreen
+      : ([...screens].filter((x) => x.design?.trim()).sort((x, y) => y.createdAt - x.createdAt)[0] ?? null)
+  const styleMd = directionMd || styleFromScreen?.design || ''
   // Looked up rather than captured, so the dialog re-renders from the rewritten
   // source after each swap — and closes on its own if the screen is deleted
   // from under it.
@@ -3097,6 +3119,7 @@ export default function ProjectView({
           initialTab={libraryTab}
           pinned={pinnedImages}
           onTogglePin={togglePin}
+          onPinUse={setPinUse}
           pinnedVideo={pinnedVideo}
           onPinVideo={(v) =>
             setPinnedVideo(
@@ -3263,6 +3286,8 @@ export default function ProjectView({
                     }}
         pinned={pinnedImages}
         onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
+        onPinChange={setPinUse}
+        musePlateOn={musePlateOn}
         museImageError={museImageError}
         museVision={museVision}
         museVideo={videoAvail}
@@ -3385,7 +3410,7 @@ export default function ProjectView({
     },
     {
       id: 'campaign',
-      icon: 'megaphone',
+      icon: 'formats',
       label: t('campaign.toolbar'),
       title: t('campaign.toolbarTitle'),
       active: showCampaign,
@@ -3608,6 +3633,85 @@ export default function ProjectView({
                 )
               })}
             </div>
+            {/* The selected screen's actions, HERE and not over the frame. They
+                were a second bar floating over the canvas plus a row of icons on
+                the frame's label, beside this one: three places for one
+                screen's tools, and which held what was a matter of history.
+                Only the download stays on the frame (Canvas). */}
+            {selectedScreens.length === 1 &&
+              (() => {
+                const s = selectedScreens[0]
+                return (
+                  <>
+                    <span aria-hidden className="mx-1 h-5 w-px bg-line-soft" />
+                    <div
+                      role="toolbar"
+                      aria-label={t('workspace.screenTools')}
+                      className="flex min-w-0 items-center gap-0.5 rounded-lg border border-line-soft bg-raised p-0.5"
+                    >
+                      <span className="hidden max-w-[10rem] truncate px-2 text-body-sm text-ink-muted xl:inline" title={s.name}>
+                        {s.name}
+                      </span>
+                      <IconButton
+                        label={t('project.menuEditMessage')}
+                        variant="toolbar"
+                        disabled={busy}
+                        onClick={() => composerField.current?.focus()}
+                      >
+                        <Icon name="comment" size={16} />
+                      </IconButton>
+                      <IconButton label={t('project.polish')} variant="toolbar" disabled={busy} onClick={() => polishScreen(s.id)}>
+                        <Icon name="sparkle" size={16} />
+                      </IconButton>
+                      <IconButton label={t('project.regenerate')} variant="toolbar" disabled={busy} onClick={() => regenerate(s.id)}>
+                        <Icon name="refresh" size={16} />
+                      </IconButton>
+                      <IconButton
+                        label={s.userNotes?.length ? t('notes.menuCount', { count: s.userNotes.length }) : t('notes.open')}
+                        variant="toolbar"
+                        active={!!s.userNotes?.length}
+                        onClick={() => setNotesScreenId(s.id)}
+                      >
+                        <Icon name="note" size={16} />
+                      </IconButton>
+                      {!s.page && (
+                        <IconButton
+                          label={t(s.animations === false ? 'canvas.animOff' : 'canvas.animOn')}
+                          variant="toolbar"
+                          aria-pressed={s.animations !== false}
+                          onClick={() => cycleScreenAnimations(s.id)}
+                        >
+                          <span className={s.animations === false ? 'opacity-50' : undefined}>
+                            <Icon name={s.animations === false ? 'pause' : 'play'} size={16} />
+                          </span>
+                        </IconButton>
+                      )}
+                      <IconButton
+                        label={t('canvas.delete')}
+                        variant="toolbar"
+                        onClick={() => {
+                          if (confirm(t('project.deleteScreenConfirm'))) {
+                            onRemoveScreen(s.id)
+                            setSelectedIds((ids) => ids.filter((i) => i !== s.id))
+                          }
+                        }}
+                      >
+                        <Icon name="trash" size={16} />
+                      </IconButton>
+                      <IconButton
+                        label={t('workspace.screenMore')}
+                        variant="toolbar"
+                        onClick={(e) => {
+                          const r = e.currentTarget.getBoundingClientRect()
+                          setMenu({ screenId: s.id, x: r.left, y: r.bottom + 6 })
+                        }}
+                      >
+                        <Icon name="more" size={16} />
+                      </IconButton>
+                    </div>
+                  </>
+                )
+              })()}
             <span aria-hidden className="mx-1 h-5 w-px bg-line-soft" />
             <Button
               variant="quiet"
@@ -3729,12 +3833,6 @@ export default function ProjectView({
           setLibraryTab('videos')
           setShowLibrary(true)
         }}
-        onDeleteScreen={(id) => {
-          if (confirm(t('project.deleteScreenConfirm'))) {
-            onRemoveScreen(id)
-            setSelectedIds((ids) => ids.filter((i) => i !== id))
-          }
-        }}
         referenceScreenId={project.referenceScreenId}
         onScreenContextMenu={(id, x, y) => setMenu({ screenId: id, x, y })}
         onOpenScreenNotes={setNotesScreenId}
@@ -3745,14 +3843,7 @@ export default function ProjectView({
         onDownloadDocument={setDownloadDocId}
         // Every screen animates unless its own menu says otherwise.
         animations
-        onCycleScreenAnimations={cycleScreenAnimations}
-        onDeriveDesign={(id) => {
-          const sc = screens.find((x) => x.id === id)
-          if (sc) deriveDesignFrom(sc)
-        }}
-        onApplyScreenDesign={applyScreenDesign}
-        onInspectScreenDesign={setInspectDesignId}
-        derivingDesignId={derivingDesignId}
+        onDownloadScreen={(id, x, y) => setMenu({ screenId: id, x, y, only: 'export' })}
         linkMode={linkMode}
         modifyMode={modifyMode}
         interactAll={interactAll}
@@ -3863,99 +3954,6 @@ export default function ProjectView({
         </div>
       )}
 
-      {/* The reference's floating tools, for the ONE selected screen: what you
-          do to a screen most often, without a right-click. `⋯` opens the
-          screen's whole menu under it. */}
-      {wide && selectedScreens.length === 1 && (() => {
-        const s = selectedScreens[0]
-        const writing = generatingIds.has(s.id) || regeneratingIds.has(s.id)
-        const unexportable = busy || !s.code.trim() || writing
-        return (
-          <div
-            role="toolbar"
-            aria-label={t('workspace.screenTools')}
-            className="absolute left-1/2 top-14 z-panel flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-line bg-raised/95 p-1 shadow-lg"
-          >
-            <span className="max-w-[12rem] truncate px-2 text-body-sm text-ink-muted">{s.name}</span>
-            <span aria-hidden className="mx-0.5 h-5 w-px bg-line-soft" />
-            <IconButton
-              label={t('project.menuEditMessage')}
-              variant="toolbar"
-              disabled={busy}
-              onClick={() => composerField.current?.focus()}
-            >
-              <Icon name="comment" size={16} />
-            </IconButton>
-            <IconButton label={t('project.polish')} variant="toolbar" disabled={busy} onClick={() => polishScreen(s.id)}>
-              <Icon name="sparkle" size={16} />
-            </IconButton>
-            <IconButton label={t('project.regenerate')} variant="toolbar" disabled={busy} onClick={() => regenerate(s.id)}>
-              <Icon name="refresh" size={16} />
-            </IconButton>
-            <span aria-hidden className="mx-0.5 h-5 w-px bg-line-soft" />
-            <IconButton label={t('share.menu')} variant="toolbar" onClick={() => setShareScreenId(s.id)}>
-              <Icon name="link" size={16} />
-            </IconButton>
-            <BarMenu label={t('workspace.screenExport')} icon="download" variant="toolbar" iconOnly>
-              {(close) => (
-                <>
-                  {s.page ? (
-                    <BarMenuItem
-                      icon="download"
-                      label={t('project.docDownload')}
-                      disabled={!s.code.trim() || writing}
-                      onClick={() => {
-                        close()
-                        setDownloadDocId(s.id)
-                      }}
-                    />
-                  ) : (
-                    <>
-                      <BarMenuItem
-                        icon="image"
-                        label={t('project.webExportPng')}
-                        disabled={unexportable}
-                        onClick={() => {
-                          close()
-                          void exportWeb(s.id, 'png')
-                        }}
-                      />
-                      <BarMenuItem
-                        icon="download"
-                        label={t('project.webExportPptx')}
-                        disabled={unexportable}
-                        onClick={() => {
-                          close()
-                          void exportWeb(s.id, 'pptx')
-                        }}
-                      />
-                    </>
-                  )}
-                  <BarMenuItem
-                    icon="code"
-                    label={t('canvas.download')}
-                    onClick={() => {
-                      close()
-                      downloadTsx(s)
-                    }}
-                  />
-                </>
-              )}
-            </BarMenu>
-            <IconButton
-              label={t('workspace.screenMore')}
-              variant="toolbar"
-              onClick={(e) => {
-                const r = e.currentTarget.getBoundingClientRect()
-                setMenu({ screenId: s.id, x: r.left, y: r.bottom + 6 })
-              }}
-            >
-              <Icon name="more" size={16} />
-            </IconButton>
-          </div>
-        )
-      })()}
-
       </main>
 
       {/* The inspector — see Inspector.tsx: a rail of the six panels that is
@@ -3969,7 +3967,7 @@ export default function ProjectView({
             { id: 'versions', label: t('versions.toolbar'), icon: 'history' },
             { id: 'audit', label: t('mode.audit'), icon: 'shield' },
             { id: 'review', label: t('review.toolbar'), icon: 'comment', badge: reviewState?.unread },
-            { id: 'campaign', label: t('campaign.toolbar'), icon: 'megaphone' },
+            { id: 'campaign', label: t('campaign.toolbar'), icon: 'formats' },
             { id: 'links', label: t('project.links'), icon: 'link' },
           ]}
           active={rightSlot}
@@ -3993,8 +3991,24 @@ export default function ProjectView({
         >
           {showSystem && (
             <DesignSystemPanel
-              markdown={directionMd || ''}
-              onRecolor={recolorToken}
+              markdown={styleMd}
+              fromScreen={styleFromScreen?.name ?? null}
+              screen={
+                styleScreen && {
+                  name: styleScreen.name,
+                  recorded: !!styleScreen.design?.trim(),
+                  differs: (styleScreen.design?.trim() || '') !== (directionMd?.trim() || ''),
+                  deriving: derivingDesignId === styleScreen.id,
+                  onInspect: () => setInspectDesignId(styleScreen.id),
+                  onApply: () => applyScreenDesign(styleScreen.id),
+                  onDerive: () => deriveDesignFrom(styleScreen),
+                }
+              }
+              onRecolor={(token, hex) =>
+                // A screen's record shown for want of a direction: recolouring it
+                // is adopting it, in its new colour.
+                styleFromScreen ? onSetDesign(replaceTokenHex(styleMd, token, hex)) : recolorToken(token, hex)
+              }
               onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
               onEdit={onOpenDesign}
             />
@@ -4518,6 +4532,8 @@ export default function ProjectView({
                     }}
                     pinned={pinnedImages}
                     onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
+                    onPinChange={setPinUse}
+                    plateOn={musePlateOn}
                     imageError={museImageError}
                     vision={museVision}
                     video={videoAvail}
@@ -4776,7 +4792,7 @@ export default function ProjectView({
             <>
               <OptionGroup label={t('workspace.alsoMake')}>
                 <OptionAction
-                  icon="megaphone"
+                  icon="formats"
                   label={t('workspace.alsoCampaign')}
                   hint={t('workspace.alsoCampaignHint')}
                   lit={showCampaign}
@@ -5112,6 +5128,15 @@ export default function ProjectView({
                 {(() => {
                   const writing = generatingIds.has(s.id) || regeneratingIds.has(s.id)
                   const unexportable = busy || !s.code.trim() || writing
+                  // The pill on the frame: the export rows alone.
+                  if (menu.only === 'export')
+                    return (
+                      <>
+                        <MenuItem icon="image" label={t('project.webExportPng')} disabled={unexportable} onClick={() => { close(); void exportWeb(s.id, 'png') }} />
+                        <MenuItem icon="download" label={t('project.webExportPptx')} disabled={unexportable} onClick={() => { close(); void exportWeb(s.id, 'pptx') }} />
+                        <MenuItem icon="code" label={t('canvas.download')} onClick={() => { close(); downloadTsx(s) }} />
+                      </>
+                    )
                   return (
                     <>
                       {/* Editing a screen is selecting it: the composer turns to it. */}
@@ -5276,6 +5301,9 @@ export default function ProjectView({
                         )}
                       </SubMenu>
                       <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
+                      {/* The request that made it: a popover on the frame's label
+                          before the label lost its buttons. */}
+                      <MenuItem icon="comment" label={t('canvas.showPrompt')} onClick={() => { close(); setPromptScreenId(s.id) }} />
 
                       <MenuRule />
                       <MenuItem
@@ -5428,6 +5456,26 @@ export default function ProjectView({
           onClose={() => setCompare(null)}
         />
       )}
+
+      {promptScreenId &&
+        (() => {
+          const sc = screens.find((x) => x.id === promptScreenId)
+          if (!sc) return null
+          return (
+            <Modal title={t('canvas.originalPrompt')} onClose={() => setPromptScreenId(null)}>
+              <p className="kicker mb-2 truncate">{sc.name}</p>
+              <p className="whitespace-pre-wrap break-words text-body text-ink-muted">{sc.prompt || t('canvas.noPrompt')}</p>
+              {sc.prompt && (
+                <div className="mt-4">
+                  <Button variant="ghost" size="sm" onClick={() => navigator.clipboard?.writeText(sc.prompt)}>
+                    <Icon name="copy" size={15} />
+                    {t('canvas.copyPrompt')}
+                  </Button>
+                </div>
+              )}
+            </Modal>
+          )
+        })()}
 
       {shareScreenId &&
         (() => {

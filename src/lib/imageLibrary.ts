@@ -42,7 +42,20 @@ export interface PinnedImage {
   hash: string
   url: string
   label: string
+  /**
+   * What the person ticked it for, in the library: placed in the page
+   * (`insert`), shown to Muse and the model as a mood reference (`inspire`), or
+   * both. Absent reads as the default — in the page, not a reference — which is
+   * what a pin always meant before the two boxes existed.
+   */
+  insert?: boolean
+  inspire?: boolean
 }
+
+/** Whether a chosen picture goes IN the page. */
+export const pinInserts = (p: PinnedImage): boolean => p.insert !== false
+/** Whether a chosen picture is shown as a mood reference. */
+export const pinInspires = (p: PinnedImage): boolean => p.inspire === true
 
 function queryString(f: LibraryFilters): string {
   const p = new URLSearchParams()
