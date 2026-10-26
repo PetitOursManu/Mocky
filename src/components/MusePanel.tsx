@@ -144,7 +144,7 @@ export default function MusePanel({
   }
   const count = config.contentImages
   return (
-    <section className="overflow-hidden rounded-2xl border border-line bg-surface text-body-sm shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-accent/60 bg-surface text-body-sm shadow-sm">
       {/* A head that says what Muse IS, once — on the accent, so Muse reads as
           the feature it is and not as one more grey box. The accent's own ink
           (`on-accent`): white on the light theme's green, near-black on the
