@@ -145,18 +145,22 @@ export default function MusePanel({
   const count = config.contentImages
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface text-body-sm shadow-sm">
-      {/* A head that says what Muse IS, once. */}
-      <header className="flex items-center gap-3 border-b border-line-soft px-4 py-3">
-        <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-muse/30 bg-muse/10 text-muse-ink">
+      {/* A head that says what Muse IS, once — on the accent, so Muse reads as
+          the feature it is and not as one more grey box. The accent's own ink
+          (`on-accent`): white on the light theme's green, near-black on the
+          dark theme's lime, where white would not be legible. The subtitle at
+          90% still clears 4.5:1 on the green. */}
+      <header className="flex items-center gap-3 bg-accent px-4 py-3 text-on-accent">
+        <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-on-accent/15">
           <Icon name="muse" size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-ink">{t('muse.title')}</span>
-          <span className="block text-caption leading-snug text-ink-faint">{t('muse.subtitle')}</span>
+          <span className="block font-semibold">{t('muse.title')}</span>
+          <span className="block text-caption leading-snug text-on-accent/90">{t('muse.subtitle')}</span>
         </span>
         {vision === true && (
           <span
-            className="hidden shrink-0 items-center gap-1 rounded-full bg-ok/10 px-2 py-0.5 text-caption text-ok sm:inline-flex"
+            className="hidden shrink-0 items-center gap-1 rounded-full bg-on-accent/15 px-2 py-0.5 text-caption sm:inline-flex"
             title={t('muse.visionTitle')}
           >
             <Icon name="check" size={13} />
