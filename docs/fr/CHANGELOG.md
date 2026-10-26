@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `ui` | Muse par défaut, images plus claires, actions d'écran en haut, corrections mobile | `110fbd9` |
 | `export` | avis dédié aux images chargées depuis un autre site | `c5955f6` |
 | `ui` | le premier composer montre ses options en une rangée de tuiles | `271f772` |
 | `versions` | chaque état d'un écran devient une version, automatiquement | `add06eb` |
@@ -59,7 +60,12 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 | Portée | Modification | Commit |
 | --- | --- | --- |
 | `deps` | zod 4 et npm audit fix — l'audit de production repasse | `5b24244` |
+| `ui` | tuiles pour tablette et pliable, brief Muse replié sur tactile | `dcef7f0` |
+| `ui` | tuiles sur deux lignes, défilement au thème, téléphone plus lisible | `3dda283` |
+| `ui` | tuile Images qui tient, cases au thème, sélection sans décalage, plume pour Muse | `a16d9e3` |
 | `pptx` | page sans cadre en <p:pic> pleine page, fond uni ; dates ZIP valides | `21d27e0` |
+| `ui` | noms d'écran entiers sur la toile, « Projet sans titre » traduit | `24a2611` |
+| `ui` | la colonne de création défile d'un seul bloc ; captures du README | `273cc17` |
 | `ui` | la tuile Motion Ultra ne change plus la taille du premier composer | `54189a2` |
 | `docs` | captures — Café Atelier reste en tête, chaque projet a sa vignette | `70e6b31` |
 | `docs` | captures — la page photographiée reste au premier plan | `bb9ea09` |
@@ -92,6 +98,9 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `fr` | pages traduites marquées à jour après les captures | `19723a7` |
+| — | captures refaites (composer, toile, barre, menu d'écran, README) | `c35e249` |
+| — | captures refaites, et deux images pour le README | `4df0a92` |
 | — | captures refaites avec les options en groupes et la barre de l'inspecteur | `80b7dac` |
 | — | captures annotées refaites sur la nouvelle interface (FR et EN) | `7d5eaad` |
 | — | architecture à jour — versions, validation, parcours, campagnes, PDF à 500 dpi (#56) | `32fec28` |
@@ -103,6 +112,8 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `muse` | un liseret vert autour du panneau Muse | `83feb54` |
+| `muse` | l'en-tête du panneau Muse sur la couleur d'accent | `0697d01` |
 | — | retire un réglage local de .claude/launch.json entré par erreur | `84139d8` |
 | `deps` | Tailwind CSS 3 → 4 pour l'interface de Mocky | `2eda4bc` |
 | — | Clarifie la formulation sur l'emplacement sans photo retenue | `14ba6ed` |
