@@ -511,7 +511,15 @@ export default function ProjectView({
   const [videoJobId, setVideoJobId] = useState<string | null>(null)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   /** The brief above the composer. Folded by default: open, it eats the canvas. */
-  const [briefOpen, setBriefOpen] = useState(() => localStorage.getItem(BRIEF_PREF_KEY) === '1')
+  /*
+   * Folded on every touch device, whatever was remembered: unfolded, the brief
+   * is the whole Muse panel, and on a phone or a tablet it stood between the
+   * person and the project they had just opened. The remembered choice is a
+   * desk's, where the column has room for it.
+   */
+  const [briefOpen, setBriefOpen] = useState(
+    () => localStorage.getItem(BRIEF_PREF_KEY) === '1' && !window.matchMedia?.('(pointer: coarse)').matches,
+  )
   const updateMuse = useCallback((c: MuseConfig) => {
     setMuseConfig(c)
     saveMuseConfig(c)
@@ -4528,9 +4536,14 @@ export default function ProjectView({
                 onClick={toggleBrief}
                 aria-expanded={briefOpen}
                 aria-label={t(briefOpen ? 'composer.briefCollapse' : 'composer.briefExpand')}
-                className="flex w-full items-center gap-2.5 rule-thin px-0.5 pb-1.5 text-left transition hover:text-ink"
+                // A button that looks like one, like `Options` beside the field:
+                // folded, it was a kicker over a rule, and nothing said it opened.
+                className={`tap-target flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left transition hover:border-ink/25 ${
+                  briefOpen ? 'border-muse/40 bg-muse/5' : 'border-line bg-raised/60'
+                }`}
               >
-                <span className="kicker shrink-0">{t('muse.title')}</span>
+                <Icon name="muse" size={16} className="shrink-0 text-muse-ink" />
+                <span className="shrink-0 text-body-sm font-medium text-ink">{t('muse.title')}</span>
                 {museStage && (
                   /* Le dossier s'ecrit : meme signal que le bouton, en plus petit.
                      Purement decoratif ici — le bouton du composer porte deja
@@ -4539,11 +4552,12 @@ export default function ProjectView({
                     <MockyLoader size={52} />
                   </span>
                 )}
-                <span className="min-w-0 flex-1 truncate text-body-sm text-ink-muted">{briefSummary}</span>
+                <span className="min-w-0 flex-1 truncate text-caption text-ink-muted">{briefSummary}</span>
+                <span className="shrink-0 text-caption text-ink-faint">{t(briefOpen ? 'composer.briefHide' : 'composer.briefShow')}</span>
                 <Icon
                   name="chevronDown"
                   size={16}
-                  className={`text-ink-faint transition-transform ${briefOpen ? 'rotate-180' : ''}`}
+                  className={`shrink-0 text-ink-faint transition-transform ${briefOpen ? 'rotate-180' : ''}`}
                 />
               </button>
               {briefOpen && (

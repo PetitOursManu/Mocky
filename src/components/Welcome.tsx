@@ -295,12 +295,14 @@ export default function Welcome({
               the order of the groups — what the screen follows, what helps
               write it, where its pictures come from (see OptionTile for why not
               three columns of rows). */}
-          {/* Two rows from sm, as many columns as half the tiles: one row of
-              seven made every tile 115px wide, which cut each sentence to three
-              words and pushed the Images choice out of its own tile. Two by two
-              on a phone. */}
+          {/* Columns by the room there is, never by the number of tiles alone:
+              two on a phone, three on a tablet or an unfolded phone, and two
+              rows of half the tiles from lg. One row of seven made every tile
+              115px wide — and on a 700–900px screen, 90px — which cut each
+              sentence to a word a line and pushed the Images choice out of its
+              own tile. */}
           <div
-            className="grid grid-cols-2 gap-2 border-t border-line-soft px-1 pt-3 sm:[grid-template-columns:var(--tiles)]"
+            className="grid grid-cols-2 gap-2 border-t border-line-soft px-1 pt-3 md:grid-cols-3 lg:[grid-template-columns:var(--tiles)]"
             style={{ '--tiles': `repeat(${Math.ceil(tileCount / 2)}, minmax(0, 1fr))` } as React.CSSProperties}
           >
             <OptionTileAction

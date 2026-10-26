@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 9c3434d52caf
+source_hash: 79bcdddcf0cd
 ---
 
 # L’interface
@@ -574,9 +574,10 @@ montre ses réglages (×3 / ×6, le fond vidéo) sous sa ligne une fois activé.
 la colonne du projet, les boutons sont juste sous le champ et les options en
 dessous, pour que `Générer` soit visible dès l’ouverture de la colonne ; la
 colonne défile d’un seul bloc, `Créer aussi` et l’historique après les options. Le premier composeur,
-sur un projet vide, est plus large et montre les mêmes options en une rangée de
-tuiles égales — icône et interrupteur, nom, et ce que fait l’option en entier —
-avec `DESIGN.md` en premier et `Campagne` à côté du format.
+sur un projet vide, est plus large et montre les mêmes options en tuiles égales —
+icône et interrupteur, nom, et ce que fait l’option en entier — avec `DESIGN.md`
+en premier et `Campagne` à côté du format : deux colonnes sur un téléphone, trois
+sur une tablette ou un téléphone déplié, deux rangées à partir de 1024 px.
 
 
 | | Puce | Ce qu’elle fait | Coût |
@@ -590,7 +591,7 @@ avec `DESIGN.md` en premier et `Campagne` à côté du format.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Image` · `Sans image` / `Générée` / `Photo libre` | Un document seulement : s’il porte une image, et d’où elle vient. `Sans image` compose avec des formes et des couleurs. Retenu par le navigateur. | Générée : le prix du modèle d’image |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4"/></svg> | `Motion Ultra` | Un réglage de **projet**. Éteint : une pastille discrète, et un clic active Motion Ultra pour le projet. Actif : la pastille le met en pause pour les prochaines générations de la session, `×3` / `×6` choisit le nombre d'images de chaque nouvel écran (`≈ +1 min` / `≈ +2–3 min` à côté), `Fond vidéo` donne à une section un film rendu par votre propre machine (`+1–3 min`, éteint par défaut), et `✕` le désactive pour le projet. Caché pendant une édition. Voir [Motion Ultra](motion-ultra.md). | ×3 ou ×6 images, un appel de storyboard, et un rendu de film quand le fond vidéo est actif |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Images` · `IA` / `Libres` / `Aucune` | D'où viennent les nouvelles images d'un nouvel écran : générées par le modèle d'image, vraies photos libres de droits de Pexels et Pixabay trouvées d'après le sujet de chaque image, ou nulle part. **Aucune** ne crée aucune nouvelle image en dehors de Motion Ultra (elle n'est pas proposée quand Motion Ultra est actif, dont la série est les images) ; avec Muse, les images déjà présentes dans le projet prennent alors les places que son dossier prévoyait pour des images. Quel que soit le choix, un nouvel écran se voit proposer les images que les autres écrans du projet montrent déjà, avec la consigne de les réutiliser sauf si votre demande dit le contraire. Affiché quand Muse ou Motion Ultra est actif ou que des captures sont jointes, avec seulement les choix que votre compte a : pas d'**IA** au forfait gratuit, pas de **Libres** sans clé Pexels ou Pixabay ouverte à votre compte. Mémorisé par le navigateur. | IA : le prix du modèle d'image · Libres et Aucune : rien |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> | Le brief | Plie et déplie le dossier Muse. Affiché seulement quand Muse est actif et que vous créez. `Afficher le détail du brief` / `Replier le brief`. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> | `Muse` · `Afficher` / `Masquer` | Plie et déplie le panneau Muse et son dossier. Affiché seulement quand Muse est actif et que vous créez ; sur un téléphone, il fait partie des `Options`. Toujours replié à l’ouverture d’un projet sur un appareil tactile — téléphone ou tablette —, quel que soit le dernier choix ; sur un ordinateur, il reste comme vous l’avez laissé. | libre |
 
 Au-dessus se posent les rangées passagères : les vignettes d’annotation
 numérotées, chacune avec un bouton de retrait visible au repos plutôt qu’au

@@ -14,6 +14,8 @@
 export const composer = {
   fr: {
     'composer.sheetFold': 'Replier pour voir le projet',
+    'composer.briefShow': 'Afficher',
+    'composer.briefHide': 'Masquer',
     // ---- screen type ----
     'composer.themeLabel': 'Type d’écran',
     'composer.themeActiveAria': 'Type d’écran : {name}',
@@ -179,6 +181,8 @@ export const composer = {
   },
   en: {
     'composer.sheetFold': 'Fold to see the project',
+    'composer.briefShow': 'Show',
+    'composer.briefHide': 'Hide',
     // ---- screen type ----
     'composer.themeLabel': 'Screen type',
     'composer.themeActiveAria': 'Screen type: {name}',
