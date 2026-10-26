@@ -289,14 +289,14 @@ edge, Mocky says so — a notice names the document and the page — because on
 paper that content is simply cut.
 
 :::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
-- 50,4.4 **Edit with a message**: Selects the document and puts the cursor in the composer.
-- 50,10.6 **Polish**: Checks the design against named rules and corrects what it finds.
-- 50,16.7 **Regenerate a variant**: The same prompt again, for a different design.
-- 50,35.1 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
-- 50,43 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides / Canva, PNG images, PSD or SVG — and the `.tsx`.
-- 50,49.1 **Share**: A temporary public link and a QR code.
-- 50,69.3 **Notes**: Private notes on this screen, never sent to a model.
-- 50,95.6 **Delete screen**: One confirmation, and it is gone.
+- 50,4.2 **Edit with a message**: Selects the document and puts the cursor in the composer.
+- 50,9.9 **Polish**: Checks the design against named rules and corrects what it finds.
+- 50,15.7 **Regenerate a variant**: The same prompt again, for a different design.
+- 50,33.1 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
+- 50,40.5 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides / Canva, PNG images, PSD or SVG — and the `.tsx`.
+- 50,46.3 **Share**: A temporary public link and a QR code.
+- 50,65.3 **Notes**: Private notes on this screen, never sent to a model.
+- 50,95.8 **Delete screen**: One confirmation, and it is gone.
 :::
 
 **Right-click the document → `Fit to page`** asks the model to win the space

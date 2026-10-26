@@ -666,15 +666,15 @@ latest screen`. Their labels, their icons and what they cost are in
 ## 6. The sandbox
 
 :::hotspots src=../assets/ui/toolbar.webp alt="The project’s tools, in the top bar"
-- 4.6,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
-- 10.9,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
-- 17.1,50 **Interact**: Every preview becomes clickable at once.
-- 23.4,50 **Modify**: Click an element and describe a change, or edit its text directly.
-- 29.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
-- 45,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](../interface.md#demo-mode).
-- 62.5,50 **Share**: A link to the selected screen, or the project sent for approval.
-- 82.2,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
-- 95.9,50 **Inspector**: Shows or hides the column of panels on the right.
+- 2.9,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
+- 6.8,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
+- 10.8,50 **Interact**: Every preview becomes clickable at once.
+- 14.7,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 18.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
+- 65.4,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](../interface.md#demo-mode).
+- 76.4,50 **Share**: A link to the selected screen, or the project sent for approval.
+- 88.8,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
+- 97.4,50 **Inspector**: Shows or hides the column of panels on the right.
 :::
 
 *The ten verbs of a project, in bar order: Link, Modify, Interact, Annotate, Frame, System, Audit, Demo, Export, Video. The first four act through the sandboxed preview; the last six act around it. The screenshot predates two of them — Audit, which sits between System and Demo, and Video, which closes the row — so eight verbs are visible here, not ten.*

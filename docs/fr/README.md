@@ -21,13 +21,13 @@ TypeScript.
 Un projet, ouvert. Cliquez les numéros pour voir ce qu’est chaque partie :
 
 :::hotspots src=../assets/ui/fr/canvas.webp alt="Un projet : la barre du haut, l’atelier de création, des écrans reliés par des câbles, l’inspecteur et la barre de zoom"
-- 60,3.2 **Outils de la toile**: Sélectionner, lier, interagir, modifier, annoter — ce que fait un clic sur un écran. Voir [L’interface](interface.md#lespace-de-travail-dun-projet).
+- 36.7,3.2 **Outils de la toile**: Sélectionner, lier, interagir, modifier, annoter — ce que fait un clic sur un écran. Voir [L’interface](interface.md#lespace-de-travail-dun-projet).
 - 77.7,3.2 **Partager**: Un lien vers un écran, ou le projet entier envoyé en validation à un client.
 - 86.2,3.2 **Exporter**: Toutes les sorties : le projet exécutable en `.zip`, l’écran sélectionné en PNG, PowerPoint ou `.tsx`, et les médias.
 - 10.4,9.2 **L’atelier de création**: Le composeur, en colonne : décrivez un écran, choisissez son format et ses options, générez. Avec des écrans sélectionnés, il les modifie.
 - 36.9,41.8 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
 - 30.5,64.9 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
-- 48.3,15.1 **Outils de l’écran**: Dans la barre du haut, pour l’écran sélectionné : modifier, peaufiner, régénérer, notes, animations, supprimer, et tout son menu sous `⋯`.
+- 55.3,3.2 **Outils de l’écran**: Dans la barre du haut, pour l’écran sélectionné : modifier, peaufiner, régénérer, notes, animations, supprimer, et tout son menu sous `⋯`.
 - 86.3,53.3 **L’inspecteur**: Une barre de six panneaux toujours présente — style, versions, audit, validation, campagne, liens — et celui qui est ouvert.
 - 31.8,95.9 **Barre de zoom**: Zoom, `Tout afficher`, le dernier écran, `Réorganiser`, et le bouton qui montre ou masque les câbles.
 - 15.3,38.8 **Générer**: Crée l’écran. Avec des écrans sélectionnés, il devient `Mettre à jour` et les modifie.

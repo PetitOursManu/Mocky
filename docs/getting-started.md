@@ -105,17 +105,17 @@ Who becomes the instance administrator?
 The [[composer|composer]], where a screen is described:
 
 :::hotspots src=assets/ui/composer.webp alt="The creation workshop: format, screen type, the prompt, the options, Improve, Generate, Also make and the recent history"
-- 11.9,12.1 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
-- 25.7,16 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
-- 49.8,24.4 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 49.8,42 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 49.8,50 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 49.8,54.8 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 49.8,66.7 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 19.6,33.4 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 77.7,33.4 **Generate**: Creates the screen — or `Update` when screens are selected.
-- 49.8,71.7 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
-- 49.8,84.4 **Recent history**: The screens made last; click one to frame it on the canvas.
+- 11.9,14.9 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 25.7,18.6 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 49.8,26.4 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 49.8,42.8 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 49.8,50.2 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 49.8,54.7 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 49.8,69.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 19.6,34.8 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 77.7,34.8 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 49.8,73.6 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 49.8,85.5 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
 [[Muse|muse]] is **on by default**: before the first screen is written it looks
