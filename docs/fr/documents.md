@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 11315c564bed
+source_hash: 2032ae0a1c59
 ---
 
 # Documents et posts pour les réseaux sociaux

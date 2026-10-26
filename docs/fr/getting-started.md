@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: 7b076ced1b95
+source_hash: a7a293e0d09e
 ---
 
 # Démarrage

@@ -1,5 +1,5 @@
 ---
-source_hash: adf49acada59
+source_hash: 4166dabce3a9
 ---
 
 # Vue d'ensemble de l'architecture
