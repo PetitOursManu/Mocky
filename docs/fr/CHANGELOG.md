@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mcp` | clés d'assistant à deux niveaux (lecture, lecture + écriture) | `8b44621` |
 | `ui` | Muse par défaut, images plus claires, actions d'écran en haut, corrections mobile | `110fbd9` |
 | `export` | avis dédié aux images chargées depuis un autre site | `c5955f6` |
 | `ui` | le premier composer montre ses options en une rangée de tuiles | `271f772` |
