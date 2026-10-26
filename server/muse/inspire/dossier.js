@@ -43,7 +43,10 @@ export const DossierSchema = z.object({
       spacing: z.string().optional(),
       radius: z.string().optional(),
     })
-    .default({ colors: [] }),
+    // `prefault`, not `default`: zod 4 hands a default through without parsing
+    // it, so a dossier with no tokens would lose the `typography: {}` the inner
+    // default writes — and `dossierToMarkdown` prints its section off that key.
+    .prefault({ colors: [] }),
   layoutGrammar: z.array(z.string()).default([]),
   motionLanguage: z.array(z.object({ name: z.string(), description: z.string().optional() })).default([]),
   voice: z

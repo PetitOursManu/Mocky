@@ -25,14 +25,14 @@
 import { BlockSchema } from './timeline.js'
 import { MOTION_KIND_SPECS } from './kinds.js'
 
-const OPTIONS = Object.fromEntries(BlockSchema.options.map((opt) => [opt.shape.kind._def.value, opt]))
+const OPTIONS = Object.fromEntries(BlockSchema.options.map((opt) => [opt.shape.kind.value, opt]))
 const NOT_TEXT = new Set(['kind', 'imageId', 'imageIds'])
 
 function unwrap(schema) {
   let node = schema
   for (;;) {
-    const kind = node?._def?.typeName
-    if (kind === 'ZodDefault' || kind === 'ZodOptional' || kind === 'ZodNullable') node = node._def.innerType
+    const kind = node?._def?.type
+    if (kind === 'default' || kind === 'optional' || kind === 'nullable') node = node._def.innerType
     else return node
   }
 }
@@ -40,12 +40,12 @@ function unwrap(schema) {
 /** Every free string under a value, read through the schema that validated it. */
 function stringsOf(value, schema) {
   const node = unwrap(schema)
-  switch (node?._def?.typeName) {
-    case 'ZodString':
+  switch (node?._def?.type) {
+    case 'string':
       return typeof value === 'string' ? [value] : []
-    case 'ZodArray':
-      return Array.isArray(value) ? value.flatMap((item) => stringsOf(item, node._def.type)) : []
-    case 'ZodObject': {
+    case 'array':
+      return Array.isArray(value) ? value.flatMap((item) => stringsOf(item, node._def.element)) : []
+    case 'object': {
       if (!value || typeof value !== 'object') return []
       const shape = node.shape
       return Object.keys(shape)
