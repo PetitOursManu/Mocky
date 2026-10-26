@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: f949b17eb97d
+source_hash: 11315c564bed
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -249,7 +249,7 @@ cinq boutons :
 | Bouton | Ce que vous obtenez | Pour |
 |---|---|---|
 | `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — à 500 dpi pour le papier, au triple pour une diapositive et au quadruple de ses pixels pour un post, pour rester nettes zoomées comme imprimées (sur iPhone ou iPad, aussi haut que Safari le permet, environ 350 dpi en A4) — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
-| `PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables` | Une diapositive par page : le dessin en image d’arrière-plan, et chaque texte en zone de texte modifiable par-dessus. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Importez-le dans Canva, ou déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
+| `PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables` | Une diapositive par page : le dessin en une image sous tout le reste — l’arrière-plan de la diapositive quand la page a des images dans une forme, sinon une image que l’on peut sélectionner (Canva refusait cet arrière-plan sur une page qui n’en a aucune) — et chaque texte en zone de texte modifiable par-dessus. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Importez-le dans Canva, ou déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
 | `Images PNG` | Une image par page, dans un `.zip` quand il y en a plusieurs. Un post sort exactement aux pixels de son format. | Publier. |
 | `PSD — Photoshop, Photopea` | Un calque pour la page, puis un par image dans une forme, avec son contour, son ruban et son ombre en calques à part. Le texte fait partie de la page. | Terminer dans Photoshop. |
 | `SVG — Figma, Illustrator, Inkscape` | La page, et chaque image dans une forme comme un groupe-masque nommé qui la contient, avec son contour et son ruban par-dessus. Le texte fait partie de la page. | Terminer dans Figma ou Illustrator. |
@@ -261,7 +261,10 @@ navigateur peut bloquer un deuxième téléchargement automatique depuis la mêm
 Quand quelque chose n’a pas pu être exporté parfaitement, la fenêtre le dit sous
 le lien plutôt que de le cacher : du contenu coupé au bord de la page, un texte
 tourné laissé dans l’image d’une diapositive, une page dessinée par le moteur de
-secours, une image ou une police qui n’a pas pu être intégrée.
+secours, une image ou une police qui n’a pas pu être intégrée — et, à part et
+avec son site, une image que la page charge depuis un autre site. Celles-là ne
+voyagent jamais : un export n’emporte que les images de Mocky ; ajoutez-les à la
+bibliothèque et placez-les dans le document.
 
 ### Les images dans une forme, dans les fichiers
 

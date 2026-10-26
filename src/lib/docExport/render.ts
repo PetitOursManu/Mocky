@@ -23,7 +23,7 @@ import {
   type PseudoPin,
   type RasterPurpose,
 } from './raster'
-import { classifyNativeFailure, raceAbort } from './svgRaster'
+import { classifyNativeFailure, externalPictureHost, raceAbort } from './svgRaster'
 import type { CarriedFrame, PageSnapshot, RenderedPage } from './types'
 
 /**
@@ -58,6 +58,13 @@ export type RenderNotice =
   | { code: 'assets'; pages: number[] }
   /** Neither renderer could draw these pages: blank backgrounds, text and fields kept. */
   | { code: 'raster'; pages: number[] }
+  /**
+   * Pictures these pages load from another site (`hosts`, at most three): never
+   * in the file. Said apart from `assets` because the remedy is the person's —
+   * put the picture in Mocky's library — and "a picture could not be embedded"
+   * left a flyer's three QR codes, logo and banner photo missing with no hint why.
+   */
+  | { code: 'external'; pages: number[]; hosts: string[] }
 
 export interface RenderResult {
   pages: RenderedPage[]
@@ -80,6 +87,38 @@ const HIDE_MODE = { pdf: 'fields', pptx: 'text', png: 'none', layers: 'none' } a
 
 /** The files that carry each `<ShapeFrame>` on its own (frames.ts, `carryFrames`). */
 const CARRIES_FRAMES: ReadonlySet<RasterPurpose> = new Set(['pptx', 'layers'])
+
+/**
+ * Every picture of a page that comes from another site, one entry per element
+ * (the unit `rasterizeNative` counts `missing` in), named by its host.
+ *
+ * Such a picture is missing from every export, by two rules that are right and
+ * stay: the frame's CSP (`img-src` this origin, data: and blob:, capture.ts)
+ * never lets it load — so html2canvas has nothing to draw either — and the
+ * parent never fetches a URL the model wrote (`inlinePolicy`), which would hand
+ * the frame back the network channel `connect-src 'none'` took away.
+ */
+export function externalPictures(page: Element, origin = typeof location === 'undefined' ? '' : location.origin): string[] {
+  const base = page.ownerDocument.baseURI
+  const hosts: string[] = []
+  const urlOf = (raw: string): string => {
+    try {
+      return new URL(raw, base).href
+    } catch {
+      return raw
+    }
+  }
+  for (const el of Array.from(page.querySelectorAll('img, image'))) {
+    const raw =
+      el.tagName.toUpperCase() === 'IMG'
+        ? (el as HTMLImageElement).currentSrc || el.getAttribute('src') || ''
+        : el.getAttribute('href') || el.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || ''
+    if (!raw || raw.startsWith('#')) continue
+    const host = externalPictureHost(urlOf(raw), origin)
+    if (host) hosts.push(host)
+  }
+  return hosts
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -563,6 +602,8 @@ export async function renderDocument(
     const fellBack: number[] = []
     const incomplete: number[] = []
     const blank: number[] = []
+    const external: number[] = []
+    const externalHosts = new Set<string>()
     const out: RenderedPage[] = []
     let native = typeof XMLSerializer === 'function' && typeof Image === 'function'
 
@@ -571,6 +612,11 @@ export async function renderDocument(
       opts.onPage?.(i + 1, pages.length)
       const el = pages[i]
       const tilted = makeTiltTest(frame.win, el)
+      const remote = externalPictures(el)
+      if (remote.length) {
+        external.push(i + 1)
+        remote.forEach((h) => externalHosts.add(h))
+      }
 
       let snapshot: PageSnapshot
       // Measured with clipped text flattened to its ink — after the last
@@ -629,7 +675,9 @@ export async function renderDocument(
           // Only once the native picture is the one kept: a page that falls
           // back is drawn by html2canvas from the live DOM, pictures included,
           // and reporting it as incomplete as well contradicted the other notice.
-          if (res.missing > 0) incomplete.push(i + 1)
+          // The pictures from another site have a notice of their own; this one
+          // is for whatever ELSE did not travel.
+          if (res.missing > remote.length) incomplete.push(i + 1)
         } catch (err) {
           const verdict = classifyNativeFailure(err, !!signal?.aborted)
           if (verdict === 'abort') throw err
@@ -688,6 +736,7 @@ export async function renderDocument(
     if (drawnByFallback.length) notices.push({ code: 'fallback', pages: drawnByFallback })
     if (incomplete.length) notices.push({ code: 'assets', pages: incomplete })
     if (blank.length) notices.push({ code: 'raster', pages: blank })
+    if (external.length) notices.push({ code: 'external', pages: external, hosts: [...externalHosts].slice(0, 3) })
     return { pages: out, notices }
   } finally {
     close()

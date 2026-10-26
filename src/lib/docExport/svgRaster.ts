@@ -225,6 +225,27 @@ export function inlinePolicy(url: string, origin: string): 'keep' | 'fetch' | 'r
   }
 }
 
+/**
+ * The site a picture would have come from, when it is one an export can never
+ * carry: refused by `inlinePolicy` after `relocateMockyMedia`, over http(s).
+ * Null for anything the export can draw, and for a URL that names no site.
+ *
+ * Not a fetch and not a loosening: it NAMES what the frame's `img-src` and the
+ * inliner already refused, so the person is told which pictures are missing
+ * and why, instead of finding empty cards in a file that reported nothing
+ * specific (render.ts, notice `external`).
+ */
+export function externalPictureHost(url: string, origin: string): string | null {
+  const u = relocateMockyMedia(url, origin)
+  if (inlinePolicy(u, origin) !== 'refuse') return null
+  try {
+    const p = new URL(u)
+    return /^https?:$/.test(p.protocol) ? p.host : null
+  } catch {
+    return null
+  }
+}
+
 // ── viewport units ────────────────────────────────────────────────────────
 
 const VIEWPORT_UNIT = /\d(?:vh|vw|vmin|vmax|svh|lvh|dvh|svw|lvw|dvw|vi|vb)\b/i

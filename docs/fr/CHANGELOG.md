@@ -14,6 +14,16 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `export` | avis dédié aux images chargées depuis un autre site | `c5955f6` |
+| `ui` | le premier composer montre ses options en une rangée de tuiles | `271f772` |
+| `versions` | chaque état d'un écran devient une version, automatiquement | `add06eb` |
+| `ui` | options du composer en groupes nommés, inspecteur en barre permanente | `2decbe5` |
+| `docs` | script de captures annotées et workflow (mise au point) | `f172228` |
+| `ui` | refonte — la disposition sous 768 px | `2ae6fd7` |
+| `ui` | refonte — Admin et page DESIGN.md | `e2596e1` |
+| `ui` | refonte phase 3 — barre de la toile, outils flottants, accueil, Média, Réglages | `a712e50` |
+| `ui` | refonte phase 2 — l'espace de travail du modèle | `a9afba4` |
+| `ui` | refonte phase 1 — thème sombre, accent vert-citron, menu et composers réorganisés | `7a9cfd0` |
 | — | dépliants, magazines et livres, ~200 polices, ma marque, export PNG/PPTX des écrans web | `453f432` |
 | `docexport` | PDF en double résolution — 500 dpi pour le papier, ×4 pour un post (#55) | `40a2991` |
 | `campaign` | un brief décliné en affiche, flyer, post, story (#54) | `7f6c4a6` |
@@ -48,6 +58,15 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `pptx` | page sans cadre en <p:pic> pleine page, fond uni ; dates ZIP valides | `21d27e0` |
+| `ui` | la tuile Motion Ultra ne change plus la taille du premier composer | `54189a2` |
+| `docs` | captures — Café Atelier reste en tête, chaque projet a sa vignette | `70e6b31` |
+| `docs` | captures — la page photographiée reste au premier plan | `bb9ea09` |
+| `docs` | captures — le dernier projet de l'accueil repéré par sa place | `03576cb` |
+| `docs` | captures — plateau en 2×2, post dans son projet, menu par les outils flottants | `63d8ba1` |
+| `docs` | captures — une capture qui n'obtient pas d'image est retentée | `f3688a3` |
+| `docs` | captures — l'écran est choisi dans l'historique, sans ambiguïté | `02840e3` |
+| `ui` | le menu des types d'écran sort de la colonne de création | `1eed711` |
 | `mcp` | les règles d'audit arrivent en clair, plus en clés brutes | `2dcd333` |
 | `mcp` | les modifications d'écran ne coupent plus à 30 s | `4b56971` |
 | `docs-site` | barre de défilement du menu fine et discrète | `287f827` |
@@ -72,6 +91,8 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | captures refaites avec les options en groupes et la barre de l'inspecteur | `80b7dac` |
+| — | captures annotées refaites sur la nouvelle interface (FR et EN) | `7d5eaad` |
 | — | architecture à jour — versions, validation, parcours, campagnes, PDF à 500 dpi (#56) | `32fec28` |
 | — | Tailwind 4 pour l'interface, Tailwind 3 pour les aperçus | `6a68e4f` |
 | `mcp` | le serveur MCP dans le README, l'index, le glossaire et l'architecture | `846f800` |
@@ -81,6 +102,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | retire un réglage local de .claude/launch.json entré par erreur | `84139d8` |
 | `deps` | Tailwind CSS 3 → 4 pour l'interface de Mocky | `2eda4bc` |
 | — | Clarifie la formulation sur l'emplacement sans photo retenue | `14ba6ed` |
 | `changelog` | pousser avec une deploy key dédiée, environnement changelog, [skip ci] | `927b314` |

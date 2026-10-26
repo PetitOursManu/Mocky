@@ -5,6 +5,7 @@ import {
   carryFormState,
   classifyNativeFailure,
   collectCss,
+  externalPictureHost,
   cssUrls,
   inheritedLineHeight,
   inlinePolicy,
@@ -199,5 +200,22 @@ describe('relocateMockyMedia', () => {
     expect(relocateMockyMedia(`http://localhost:8787/api/images/not-a-hash`, here)).toBe('http://localhost:8787/api/images/not-a-hash')
     expect(relocateMockyMedia(`${here}/api/images/${hash}`, here)).toBe(`${here}/api/images/${hash}`)
     expect(relocateMockyMedia('data:image/png;base64,AAA', here)).toBe('data:image/png;base64,AAA')
+  })
+})
+
+describe('externalPictureHost', () => {
+  const here = 'http://192.168.1.20:8787'
+  const hash = 'b'.repeat(64)
+  it('names the site of a picture no export can carry', () => {
+    expect(externalPictureHost('https://images.pexels.com/photos/1/a.jpg', here)).toBe('images.pexels.com')
+    expect(externalPictureHost('https://cloud.example.org/f/abc/?dl=1', here)).toBe('cloud.example.org')
+  })
+  it('says nothing of what the export does draw', () => {
+    expect(externalPictureHost(`${here}/api/images/${hash}`, here)).toBeNull()
+    // A library picture under another name of the server is read back here (relocateMockyMedia).
+    expect(externalPictureHost(`http://localhost:8787/api/images/${hash}`, here)).toBeNull()
+    expect(externalPictureHost('data:image/png;base64,AAA', here)).toBeNull()
+    expect(externalPictureHost(`blob:${here}/4f1c`, here)).toBeNull()
+    expect(externalPictureHost('not a url', here)).toBeNull()
   })
 })

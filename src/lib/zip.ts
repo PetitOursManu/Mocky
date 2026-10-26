@@ -31,6 +31,16 @@ function crc32(bytes: Uint8Array): number {
   return (~crc) >>> 0
 }
 
+/**
+ * 1980-01-01 00:00, the first instant a DOS timestamp can say. Every entry used
+ * to carry date 0 — day 0 of month 0, a date that does not exist — which
+ * `unzip -l` prints as "1980-00-00" and a strict reader is entitled to refuse.
+ * A constant rather than the moment of the export, so the same input still
+ * gives the same bytes.
+ */
+const DOS_TIME = 0
+const DOS_DATE = (0 << 9) | (1 << 5) | 1
+
 const u16 = (n: number) => new Uint8Array([n & 0xff, (n >>> 8) & 0xff])
 const u32 = (n: number) =>
   new Uint8Array([n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff])
@@ -70,8 +80,8 @@ export function makeZipBytes(entries: readonly ZipInput[]): Uint8Array {
       u16(20), // version needed
       u16(0), // flags
       u16(0), // compression: stored
-      u16(0), // mod time
-      u16(0), // mod date
+      u16(DOS_TIME), // mod time
+      u16(DOS_DATE), // mod date
       u32(crc),
       u32(data.length), // compressed size
       u32(data.length), // uncompressed size
@@ -87,8 +97,8 @@ export function makeZipBytes(entries: readonly ZipInput[]): Uint8Array {
       u16(20), // version needed
       u16(0), // flags
       u16(0), // compression
-      u16(0), // mod time
-      u16(0), // mod date
+      u16(DOS_TIME), // mod time
+      u16(DOS_DATE), // mod date
       u32(crc),
       u32(data.length),
       u32(data.length),
