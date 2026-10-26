@@ -352,6 +352,8 @@ export const dashboard = {
     'dashboard.audit.action.mcp.connect': '{actor} a connecté un assistant à son compte',
     'dashboard.audit.action.mcp.revoke': '{actor} a déconnecté un assistant',
     'dashboard.audit.action.mcp.token-reuse': 'Jeton d’assistant réutilisé pour {target} : la connexion a été coupée',
+    'dashboard.audit.action.mcp.key-create': '{actor} a créé une clé d’assistant',
+    'dashboard.audit.action.mcp.key-revoke': '{actor} a révoqué une clé d’assistant',
 
     // ---- announcement ----
     'dashboard.announce.kicker': 'Annonce',
@@ -750,6 +752,8 @@ export const dashboard = {
     'dashboard.audit.action.mcp.connect': '{actor} connected an assistant to their account',
     'dashboard.audit.action.mcp.revoke': '{actor} disconnected an assistant',
     'dashboard.audit.action.mcp.token-reuse': 'An assistant token was reused for {target}: the connection was cut',
+    'dashboard.audit.action.mcp.key-create': '{actor} created an assistant key',
+    'dashboard.audit.action.mcp.key-revoke': '{actor} revoked an assistant key',
 
     // ---- announcement ----
     'dashboard.announce.kicker': 'Announcement',

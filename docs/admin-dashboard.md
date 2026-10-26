@@ -16,7 +16,7 @@ moving between sections costs no request.
 | **Spending** | What the text models cost, by day, month, account, project, model or provider; which models each project used; the price table. See [Spending](#spending). |
 | **Audit log** | Who did what: sign-ins and their failures, accounts, sessions, settings, maintenance, announcements, migrations. |
 | **Announcement** | A message shown to everybody under the masthead, now or from a date you schedule, with an optional end — and dates in the text shown in each reader's time zone. |
-| **Assistants (MCP)** | Whether Claude, ChatGPT or another MCP client may act in Mocky on behalf of an account: the HTTPS checklist, the switch, who may connect, and every active connection with a way to cut it — see [Connecting an assistant](mcp.md). |
+| **Assistants (MCP)** | Whether Claude, ChatGPT or another MCP client may act in Mocky on behalf of an account: the HTTPS checklist, the switch, who may connect, whether accounts may make assistant keys, and every active connection and assistant key with a way to cut it — see [Connecting an assistant](mcp.md). |
 | **Maintenance and migration** | Unchanged — see [Maintenance and migration](migration.md). |
 
 The code is in `server/admin/` (one file per store, each explaining itself in its

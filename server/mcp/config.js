@@ -9,7 +9,13 @@
  * Who may connect is a scope that FAILS CLOSED (server/access.js `scopeAllows`):
  * an empty list by default, and an administrator is not let in by their role.
  *
- * Nothing secret lives here; the tokens are in `mcp-oauth.json` (oauth-store.js).
+ * Assistant keys (keys.js) have a switch of their own, `keys`, off by default:
+ * a fixed credential is a new kind of door, and an update must not open it on
+ * an instance that already runs MCP. Off, existing keys are suspended, not
+ * deleted.
+ *
+ * Nothing secret lives here; the tokens are in `mcp-oauth.json` (oauth-store.js),
+ * the keys' hashes in `mcp-keys.json`.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -59,6 +65,8 @@ export function defaultMcpConfig() {
      * administrator's call to make, not a default.
      */
     engines: { mocky: true, client: false },
+    /** Whether an account may create assistant keys and use them on /mcp (keys.js, X8). */
+    keys: false,
   }
 }
 
@@ -102,13 +110,14 @@ export function mergeMcpConfig(current, patch) {
         ? p.dailyQuota === null || p.dailyQuota === '' ? null : int(p.dailyQuota, { min: 1, max: 10_000, default: null })
         : base.dailyQuota ?? null,
     engines,
+    keys: typeof p.keys === 'boolean' ? p.keys : base.keys === true,
   }
 }
 
 /** The fields a patch actually touched, for the audit log (never the values of a list). */
 export function changedMcpFields(before, after) {
   const out = []
-  for (const k of ['enabled', 'clients', 'concurrency', 'dailyQuota']) if (before[k] !== after[k]) out.push(k)
+  for (const k of ['enabled', 'keys', 'clients', 'concurrency', 'dailyQuota']) if (before[k] !== after[k]) out.push(k)
   if (before.access.mode !== after.access.mode) out.push('access.mode')
   if (JSON.stringify(before.access.userIds) !== JSON.stringify(after.access.userIds)) out.push('access.userIds')
   if (before.tokenTtl.accessMin !== after.tokenTtl.accessMin) out.push('tokenTtl.accessMin')

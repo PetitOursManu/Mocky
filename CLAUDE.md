@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Ten series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Ten series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1225,13 +1225,16 @@ Four things that will bite you:
 ## Mocky as an MCP server
 
 Claude, ChatGPT or another MCP client acts in Mocky on behalf of one account.
-Plan: `plans/mcp-serveur.md` (phases 1a to 5, all done). User doc
-`docs/mcp.md`; invariants X1–X7.
+Plan: `plans/mcp-serveur.md` (phases 1a to 6, all done; 6 is the assistant
+keys). User doc `docs/mcp.md`; invariants X1–X9.
 
 ```
 server/mcp/routes.js       every route, and the per-request switch (X1)
 server/mcp/provider.js     the OAuth decisions: session, access (X2), resource
 server/mcp/oauth-store.js  clients, connections, tokens BY HASH (X3)
+server/mcp/keys.js         assistant keys: made by their own account, shown once, BY HASH (X8)
+server/mcp/key-auth.js     /mcp with a key: chosen on the `mocky_ak_` prefix, before the SDK's bearer
+server/mcp/levels.js       read / write, and READ_TOOLS — a CLOSED list (X9)
 server/mcp/https.js        when it may exist at all: an HTTPS origin
 server/mcp/tools.js        the tools (create_design…) and what leaves — a whitelist (X4)
 server/mcp/runner.js       the headless runner: queue, Chromium, network rule (X6)
@@ -1262,7 +1265,7 @@ through `assertSafeTargetResolved`, and that rule replaces Chromium's own Local
 Network Access checks (switched off at launch, because they refused the
 preview's `/vendor` scripts on loopback origins).
 
-Five things that will bite you:
+Six things that will bite you:
 
 0. **The runner's `route.fetch` has `timeout: 0`.** Playwright's default is
    30 s, shorter than a model call: every edit and polish by Mocky's own model
@@ -1280,6 +1283,13 @@ Five things that will bite you:
    must not open the door to a model.
 4. **`/mcp` is in maintenance's `ALWAYS_ALLOWED`** because JSON-RPC is POST for
    reads too. Every tool that WRITES checks `maintenance()` itself.
+5. **A new tool is a WRITER until it is in `READ_TOOLS`** (`levels.js`, X9). A
+   read key never sees it, which is the point; add it there only once it
+   changes nothing in the account, and keep `readOnlyHint` in step (the test
+   holds the two together). Register tools with `server.registerTool` after
+   `gateTools`, never another way. And the key path is chosen on the PREFIX,
+   before the SDK's bearer: the OAuth path must not change for a value without
+   it, and nothing outside `/mcp` may read a key — it is never a session (X8).
 
 ## Versions and branches
 

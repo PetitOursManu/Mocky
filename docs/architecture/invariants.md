@@ -16,7 +16,7 @@ There are ten series:
 - **Q1 to Q5**, introduced by the quality pass.
 - **U1 to U5**, introduced by Motion Ultra.
 - **D1 to D6**, introduced by the admin dashboard.
-- **X1 to X7**, introduced by Mocky as an MCP server.
+- **X1 to X9**, introduced by Mocky as an MCP server and its assistant keys.
 - **F1 to F4**, introduced by the free plan and personal keys.
 - **V1 to V8**, introduced by versions, branches, approval links and working prototypes.
 - **C1 to C3**, introduced by Campaign Studio.
@@ -1005,6 +1005,55 @@ opaque origin, which `*` would refuse.
 **How it is checked.** `tests/mcp-tools-e2e.test.js`: the header is present,
 `X-Frame-Options` is gone, a forged signature answers 404, and a Chromium
 playing the host frames the view, which frames the screen, which renders.
+
+### X8. An assistant key is the account's own, shown once, and kept like a token
+
+**The rule.** An assistant key (`server/mcp/keys.js`) is made only by the
+account it acts as, from that account's own session and with its password asked
+again; an administrator switches the feature on (`keys`, off by default), sees
+every key without its value and revokes any of them, and never creates one for
+somebody else. A key is 256 random bits behind the `mocky_ak_` prefix; only its
+SHA-256 is stored, it is compared in constant time — against a dummy hash when
+its lookup is unknown — and it appears exactly once, in the answer to its
+creation, never in a later response, a log line, the audit log, an error or an
+address. It is read from the `Authorization` header of `/mcp` and nowhere else:
+it is never a session. Every call reads the MCP switch (X1), the `keys` switch,
+the access list (X2) and the account's sign-in lock again; an unknown, wrong,
+expired, revoked or suspended key gets the very answer an invalid OAuth token
+gets, and failures freeze the address and the key. `mcp-keys.json` never
+travels with a migration. The OAuth path is chosen as before for every bearer
+value without the prefix, and does not change.
+
+**What it protects.** What X3 protects — a copy of the store, a screenshot or a
+log line must not become a way to act as somebody — for a credential that, unlike
+an access token, does not expire within the hour. And X2's consent: the person
+the key acts as is the one who made it, so the admin page stays a place to
+decide and to cut, never a way to become somebody (D2).
+
+**How it is checked.** `server/mcp/keys.test.js` (the format, the hash on disk,
+the whitelist, constant time on both branches, expiry, the caps),
+`server/mcp/key-auth.test.js` (every refusal identical to the OAuth one, the
+freezes, the account's lock, the list, nothing in a log line),
+`tests/mcp-keys-e2e.test.js` (a real server: the switches, the password, the
+key absent from stdout, the data directory, the audit log and every listing).
+
+### X9. A read key reaches a closed list of tools
+
+**The rule.** `READ_TOOLS` in `server/mcp/levels.js` is closed. On a `read`
+connection, a tool outside it is not registered on the request's server — so
+it is neither listed nor callable, and a call answers like a tool that does not
+exist — and no prompt is offered. The gate is set before the first tool, on the
+SDK's one funnel, so every way of registering a tool passes through it. A tool
+added later is a writer until it is declared there; a missing or unknown level
+is `read`; an OAuth connection is `write`, exactly as before.
+
+**What it protects.** The word "read". A read-only key handed to an assistant
+is a promise that nothing in the account changes, and a list of the tools that
+write would have broken it silently the day a new one was added.
+
+**How it is checked.** `server/mcp/levels.test.js` (through the SDK's own
+client: the list, the refusals, the prompts, a new tool by every door, the list
+held to `readOnlyHint`), `tests/mcp-keys-e2e.test.js`.
 
 The tools that let an assistant call the runner add their own rules to this
 series.

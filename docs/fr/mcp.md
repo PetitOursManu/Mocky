@@ -1,5 +1,5 @@
 ---
-source_hash: 60e96fa471a3
+source_hash: 01347ebcb475
 ---
 
 # Connecter un assistant (MCP)
@@ -12,6 +12,11 @@ C'est **désactivé par défaut**, et désactivé veut dire absent : aucun point
 d'accès, aucun document de découverte, rien qu'un scanner puisse trouver. Un
 administrateur l'active, pour les comptes qu'il choisit, et seulement sur une
 instance servie en HTTPS.
+
+Un assistant configuré à la main — un assistant comme Claude, ou un
+script — peut utiliser à la place une [clé d'assistant](#cles-dassistant) : une
+clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
+écriture.
 
 ## Ce qu'un assistant peut faire
 
@@ -176,6 +181,10 @@ réglages et connexions conservés.
 
 - **Autoriser la connexion d'assistants** — l'interrupteur. Le couper suspend
   toutes les connexions sans les supprimer ; elles reprennent si on le rallume.
+- **Autoriser les clés d'assistant** — un second interrupteur, éteint par
+  défaut. Allumé, chaque compte de la liste peut créer ses propres [clés
+  d'assistant](#cles-dassistant) ; éteint, les clés existantes sont suspendues,
+  pas supprimées.
 - **Qui peut connecter un assistant** — tous les comptes, ou une liste. La liste
   commence **vide**, et un administrateur n'est **pas** autorisé par son seul
   rôle : ajoutez-vous si vous voulez l'utiliser, comme pour toutes les autres
@@ -193,9 +202,12 @@ réglages et connexions conservés.
   l'interface. Quel que soit le réglage, une seule génération MCP à la fois par
   compte (à partir de l'exécuteur).
 
-La page affiche l'**adresse à donner à l'assistant** — `${MOCKY_ORIGIN}/mcp` —
-et la liste des **connexions actives** : compte, assistant, depuis quand,
-dernier usage, et un bouton pour en couper une.
+La page affiche l'**adresse à donner à l'assistant** — `${MOCKY_ORIGIN}/mcp` —,
+la liste des **connexions actives** : compte, assistant, depuis quand,
+dernier usage, et un bouton pour en couper une — et la liste des **clés
+d'assistant** : compte, nom, niveau, création, dernier usage, expiration, et
+**Révoquer**. Jamais la valeur d'une clé : personne ne peut la voir après sa
+création, et un administrateur ne peut pas en créer une pour quelqu'un d'autre.
 
 ### L'exécuteur sans interface
 
@@ -238,13 +250,19 @@ aperçu avec Chromium lui-même. Personne n'a besoin d'un onglet ouvert.
   personne d'appeler `/mcp`. Mode `0600`. Il ne **voyage pas** avec une
   [migration](migration.md) : comme les sessions, chaque assistant redemande
   l'accord une fois sur le nouveau serveur.
+- `mcp-keys.json` — les [clés d'assistant](#cles-dassistant), stockées **sous
+  forme de hachage** (SHA-256) avec leur nom, leur niveau, leur compte et leurs
+  dates : une copie du fichier ne permet à personne d'appeler `/mcp`. Mode
+  `0600`. Il ne **voyage pas** non plus avec une migration : chaque personne
+  crée une nouvelle clé sur le nouveau serveur.
 - Le **journal d'audit** gagne un groupe, *Assistants (MCP)* : un changement de
-  réglages (noms des champs seulement), une connexion, une déconnexion, et un
+  réglages (noms des champs seulement), une connexion, une déconnexion, un
   **jeton réutilisé** — deux parties qui détiennent le même jeton de
-  rafraîchissement, ce qui coupe cette connexion.
+  rafraîchissement, ce qui coupe cette connexion —, et la création et la
+  révocation d'une clé d'assistant (son nom et son niveau, jamais la clé).
 
-Retirer un compte de la liste coupe ses connexions immédiatement ; supprimer un
-compte les supprime.
+Retirer un compte de la liste coupe ses connexions et supprime ses clés
+immédiatement ; supprimer un compte supprime les deux.
 
 ## Qui écrit le code
 
@@ -340,6 +358,118 @@ Ensuite, dans tous les cas :
    agirait, et vers où vous serez renvoyé. **Autoriser** ou **Refuser** — un
    refus est transmis à l'assistant, qui cesse d'attendre.
 
+## Clés d'assistant
+
+Certains assistants ne passent pas par OAuth : un assistant configuré à la main
+— un assistant comme Claude —, un script, une tâche planifiée. Pour
+eux, un compte peut créer une **clé d'assistant** : une clé fixe qui agit comme
+ce compte sur `/mcp`, et nulle part ailleurs. Tout le reste de cette page vaut
+encore pour elle — l'interrupteur, la liste d'accès, le quota quotidien du
+compte et son travail unique à la fois, la maintenance.
+
+### Les deux niveaux
+
+| Niveau | Ce qu'il atteint |
+|---|---|
+| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `audit_design`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
+| **Lecture + écriture** | Tous les outils permis au compte, comme avec une connexion OAuth. |
+
+La liste de lecture est **fermée**, dans le code (`server/mcp/levels.js`) : un
+outil ajouté plus tard à Mocky compte comme un outil qui écrit tant qu'il n'y
+est pas déclaré. Avec une clé en lecture seule, `audit_design` ne modifie rien
+— mais avec `deep: true` il fait un appel au modèle de Mocky, payé par
+l'instance, comme tout audit —, `search_free_images` utilise les photothèques
+de l'instance, et `get_design` peut attendre un travail que le même compte a
+lancé ailleurs.
+
+Le niveau d'une clé ne se modifie pas : révoquez-la et créez-en une autre.
+
+### En créer une
+
+1. L'administrateur active **Autoriser les clés d'assistant** dans Admin →
+   Assistants (MCP), et met le compte sur la liste (ou l'ouvre à tous les
+   comptes).
+2. Connecté avec ce compte, **Réglages → Assistants connectés → Clés
+   d'assistant** : un nom, un niveau (lecture seule sauf autre choix), une
+   expiration (jamais, 7, 30, 90 ou 365 jours), et de nouveau le mot de passe du
+   compte — une clé dure plus longtemps qu'une session. Un compte qui se connecte
+   seulement par SSO n'a pas de mot de passe ici, et sa session suffit : pour ce
+   compte, une session restée ouverte permet à elle seule de créer une clé qui
+   lui survivra. Ne mettez un tel compte sur la liste que s'il a besoin d'un
+   assistant, et vérifiez ses clés au moindre doute sur l'une de ses sessions.
+3. La clé est affichée **une seule fois**, avec un bouton pour la copier et la
+   ligne pour Claude Code. Mocky n'en garde que l'empreinte (SHA-256) :
+   personne, administrateur compris, ne peut la réafficher. Une clé perdue se
+   révoque et se remplace.
+
+Cinq clés au plus par compte, mille par instance.
+
+**Pour un assistant à part, un compte à part.** Un administrateur le crée
+(Admin → Utilisateurs) avec un mot de passe long et aléatoire, l'ajoute à la
+liste, s'y connecte une fois pour créer la clé, et donne la clé à l'assistant.
+La clé atteint alors les projets de ce compte et de personne d'autre. Le mot de
+passe ne sert qu'à créer des clés ; gardez-le long, car dix mots de passe faux
+gèlent le compte — ses clés comprises — pendant quinze minutes.
+
+Un administrateur ne crée jamais de clé pour un autre compte. Une clé agit comme
+le compte qui l'a créée, depuis sa propre session — la même règle qu'un accord
+OAuth —, et la page d'administration peut révoquer une clé mais jamais en
+afficher ni en créer une (X8).
+
+### L'utiliser
+
+L'assistant envoie la clé dans l'en-tête `Authorization`, sur
+`${MOCKY_ORIGIN}/mcp` :
+
+```http
+Authorization: Bearer mocky_ak_…
+```
+
+Pour Claude Code, en une ligne :
+
+```bash
+claude mcp add --transport http --scope user mocky https://<votre-mocky>/mcp --header "Authorization: Bearer <clé>"
+```
+
+Une clé n'est jamais lue dans une adresse ni dans un cookie, et n'ouvre rien
+d'autre que `/mcp` : ce n'est pas une session. Derrière un proxy inverse,
+réglez `TRUST_PROXY` (voir le [déploiement](deployment.md)) : les clés fausses
+sont comptées par adresse, et sans lui toutes les requêtes semblent venir du
+proxy.
+
+**Une clé que l'assistant continue d'envoyer après son expiration ou sa
+révocation échoue à chaque appel**, et Mocky ne peut pas distinguer ces échecs
+de tentatives de devinette — c'est pourquoi tous les refus se ressemblent. Après
+dix, l'adresse est gelée sur le chemin des clés pendant quinze minutes, et
+chacun est une ligne `mocky auth failure` : avec la prison de
+`deploy/fail2ban/` (`maxretry = 10` en dix minutes, `bantime = 1h`), fail2ban
+bannit alors l'adresse de tout Mocky pendant une heure. Si l'assistant sort par
+la même adresse que le navigateur de son propriétaire — la même machine, la
+même connexion à la maison ou au bureau —, le propriétaire perd l'accès lui
+aussi. Retirez donc une clé de la configuration de l'assistant quand vous la
+révoquez, et remplacez une clé avant qu'elle expire. Une clé suspendue par
+l'interrupteur n'est pas comptée : rien n'est comparé.
+
+### La révoquer
+
+- **La personne** : Réglages → Assistants connectés → **Révoquer**. Elle cesse
+  de fonctionner à l'appel suivant.
+- **L'administrateur** : la liste **Clés d'assistant** dans Admin → Assistants
+  (MCP) → **Révoquer**.
+- Retirer le compte de la liste, ou supprimer le compte, supprime ses clés.
+- Couper le serveur MCP, ou **Autoriser les clés d'assistant**, **suspend**
+  toutes les clés ; elles refonctionnent quand on le rallume.
+- Une clé expirée est refusée, et reste dans la liste, marquée expirée, pendant
+  trente jours.
+- **Réinitialiser le mot de passe du compte** (Admin → Utilisateurs) le
+  déconnecte partout, mais ne révoque **ni ses clés d'assistant ni ses
+  connexions OAuth** : ni l'une ni l'autre n'est une session. Quand la
+  réinitialisation vient d'un doute sur le compte, révoquez ses clés et coupez
+  ses connexions à la main, dans Admin → Assistants (MCP).
+
+Chaque création et chaque révocation figure au journal d'audit, avec le nom et
+le niveau de la clé — jamais la clé.
+
 ## Comment c'est protégé
 
 - **La session Mocky décide de qui vous êtes.** La page d'autorisation OAuth
@@ -363,8 +493,17 @@ Ensuite, dans tous les cas :
   avec `Content-Security-Policy: sandbox allow-scripts` : une origine opaque,
   ni cookie ni stockage, quel que soit celui qui l'ouvre.
 
+- **Une clé d'assistant est gardée comme un jeton.** 256 bits aléatoires
+  derrière le préfixe `mocky_ak_`, stockés seulement sous forme d'empreinte et
+  comparés en temps constant. Une clé inconnue, fausse, expirée, révoquée ou
+  suspendue reçoit exactement la réponse d'un jeton OAuth invalide ; dix échecs
+  gèlent l'adresse, et la clé, pendant quinze minutes, et chacun est une ligne
+  `mocky auth failure` que le filtre fail2ban de `deploy/fail2ban/` reconnaît
+  déjà. Une clé en lecture seule n'atteint qu'une liste fermée d'outils.
+
 Les règles sont écrites dans la [série X](architecture/invariants.md) des
-invariants, X5 et X6 pour l'exécuteur, X7 pour l'aperçu vivant.
+invariants, X5 et X6 pour l'exécuteur, X7 pour l'aperçu vivant, X8 et X9 pour
+les clés d'assistant.
 
 ## Un Mocky que les assistants ne peuvent pas joindre
 
@@ -408,5 +547,6 @@ reste le serveur : même interrupteur, même liste, même page de consentement.
 
 `MOCKY_MCP_INSECURE_LOOPBACK=1` accepte une origine `http://localhost` ou
 `http://127.0.0.1`. Rien hors de la machine ne peut joindre une adresse locale :
-cela ne sert qu'un client sur la même machine — Claude Code, par exemple — et le
-test de bout en bout (`tests/mcp-oauth-e2e.test.js`). Jamais sur un serveur.
+cela ne sert qu'un client sur la même machine — Claude Code, par exemple — et les
+tests de bout en bout (`tests/mcp-oauth-e2e.test.js`,
+`tests/mcp-keys-e2e.test.js`). Jamais sur un serveur.

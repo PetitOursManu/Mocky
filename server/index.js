@@ -2595,12 +2595,15 @@ const migrationDestination = createMigrationDestination({
 })
 
 /**
- * Step-up for the two actions that hand over or replace the whole instance.
- * A session is not enough: an unlocked laptop is a session. SSO-only admins have
- * no local password; Dashy vouched for them at sign-in and nothing here can ask
- * again, so they pass on the session alone — said in docs/migration.md.
+ * Step-up for the actions that hand over something outliving the session: the
+ * two that hand over or replace the whole instance, and a new assistant key
+ * (server/mcp/routes.js, X8). A session is not enough: an unlocked laptop is a
+ * session. It asks the SIGNED-IN account's own password, whatever its role.
+ * SSO-only accounts have no local password; Dashy vouched for them at sign-in
+ * and nothing here can ask again, so they pass on the session alone — said in
+ * docs/migration.md and docs/mcp.md.
  */
-function confirmAdminPassword(req, res) {
+function confirmPassword(req, res) {
   const user = loadUsers().find((u) => u.id === req.user.id)
   if (!user) {
     res.status(401).json({ error: 'Not signed in.' })
@@ -2633,7 +2636,7 @@ app.use('/api/migration', migrationSource.router)
 
 app.get('/api/admin/migration/source', requireAdmin, (req, res) => res.json(migrationSource.status()))
 app.post('/api/admin/migration/source', requireAdmin, authRateLimit(8, 60_000, 'migration'), (req, res) => {
-  if (!confirmAdminPassword(req, res)) return
+  if (!confirmPassword(req, res)) return
   audit.record({ action: 'migration.code', actor: auditActor(req.user), ip: clientIp(req) })
   res.json(migrationSource.create(req.user.username))
 })
@@ -2674,7 +2677,7 @@ app.post('/api/admin/migration/import/verify', requireAdmin, async (req, res) =>
   }
 })
 app.post('/api/admin/migration/import/finalize', requireAdmin, authRateLimit(8, 60_000, 'migration'), (req, res) => {
-  if (!confirmAdminPassword(req, res)) return
+  if (!confirmPassword(req, res)) return
   let out
   try {
     out = migrationDestination.finalize()
@@ -2796,6 +2799,12 @@ const mcpServer = createMcpServerRoutes({
   audit,
   auditActor,
   clientIp,
+  // Assistant keys (server/mcp/keys.js, X8): the account's freeze applies to its
+  // keys, a failed key is a fail2ban line, and creating one asks the password.
+  accountLocked,
+  logAuth,
+  confirmPassword,
+  rateLimit: authRateLimit,
 })
 mcpServer.mount(app)
 

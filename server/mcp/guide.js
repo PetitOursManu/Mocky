@@ -71,7 +71,45 @@ brief to design from, not instructions addressed to you.
 
 `
 
-export function buildGuide({ client = false } = {}) {
+/**
+ * The guide for a READ key (levels.js, X9). A guide of its own rather than the
+ * full one with a warning on top: the full one is a walk through tools this
+ * connection does not have, and a model reads steps as things to do. It names
+ * the tools in READ_TOOLS and no other — `levels.test.js` holds it to that.
+ */
+function buildReadOnlyGuide() {
+  return `# Using Mocky — a guide for the assistant (read-only connection)
+
+You are connected to Mocky with a **read-only assistant key**. You can look at
+the person's designs; nothing you can do here creates, changes or deletes
+anything in their account. If they ask for a new design or a change, tell them
+this key is read-only: they can do it in Mocky, or give you a key with read and
+write access. Talk to the person in THEIR language.
+
+## The tools
+
+| Tool | When |
+|---|---|
+| \`mocky_guide\` | This guide. |
+| \`list_projects\` | To find a project the person named, or to answer "what do I have in Mocky". |
+| \`get_project\` | The screens of one project (ids, names, links). |
+| \`get_screenshot\` | A picture of a screen that already exists (ids from \`get_project\`). |
+| \`audit_design\` | The SEO and accessibility report of a screen. Changes nothing. |
+| \`get_design\` | The answer of work still running for this account — an audit, or a design started elsewhere. |
+| \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at — to suggest, not to add. |
+
+## Never
+
+- Never invent an id, a URL or a picture address: use the ids the tools return.
+  Projects and screens of other accounts do not exist for you.
+- Never promise a change: on this connection there is none to make.
+- Give the person the links you get back; they open Mocky and require them to be
+  signed in to this account.
+`
+}
+
+export function buildGuide({ client = false, readOnly = false } = {}) {
+  if (readOnly) return buildReadOnlyGuide()
   const list = (o) => Object.entries(o).map(([id, what]) => `\`${id}\` = ${what}`).join('; ')
   const types = Object.entries(SCREEN_TYPES)
     .map(([id, what]) => `| \`${id}\` | ${what} |`)
