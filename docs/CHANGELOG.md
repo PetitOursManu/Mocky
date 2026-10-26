@@ -54,6 +54,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `deps` | zod 4 et npm audit fix — l'audit de production repasse | `5b24244` |
 | `pptx` | page sans cadre en <p:pic> pleine page, fond uni ; dates ZIP valides | `21d27e0` |
 | `ui` | la tuile Motion Ultra ne change plus la taille du premier composer | `54189a2` |
 | `docs` | captures — Café Atelier reste en tête, chaque projet a sa vignette | `70e6b31` |
