@@ -38,7 +38,7 @@ import { runningTime } from '../lib/screenMedia'
 import { mediaTimeLabel } from '../lib/mediaTime'
 import VideoPlayer from './VideoPlayer'
 import FilmLightbox from './FilmLightbox'
-import { Banner, Button, Icon, IconButton, Spinner } from '../ui'
+import { Banner, Button, Checkbox, Icon, IconButton, Spinner } from '../ui'
 import StockVideoSearch from './StockVideoSearch'
 import { useLang, useT, type TranslationKey } from '../i18n'
 
@@ -574,8 +574,54 @@ export default function Bibliotheque({
    * will use, and it appears only when something is actually selected, so it is
    * never furniture.
    */
+  /*
+   * The chosen pictures, as a strip of fixed height in the dialog's FOOTER.
+   *
+   * They were a list above the grid that grew a row per picture, so every tick
+   * pushed the whole grid down — the picture you were about to tick next moved
+   * from under your finger. In the footer, at a height that is reserved whether
+   * anything is chosen or not, nothing above it moves; more pictures than fit
+   * scroll sideways inside it.
+   */
+  const pinUse = (p: PinnedImage, patch: { insert?: boolean; inspire?: boolean }) => {
+    haptic()
+    const next = { insert: pinInserts(p), inspire: pinInspires(p), ...patch }
+    if (!next.insert && !next.inspire) {
+      const img = images.find((i) => i.hash === p.hash)
+      if (img) onTogglePin?.(img)
+    } else onPinUse?.(p.hash, next)
+  }
+  const selectionStrip = canPin ? (
+    <div className="h-16 shrink-0 border-t border-line-soft px-3 py-2">
+      {pinned.length === 0 ? (
+        <p className="flex h-full items-center gap-2 text-body-sm text-ink-faint">
+          <Icon name="check" size={15} />
+          {t('library.selectionEmpty')}
+        </p>
+      ) : (
+        <ul className="flex h-full items-center gap-2 overflow-x-auto">
+          {pinned.map((p) => (
+            <li key={p.hash} className="flex h-full shrink-0 items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 py-1 pl-1 pr-2.5">
+              <img src={imageUrl(p.hash)} alt="" className="h-full w-11 shrink-0 rounded-lg object-cover" />
+              <span className="flex items-center gap-3">
+                <Checkbox checked={pinInserts(p)} onChange={(v) => pinUse(p, { insert: v })}>
+                  {t('muse.useInsert')}
+                </Checkbox>
+                {onPinUse && (
+                  <Checkbox checked={pinInspires(p)} onChange={(v) => pinUse(p, { inspire: v })} title={t('muse.useInspireHint')}>
+                    {t('muse.useInspire')}
+                  </Checkbox>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  ) : null
+
   const selectionNote =
-    pinned.length || pinnedVideo ? (
+    (isPage && pinned.length) || pinnedVideo ? (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-accent/40 bg-accent/5 px-3 py-2 text-body-sm text-ink-muted">
         <span className="flex items-center gap-1.5 text-accent-ink">
           <Icon name="check" size={14} />
@@ -586,38 +632,6 @@ export default function Bibliotheque({
             <span className="font-mono text-accent-ink">{pinned.length}</span>{' '}
             {t(pinned.length === 1 ? 'library.selectedImage_one' : 'library.selectedImage_other')}
           </span>
-        )}
-        {/* What each chosen picture is FOR, decided here where it was chosen:
-            in the page, a mood reference for Muse and the model, or both. */}
-        {pinned.length > 0 && onPinUse && (
-          <ul className="flex w-full flex-col gap-1.5">
-            {pinned.map((p) => {
-              const insert = pinInserts(p)
-              const inspire = pinInspires(p)
-              const set = (patch: { insert?: boolean; inspire?: boolean }) => {
-                haptic()
-                const next = { insert, inspire, ...patch }
-                if (!next.insert && !next.inspire) {
-                  const img = images.find((i) => i.hash === p.hash)
-                  if (img) onTogglePin?.(img)
-                } else onPinUse(p.hash, next)
-              }
-              return (
-                <li key={p.hash} className="flex items-center gap-2.5">
-                  <img src={imageUrl(p.hash)} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
-                  <span className="min-w-0 flex-1 truncate text-caption">{p.label}</span>
-                  <label className="tap-target inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-caption text-ink">
-                    <input type="checkbox" className="h-4 w-4 accent-accent" checked={insert} onChange={(e) => set({ insert: e.target.checked })} />
-                    {t('muse.useInsert')}
-                  </label>
-                  <label className="tap-target inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-caption text-ink" title={t('muse.useInspireHint')}>
-                    <input type="checkbox" className="h-4 w-4 accent-accent" checked={inspire} onChange={(e) => set({ inspire: e.target.checked })} />
-                    {t('muse.useInspire')}
-                  </label>
-                </li>
-              )
-            })}
-          </ul>
         )}
         {pinnedVideo && (
           <span className="flex min-w-0 items-center gap-1.5">
@@ -678,26 +692,14 @@ export default function Bibliotheque({
         autoFocus={!isPage && autoFocusOk()}
       />
       {projectId && (
-        <label className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-body-sm text-ink-muted">
-          <input
-            type="checkbox"
-            className="accent-accent"
-            checked={onlyProject}
-            onChange={(e) => setOnlyProject(e.target.checked)}
-          />{' '}
+        <Checkbox checked={onlyProject} onChange={setOnlyProject} className="whitespace-nowrap text-body-sm">
           {t('library.thisProject')}
-        </label>
+        </Checkbox>
       )}
-      <label className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-body-sm text-ink-muted">
-        <input
-          type="checkbox"
-          className="accent-accent"
-          checked={onlyFav}
-          onChange={(e) => setOnlyFav(e.target.checked)}
-        />
+      <Checkbox checked={onlyFav} onChange={setOnlyFav} className="whitespace-nowrap text-body-sm">
         <Icon name="star" size={14} />
         {t('library.favorites')}
-      </label>
+      </Checkbox>
     </>
   )
 
@@ -1186,6 +1188,8 @@ export default function Bibliotheque({
           {stockSearch}
           {activeGrid}
         </div>
+
+        {tab === 'images' && selectionStrip}
 
         {/* Wraps for the same reason as the header: "Importer", "Tout
             télécharger (.zip)" and "Terminé" set in French come to ~340px on

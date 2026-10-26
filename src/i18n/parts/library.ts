@@ -132,6 +132,7 @@ export const library = {
       'Ce montage est rattaché à {count} projets. Le supprimer l’efface pour tous. Continuer ?',
 
     'library.selectionTitle': 'Sélection pour la prochaine génération',
+    'library.selectionEmpty': 'Cochez une image pour l’utiliser à la prochaine génération.',
     'library.selectedImage_one': 'image choisie',
     'library.selectedImage_other': 'images choisies',
     'library.selectedVideo': 'séquence : {name}',
@@ -378,6 +379,7 @@ export const library = {
       'This cut is attached to {count} projects. Deleting it removes it from all of them. Continue?',
 
     'library.selectionTitle': 'Selected for the next generation',
+    'library.selectionEmpty': 'Tick a picture to use it in the next generation.',
     'library.selectedImage_one': 'chosen image',
     'library.selectedImage_other': 'chosen images',
     'library.selectedVideo': 'sequence: {name}',

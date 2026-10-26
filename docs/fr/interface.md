@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 9a4d549e1857
+source_hash: 6130672ea03e
 ---
 
 # L’interface
@@ -576,7 +576,7 @@ avec `DESIGN.md` en premier et `Campagne` à côté du format.
 | | Puce | Ce qu’elle fait | Coût |
 |---|---|---|---|
 | | `Nouvelle direction` | Ce prompt-ci écrira la direction artistique du projet, que tous les écrans suivants suivront. **La case se décoche toute seule après la génération.** Cachée pendant une édition — une édition retravaille ce qu’une direction a produit, et la laisser réécrire cette direction reviendrait à réattribuer tous les autres écrans du projet. | libre (arme la génération suivante) |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, direction artistique, vraie copie et images. **Activé par défaut** ; le désactiver rend la génération simple, à l’octet près. Ses réglages — liens d’inspiration, vos images, combien d’images créer, la vidéo — sont dans le panneau Muse. Voir [Muse](muse/overview.md). | libre (arme la génération suivante) |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-6 0-11 4.5-12.5 11L6 20M20 4c0 6-4.5 10.5-11 11.5M20 4 9 15M5 20h6"/></svg> | `Muse` | Inspiration, direction artistique, vraie copie et images. **Activé par défaut** ; le désactiver rend la génération simple, à l’octet près. Ses réglages — liens d’inspiration, vos images, combien d’images créer, la vidéo — sont dans le panneau Muse. Voir [Muse](muse/overview.md). | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Parcours` | Activé par défaut. Les nouveaux écrans sont des pages d’un **prototype qui fonctionne** : formulaires, connexion simulée, filtres et panier partagé marchent en démo, et les écrans vers lesquels mène un parcours (`account`, `cart`, `confirmation`…) sont **créés automatiquement** après l’écran, trois au plus. Désactivé, un écran est généré seul, comme avant. Masqué pendant une modification. Voir [Des prototypes qui fonctionnent](flows.md). | une génération par écran créé |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h7v16H3zM13 4h8v8h-8zM13 15h8v5h-8z"/></svg> `Campagne` | Sur un projet vide, à côté du format : ouvre le panneau Campagne, qui décline un brief en plusieurs formats. Voir [Campagne](campaign.md). | une génération par création |
 | | `Format` | Le gabarit du prochain écran. Affiché seulement en création, pas en édition. Avec un type de document, les mêmes puces deviennent des **formats de page** (A4, A3, US Letter, 16:9, ou les tailles des réseaux). | libre |

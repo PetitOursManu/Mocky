@@ -415,7 +415,7 @@ prompt le désactive), et avant de construire quoi que ce soit Mocky va :
    votre langue** (titre, sous-titre, arguments, libellés de boutons d'action, pied de page) et
    un plan d'imagerie. Il cite quelle référence a motivé quel choix, et une
    autocritique de singularité révise tout ce qui serait trop générique.
-4. **Faire les images** — autant que le demande la ligne **Images à créer** du
+4. **Faire les images** — autant que le demande la ligne **Images dans l’écran** du
    panneau (`Auto` · 1–4 ; `Auto`, c'est une image générée ou jusqu'à trois
    photos libres), via un fournisseur sans clé par défaut, servies depuis
    l'origine de Mocky elle-même. Quand les images sont générées et que le modèle

@@ -119,14 +119,20 @@ function SourceChoices<T extends string>({
 }) {
   const t = useT()
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`}>
+    <span className={`${bare ? 'flex w-full min-w-0' : 'inline-flex'} items-center gap-1 ${className}`}>
       {!bare && (
         <span className={`inline-flex items-center gap-1 ${lit ? 'text-accent-ink' : 'text-ink-muted'}`}>
           <Icon name="image" size={size} />
           {t(label)}
         </span>
       )}
-      <span role="group" aria-label={t(label)} className="inline-flex overflow-hidden rounded border border-line">
+      {/* Bare, in a tile: the three answers SHARE the tile's width. Laid out
+          at their natural width they ran out of a 115px tile on the right. */}
+      <span
+        role="group"
+        aria-label={t(label)}
+        className={bare ? 'flex w-full min-w-0 overflow-hidden rounded-md border border-line' : 'inline-flex overflow-hidden rounded border border-line'}
+      >
         {options.map(([id, optionLabel, title]) => (
           <button
             key={id}
@@ -137,7 +143,7 @@ function SourceChoices<T extends string>({
             }}
             aria-pressed={value === id}
             title={t(title)}
-            className={`px-1.5 py-0.5 text-caption transition ${
+            className={`${bare ? 'min-w-0 flex-1 truncate px-1 py-1 text-center text-[11px] leading-tight' : 'px-1.5 py-0.5 text-caption'} transition ${
               value === id ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5'
             }`}
           >

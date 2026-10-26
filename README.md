@@ -435,7 +435,7 @@ building anything Mocky will:
    language** (headline, subheadline, value props, CTA labels, footer), and an
    imagery plan. It cites which reference drove which choice, and a
    distinctiveness self-critique revises anything too generic.
-4. **Make the pictures** — as many as the panel's **Pictures to create** asks
+4. **Make the pictures** — as many as the panel's **Pictures in the screen** asks
    (`Auto` · 1–4; `Auto` is one generated picture or up to three free photos),
    via a zero-key provider by default, served from Mocky's own origin. When the
    pictures are generated and the model can see, Muse also paints an

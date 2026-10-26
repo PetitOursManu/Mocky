@@ -64,6 +64,7 @@ export type IconName =
   | 'key'
   | 'megaphone'
   | 'formats'
+  | 'muse'
   | 'globe'
   | 'list'
   | 'plug'
@@ -147,6 +148,11 @@ const PATHS: Record<IconName, string> = {
   // Campaign Studio's sign. The megaphone it replaced said "announcement" (it is
   // also the admin's announcement banner) and not "the same thing in every format".
   formats: 'M3 4h7v16H3zM13 4h8v8h-8zM13 15h8v5h-8z',
+  // Muse: a quill. It writes the direction and the real copy, and the sparkle it
+  // replaced was the sign every AI feature on the web wears — Muse is the part
+  // of Mocky that is about NOT looking generated. (The moon was the obvious
+  // other muse, and it is the theme switch.)
+  muse: 'M20 4c-6 0-11 4.5-12.5 11L6 20M20 4c0 6-4.5 10.5-11 11.5M20 4 9 15M5 20h6',
   // The web: what Muse's live inspiration reads.
   globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9M12 3C9.5 5.6 8.3 8.6 8.3 12s1.2 6.4 3.7 9',
   list: 'M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z',

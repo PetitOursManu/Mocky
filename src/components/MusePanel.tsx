@@ -4,7 +4,7 @@ import { imageUrl, pinInserts, pinInspires, type PinnedImage } from '../lib/imag
 import { stockStatus } from '../lib/videoLibrary'
 import { haptic } from '../lib/touch'
 import type { MediaTab } from './Bibliotheque'
-import { Button, Icon, IconButton, Spinner, type IconName } from '../ui'
+import { Button, Checkbox, Icon, IconButton, Spinner, type IconName } from '../ui'
 import { useT } from '../i18n'
 
 /** Domain of a URL, for reference chips (we show text only — never a third-party image, M2). */
@@ -147,8 +147,8 @@ export default function MusePanel({
     <section className="overflow-hidden rounded-2xl border border-line bg-surface text-body-sm shadow-sm">
       {/* A head that says what Muse IS, once. */}
       <header className="flex items-center gap-3 border-b border-line-soft px-4 py-3">
-        <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muse/15 text-muse-ink">
-          <Icon name="sparkle" size={18} />
+        <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-muse/30 bg-muse/10 text-muse-ink">
+          <Icon name="muse" size={18} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold text-ink">{t('muse.title')}</span>
@@ -381,7 +381,7 @@ export default function MusePanel({
         <div className="space-y-2.5 border-t border-line-soft bg-raised/30 px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <span className="kicker flex items-center gap-1.5 text-muse-ink">
-              <Icon name="sparkle" size={14} />
+              <Icon name="muse" size={14} />
               {t('muse.dossier')}
             </span>
             <span className={`rounded px-1.5 py-0.5 text-caption ${result?.source === 'llm' ? 'bg-ok/20 text-ok' : 'bg-ink/5 text-ink-muted'}`}>
@@ -496,7 +496,7 @@ function MuseRow({ icon, label, hint, children }: { icon: IconName; label: strin
   )
 }
 
-/** A checkbox with its word, sized for a thumb and lime when ticked. */
+/** A checkbox with its word, the theme's own box (ui/Checkbox), with a tap felt on a phone. */
 function UseBox({
   checked,
   label,
@@ -511,23 +511,16 @@ function UseBox({
   title?: string
 }) {
   return (
-    <label
+    <Checkbox
+      checked={checked}
+      disabled={disabled}
       title={title}
-      className={`tap-target inline-flex min-h-8 items-center gap-1.5 text-caption ${checked ? 'text-ink' : 'text-ink-muted'} ${
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-      }`}
+      onChange={(v) => {
+        haptic()
+        onChange(v)
+      }}
     >
-      <input
-        type="checkbox"
-        className="h-4 w-4 shrink-0 accent-accent"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => {
-          haptic()
-          onChange(e.target.checked)
-        }}
-      />
       {label}
-    </label>
+    </Checkbox>
   )
 }

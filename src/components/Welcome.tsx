@@ -321,7 +321,7 @@ export default function Welcome({
               />
             )}
             <OptionTile
-              icon="sparkle"
+              icon="muse"
               label={t('muse.title')}
               hint={t('workspace.hintMuse')}
               on={museConfig.enabled}

@@ -1,5 +1,5 @@
 ---
-source_hash: adf64065203e
+source_hash: b198ac168634
 ---
 
 # Vue d'ensemble de Muse
@@ -211,8 +211,8 @@ référence à vous (la vôtre est la planche). Une génération de plus sur cer
 passages — décidé avec l'utilisateur : plus simple vaut mieux que moins cher
 ici. Elle passe par le profil d'image `inspiration`.
 
-**Les images de la page.** La ligne `Images à créer` du panneau Muse dit combien
-Muse en ajoute à la page : `Auto` · `1` · `2` · `3` · `4`. `Auto`, c'est une
+**Les images de la page.** La ligne `Images dans l’écran` du panneau Muse dit combien
+Muse en ajoute à la page, d'où qu'elles viennent selon le choix `Images` du composer — générées par le modèle d'images ou photos libres : `Auto` · `1` · `2` · `3` · `4`. `Auto`, c'est une
 image générée, ou jusqu'à trois photos libres — et aucune quand des images de la
 bibliothèque que vous avez choisies couvrent déjà la page. Un nombre au-delà de
 ce que le dossier a prévu reprend ses sujets sous un autre angle plutôt que d'en

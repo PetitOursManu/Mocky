@@ -269,7 +269,7 @@ export default function SettingsPanel() {
             <p className="measure mt-3 text-body text-ink-muted">{t('settings.managedBlurb')}</p>
             {managed.inspirationModel && (
               <p className="mt-4 flex items-start gap-2 border-t border-line-soft pt-3 text-body-sm text-ink-muted">
-                <Icon name="sparkle" size={16} />
+                <Icon name="muse" size={16} />
                 <span>
                   {t('settings.museDossierWith')}{' '}
                   <strong className="font-medium text-ink">{managed.inspirationModel}</strong>.

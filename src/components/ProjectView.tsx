@@ -4712,7 +4712,7 @@ export default function ProjectView({
             )}
             <OptionGroup label={t('workspace.groupHelp')}>
               <OptionToggle
-                icon="sparkle"
+                icon="muse"
                 label={t('muse.title')}
                 hint={t('workspace.hintMuse')}
                 on={museConfig.enabled}
