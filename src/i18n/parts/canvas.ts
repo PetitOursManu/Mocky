@@ -39,6 +39,9 @@ export const canvas = {
     'canvas.designUsed': 'DESIGN.md utilisé',
     'canvas.dossierUsed': 'Dossier Muse utilisé',
     'canvas.applyDesign': 'Reprendre ce design',
+    'canvas.renameHint': 'Double-cliquez pour renommer',
+    'canvas.prevScreen': 'Écran précédent',
+    'canvas.nextScreen': 'Écran suivant',
     'canvas.applyDesignTitle':
       'Remettre ce DESIGN.md comme système courant, à l’identique. C’est la copie enregistrée au moment où cet écran a été généré — aucune relecture, aucun appel au modèle.',
     'canvas.deriveDesignBusy': 'Lecture…',
@@ -166,6 +169,9 @@ export const canvas = {
     'canvas.designUsed': 'DESIGN.md used',
     'canvas.dossierUsed': 'Muse dossier used',
     'canvas.applyDesign': 'Use this design',
+    'canvas.renameHint': 'Double-click to rename',
+    'canvas.prevScreen': 'Previous screen',
+    'canvas.nextScreen': 'Next screen',
     'canvas.applyDesignTitle':
       'Make this DESIGN.md the current one, exactly. It is the copy recorded when this screen was generated — no re-reading, no model call.',
     'canvas.deriveDesignBusy': 'Reading…',

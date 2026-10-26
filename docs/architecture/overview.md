@@ -637,9 +637,11 @@ override the caller's own first framing.
 
 ### `contentBox()` — the column that hangs off the side
 
-The image/design column beside a frame is drawn **outside** the frame's box, so
-bounding the project on `x + w` framed it with every card sliced down the middle.
-Only screens that actually draw one (`imageHash`) are widened; adding the
+The card column beside a frame — the Muse picture, the attached media — is drawn
+**outside** the frame's box, so bounding the project on `x + w` framed it with
+every card sliced down the middle. (A DESIGN.md card sat in that column too until
+2026-10; the design now shows in the Style panel.) Only screens that actually
+draw a card (`imageHash`, `attachedMedia`) are widened; adding the
 column's width unconditionally would loosen the fit of a project that has no
 cards at all, which is most of them.
 
@@ -664,15 +666,15 @@ latest screen`. Their labels, their icons and what they cost are in
 ## 6. The sandbox
 
 :::hotspots src=../assets/ui/toolbar.webp alt="The project’s tools, in the top bar"
-- 4.6,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
-- 10.9,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
-- 17.1,50 **Interact**: Every preview becomes clickable at once.
-- 23.4,50 **Modify**: Click an element and describe a change, or edit its text directly.
-- 29.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
-- 45,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](../interface.md#demo-mode).
-- 62.5,50 **Share**: A link to the selected screen, or the project sent for approval.
-- 82.2,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
-- 95.9,50 **Inspector**: Shows or hides the column of panels on the right.
+- 2.9,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
+- 6.8,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
+- 10.8,50 **Interact**: Every preview becomes clickable at once.
+- 14.7,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 18.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
+- 65.4,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](../interface.md#demo-mode).
+- 76.4,50 **Share**: A link to the selected screen, or the project sent for approval.
+- 88.8,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
+- 97.4,50 **Inspector**: Shows or hides the column of panels on the right.
 :::
 
 *The ten verbs of a project, in bar order: Link, Modify, Interact, Annotate, Frame, System, Audit, Demo, Export, Video. The first four act through the sandboxed preview; the last six act around it. The screenshot predates two of them — Audit, which sits between System and Demo, and Video, which closes the row — so eight verbs are visible here, not ten.*
@@ -999,7 +1001,7 @@ they do not think unless asked, and some refuse more than 64K.
 | `mocky.projects.v1` | Projects, with screens, positions and links — and each project's own design direction |
 | `mocky.design.v1` | The global `DESIGN.md` and its toggle — the fallback for a project that has no direction of its own |
 | `mocky.settings.v1` | Provider, base URL, **API key**, planner on or off |
-| `mocky.muse.v1` | Muse configuration: inspiration URLs, image mode, video, pinned media |
+| `mocky.muse.v1` | Muse configuration: on/off (on by default; `rev` reads a config saved before that as on, once), inspiration URLs, how many pictures to create, video, the chosen clip |
 | `mocky.animations.v1` | `auto`, `on` or `off` |
 
 ### On the server

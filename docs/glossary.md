@@ -2,7 +2,7 @@
 
 ## Muse {#muse}
 
-The design-intelligence switch. It turns a prompt into a distinctive art direction, with real copy, a coherent palette and real generated images, grounded in award-winning references looked up live through local MCP servers.
+The design-intelligence switch, on by default. It turns a prompt into a distinctive art direction, with real copy, a coherent palette and real pictures for the page, grounded in award-winning references looked up live through local MCP servers. Switched off, a generation is exactly what it was before Muse existed.
 
 ## Design direction {#direction}
 

@@ -5,19 +5,45 @@ import { useT } from '../i18n'
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
+/** The selected screen, as the Style panel offers it: its own record and what can be done with it. */
+export interface StyleScreen {
+  name: string
+  /** It records the design it was generated from (`Screen.design`). */
+  recorded: boolean
+  /** That record is not the project's direction right now. */
+  differs: boolean
+  deriving: boolean
+  onInspect: () => void
+  onApply: () => void
+  onDerive: () => void
+}
+
 /**
  * Live "Design system" frame (Lot D.2). Renders the active DESIGN.md's color
  * tokens as a style guide (palette + sample components) and lets the user click
  * any color to recolor it — which rewrites that one token in the DESIGN.md so
  * every future generation follows the change.
+ *
+ * Since 2026-10 it is the ONE place the design is shown. Each screen used to
+ * carry a card beside its frame — the design it was built from, "use this
+ * design", "derive a DESIGN.md" — while this panel stayed empty whenever the
+ * project had no direction of its own (Muse off, no global DESIGN.md), which is
+ * exactly when those cards were the only answer. So the panel falls back on a
+ * screen's record (`fromScreen`), and the cards' three actions live here, for
+ * the selected screen (`screen`).
  */
 export default function DesignSystemPanel({
   markdown,
+  fromScreen,
+  screen,
   onRecolor,
   onClose,
   onEdit,
 }: {
   markdown: string
+  /** Set when `markdown` is a screen's record shown for want of a project direction: its name. */
+  fromScreen?: string | null
+  screen?: StyleScreen | null
   onRecolor: (token: DesignToken, newHex: string) => void
   onClose: () => void
   onEdit: () => void
@@ -70,6 +96,40 @@ export default function DesignSystemPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
+        {/* Whose design this is, when it is not yet the project's. */}
+        {fromScreen && (
+          <p className="mb-3 rounded-lg border border-line-soft bg-ink/5 px-2.5 py-2 text-caption text-ink-muted">
+            {t('design.fromScreen', { name: fromScreen })}
+          </p>
+        )}
+        {screen && (
+          <div className="mb-3 rounded-lg border border-line-soft p-2.5">
+            <div className="kicker mb-1.5 truncate" title={screen.name}>
+              {t('design.selectedScreen', { name: screen.name })}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {screen.recorded ? (
+                <>
+                  <Button variant="ghost" size="sm" onClick={screen.onInspect}>
+                    <Icon name="image" size={14} />
+                    {t('design.openLarger')}
+                  </Button>
+                  {screen.differs && (
+                    <Button variant="ghost" size="sm" onClick={screen.onApply} title={t('canvas.applyDesignTitle')}>
+                      <Icon name="check" size={14} />
+                      {t('canvas.applyDesign')}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <Button variant="ghost" size="sm" disabled={screen.deriving} onClick={screen.onDerive} title={t('canvas.deriveDesignTitle')}>
+                  <Icon name="wand" size={14} />
+                  {t(screen.deriving ? 'canvas.deriveDesignBusy' : 'canvas.deriveDesign')}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         {!hasColors ? (
           <p className="px-1 py-6 text-center text-body-sm text-ink-faint">
             {t('design.empty')}{' '}

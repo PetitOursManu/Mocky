@@ -105,18 +105,23 @@ Who becomes the instance administrator?
 The [[composer|composer]], where a screen is described:
 
 :::hotspots src=assets/ui/composer.webp alt="The creation workshop: format, screen type, the prompt, the options, Improve, Generate, Also make and the recent history"
-- 11.9,14.5 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
-- 25.7,19.2 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
-- 49.8,29.2 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 49.8,50.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 49.8,60 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 49.8,65.7 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 49.8,80.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 19.6,40.1 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 77.7,40.1 **Generate**: Creates the screen — or `Update` when screens are selected.
-- 49.8,66.2 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
-- 49.8,81.5 **Recent history**: The screens made last; click one to frame it on the canvas.
+- 11.9,14.9 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 25.7,18.6 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 49.8,26.4 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 49.8,42.8 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 49.8,50.2 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 49.8,54.7 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 49.8,69.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 19.6,34.8 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 77.7,34.8 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 49.8,73.6 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 49.8,85.5 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
+
+[[Muse|muse]] is **on by default**: before the first screen is written it looks
+up references live, writes an art direction with real copy, and makes the page's
+pictures. Switch it off in the composer and a generation is the plain one, byte
+for byte — nothing else changes.
 
 A project keeps **one** [[design direction|direction]], so its screens look like one product
 rather than five sketches. It is set by the first screen you generate and then
@@ -400,7 +405,8 @@ The three jobs are genuinely different, so they have separate settings.
 backgrounds. There can be several per screen, so it should be fast and cheap.
 This is the original zero-configuration path, and Pollinations is its default.
 
-**`inspiration`** produces the single art-direction reference shown to the model.
+**`inspiration`** produces the single art-direction reference shown to the model
+— Muse's inspiration plate, made on every Muse run whose pictures are generated.
 It has to be convincing, so it is worth a slower and more expensive model.
 Leaving its provider empty makes it fall back to `content`.
 

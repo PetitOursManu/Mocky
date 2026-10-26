@@ -59,6 +59,23 @@ export default function MobileProject({
   // decide between "generate a new screen" and "edit these".
   const activeId = selectedIds[0] ?? screens[0]?.id ?? null
   const active = screens.find((s) => s.id === activeId) ?? null
+  const index = active ? screens.indexOf(active) : -1
+  /*
+   * Moving between screens without reaching for the rail. The rail alone was the
+   * way, at the top, half of it off-screen past the third screen — people did
+   * not find how to get to the next one. So: arrows on the screen's edges, a
+   * swipe on the area around it (a swipe ON the preview belongs to the page in
+   * it), and the rail follows, scrolling the current chip into view.
+   */
+  const go = (step: number) => {
+    const next = screens[index + step]
+    if (next) onSelectionChange([next.id])
+  }
+  const railRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    railRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  }, [activeId])
+  const touchX = useRef<number | null>(null)
 
   useEffect(() => {
     const el = areaRef.current
@@ -89,7 +106,7 @@ export default function MobileProject({
         view, and swiping a rail is the one canvas-like gesture a phone does
         natively and well.
       */}
-      <div className="shrink-0 overflow-x-auto border-b border-line bg-surface">
+      <div ref={railRef} className="shrink-0 overflow-x-auto border-b border-line bg-surface">
         <div className="flex items-center gap-2 p-2">
           {screens.map((s, i) => {
             const on = s.id === activeId
@@ -116,7 +133,20 @@ export default function MobileProject({
       </div>
 
       {/* The screen itself, as large as the device allows and fully touchable. */}
-      <div ref={areaRef} className="relative min-h-0 flex-1 overflow-hidden">
+      <div
+        ref={areaRef}
+        className="relative min-h-0 flex-1 overflow-hidden"
+        onTouchStart={(e) => {
+          touchX.current = e.touches[0]?.clientX ?? null
+        }}
+        onTouchEnd={(e) => {
+          const from = touchX.current
+          touchX.current = null
+          const to = e.changedTouches[0]?.clientX
+          if (from == null || to == null || Math.abs(to - from) < 60) return
+          go(to < from ? 1 : -1)
+        }}
+      >
         {/* A document's pages are fixed-width: shown as a picture of them,
             scrolled, rather than squeezed into the box (see DocumentPages). */}
         {active?.page && size.w > 0 && (
@@ -169,6 +199,32 @@ export default function MobileProject({
           <span className="absolute left-1/2 top-3 -translate-x-1/2 rounded-md border border-line bg-raised px-2 py-1 text-caption text-ink-muted">
             {regenLabel}
           </span>
+        )}
+
+        {screens.length > 1 && (
+          <>
+            <span className="absolute left-3 top-3 rounded-md border border-line bg-raised/90 px-2 py-1 font-mono text-caption tabular-nums text-ink-muted">
+              {index + 1} / {screens.length}
+            </span>
+            <IconButton
+              variant="toolbar"
+              label={t('canvas.prevScreen')}
+              disabled={index <= 0}
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-line bg-raised/90 shadow-lg disabled:opacity-30"
+              onClick={() => go(-1)}
+            >
+              <Icon name="chevronLeft" size={18} />
+            </IconButton>
+            <IconButton
+              variant="toolbar"
+              label={t('canvas.nextScreen')}
+              disabled={index >= screens.length - 1}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-line bg-raised/90 shadow-lg disabled:opacity-30"
+              onClick={() => go(1)}
+            >
+              <Icon name="chevronRight" size={18} />
+            </IconButton>
+          </>
         )}
 
         {/* The per-screen menu, reached by a button because `contextmenu` does

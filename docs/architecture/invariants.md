@@ -317,6 +317,11 @@ provider is the pre-Muse payload.
 
 This is what makes the feature adoptable: it cannot regress what already worked.
 
+Muse has been **on by default** since 2026-10, and that changes nothing here. The
+rule is about the path with Muse switched off, which is still the pre-Muse
+payload byte for byte: on by default means more people take the Muse path, not
+that the other one may drift.
+
 Read strictly, the invariant also decides when Muse's results are allowed to
 exist. A run that threw halfway used to leave the preamble unbuilt — Muse
 contributed nothing to the prompt — while still labelling the screen with the
@@ -680,8 +685,8 @@ pass was built to flag. Both facts shaped the rules.
 storyboard runs, no picture is generated, the `ultra` capability is not added,
 and the prompt is the one it was before Motion Ultra existed.
 
-**What it protects.** The same promise as M1: an opt-in feature must cost
-nothing to the people who never opt in. The kit is force-added, never
+**What it protects.** The promise M1 makes for Muse switched off: a feature
+someone has not turned on must cost nothing to them. The kit is force-added, never
 keyword-triggered, precisely so a prompt containing "landing" does not start
 getting display type and an aurora.
 

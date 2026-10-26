@@ -1,12 +1,12 @@
 ---
-source_hash: 414501f05efd
+source_hash: 2554e1b23aa6
 ---
 
 # Glossaire
 
 ## Muse {#muse}
 
-L’interrupteur d’intelligence du design. Il transforme une demande en direction artistique singulière, avec de vrais textes, une palette cohérente et de véritables images générées, ancrée dans des références primées consultées en direct par des serveurs MCP locaux.
+L’interrupteur d’intelligence du design, activé par défaut. Il transforme une demande en direction artistique singulière, avec de vrais textes, une palette cohérente et de vraies images pour la page, ancrée dans des références primées consultées en direct par des serveurs MCP locaux. Désactivé, une génération est exactement ce qu’elle était avant que Muse existe.
 
 ## Direction de design {#direction}
 

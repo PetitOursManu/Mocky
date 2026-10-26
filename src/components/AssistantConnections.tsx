@@ -35,7 +35,12 @@ function InstallSteps({ url }: { url: string }) {
   }
   const command = `claude mcp add --transport http --scope user mocky ${url}`
   return (
-    <div className="mt-3 grid gap-3">
+    // `grid-cols-1`, not a bare `grid`: an implicit column is as wide as its
+    // widest min-content, and the Claude Code command below is one 550px
+    // `nowrap` line. It widened these three boxes, then Settings' own column,
+    // and "Ma marque" with it, to 572px on a 375px phone. With a real track
+    // the command scrolls inside its own box, as its `overflow-x-auto` meant.
+    <div className="mt-3 grid grid-cols-1 gap-3">
       <div className="border border-line-soft p-3">
         <p className="text-body-sm font-medium text-ink">{t('mcp.install.claude')}</p>
         <p className="measure mt-1 text-caption text-ink-muted">{t('mcp.install.claudeSteps')}</p>

@@ -21,8 +21,8 @@ export const library = {
     // ---- counts ----
     'library.imageWord_one': 'image',
     'library.imageWord_other': 'images',
-    'library.pinnedWord_one': 'épinglée',
-    'library.pinnedWord_other': 'épinglées',
+    'library.pinnedWord_one': 'choisie',
+    'library.pinnedWord_other': 'choisies',
 
     // ---- empty & error states ----
     'library.noMatch': 'Aucune image ne correspond à ces filtres.',
@@ -37,8 +37,8 @@ export const library = {
     'library.deleteConfirm': 'Supprimer définitivement cette image de la bibliothèque ?',
     'library.deleteSharedConfirm':
       'Cette image est utilisée par {count} projet(s). La supprimer la retire définitivement de la bibliothèque. Continuer ?',
-    'library.pinned': 'Épinglée',
-    'library.pinHint': 'Épingler pour la prochaine génération (marche entre projets)',
+    'library.pinned': 'Choisie — décocher pour la retirer',
+    'library.pinHint': 'Cocher pour l’utiliser à la prochaine génération (marche entre projets)',
     'library.zipHint': 'Télécharger la sélection filtrée (ZIP + manifeste)',
     'library.closeEsc': 'Fermer (Échap)',
     'library.done': 'Terminé',
@@ -56,7 +56,7 @@ export const library = {
     'library.uploadBadType': '« {name} » : format non pris en charge ({type}).',
     'library.noVideos': 'Aucune séquence pour l’instant.',
     'library.noVideosHint':
-      'Importez un clip, ou cochez « Vidéo au défilement » dans Muse pour en faire générer une.',
+      'Importez un clip, ou choisissez « Générée par IA » à la ligne Vidéo de Muse pour en faire générer une.',
     'library.frames': '{count} images',
     // ---- lecture d'une séquence ----
     'library.playVideo': 'Lire la séquence',
@@ -132,8 +132,9 @@ export const library = {
       'Ce montage est rattaché à {count} projets. Le supprimer l’efface pour tous. Continuer ?',
 
     'library.selectionTitle': 'Sélection pour la prochaine génération',
-    'library.selectedImage_one': 'image épinglée',
-    'library.selectedImage_other': 'images épinglées',
+    'library.selectionEmpty': 'Cochez une image pour l’utiliser à la prochaine génération.',
+    'library.selectedImage_one': 'image choisie',
+    'library.selectedImage_other': 'images choisies',
     'library.selectedVideo': 'séquence : {name}',
     'library.stockTitle': 'Vidéos libres de droits',
     'library.stockLibrary': 'Bibliothèque de vidéos',
@@ -246,7 +247,7 @@ export const library = {
     'library.swapCodeSection': 'Médias dans le code de l’écran',
     'library.attachSection': 'Média attaché à l’écran (hors du code)',
     'library.attachBlurb':
-      'Un montage ou une séquence rattaché à cet écran. Rien n’est écrit dans le code : le média s’affiche sur une carte à côté du cadre, dans le canevas, à côté de l’image Muse et du DESIGN.md.',
+      'Un montage ou une séquence rattaché à cet écran. Rien n’est écrit dans le code : le média s’affiche sur une carte à côté du cadre, dans le canevas, sous l’image Muse quand il y en a une.',
     'library.attachNone': 'Aucun média attaché à cet écran.',
     'library.attachDetach': 'Détacher',
     'library.attachDetached': 'Média détaché.',
@@ -276,8 +277,8 @@ export const library = {
     // ---- counts ----
     'library.imageWord_one': 'image',
     'library.imageWord_other': 'images',
-    'library.pinnedWord_one': 'pinned',
-    'library.pinnedWord_other': 'pinned',
+    'library.pinnedWord_one': 'chosen',
+    'library.pinnedWord_other': 'chosen',
 
     // ---- empty & error states ----
     'library.noMatch': 'No image matches these filters.',
@@ -292,8 +293,8 @@ export const library = {
     'library.deleteConfirm': 'Permanently delete this image from the library?',
     'library.deleteSharedConfirm':
       'This image is used by {count} project(s). Deleting it removes it from the library for good. Continue?',
-    'library.pinned': 'Pinned',
-    'library.pinHint': 'Pin it for the next generation (works across projects)',
+    'library.pinned': 'Chosen — untick to remove',
+    'library.pinHint': 'Tick it to use it in the next generation (works across projects)',
     'library.zipHint': 'Download the filtered selection (ZIP + manifest)',
     'library.closeEsc': 'Close (Esc)',
     'library.done': 'Done',
@@ -310,7 +311,7 @@ export const library = {
       'Add your own images and videos. They join the library and Muse can use them in your screens.',
     'library.uploadBadType': '“{name}”: unsupported format ({type}).',
     'library.noVideos': 'No sequences yet.',
-    'library.noVideosHint': 'Import a clip, or tick “Scroll-driven video” in Muse to have one generated.',
+    'library.noVideosHint': 'Import a clip, or pick “AI-generated” on Muse’s Video row to have one generated.',
     'library.frames': '{count} frames',
     // ---- playing a sequence ----
     'library.playVideo': 'Play the sequence',
@@ -378,8 +379,9 @@ export const library = {
       'This cut is attached to {count} projects. Deleting it removes it from all of them. Continue?',
 
     'library.selectionTitle': 'Selected for the next generation',
-    'library.selectedImage_one': 'pinned image',
-    'library.selectedImage_other': 'pinned images',
+    'library.selectionEmpty': 'Tick a picture to use it in the next generation.',
+    'library.selectedImage_one': 'chosen image',
+    'library.selectedImage_other': 'chosen images',
     'library.selectedVideo': 'sequence: {name}',
     'library.stockTitle': 'Free stock videos',
     'library.stockLibrary': 'Video library',
@@ -489,7 +491,7 @@ export const library = {
     'library.swapCodeSection': 'Media in the screen’s code',
     'library.attachSection': 'Media attached to the screen (not in the code)',
     'library.attachBlurb':
-      'A cut or a sequence hung on this screen. Nothing is written into the code: the media shows on a card beside the frame, on the canvas, next to the Muse image and the DESIGN.md.',
+      'A cut or a sequence hung on this screen. Nothing is written into the code: the media shows on a card beside the frame, on the canvas, under the Muse image when there is one.',
     'library.attachNone': 'Nothing attached to this screen.',
     'library.attachDetach': 'Detach',
     'library.attachDetached': 'Media detached.',

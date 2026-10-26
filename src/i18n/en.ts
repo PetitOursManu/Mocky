@@ -170,15 +170,10 @@ export const en: Record<keyof typeof fr, string> = {
   // ---- Muse ----
   'muse.title': 'Muse',
   'muse.dossier': 'Design Dossier',
-  'muse.liveInspiration': 'Live inspiration',
   'muse.urls': 'Inspiration URLs (Dribbble, Pinterest, a site…), one per line — optional',
-  'muse.imageMode': 'Generated image',
-  'muse.modeContent': 'Content',
   'muse.modeInspiration': 'Inspiration',
-  'muse.modeBoth': 'Both',
   'muse.sources': 'Sources',
   'muse.writtenByModel': 'written by the model',
-  'muse.library': 'Library',
 
   // ---- library ----
   'library.title': 'Image library',
@@ -189,7 +184,7 @@ export const en: Record<keyof typeof fr, string> = {
   'library.favorite': 'Add to favourites',
   'library.unfavorite': 'Remove from favourites',
   'library.deleteImage': 'Delete image',
-  'library.pin': 'Pin',
+  'library.pin': 'Choose this picture',
   'library.unpin': 'Unpin',
   'library.empty': 'No images yet. Generate a screen with Muse on.',
 

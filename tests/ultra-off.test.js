@@ -82,7 +82,11 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
   })
 
   it("keeps Muse's own picture as it was, and makes no film on its own", () => {
-    expect(view).toContain('if (remaining.length && pins.length === 0 && !runUltra && picturesAllowed)')
+    // Muse's page pictures, and since 2026-10 its own mood plate, stand aside
+    // for Motion Ultra's series and nothing else. (The count the person chose,
+    // and the pins it already covers, are Muse's business, not Ultra's.)
+    expect(view).toContain('if (remaining.length && !runUltra && picturesAllowed)')
+    expect(view).toMatch(/const plateWanted =\s*!runUltra &&/)
     // True for every screen that is not a document, unless the composer said
     // "Aucune" — see site-reference.test.js.
     expect(view).toContain('const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff')

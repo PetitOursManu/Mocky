@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: ac0cece9dd56
+source_hash: a7a293e0d09e
 ---
 
 # Démarrage
@@ -106,18 +106,24 @@ Qui devient l’administrateur de l’instance ?
 Le [[composeur|composer]], où l’on décrit un écran :
 
 :::hotspots src=../assets/ui/fr/composer.webp alt="L’atelier de création : format, type d’écran, la demande, les options, Améliorer, Générer, Créer aussi et l’historique récent"
-- 11.9,13.5 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
-- 26.6,22.1 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
-- 49.8,32.1 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
-- 49.8,53.2 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
-- 49.8,62.8 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
-- 49.8,68.6 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
-- 49.8,82.9 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
-- 21.2,43 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
-- 78.8,43 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
-- 49.8,66.2 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
-- 49.8,81.5 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
+- 11.9,13.9 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 26.6,20.4 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 49.8,28 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 49.8,44 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 49.8,51.3 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 49.8,55.6 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 49.8,69.8 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 21.2,36.2 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 78.8,36.2 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+- 49.8,74.2 **Créer aussi**: Une campagne (un brief, plusieurs formats) ou un film Motion Ultra.
+- 49.8,85.8 **Historique récent**: Les derniers écrans créés ; cliquez-en un pour le cadrer sur la toile.
 :::
+
+[[Muse|muse]] est **activé par défaut** : avant que le premier écran soit écrit,
+il cherche des références en direct, écrit une direction artistique avec de
+vrais textes, et fait les images de la page. Désactivez-le dans le composeur et
+une génération est la génération simple, à l'octet près — rien d'autre ne
+change.
 
 Un projet garde **une seule** [[direction de design|direction]], pour que ses écrans aient
 l’air d’un produit et non de cinq esquisses. Elle est fixée par le premier écran
@@ -419,7 +425,8 @@ bon marché. C'est le chemin d'origine, sans configuration, et Pollinations en e
 le défaut.
 
 **`inspiration`** produit l'unique planche de direction artistique montrée au
-modèle. Elle doit convaincre, donc elle mérite un modèle plus lent et plus cher.
+modèle — la planche d'inspiration de Muse, faite à chaque passage de Muse dont
+les images sont générées. Elle doit convaincre, donc elle mérite un modèle plus lent et plus cher.
 Laisser son fournisseur vide le fait retomber sur `content`.
 
 **`edit`** fait de l'image-vers-image : une image existante entre, une dérivée

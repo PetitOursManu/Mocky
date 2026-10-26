@@ -81,15 +81,38 @@ export interface MuseResult {
  */
 export type MuseImageMode = 'content' | 'inspiration' | 'both'
 
+/**
+ * What a run's pictures are for, as the generation prompt is told it. The three
+ * stored modes, plus `separate`: pictures to embed AND a different picture
+ * attached as a mood reference — the inspiration plate Muse makes on its own,
+ * or a library picture ticked "inspiration" beside others ticked "project".
+ * Not a stored mode: it describes one run, and `Screen.imageRole` keeps the
+ * three it always had.
+ */
+export type MusePreambleImages = MuseImageMode | 'separate'
+
+/** The most pictures Muse makes for the page itself in one run. */
+export const MUSE_CONTENT_IMAGES_MAX = 4
+
 export interface MuseConfig {
-  /** ✨ toggle state. */
+  /** ✨ toggle state. On by default since 2026-10 (`MUSE_CONFIG_REV`). */
   enabled: boolean
   /** Optional inspiration URLs, one per line. */
   urls: string
-  /** Fetch live inspiration (spawns the fetcher MCP / Playwright). Off by default. */
-  useFetch: boolean
-  /** How the generated image is used. */
-  imageMode: MuseImageMode
+  /**
+   * How many pictures Muse adds to the PAGE — 1 to `MUSE_CONTENT_IMAGES_MAX`,
+   * or null for "auto": the hero alone when they are generated (each one is a
+   * paid call at a provider's pace), up to three free photos.
+   *
+   * This replaced the "what is the generated image for" switch (content,
+   * inspiration, both). Asked to choose what ONE picture was for, people could
+   * not tell what each answer would do, and "inspiration" quietly meant a page
+   * with no picture in it. Now the two jobs are two pictures: Muse paints its
+   * own mood plate whenever generated pictures are on, and this number says how
+   * many go in the page. One more generation sometimes, decided with the user:
+   * simpler beats cheaper here.
+   */
+  contentImages: number | null
   /**
    * Also generate a clip for the hero and drive it from the scroll.
    *
@@ -120,15 +143,51 @@ export type MuseVideoPin = PinnedVideo
 
 const STORAGE_KEY = 'mocky.muse.v1'
 
+/**
+ * Bumped when a default changes in a way stored configs must take up.
+ *
+ * 2 — Muse on by default. A config saved before carries `enabled: false`
+ * because that WAS the default, not because anybody switched Muse off, so it is
+ * read as on once; a choice made after that is kept like any other.
+ */
+const MUSE_CONFIG_REV = 2
+
 export function defaultMuseConfig(): MuseConfig {
   return {
-    enabled: false,
+    enabled: true,
     urls: '',
-    useFetch: false,
-    imageMode: 'content',
+    contentImages: null,
     video: false,
     videoPin: null,
   }
+}
+
+/**
+ * The dossier's imagery plan, lengthened to `count` slots when it planned
+ * fewer. An extra slot re-shoots a planned subject from another angle — it
+ * keeps that slot's style, negative and search words, so a third picture asked
+ * for on a two-picture plan still belongs to the same page. Never shortened:
+ * the plan's own extra slots are what "auto" and the pins read.
+ */
+export function padImageryPlan(plan: MuseImagerySlot[], count: number): MuseImagerySlot[] {
+  if (!plan.length || plan.length >= count) return plan
+  const out = [...plan]
+  for (let i = plan.length; i < count; i++) {
+    const base = plan[i % plan.length]
+    const subject = base.prompt || base.subject || ''
+    out.push({
+      ...base,
+      id: `${base.id}-${i + 1}`,
+      slot: `${base.slot || base.id}-${i + 1}`,
+      prompt: subject ? `${subject}, a different angle and framing from the main shot` : subject,
+    })
+  }
+  return out
+}
+
+/** The page-picture count, bounded; anything else is "auto". */
+export function clampContentImages(n: unknown): number | null {
+  return typeof n === 'number' && Number.isFinite(n) ? Math.min(MUSE_CONTENT_IMAGES_MAX, Math.max(1, Math.round(n))) : null
 }
 
 /** What the backend says about the scroll-video feature being usable at all. */
@@ -349,7 +408,15 @@ export function loadMuseConfig(): MuseConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return defaultMuseConfig()
-    return { ...defaultMuseConfig(), ...(JSON.parse(raw) as Partial<MuseConfig>) }
+    const stored = JSON.parse(raw) as Partial<MuseConfig> & { rev?: number; useFetch?: unknown; imageMode?: unknown }
+    // The retired switches (live inspiration is always on; the image mode is
+    // the count below plus the library's own ticks) are dropped, not kept as
+    // dead keys a later reader might take for settings.
+    const { rev, useFetch: _f, imageMode: _m, ...rest } = stored
+    const c: MuseConfig = { ...defaultMuseConfig(), ...rest }
+    if ((rev ?? 1) < MUSE_CONFIG_REV) c.enabled = true
+    c.contentImages = clampContentImages(c.contentImages)
+    return c
   } catch {
     return defaultMuseConfig()
   }
@@ -357,7 +424,7 @@ export function loadMuseConfig(): MuseConfig {
 
 export function saveMuseConfig(c: MuseConfig): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(c))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...c, rev: MUSE_CONFIG_REV }))
   } catch {
     /* ignore */
   }
@@ -443,7 +510,9 @@ export async function runMuseDossier(
     body: JSON.stringify({
       prompt,
       urls: opts.urls || [],
-      useFetch: opts.useFetch === true,
+      // Live inspiration is no longer a box to tick: it is what Muse is. The
+      // server still skips it when it has no fetcher to run.
+      useFetch: opts.useFetch !== false,
       model: s.model,
       projectName: opts.projectName,
       userMedia: opts.userMedia,
@@ -596,7 +665,7 @@ export async function generateSlotImages(
 export function buildMusePreamble(
   markdown: string,
   images: GeneratedSlotImage[] = [],
-  mode: MuseImageMode = 'content',
+  mode: MusePreambleImages = 'content',
   dossier?: MuseDossier,
   video?: GeneratedVideo | null,
   film?: MotionFilmRef | null,
@@ -746,7 +815,7 @@ export function buildMusePreamble(
     )
   }
 
-  const embeds = mode === 'content' || mode === 'both'
+  const embeds = mode === 'content' || mode === 'both' || mode === 'separate'
   if (images.length && embeds) {
     lines.push(
       '',
@@ -754,10 +823,15 @@ export function buildMusePreamble(
     )
     for (const im of images) lines.push(`- slot "${im.slot}": <img src="${im.url}" alt="" className="..." />`)
   }
-  if (images.length && mode === 'inspiration') {
+  // `separate` names its reference whether or not there is anything to embed:
+  // the plate is attached either way, and a model shown an unexplained picture
+  // pastes it in as content.
+  if ((images.length && mode === 'inspiration') || mode === 'separate') {
     lines.push(
       '',
-      'VISUAL REFERENCE — an image is attached to this request. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.',
+      mode === 'separate'
+        ? 'VISUAL REFERENCE — one more image is attached to this request, and it is NOT one of the images listed above. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.'
+        : 'VISUAL REFERENCE — an image is attached to this request. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.',
       'Do NOT embed it, do NOT reference its URL, and do NOT describe it as the product. It is not content — it is a style reference.',
     )
   }

@@ -1,5 +1,5 @@
 ---
-source_hash: 3ff249ea56e0
+source_hash: 100526e6f4ac
 ---
 
 # Le forfait gratuit
@@ -20,7 +20,7 @@ par défaut ; un administrateur passe un compte en standard d'un clic.
 | | Forfait gratuit | Forfait standard |
 |---|---|---|
 | Écrire des écrans, les modifier, les polir, corriger leur accessibilité, ajuster un document | Oui, avec le **modèle gratuit** | Oui, avec le modèle de l'instance |
-| Muse (direction artistique, dossier, inspiration en direct) | Oui, avec le modèle gratuit | Oui |
+| Muse (direction artistique, dossier, inspiration en direct — activé par défaut) | Oui, avec le modèle gratuit, et sans la planche d'inspiration, qui est une image générée | Oui |
 | Les images d'un écran | **Photos libres** (Pexels, Pixabay) et vos propres images | Générées ou libres, au choix |
 | Les vidéos d'une séquence au défilement | **Vidéos libres** et vos propres vidéos | Générées ou libres |
 | Images et vidéos générées par IA, variantes de film | **Non** — refusées par le serveur | Oui |

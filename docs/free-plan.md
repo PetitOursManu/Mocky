@@ -16,7 +16,7 @@ default; an administrator moves an account to standard in one click.
 | | Free plan | Standard plan |
 |---|---|---|
 | Write screens, edit them, polish them, fix their accessibility, fit a document | Yes, with the **free model** | Yes, with the instance's model |
-| Muse (art direction, dossier, live inspiration) | Yes, with the free model | Yes |
+| Muse (art direction, dossier, live inspiration — on by default) | Yes, with the free model, and without the inspiration plate, which is a generated picture | Yes |
 | Pictures in a screen | **Free photos** (Pexels, Pixabay) and your own uploads | Generated or free, your choice |
 | Footage for a scroll sequence | **Free footage** and your own uploads | Generated or free |
 | AI-generated images and clips, film variants | **No** — refused by the server | Yes |

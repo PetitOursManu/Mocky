@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 11315c564bed
+source_hash: 2032ae0a1c59
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -301,14 +301,14 @@ au-delà du bord d’une page, Mocky le dit — une notice nomme le document et 
 — parce que sur papier ce contenu est tout simplement coupé.
 
 :::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
-- 50,4.4 **Modifier par message**: Sélectionne le document et place le curseur dans le composeur.
-- 50,10.6 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
-- 50,16.7 **Régénérer une variante**: La même demande à nouveau, pour un autre design.
-- 50,35.1 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
-- 50,43 **Exporter ›**: `Télécharger…` — PDF à champs remplissables, PowerPoint / Google Slides / Canva, images PNG, PSD ou SVG — et le `.tsx`.
-- 50,49.1 **Partager**: Un lien public temporaire et un QR code.
-- 50,69.3 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
-- 50,95.6 **Supprimer l’écran**: Une confirmation, et il disparaît.
+- 50,4.2 **Modifier par message**: Sélectionne le document et place le curseur dans le composeur.
+- 50,9.9 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
+- 50,15.7 **Régénérer une variante**: La même demande à nouveau, pour un autre design.
+- 50,33.1 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
+- 50,40.5 **Exporter ›**: `Télécharger…` — PDF à champs remplissables, PowerPoint / Google Slides / Canva, images PNG, PSD ou SVG — et le `.tsx`.
+- 50,46.3 **Partager**: Un lien public temporaire et un QR code.
+- 50,65.3 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
+- 50,95.8 **Supprimer l’écran**: Une confirmation, et il disparaît.
 :::
 
 **Clic droit sur le document → `Ajuster à la page`** demande au modèle de regagner

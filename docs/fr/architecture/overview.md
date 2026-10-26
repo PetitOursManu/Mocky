@@ -1,5 +1,5 @@
 ---
-source_hash: 6d271ae829d8
+source_hash: 4166dabce3a9
 ---
 
 # Vue d'ensemble de l'architecture
@@ -675,9 +675,12 @@ re-cadrer là écraserait le premier cadrage demandé par l'appelant.
 
 ### `contentBox()` — la colonne qui pend sur le côté
 
-La colonne image/design d'un cadre est dessinée **hors** de la boîte de ce cadre :
-borner le projet sur `x + w` le cadrait donc avec chaque carte tranchée en deux.
-Seuls les écrans qui en dessinent une (`imageHash`) sont élargis ; ajouter la
+La colonne de cartes d'un cadre — l'image Muse, le média attaché — est dessinée
+**hors** de la boîte de ce cadre : borner le projet sur `x + w` le cadrait donc
+avec chaque carte tranchée en deux. (Une carte DESIGN.md se trouvait aussi dans
+cette colonne jusqu'en octobre 2026 ; le design s'affiche désormais dans le
+panneau Style.) Seuls les écrans qui dessinent une carte (`imageHash`,
+`attachedMedia`) sont élargis ; ajouter la
 largeur de la colonne sans condition relâcherait le cadrage d'un projet qui n'a
 aucune carte, c'est-à-dire de la plupart d'entre eux.
 
@@ -703,15 +706,15 @@ coûtent sont dans [L'interface](../interface.md#la-barre-de-zoom).
 ## 6. L'isolation de l'aperçu
 
 :::hotspots src=../../assets/ui/fr/toolbar.webp alt="Les outils du projet, dans la barre du haut"
-- 4.4,50 **Sélectionner**: Aucun mode : un clic sélectionne un écran. Coupe le mode qui était actif.
-- 10.3,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
-- 16.2,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
-- 22.2,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
-- 28.1,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
-- 42.6,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](../interface.md#le-mode-demo).
-- 60.8,50 **Partager**: Un lien vers l’écran sélectionné, ou le projet envoyé en validation.
-- 82,50 **Exporter**: Le projet exécutable en `.zip`, l’écran sélectionné, les médias.
-- 96.2,50 **Inspecteur**: Affiche ou masque la colonne des panneaux, à droite.
+- 2.8,50 **Sélectionner**: Aucun mode : un clic sélectionne un écran. Coupe le mode qui était actif.
+- 6.5,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
+- 10.2,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
+- 14,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
+- 17.7,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
+- 63.8,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](../interface.md#le-mode-demo).
+- 75.2,50 **Partager**: Un lien vers l’écran sélectionné, ou le projet envoyé en validation.
+- 88.7,50 **Exporter**: Le projet exécutable en `.zip`, l’écran sélectionné, les médias.
+- 97.6,50 **Inspecteur**: Affiche ou masque la colonne des panneaux, à droite.
 :::
 
 *Les dix verbes d'un projet, dans l'ordre de la barre : Lier, Modifier, Interagir, Annoter, Cadre, Système, Audit, Démo, Exporter, Vidéo. Les quatre premiers agissent à travers l'aperçu isolé ; les six derniers agissent autour de lui. La capture est antérieure à deux d'entre eux — « Audit », qui se place entre « Système » et « Démo », et « Vidéo », qui ferme la rangée — on voit donc ici huit verbes, pas dix.*
@@ -1054,7 +1057,7 @@ refusent plus de 64K.
 | `mocky.projects.v1` | Les projets, avec écrans, positions et liens — et la direction de design propre à chaque projet |
 | `mocky.design.v1` | Le `DESIGN.md` global et son interrupteur — le repli d'un projet qui n'a pas de direction à lui |
 | `mocky.settings.v1` | Fournisseur, URL de base, **clé d'API**, planificateur activé ou non |
-| `mocky.muse.v1` | La configuration Muse : URL d'inspiration, mode image, vidéo, média épinglé |
+| `mocky.muse.v1` | La configuration Muse : activé ou non (activé par défaut ; `rev` relit une fois comme activée une configuration enregistrée avant), URL d'inspiration, combien d'images créer, vidéo, le clip choisi |
 | `mocky.animations.v1` | `auto`, `on` ou `off` |
 
 ### Sur le serveur

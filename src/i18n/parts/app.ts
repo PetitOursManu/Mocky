@@ -12,6 +12,9 @@
 export const app = {
   fr: {
     'app.backToProject': 'Revenir au projet',
+    // Settings and Admin on a phone (App.tsx, PageBack): it steps the same
+    // history as the Android back gesture, so it names no destination.
+    'app.back': 'Retour',
     // Named `app.` and not `nav.` on purpose: an area file may only declare keys
     // under its own prefix, and the parity test fails the build on any that
     // stray. Its `nav.` neighbours live in the core dictionary, not here.
@@ -26,6 +29,7 @@ export const app = {
   } as Record<string, string>,
   en: {
     'app.backToProject': 'Back to the project',
+    'app.back': 'Back',
     'app.navMenu': 'Navigation menu',
     'app.signInHint': 'Sign in to keep your projects on every device',
     'app.noProjectSelected': 'No project selected.',

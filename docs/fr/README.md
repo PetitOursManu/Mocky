@@ -1,5 +1,5 @@
 ---
-source_hash: 393d0b4e8850
+source_hash: 311dda7f11fa
 ---
 
 # Mocky
@@ -21,15 +21,15 @@ TypeScript.
 Un projet, ouvert. Cliquez les numéros pour voir ce qu’est chaque partie :
 
 :::hotspots src=../assets/ui/fr/canvas.webp alt="Un projet : la barre du haut, l’atelier de création, des écrans reliés par des câbles, l’inspecteur et la barre de zoom"
-- 60,3.2 **Outils de la toile**: Sélectionner, lier, interagir, modifier, annoter — ce que fait un clic sur un écran. Voir [L’interface](interface.md#lespace-de-travail-dun-projet).
+- 36.7,3.2 **Outils de la toile**: Sélectionner, lier, interagir, modifier, annoter — ce que fait un clic sur un écran. Voir [L’interface](interface.md#lespace-de-travail-dun-projet).
 - 77.7,3.2 **Partager**: Un lien vers un écran, ou le projet entier envoyé en validation à un client.
 - 86.2,3.2 **Exporter**: Toutes les sorties : le projet exécutable en `.zip`, l’écran sélectionné en PNG, PowerPoint ou `.tsx`, et les médias.
 - 10.4,9.2 **L’atelier de création**: Le composeur, en colonne : décrivez un écran, choisissez son format et ses options, générez. Avec des écrans sélectionnés, il les modifie.
-- 36.9,41.9 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
-- 30.5,65 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
-- 48.3,15.1 **Outils flottants**: Pour l’écran sélectionné : modifier, peaufiner, régénérer, partager, exporter, et tout son menu sous `⋯`.
-- 86.3,53.4 **L’inspecteur**: Une barre de six panneaux toujours présente — style, versions, audit, validation, campagne, liens — et celui qui est ouvert.
-- 31.8,96.1 **Barre de zoom**: Zoom, `Tout afficher`, le dernier écran, `Réorganiser`, et le bouton qui montre ou masque les câbles.
+- 36.9,41.8 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
+- 30.5,64.9 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
+- 55.3,3.2 **Outils de l’écran**: Dans la barre du haut, pour l’écran sélectionné : modifier, peaufiner, régénérer, notes, animations, supprimer, et tout son menu sous `⋯`.
+- 86.3,53.3 **L’inspecteur**: Une barre de six panneaux toujours présente — style, versions, audit, validation, campagne, liens — et celui qui est ouvert.
+- 31.8,95.9 **Barre de zoom**: Zoom, `Tout afficher`, le dernier écran, `Réorganiser`, et le bouton qui montre ou masque les câbles.
 - 15.3,38.8 **Générer**: Crée l’écran. Avec des écrans sélectionnés, il devient `Mettre à jour` et les modifie.
 :::
 
@@ -100,7 +100,7 @@ Sept étapes. Les étapes 1 et 3 sont facultatives.
 
 | # | Étape | Où | Détail |
 |---|---|---|---|
-| 1 | **Muse** construit un dossier de design | Serveur, via `POST /api/muse/dossier` | Facultatif. Produit une direction artistique, de la vraie copie et une image |
+| 1 | **Muse** construit un dossier de design | Serveur, via `POST /api/muse/dossier` | Activé par défaut, et désactivable. Produit une direction artistique, de la vraie copie et les images de la page |
 | 2 | **`selectCapabilities()`** dresse une liste courte | Navigateur | Correspondance de mots-clés. Aucun appel au modèle |
 | 3 | **`planScreen()`** affine cette liste | Navigateur | Facultatif. Renvoie `null` au moindre échec, et la liste courte est alors utilisée telle quelle |
 | 4 | **`applyAnimationMode()`** applique votre préférence de mouvement | Navigateur | Trois états : `auto`, `on`, `off` |
@@ -117,8 +117,9 @@ Chaque étape est détaillée dans la
 
 Elles expliquent une bonne partie du code que vous allez lire.
 
-**Muse éteint, rien ne change.** Avec l'interrupteur sur off, la requête envoyée
-au modèle est exactement celle d'avant l'existence de Muse. Le dossier entre par
+**Muse éteint, rien ne change.** Muse est activé par défaut, et avec
+l'interrupteur sur off la requête envoyée au modèle est exactement celle d'avant
+l'existence de Muse. Le dossier entre par
 `extraSystem`, le paramètre que `DESIGN.md` utilisait déjà.
 
 **Aucune étape facultative n'a le droit de bloquer.** Le planificateur renvoie

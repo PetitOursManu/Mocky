@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { discardPendingSave, useProjects } from './lib/project'
+import { discardPendingSave, shownProjectName, useProjects } from './lib/project'
 import { loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
 import { enableSync, installUnloadGuard, reconcileOnLogin } from './lib/sync'
@@ -31,6 +31,31 @@ import { useT, type TranslationKey } from './i18n'
 import { navigationHold } from './lib/navigationHold'
 
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'media'
+
+const ROUTES: readonly Route[] = ['home', 'project', 'design', 'settings', 'admin', 'media']
+
+/** What Mocky keeps in `history.state`: where it was, and how deep in this tab. */
+interface HistoryEntry {
+  route: Route
+  activeId: string | null
+  /** 0 for the tab's first entry; the in-app Back steps history only above it. */
+  idx: number
+}
+
+/**
+ * Read an entry back, or null when the state is not ours. `history.state` is
+ * whatever the last writer left — the SSO return clears it to `{}`, a project
+ * link to `null` — so it is checked field by field rather than trusted.
+ */
+function readHistoryEntry(state: unknown): HistoryEntry | null {
+  const m = (state as { mocky?: Partial<HistoryEntry> } | null)?.mocky
+  if (!m || !ROUTES.includes(m.route as Route)) return null
+  return {
+    route: m.route as Route,
+    activeId: typeof m.activeId === 'string' ? m.activeId : null,
+    idx: typeof m.idx === 'number' && m.idx >= 0 ? m.idx : 0,
+  }
+}
 
 /**
  * Marks that this tab has already reloaded to pick up a merge. Per-tab and
@@ -346,6 +371,96 @@ function MockyApp() {
     navigate('home')
   }
 
+  /*
+   * The browser's history, one entry per ROUTE.
+   *
+   * Mocky routes in state and the address stays `/`, so the history held one
+   * entry for the whole app: on Android, the back gesture from Settings, Admin
+   * or a project left Mocky for whatever page came before it — the one control
+   * every phone has, and it did the one thing nobody meant. Now every route
+   * change pushes an entry (the address unchanged, so a reload, `/r/<token>`
+   * and `/connect/<id>` read exactly what they read before), and `popstate`
+   * walks back through them.
+   *
+   * Pushed from an effect on the state rather than inside `navigate`, because
+   * not every route change goes through `navigate` — entering a project, the
+   * breadcrumb — and an entry missed is a back gesture that skips a page. A
+   * change of `activeId` alone (deleting the open project from home) REPLACES:
+   * an entry that looks identical to the one under it is a back that does
+   * nothing visible. The effect compares against `history.state` first, which
+   * is what stops a `popstate` from pushing the entry it just arrived at.
+   *
+   * Admin's panels and Settings' sections do not push. Eleven panels opened in
+   * a row would be eleven backs to leave Admin, and the in-app Back button
+   * below, which steps the same history, would then step panels too.
+   */
+  const activeIdRef = useRef(activeId)
+  activeIdRef.current = activeId
+  const projectsRef = useRef(projects)
+  projectsRef.current = projects
+  const historyMounted = useRef(false)
+  useEffect(() => {
+    const here = { route, activeId }
+    const cur = readHistoryEntry(window.history.state)
+    // The first run REPLACES whatever entry the tab is on: after a reload it
+    // may still carry an entry from before, and pushing over it would put a
+    // page the user already left one back gesture away.
+    if (!historyMounted.current) {
+      historyMounted.current = true
+      window.history.replaceState({ mocky: { ...here, idx: cur?.idx ?? 0 } }, '')
+      return
+    }
+    if (cur && cur.route === route && cur.activeId === activeId) return
+    if (cur && cur.route !== route) {
+      window.history.pushState({ mocky: { ...here, idx: cur.idx + 1 } }, '')
+    } else {
+      window.history.replaceState({ mocky: { ...here, idx: cur?.idx ?? 0 } }, '')
+    }
+  }, [route, activeId])
+
+  useEffect(() => {
+    function onPop(e: PopStateEvent) {
+      const entry = readHistoryEntry(e.state)
+      if (!entry) return
+      const was = { route: routeRef.current, activeId: activeIdRef.current }
+      if (entry.route === was.route && entry.activeId === was.activeId) return
+      // The same question `navigate` asks, because a back gesture is a
+      // navigation like any other — and the one most likely to be made without
+      // looking. Refused, the browser has already stepped back, so the page we
+      // stay on is put back on top of it.
+      if (entry.route !== was.route) {
+        const held = navigationHold()
+        if (held && !window.confirm(t(held as TranslationKey))) {
+          window.history.pushState({ mocky: { ...was, idx: entry.idx + 1 } }, '')
+          return
+        }
+      }
+      // A project deleted since its entry was pushed: home, rather than the
+      // "no project selected" page with nothing to do on it.
+      const gone = entry.route === 'project' && !projectsRef.current.some((p) => p.id === entry.activeId)
+      setMenuOpen(false)
+      setActiveId(entry.activeId)
+      setRoute(gone ? 'home' : entry.route)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [t])
+
+  /**
+   * The in-app Back of Settings and Admin, below md.
+   *
+   * It steps the browser's history when there is an entry of ours behind this
+   * one, so the button and the Android back gesture are the same action and
+   * cannot disagree about where "back" is. With nothing behind (the tab was
+   * opened on this page), it goes where back would most plausibly have led:
+   * the open project, or the projects.
+   */
+  function goBack() {
+    const cur = readHistoryEntry(window.history.state)
+    if (cur && cur.idx > 0) window.history.back()
+    else navigate(activeProject ? 'project' : 'home')
+  }
+
   /**
    * Navigate from the folded masthead.
    *
@@ -368,7 +483,27 @@ function MockyApp() {
     // the area under the bar taking the rest. It was `100vh - 57px` on the
     // project's side, and any banner or a bar a pixel taller than 57 put a
     // scrollbar on the whole page.
-    <div className={`${inProject ? 'flex h-screen flex-col overflow-hidden' : 'min-h-screen'} bg-sunken text-ink`}>
+    //
+    // The DYNAMIC viewport, not `100vh`. On Android Chrome `100vh` is the
+    // viewport with the URL bar retracted, so while the bar is showing the
+    // workspace is taller than the window: the first composer's scroll area
+    // ended ~270px above the visible bottom, under a black band that never
+    // moved — and opening the library or the keyboard made it worse. `dvh`
+    // follows the bar; `h-screen` stays as the fallback for a browser without it.
+    //
+    // `overflow-x-clip` on Settings and Admin: a page wider than the screen is
+    // what made Android zoom the whole document out, after which the folded
+    // menu — `position: fixed`, laid out against that wider viewport — opened
+    // half off screen and had to be pinched back. `clip` and not `hidden`
+    // because `hidden` makes a scroll container, and the admin's sticky section
+    // bar would then stick to nothing.
+    <div
+      className={`${
+        inProject
+          ? 'flex h-screen flex-col overflow-hidden supports-[height:100dvh]:h-dvh'
+          : `min-h-screen supports-[height:100dvh]:min-h-dvh ${route === 'settings' || route === 'admin' ? 'overflow-x-clip' : ''}`
+      } bg-sunken text-ink`}
+    >
       {/* The top bar: the wordmark, the navigation, the account — then it gets
           out of the way. */}
       <header className="rule-double bg-surface">
@@ -479,7 +614,7 @@ function MockyApp() {
                   className="max-w-[40vw] truncate text-body font-medium text-ink-muted transition hover:text-ink"
                   title={route === 'project' ? t('projects.rename') : t('app.backToProject')}
                 >
-                  {activeProject.name}
+                  {shownProjectName(activeProject.name, t('projects.untitled'))}
                 </button>
               )}
               {/* Shown once the project has been sent: a draft shows nothing,
@@ -755,14 +890,17 @@ function MockyApp() {
           }}
         />
       )}
+      {(route === 'settings' || route === 'admin') && <PageBack label={t('app.back')} onBack={goBack} />}
       {route === 'settings' && (
-        <main className="page py-10">
+        // Tighter on a phone: 40px of air above a page whose first line is
+        // already a heading is a third of the first screen spent on nothing.
+        <main className="page py-4 md:py-10">
           <SettingsPanel />
         </main>
       )}
       {route === 'admin' &&
         (account?.role === 'admin' ? (
-          <main className="page py-6">
+          <main className="page py-4 md:py-6">
             <AdminDashboard currentUsername={account.username} onAccountChange={setAccount} />
           </main>
         ) : (
@@ -971,6 +1109,26 @@ function MenuRow({
     >
       {children}
     </Button>
+  )
+}
+
+/**
+ * "← Back", top left of Settings and Admin, below md only.
+ *
+ * On a desktop the masthead's tabs are always in view and the way back is the
+ * tab you came from. On a phone those tabs are folded behind a menu, and the
+ * two pages had no visible way out at all: the only exit was a sheet whose
+ * entries do not say which one you came from. 44px for the same reason as
+ * {@link MenuRow}; the `!` for the same lexicographic-order reason too.
+ */
+function PageBack({ label, onBack }: { label: string; onBack: () => void }) {
+  return (
+    <div className="page pt-3 md:hidden">
+      <Button variant="quiet" size="sm" onClick={onBack} className="!min-h-11 -ml-2">
+        <Icon name="chevronLeft" size={18} />
+        {label}
+      </Button>
+    </div>
   )
 }
 

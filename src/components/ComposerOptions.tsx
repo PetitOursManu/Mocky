@@ -1,5 +1,12 @@
+import { haptic } from '../lib/touch'
 import type { ReactNode } from 'react'
 import { Icon, type IconName } from '../ui'
+
+/** A switch felt in the hand on a phone, then the switch itself. */
+const tapped = (fn: () => void) => () => {
+  haptic()
+  fn()
+}
 
 /**
  * The composer's options, as labelled groups of rows.
@@ -45,7 +52,7 @@ export function OptionToggle({
   sweep?: boolean
 }) {
   return (
-    <button type="button" onClick={onClick} title={title} disabled={disabled} aria-pressed={on} className={OPTION_ROW}>
+    <button type="button" onClick={tapped(onClick)} title={title} disabled={disabled} aria-pressed={on} className={OPTION_ROW}>
       <Icon name={icon} size={16} className={`shrink-0 ${on ? 'text-accent-ink' : sweep ? 'muse-sweep-icon' : 'text-ink-faint'}`} />
       <span className="min-w-0 flex-1">
         <span className={`block truncate text-body-sm font-medium ${on ? 'text-ink' : 'text-ink-muted'}`}>
@@ -148,7 +155,7 @@ export function OptionTile({
 }) {
   return (
     <div className={`${OPTION_TILE} ${tileLook(on)}`}>
-      <button type="button" onClick={onClick} title={title} aria-pressed={on} className="flex min-w-0 flex-1 flex-col gap-1.5 text-left">
+      <button type="button" onClick={tapped(onClick)} title={title} aria-pressed={on} className="flex min-w-0 flex-1 flex-col gap-1.5 text-left">
         <span className="flex w-full items-center justify-between">
           <Icon name={icon} size={18} className={on ? 'text-accent-ink' : sweep ? 'muse-sweep-icon' : 'text-ink-faint'} />
           <Switch on={on} />

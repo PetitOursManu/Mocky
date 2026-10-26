@@ -19,9 +19,6 @@ import {
   type Framing,
   type ViewState,
 } from '../lib/framing'
-import { extractDesignColors, extractProductName } from '../lib/design'
-import { parseDesignSystem } from '../lib/designTokens'
-import { ScaledMockup, type PreviewCfg } from './DesignMockup'
 import Preview, { type PickInfo, type SweptElement } from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import CableLayer from './CableLayer'
@@ -101,191 +98,12 @@ const IMAGE_ROLE: Record<
   },
 }
 
-/**
- * The DESIGN.md a screen was generated from, shown beside it.
- *
- * Two states, and the difference matters. When the screen carries a recorded
- * copy (`screen.design`), this is a FACT: those are the tokens that produced
- * what you are looking at, and adopting them is a copy — instant, exact, free.
- * When it does not — screens made before the copy was recorded — there is
- * nothing truthful to display, so the card offers to reconstruct one by reading
- * the rendered code instead, and says that it is reading rather than recalling.
- *
- * Everything is sized in WORLD units, so the card scales with the canvas like
- * the frame it sits beside. It used to counter-scale by `inv` the way the
- * labels and handles do, which is right for a control that must stay legible
- * and wrong for something that occupies space on the board: its footprint was
- * 200/scale, so zooming out grew it until it covered its neighbours. Below
- * CARD_MIN_SCALE the caller stops drawing it rather than shrinking it further.
+/*
+ * The DESIGN.md card that sat beside every frame lives in the Style panel now
+ * (DesignSystemPanel, "Selected screen"): the design was shown in two places,
+ * one of which was empty exactly when the other was the only answer, and the
+ * cards took a column of the board per screen.
  */
-function ScreenDesignCard({
-  screen,
-  busy,
-  onDerive,
-  onApply,
-  onInspectDesign,
-}: {
-  screen: Screen
-  busy: boolean
-  onDerive?: (screenId: string) => void
-  onApply?: (screenId: string) => void
-  onInspectDesign?: (screenId: string) => void
-}) {
-  const t = useT()
-  const recorded = screen.design?.trim() || ''
-  const swatches = recorded ? extractDesignColors(recorded).slice(0, 8) : []
-  /**
-   * Muse renders its dossier with a `# Design Dossier` heading, DESIGN.md with
-   * `# Design System`. Worth naming: one was written by the model for this
-   * screen alone, the other is the document the user maintains, and confusing
-   * them is exactly the confusion this card exists to remove.
-   */
-  const fromMuse = /^#\s*Design Dossier/im.test(recorded)
-  /**
-   * Read from the recorded document rather than taken from the project, so the
-   * card names the product THIS screen was built for even if the project has
-   * since been renamed or re-directed. Null on every document written before
-   * the `## Product` section existed, which is the normal case for a while.
-   */
-  const productName = extractProductName(recorded)
-  /**
-   * The same mini-dashboard the DESIGN.md page uses for its style presets.
-   *
-   * Swatches alone answer "which colours"; this answers "what does it look
-   * like", which is the actual question when you are deciding whether to reuse
-   * a design. `parseDesignSystem` resolves the semantic roles (background,
-   * surface, text, accent…) and turns `rounded-xl` into real pixels.
-   */
-  const preview = useMemo<PreviewCfg | null>(() => {
-    if (!recorded) return null
-    try {
-      const ds = parseDesignSystem(recorded)
-      const r = ds.roles
-      return {
-        bg: r.bg,
-        cardBg: r.surface,
-        cardBorder: r.border,
-        text: r.text,
-        mutedText: r.muted,
-        accent: r.accent,
-        accentText: r.accentText,
-        radius: ds.radius,
-      }
-    } catch {
-      // A malformed document must not take the canvas down with it — the
-      // swatches below still work from a plain regex.
-      return null
-    }
-  }, [recorded])
-
-  if (!recorded) {
-    // Nothing recorded: offer the reconstruction, and only when there is code
-    // to read. Never render an empty palette — a blank strip would read as "this
-    // screen has no colours" rather than "nothing was written down".
-    if (!onDerive || !screen.code.trim()) return null
-    return (
-      <button
-        type="button"
-        disabled={busy}
-        className="flex w-full items-center justify-center border border-muse/60 bg-raised text-muse-ink transition hover:border-muse hover:bg-muse/10 disabled:opacity-50"
-        style={{
-          marginTop: 10,
-          padding: '8px 10px',
-          fontSize: 17,
-          gap: 6,
-          cursor: 'pointer',
-        }}
-        title={t('canvas.deriveDesignTitle')}
-        onClick={(e) => {
-          e.stopPropagation()
-          onDerive(screen.id)
-        }}
-      >
-        <Icon name="wand" size={17} />
-        {t(busy ? 'canvas.deriveDesignBusy' : 'canvas.deriveDesign')}
-      </button>
-    )
-  }
-
-  return (
-    <div
-      className="w-full border border-line-soft bg-raised"
-      style={{ marginTop: 10, padding: 10 }}
-    >
-      <div
-        className={`flex items-center ${fromMuse ? 'text-muse-ink' : 'text-accent-ink'}`}
-        style={{ fontSize: 16, gap: 6, letterSpacing: '0.08em' }}
-      >
-        <Icon name={fromMuse ? 'sparkle' : 'image'} size={16} />
-        {t(fromMuse ? 'canvas.dossierUsed' : 'canvas.designUsed').toUpperCase()}
-      </div>
-
-      {/* The design, rendered rather than listed — and clickable, because at
-          canvas zoom this card is a postage stamp. */}
-      {preview && (
-        <button
-          type="button"
-          className="block w-full overflow-hidden border border-line-soft transition hover:border-accent"
-          // `pointer`, not `zoom-in`: Chrome on Windows draws `zoom-in` from a
-          // cursor file of its own, and a user saw an old busy spinner there —
-          // a card that looked like it was loading forever.
-          style={{ marginTop: 8, cursor: 'pointer' }}
-          title={t('design.openLarger')}
-          onClick={(e) => {
-            e.stopPropagation()
-            onInspectDesign?.(screen.id)
-          }}
-        >
-          {/* The product's name when the document records one, the document's
-              own name otherwise. Never the screen's name: that is the sentence
-              the user typed to get ONE screen, and painting it as a wordmark
-              across a project's design card said the project was called
-              "a contact page for users". */}
-          <ScaledMockup
-            p={preview}
-            name={productName || (fromMuse ? t('muse.dossier') : 'DESIGN.md')}
-          />
-        </button>
-      )}
-
-      {swatches.length > 0 && (
-        <div className="flex flex-wrap" style={{ marginTop: 8, gap: 5 }}>
-          {swatches.map((c) => (
-            <span
-              key={c.hex}
-              className="block border border-line-soft"
-              style={{ width: 22, height: 22, background: c.hex }}
-              title={`${c.label} · ${c.hex}`}
-            />
-          ))}
-        </div>
-      )}
-
-      {onApply && (
-        <button
-          type="button"
-          className="flex w-full items-center justify-center border border-muse/60 text-muse-ink transition hover:bg-muse/10"
-          style={{
-            marginTop: 10,
-            padding: '7px 8px',
-            fontSize: 16,
-            gap: 5,
-            cursor: 'pointer',
-          }}
-          title={t('canvas.applyDesignTitle')}
-          onClick={(e) => {
-            e.stopPropagation()
-            onApply(screen.id)
-          }}
-        >
-          <Icon name="check" size={16} />
-          {t('canvas.applyDesign')}
-        </button>
-      )}
-    </div>
-  )
-}
-
 /**
  * The film (or scroll sequence) attached to a screen, shown beside it.
  *
@@ -415,7 +233,6 @@ export default function Canvas({
   onMoveScreens,
   onResizeScreen,
   onRenameScreen,
-  onDeleteScreen,
   onOpenImage,
   onOpenScreenMedia,
   linkMode,
@@ -446,11 +263,7 @@ export default function Canvas({
   onDocPages,
   onDownloadDocument,
   animations,
-  onCycleScreenAnimations,
-  onDeriveDesign,
-  onApplyScreenDesign,
-  onInspectScreenDesign,
-  derivingDesignId,
+  onDownloadScreen,
   pendingLink,
   onConnectLink,
   onCancelLink,
@@ -463,7 +276,6 @@ export default function Canvas({
   onMoveScreens: (updates: Array<{ id: string; x: number; y: number }>) => void
   onResizeScreen: (id: string, box: Box) => void
   onRenameScreen: (id: string, name: string) => void
-  onDeleteScreen: (id: string) => void
   /** Open the Muse image of a screen full size. */
   /** Open a picture full size; `series` lets the viewer step through a Motion Ultra screen's set. */
   onOpenImage?: (hash: string, series?: string[]) => void
@@ -514,16 +326,8 @@ export default function Canvas({
   onDownloadDocument?: (screenId: string) => void
   /** false = "Sans animation" — passed through to every preview. */
   animations?: boolean
-  /** Cycle one screen between follow-the-composer, forced on, and forced off. */
-  onCycleScreenAnimations?: (screenId: string) => void
-  /** Write DESIGN.md from this screen. Absent = the action is not offered. */
-  onDeriveDesign?: (screenId: string) => void
-  /** Adopt the DESIGN.md this screen recorded — a copy, not a model call. */
-  onApplyScreenDesign?: (screenId: string) => void
-  /** Open this screen's recorded design full size. */
-  onInspectScreenDesign?: (screenId: string) => void
-  /** The screen whose DESIGN.md derivation is currently running, if any. */
-  derivingDesignId?: string | null
+  /** The selected web screen's download pill: opens its export menu at (x, y). */
+  onDownloadScreen?: (screenId: string, x: number, y: number) => void
   /**
    * An element picked in link mode, waiting for its cable to be plugged into a
    * screen (`CableConnect`). Null while nothing is in hand — or while the list
@@ -555,7 +359,6 @@ export default function Canvas({
   const [interactiveId, setInteractiveId] = useState<string | null>(null)
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
   /** Screen whose original prompt is currently displayed (the comment button). */
-  const [promptShownId, setPromptShownId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState('')
   const [moveDelta, setMoveDelta] = useState<{ dx: number; dy: number } | null>(null)
   const [resizePreview, setResizePreview] = useState<(Box & { id: string }) | null>(null)
@@ -1271,10 +1074,14 @@ export default function Canvas({
                 onScreenContextMenu?.(s.id, e.clientX, e.clientY)
               }}
             >
-              {/* Floating name label + selection actions (also the move handle) */}
+              {/* Floating name label + selection actions (also the move handle).
+                  Every text here scales with the zoom (`* inv`), so it carries a
+                  line height that scales too: it inherited the body's 22.4 px,
+                  and at 21% a 69 px name in a 22 px `truncate` box lost the top
+                  of every letter. */}
               <div
                 className="absolute left-0 flex items-center whitespace-nowrap"
-                style={{ bottom: '100%', paddingBottom: 5 * inv, gap: 5 * inv, fontSize: 12 * inv, maxWidth: b.w }}
+                style={{ bottom: '100%', paddingBottom: 5 * inv, gap: 5 * inv, lineHeight: 1.3, fontSize: 12 * inv, maxWidth: b.w }}
               >
                 {editingLabelId === s.id ? (
                   <input
@@ -1294,10 +1101,20 @@ export default function Canvas({
                       if (e.key === 'Escape') setEditingLabelId(null)
                     }}
                     className="rounded border border-line bg-raised text-ink outline-hidden"
-                    style={{ fontSize: 12 * inv, padding: `${1 * inv}px ${4 * inv}px`, width: b.w * 0.7 }}
+                    style={{ lineHeight: 1.3, fontSize: 12 * inv, padding: `${1 * inv}px ${4 * inv}px`, width: b.w * 0.7 }}
                   />
                 ) : (
-                  <span className={`truncate ${selected ? 'text-accent-ink' : 'text-ink-muted'}`}>
+                  <span
+                    className={`truncate ${selected ? 'text-accent-ink' : 'text-ink-muted'}`}
+                    // Double-click the name to rename it; stopped here so it is not
+                    // also the frame's double-click, which enters interaction.
+                    title={t('canvas.renameHint')}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      setDraftLabel(s.name)
+                      setEditingLabelId(s.id)
+                    }}
+                  >
                     {referenceScreenId === s.id && (
                       <span
                         title={t('canvas.referenceScreen')}
@@ -1320,7 +1137,7 @@ export default function Canvas({
                 {s.animations === false && !s.page && editingLabelId !== s.id && (
                   <span
                     className="flex shrink-0 items-center rounded-full bg-ink/10 text-ink-muted"
-                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
+                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, lineHeight: 1.3, fontSize: 11 * inv }}
                     title={t('canvas.animOff')}
                   >
                     <Icon name="play" size={11 * inv} />
@@ -1335,7 +1152,7 @@ export default function Canvas({
                   <button
                     type="button"
                     className="flex shrink-0 items-center rounded-full border border-accent bg-accent font-semibold text-on-accent shadow-sm transition hover:opacity-90"
-                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, fontSize: 12 * inv }}
+                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, lineHeight: 1.3, fontSize: 12 * inv }}
                     title={t('notes.badgeTitle', { count: s.userNotes.length })}
                     aria-label={t('notes.badgeTitle', { count: s.userNotes.length })}
                     onPointerDown={(e) => e.stopPropagation()}
@@ -1353,7 +1170,7 @@ export default function Canvas({
                   <button
                     type="button"
                     className="flex shrink-0 items-center rounded-full border border-accent bg-accent font-semibold text-on-accent shadow-sm transition hover:opacity-90 disabled:opacity-50"
-                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, fontSize: 12 * inv }}
+                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, lineHeight: 1.3, fontSize: 12 * inv }}
                     title={t('canvas.docDownloadTitle')}
                     disabled={!s.code.trim() || generatingIds?.has(s.id)}
                     onPointerDown={(e) => e.stopPropagation()}
@@ -1366,116 +1183,35 @@ export default function Canvas({
                 {soloInteractive && editingLabelId !== s.id && (
                   <span
                     className="flex shrink-0 items-center rounded-full bg-accent/10 text-accent-ink"
-                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
+                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, lineHeight: 1.3, fontSize: 11 * inv }}
                   >
                     <Icon name="hand" size={11 * inv} />
                     {t('canvas.interactive')}
                   </span>
                 )}
-                {selected && singleSelected && editingLabelId !== s.id && (
-                  <span
-                    className="flex items-center rounded-md border border-line bg-raised/90 text-ink"
-                    style={{ gap: 2 * inv, padding: `${1 * inv}px ${2 * inv}px` }}
+                {/* Every other action on the selected screen is in the top bar
+                    (ProjectView): two rows of icons — one at the top, one over
+                    the frame — was a split nobody could predict. Downloading
+                    stays here, beside the thing it downloads. A document has its
+                    own pill above, selected or not. */}
+                {selected && singleSelected && !s.page && onDownloadScreen && editingLabelId !== s.id && (
+                  <button
+                    type="button"
+                    className="flex shrink-0 items-center rounded-full border border-line bg-raised/90 font-medium text-ink shadow-sm transition hover:border-accent hover:text-accent-ink disabled:opacity-50"
+                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, lineHeight: 1.3, fontSize: 12 * inv }}
+                    title={t('workspace.screenExport')}
+                    disabled={!s.code.trim() || generatingIds?.has(s.id)}
                     onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect()
+                      onDownloadScreen(s.id, r.left, r.bottom + 6)
+                    }}
                   >
-                    <LabelBtn
-                      inv={inv}
-                      title={t('canvas.rename')}
-                      onClick={() => {
-                        setDraftLabel(s.name)
-                        setEditingLabelId(s.id)
-                      }}
-                    >
-                      <Icon name="pencil" size={13 * inv} />
-                    </LabelBtn>
-                    <LabelBtn
-                      inv={inv}
-                      title={s.prompt ? t('canvas.showPrompt') : t('canvas.noPromptShort')}
-                      onClick={() => setPromptShownId((id) => (id === s.id ? null : s.id))}
-                    >
-                      <Icon name="comment" size={13 * inv} />
-                    </LabelBtn>
-                    <LabelBtn inv={inv} title={t('notes.open')} onClick={() => onOpenScreenNotes?.(s.id)}>
-                      <span className={s.userNotes?.length ? 'text-accent-ink' : undefined}>
-                        <Icon name="note" size={13 * inv} />
-                      </span>
-                    </LabelBtn>
-                    {/* This screen's own answer about motion: animated (the
-                        default) or held still for a demo. Not on a document:
-                        paper holds still, and it was made so on purpose. */}
-                    {!s.page && (
-                      <LabelBtn
-                        inv={inv}
-                        title={t(s.animations === false ? 'canvas.animOff' : 'canvas.animOn')}
-                        onClick={() => onCycleScreenAnimations?.(s.id)}
-                      >
-                        <span className={s.animations === false ? 'line-through opacity-60' : undefined}>
-                          <Icon name="play" size={13 * inv} />
-                        </span>
-                      </LabelBtn>
-                    )}
-                    <button
-                      type="button"
-                      title={t('canvas.more')}
-                      aria-label={t('canvas.more')}
-                      onClick={(e) => {
-                        const r = e.currentTarget.getBoundingClientRect()
-                        onScreenContextMenu?.(s.id, r.left, r.bottom)
-                      }}
-                      className="flex items-center rounded text-ink hover:bg-ink/5"
-                      style={{ padding: `${2 * inv}px ${5 * inv}px`, lineHeight: 1 }}
-                    >
-                      <Icon name="more" size={14 * inv} />
-                    </button>
-                    <LabelBtn inv={inv} title={t('canvas.delete')} danger onClick={() => onDeleteScreen(s.id)}>
-                      <Icon name="trash" size={13 * inv} />
-                    </LabelBtn>
-                  </span>
+                    <Icon name="download" size={13 * inv} />
+                    {t('canvas.docDownload')}
+                  </button>
                 )}
               </div>
-
-              {/* Prompt of this screen — opened from the comment button. Sits just
-                  under the label, scale-invariant so it stays readable at any zoom. */}
-              {promptShownId === s.id && selected && (
-                <div
-                  className="absolute left-0 z-20 rounded-lg border border-line bg-raised/95 text-ink shadow-xl backdrop-blur"
-                  style={{
-                    top: -2 * inv,
-                    width: Math.min(s.w, 420) ,
-                    padding: `${8 * inv}px ${10 * inv}px`,
-                    fontSize: `${12 * inv}px`,
-                    transform: `translateY(-100%) translateY(${-22 * inv}px)`,
-                  }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between" style={{ gap: 6 * inv, marginBottom: 4 * inv }}>
-                    <span
-                      className="flex items-center font-medium text-muse-ink"
-                      style={{ fontSize: `${11 * inv}px`, gap: 4 * inv }}
-                    >
-                      <Icon name="comment" size={11 * inv} />
-                      {t('canvas.originalPrompt')}
-                    </span>
-                    <span className="flex items-center" style={{ gap: 2 * inv }}>
-                      {s.prompt && (
-                        <LabelBtn
-                          inv={inv}
-                          title={t('canvas.copyPrompt')}
-                          onClick={() => navigator.clipboard?.writeText(s.prompt)}
-                        >
-                          <Icon name="copy" size={12 * inv} />
-                        </LabelBtn>
-                      )}
-                      <LabelBtn inv={inv} title={t('common.close')} onClick={() => setPromptShownId(null)}>
-                        <Icon name="close" size={12 * inv} />
-                      </LabelBtn>
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-wrap break-words leading-snug text-ink-muted">
-                    {s.prompt || t('canvas.noPrompt')}
-                  </p>
-                </div>
-              )}
 
               {/* Everything ATTACHED to this screen, as opposed to everything
                   inside its code: the Muse image, the design it was built from,
@@ -1572,17 +1308,6 @@ export default function Canvas({
                     />
                   )}
 
-                  {/* The design system this screen was actually built from.
-                      It sits here because this is where the art direction is
-                      already on display: the reference image is the visible
-                      half, and the document is the half you can reuse. */}
-                  <ScreenDesignCard
-                    screen={s}
-                    busy={derivingDesignId === s.id}
-                    onDerive={onDeriveDesign}
-                    onApply={onApplyScreenDesign}
-                    onInspectDesign={onInspectScreenDesign}
-                  />
                 </div>
               )}
 
@@ -1653,7 +1378,7 @@ export default function Canvas({
               {regeneratingIds?.has(s.id) && (
                 <div
                   className="pointer-events-none absolute left-1/2 top-0 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-accent font-medium text-on-accent shadow-lg"
-                  style={{ marginTop: 8 * inv, paddingLeft: 10 * inv, paddingRight: 12 * inv, paddingTop: 4 * inv, paddingBottom: 4 * inv, fontSize: 12 * inv, gap: 6 * inv }}
+                  style={{ marginTop: 8 * inv, paddingLeft: 10 * inv, paddingRight: 12 * inv, paddingTop: 4 * inv, paddingBottom: 4 * inv, lineHeight: 1.3, fontSize: 12 * inv, gap: 6 * inv }}
                 >
                   <span
                     className="animate-spin rounded-full border-on-accent/40 border-t-on-accent"
@@ -1707,6 +1432,7 @@ export default function Canvas({
                   className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-accent px-2 font-mono font-medium text-on-accent"
                   style={{
                     top: b.h + 6 / view.scale,
+                    lineHeight: 1.3,
                     fontSize: 11 / view.scale,
                     paddingTop: 1 / view.scale,
                     paddingBottom: 1 / view.scale,
@@ -1930,35 +1656,4 @@ export default function Canvas({
 function sourceRectOf(screens: Screen[], c: Cable): Box {
   const h = screens.find((s) => s.id === c.sourceId)?.links.find((l) => l.id === c.id)
   return h ? { x: h.x, y: h.y, w: h.w, h: h.h } : { x: 0, y: 0, w: 0, h: 0 }
-}
-
-function LabelBtn({
-  children,
-  onClick,
-  title,
-  inv,
-  danger,
-  active,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  title: string
-  inv: number
-  danger?: boolean
-  active?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className={`flex items-center rounded hover:bg-ink/5 ${
-        active ? 'bg-warn/20 text-warn' : danger ? 'text-danger' : 'text-ink'
-      }`}
-      style={{ padding: `${2 * inv}px ${4 * inv}px`, lineHeight: 1, fontSize: `${13 * inv}px` }}
-    >
-      {children}
-    </button>
-  )
 }

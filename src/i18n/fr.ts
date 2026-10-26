@@ -172,15 +172,10 @@ export const fr = {
   // ---- Muse ----
   'muse.title': 'Muse',
   'muse.dossier': 'Design Dossier',
-  'muse.liveInspiration': 'Inspiration live',
   'muse.urls': 'URLs d’inspiration (Dribbble, Pinterest, un site…), une par ligne — optionnel',
-  'muse.imageMode': 'Image générée',
-  'muse.modeContent': 'Contenu',
   'muse.modeInspiration': 'Inspiration',
-  'muse.modeBoth': 'Les deux',
   'muse.sources': 'Sources',
   'muse.writtenByModel': 'écrit par le modèle',
-  'muse.library': 'Bibliothèque',
 
   // ---- library ----
   'library.title': 'Bibliothèque d’images',
@@ -191,7 +186,7 @@ export const fr = {
   'library.favorite': 'Mettre en favori',
   'library.unfavorite': 'Retirer des favoris',
   'library.deleteImage': 'Supprimer l’image',
-  'library.pin': 'Épingler',
+  'library.pin': 'Choisir cette image',
   'library.unpin': 'Détacher',
   'library.empty': 'Aucune image pour l’instant. Générez un écran avec Muse activé.',
 

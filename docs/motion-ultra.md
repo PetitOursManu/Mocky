@@ -123,8 +123,8 @@ With the video background on, no other Motion Ultra film is made for the same sc
   among them — and asked to reuse them wherever a picture fits, unless its
   request says otherwise. Nothing is generated for it.
 - The legibility check (text laid over a picture) runs after **every** new
-  screen that has a picture, Muse's and pinned ones included — not only Motion Ultra
-  Ultra's.
+  screen that has a picture, Muse's and the ones chosen in the library included —
+  not only Motion Ultra's.
 
 ## With Muse and Motion Ultra films
 

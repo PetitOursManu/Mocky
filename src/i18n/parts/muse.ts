@@ -11,9 +11,30 @@
  */
 export const muse = {
   fr: {
-    // pinned references
-    'muse.pinned': 'épinglées',
-    'muse.unpinImage': 'Détacher {label}',
+    'muse.unpinImage': 'Retirer {label}',
+
+    // the panel, since 2026-10: rows that say what each thing does
+    'muse.subtitle': 'Direction artistique, inspiration trouvée en direct sur le web, et images.',
+    'muse.visionTitle': 'Le modèle de texte voit les images : il peut s’inspirer de vos références.',
+    'muse.inspirationLabel': 'Inspiration',
+    'muse.inspirationHint': 'Muse cherche toujours des références en direct. Ajoutez vos liens si vous en avez.',
+    'muse.ownImages': 'Vos images',
+    'muse.ownImagesHint': 'Choisies dans la bibliothèque. Cochez à quoi chacune sert.',
+    'muse.ownImagesPick': 'Choisir dans la bibliothèque',
+    'muse.ownImagesMore': 'Ajouter des images',
+    'muse.ownImageUntitled': 'Image sans titre',
+    'muse.useInsert': 'Dans le projet',
+    'muse.useInspire': 'Inspiration',
+    'muse.useInspireHint': 'Muse et le modèle s’en inspirent (couleurs, lumière, ambiance) sans l’insérer',
+    'muse.contentImages': 'Images dans l’écran',
+    'muse.contentImagesHint': 'Combien d’images Muse ajoute à l’écran, en plus des vôtres : générées par l’IA ou photos libres, selon le choix « Images ».',
+    'muse.contentImagesHintPlate':
+      'Combien d’images Muse ajoute à l’écran, en plus des vôtres : générées par l’IA ou photos libres, selon le choix « Images ». Avec l’IA, il crée aussi une planche d’inspiration, jamais insérée.',
+    'muse.contentImagesAuto': 'Auto',
+    'muse.contentImagesAutoHint': 'Avec l’IA : une image générée. Avec les photos libres : jusqu’à trois. Aucune si vous avez choisi les vôtres.',
+    'muse.noVisionPlate': 'Ce modèle ne voit pas les images : pas de planche d’inspiration ni de référence.',
+    'muse.plateLabel': 'inspiration',
+    'muse.videoSourceHint': 'Une séquence qui avance au défilement ou à la souris.',
 
     // failures & availability
     'muse.imageFailed': 'Image non générée — {error}',
@@ -22,15 +43,8 @@ export const muse = {
     'muse.needsBackendPost': 'ou l’app Docker). Indisponible en mode navigateur seul.',
 
     // inspiration
-    'muse.liveInspirationHint':
-      'Récupère l’inspiration en direct (installe un navigateur Playwright au 1er usage)',
 
     // image modes
-    'muse.modeContentHint': 'L’image est insérée dans l’écran (photo héro, produit…)',
-    'muse.modeInspirationHint':
-      'L’image sert de référence de direction artistique au modèle (elle n’apparaît pas dans l’écran)',
-    'muse.modeBothHint':
-      'Le modèle VOIT l’image et l’insère : il compose l’écran autour d’elle (une seule image générée)',
 
     // vidéo au défilement
     'muse.video': 'Vidéo au défilement',
@@ -44,7 +58,6 @@ export const muse = {
     'muse.videoNoProviderButImport':
       'Aucun fournisseur vidéo configuré — mais vous pouvez importer votre propre clip dans Média et le choisir ici.',
     'muse.videoPickFromLibrary': 'ou choisir une séquence dans Média',
-    'muse.imageModeChosen': 'Image',
     'muse.videoSource': 'Vidéo',
     'muse.videoSourceOff': 'Aucune',
     'muse.videoSourceGenerated': 'Générée par IA',
@@ -93,20 +106,9 @@ export const muse = {
     // vision
     'muse.vision': 'vision',
     'muse.modeNeedsVision': 'Indisponible : ce modèle n’accepte pas les images',
-    'muse.noVision': 'Vision non détectée sur ce modèle.',
-    'muse.noVisionKeptPre': 'Votre choix « {mode} » est',
-    'muse.noVisionKeptWord': 'conservé',
-    'muse.noVisionKeptMid': ', mais cette génération se fera en',
-    'muse.noVisionKeptPost':
-      '. Choisissez un modèle avec vision dans Admin → Modèles de texte pour l’activer.',
-    'muse.noVisionModes':
-      'Les modes « {inspiration} » et « {both} » ont besoin d’un modèle capable de lire une image.',
 
     // dossier
     'muse.offlinePatterns': 'patterns (hors-ligne)',
-    'muse.imageRoleInspiration': 'Référence de direction artistique — non insérée dans l’écran',
-    'muse.imageRoleBoth': 'Insérée dans l’écran, et montrée au modèle',
-    'muse.imageRoleContent': 'Insérée dans l’écran',
     'muse.downloadImage': 'Télécharger l’image {slot}',
 
     // format presets
@@ -118,9 +120,30 @@ export const muse = {
     'muse.presetTabletFull': 'Tablette',
   } as Record<string, string>,
   en: {
-    // pinned references
-    'muse.pinned': 'pinned',
-    'muse.unpinImage': 'Unpin {label}',
+    'muse.unpinImage': 'Remove {label}',
+
+    // the panel, since 2026-10: rows that say what each thing does
+    'muse.subtitle': 'Art direction, inspiration found live on the web, and pictures.',
+    'muse.visionTitle': 'The text model can see images: it can draw on your references.',
+    'muse.inspirationLabel': 'Inspiration',
+    'muse.inspirationHint': 'Muse always looks for references live. Add your own links if you have some.',
+    'muse.ownImages': 'Your pictures',
+    'muse.ownImagesHint': 'Chosen from the library. Tick what each one is for.',
+    'muse.ownImagesPick': 'Choose from the library',
+    'muse.ownImagesMore': 'Add pictures',
+    'muse.ownImageUntitled': 'Untitled picture',
+    'muse.useInsert': 'In the project',
+    'muse.useInspire': 'Inspiration',
+    'muse.useInspireHint': 'Muse and the model take their cue from it (colours, light, mood) without placing it',
+    'muse.contentImages': 'Pictures in the screen',
+    'muse.contentImagesHint': 'How many pictures Muse adds to the screen, on top of yours: AI-generated or free photos, as the “Images” choice says.',
+    'muse.contentImagesHintPlate':
+      'How many pictures Muse adds to the screen, on top of yours: AI-generated or free photos, as the “Images” choice says. With AI it also makes an inspiration plate, never placed.',
+    'muse.contentImagesAuto': 'Auto',
+    'muse.contentImagesAutoHint': 'With AI: one generated picture. With free photos: up to three. None if you chose your own.',
+    'muse.noVisionPlate': 'This model cannot see images: no inspiration plate and no reference.',
+    'muse.plateLabel': 'inspiration',
+    'muse.videoSourceHint': 'A sequence that moves with the scroll or the mouse.',
 
     // failures & availability
     'muse.imageFailed': 'Image not generated — {error}',
@@ -129,14 +152,8 @@ export const muse = {
     'muse.needsBackendPost': 'or the Docker app). Unavailable in browser-only mode.',
 
     // inspiration
-    'muse.liveInspirationHint': 'Fetches inspiration live (installs a Playwright browser on first use)',
 
     // image modes
-    'muse.modeContentHint': 'The image is placed inside the screen (hero photo, product shot…)',
-    'muse.modeInspirationHint':
-      'The image is an art-direction reference for the model (it does not appear in the screen)',
-    'muse.modeBothHint':
-      'The model SEES the image and places it: it composes the screen around it (one generated image)',
 
     // scroll video
     'muse.video': 'Scroll-driven video',
@@ -148,7 +165,6 @@ export const muse = {
     'muse.videoNoProviderButImport':
       'No video provider configured — but you can import your own clip in Media and choose it here.',
     'muse.videoPickFromLibrary': 'or choose a sequence from Media',
-    'muse.imageModeChosen': 'Image',
     'muse.videoSource': 'Video',
     'muse.videoSourceOff': 'None',
     'muse.videoSourceGenerated': 'AI-generated',
@@ -197,19 +213,9 @@ export const muse = {
     // vision
     'muse.vision': 'vision',
     'muse.modeNeedsVision': 'Unavailable: this model does not accept images',
-    'muse.noVision': 'No vision detected on this model.',
-    'muse.noVisionKeptPre': 'Your “{mode}” choice is',
-    'muse.noVisionKeptWord': 'kept',
-    'muse.noVisionKeptMid': ', but this generation will run as',
-    'muse.noVisionKeptPost': '. Pick a model with vision in Admin → Text model to enable it.',
-    'muse.noVisionModes':
-      'The “{inspiration}” and “{both}” modes need a model that can read an image.',
 
     // dossier
     'muse.offlinePatterns': 'patterns (offline)',
-    'muse.imageRoleInspiration': 'Art-direction reference — not placed in the screen',
-    'muse.imageRoleBoth': 'Placed in the screen, and shown to the model',
-    'muse.imageRoleContent': 'Placed in the screen',
     'muse.downloadImage': 'Download the {slot} image',
 
     // format presets

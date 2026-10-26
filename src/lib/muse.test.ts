@@ -10,6 +10,9 @@ import {
   runMuseDossier,
   generateSlotImages,
   museAvailable,
+  clampContentImages,
+  padImageryPlan,
+  MUSE_CONTENT_IMAGES_MAX,
 } from './muse'
 
 function fakeStorage() {
@@ -60,6 +63,14 @@ describe('pure helpers', () => {
     expect(out).toMatch(/You can SEE the attached image/) // …and seen
   })
 
+  it('in "separate" mode the pictures are embedded AND a different reference is named', () => {
+    const out = buildMusePreamble('# Dossier', [{ slot: 'hero', id: 'hero', url: 'http://localhost:5173/api/images/abc' }], 'separate')
+    expect(out).toMatch(/GENERATED IMAGERY/)
+    expect(out).toContain('src="http://localhost:5173/api/images/abc"')
+    expect(out).toMatch(/NOT one of the images listed above/)
+    expect(out).not.toMatch(/You can SEE the attached image/)
+  })
+
   it('in "inspiration" mode the image is a style reference, never embedded', () => {
     const out = buildMusePreamble(
       '# Dossier',
@@ -75,26 +86,52 @@ describe('pure helpers', () => {
 })
 
 describe('config', () => {
-  it('defaults to disabled', () => {
+  it('defaults to ON', () => {
     expect(loadMuseConfig()).toEqual(defaultMuseConfig())
-    expect(defaultMuseConfig().enabled).toBe(false)
+    expect(defaultMuseConfig().enabled).toBe(true)
   })
   it('round-trips through storage', () => {
     const cfg = {
-      enabled: true,
+      enabled: false,
       urls: 'https://x.test',
-      useFetch: true,
-      imageMode: 'inspiration' as const,
+      contentImages: 3,
       video: true,
       videoPin: { hash: 'a'.repeat(64), frames: 60, poster: '/api/videos/x/poster.jpg', label: 'clip' },
     }
     saveMuseConfig(cfg)
+    // A choice made under the current defaults is kept, "off" included.
     expect(loadMuseConfig()).toEqual(cfg)
   })
 
+  it('reads a config saved before Muse was on by default as ON, once', () => {
+    // `enabled: false` there was the old default, not a choice.
+    localStorage.setItem('mocky.muse.v1', JSON.stringify({ enabled: false, urls: 'u', useFetch: false, imageMode: 'inspiration', video: false, videoPin: null }))
+    const c = loadMuseConfig()
+    expect(c.enabled).toBe(true)
+    expect(c.urls).toBe('u')
+    // The retired switches are dropped, not carried as dead keys.
+    expect(c).not.toHaveProperty('useFetch')
+    expect(c).not.toHaveProperty('imageMode')
+    expect(c.contentImages).toBeNull()
+  })
 
-  it('defaults the image mode to "content" (works without vision)', () => {
-    expect(defaultMuseConfig().imageMode).toBe('content')
+  it('bounds the picture count, and reads anything else as auto', () => {
+    expect(clampContentImages(0)).toBe(1)
+    expect(clampContentImages(9)).toBe(MUSE_CONTENT_IMAGES_MAX)
+    expect(clampContentImages(2.4)).toBe(2)
+    expect(clampContentImages('3')).toBeNull()
+    expect(clampContentImages(null)).toBeNull()
+  })
+
+  it('pads the imagery plan to the count asked for, never shortens it', () => {
+    const plan = [{ id: 'hero', slot: 'hero', prompt: 'a bakery at dawn', negative: 'text' }]
+    const out = padImageryPlan(plan, 3)
+    expect(out).toHaveLength(3)
+    expect(new Set(out.map((x) => x.id)).size).toBe(3)
+    expect(out[2].prompt).toMatch(/a bakery at dawn/)
+    expect(out[2].negative).toBe('text')
+    expect(padImageryPlan([...out, ...out], 2)).toHaveLength(6)
+    expect(padImageryPlan([], 3)).toEqual([])
   })
 
   it('choosing a sequence turns the effect on, because that is what was meant', () => {

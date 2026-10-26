@@ -71,6 +71,16 @@ the same routes as 44-pixel rows, adds `Docs` as a link, and appends
 `Sign out` to the account row — the one label the wide header does not show,
 because there the account button *is* the sign-out button.
 
+On a phone, `Settings` and `Admin` open with a `‹ Back` button at the top, and
+the phone's own back gesture now moves **within** Mocky: every route (home, a
+project, Media, Settings, Admin…) is an entry of the browser's history, so Back
+from Settings returns to where you were instead of leaving Mocky for whatever
+page came before it. The in-app button and the gesture are the same action. A
+panel of Admin or a section of Settings is not an entry — eleven panels opened
+in a row would otherwise be eleven backs to leave. In Admin, the panel list is a
+dropdown that stays at the top of the window while you scroll: it names the open
+panel, and a tap unfolds all eleven with their icons and badges.
+
 ---
 
 ## The projects page
@@ -136,7 +146,7 @@ the redesign was drawn from lays it out:
 
 | Where | What |
 |---|---|
-| **The top bar** | The wordmark (back to the projects), `Projects / name` (click the name to rename), then the project's tools: the canvas modes — `Select`, `Link`, `Interact`, `Modify`, `Annotate` — then `Demo`, `Share ▾`, `Export ▾` and the inspector's switch. The site navigation (DESIGN.md, Media, Settings) is one click away, on the wordmark. |
+| **The top bar** | The wordmark (back to the projects), `Projects / name` (click the name to rename), then the project's tools: the canvas modes — `Select`, `Link`, `Interact`, `Modify`, `Annotate` — then, with exactly one screen selected, that screen's tools (see [A selected screen's frame](#a-selected-screens-frame)), then `Demo`, `Share ▾`, `Export ▾` and the inspector's switch. The site navigation (DESIGN.md, Media, Settings) is one click away, on the wordmark. |
 | **Left: the creation workshop** | The composer as a column instead of a floating bar: a title that says what the next message does (`New screen`, or `Edit the screen` when screens are selected), the composer itself, `Also make` (`Campaign`, `Motion Ultra` films), and the four screens made last — click one to frame it on the canvas. |
 | **Centre: the canvas** | All of its height: nothing floats over the bottom of the screens any more. The zoom bar is bottom-left; `Frame` (the iPhone bezel) bottom-right, and only when the project has a phone screen. |
 | **Right: the inspector** | A rail of six icons that is always there — `Style`, `Versions`, `Audit`, `Approval`, `Campaign`, `Links` — and the panel the lit one opens beside it. Click an icon to open its panel, click it again (or `✕`) to fold the panel back into the rail. The panel is a column from `xl` (1280px), open on `Style` when a project opens; narrower, it floats over the canvas beside the rail. A status line at its foot says whether Mocky is working. |
@@ -156,17 +166,23 @@ phone screen. The right end says whether your work has reached the server — `A
 changes saved`, `Saving…`, or a failure. The canvas' own hint (what a click does
 in the current mode) moves to the bottom-right corner.
 
-**The floating tools** — with exactly one screen selected, a small bar at the
-top of the canvas names it and offers what is done to a screen most often:
-`Edit with a message` (puts the cursor in the composer), `Polish`, `Regenerate a
-variant`, `Share`, an export menu (PNG, PowerPoint, `.tsx`, or `Download…` for a
-document) and `⋯`, which opens the screen's whole menu under it.
+**The selected screen's tools** — with exactly one screen selected, a group
+appears in the top bar, after the canvas modes, with what is done to a screen
+most often. Nothing floats over the canvas for it any more: the screen's tools
+used to be in three places — a bar over the canvas, a row of icons on the
+frame's label, the menu — and which one held what was a matter of history.
+They are listed under [A selected screen's frame](#a-selected-screens-frame).
 
 Below `md` the workspace folds back: the floating toolbar described next (a
 full-width bar on a phone, above the strip of screens), and the composer as a
-sheet along the bottom of the canvas. The sheet shows the field and its buttons;
-`Options` unfolds the format and the chips, which otherwise took half of a small
-window. The toolbar's `Export` holds the same rows as the top bar's.
+sheet along the bottom of the canvas. The sheet folds to one line — its handle —
+to show the project, and unfolds with a tap; it starts folded in a project that
+has screens, and folds itself when a generation starts. Unfolded, it shows the
+field and its buttons; `Options` unfolds the format, the chips and Muse's brief,
+which otherwise took the whole of a small window. On a phone the screens are
+shown one at a time: the arrows on either side (or a swipe beside the screen)
+move to the previous or next one, and `2 / 5` says where you are. The toolbar's `Export` holds the same rows as the top bar's. There is no
+top bar to hold a screen's tools there: its menu holds them all.
 
 ---
 
@@ -178,15 +194,15 @@ keep it on screen: labels fold away below `md`, everything past `Modify` folds
 into `More`, and the row scrolls itself rather than pushing the page sideways.
 
 :::hotspots src=assets/ui/toolbar.webp alt="The project’s tools, in the top bar"
-- 4.6,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
-- 10.9,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
-- 17.1,50 **Interact**: Every preview becomes clickable at once.
-- 23.4,50 **Modify**: Click an element and describe a change, or edit its text directly.
-- 29.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
-- 45,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
-- 62.5,50 **Share**: A link to the selected screen, or the project sent for approval.
-- 82.2,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
-- 95.9,50 **Inspector**: Shows or hides the column of panels on the right.
+- 2.9,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
+- 6.8,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
+- 10.8,50 **Interact**: Every preview becomes clickable at once.
+- 14.7,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 18.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
+- 65.4,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
+- 76.4,50 **Share**: A link to the selected screen, or the project sent for approval.
+- 88.8,50 **Export**: The runnable project as a `.zip`, the selected screen, the media.
+- 97.4,50 **Inspector**: Shows or hides the column of panels on the right.
 :::
 
 ### The three that never fold
@@ -214,7 +230,7 @@ below `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `System` | `Live design system — your DESIGN.md tokens, and a way to recolor them`. Closes `Audit`, or `Link` mode, if one was open. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Evaluate SEO and accessibility`. Closes `System`, or `Link` mode, if one was open — all three want the same slot. **Opening the panel evaluates nothing.** | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z"/></svg> | `Approval` | `Send the project to a client to comment on, approve, or ask for changes`. Opens the Approval panel in the same slot; the label carries the number of new answers, `Approval (2)`. See [Sending a project for approval](review.md). | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg> | `Campaign` | `One brief, several consistent pieces: poster, flyer, post, story… Change a date, update the pieces that say it`. Opens the Campaign panel in the same slot. See [Campaign Studio](campaign.md). | each piece is one generation |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h7v16H3zM13 4h8v8h-8zM13 15h8v5h-8z"/></svg> | `Campaign` | `One brief, several consistent pieces: poster, flyer, post, story… Change a date, update the pieces that say it`. Opens the Campaign panel in the same slot. See [Campaign Studio](campaign.md). | each piece is one generation |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 8v4.5l3 2"/></svg> | `Versions` | `Save, compare and restore versions of the project; try another direction on a branch`. Opens the Versions panel in the same slot as `System` and `Audit`. See [Versions and branches](versions.md). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion Ultra` | `Cut a video from the media library`. Opens the Motion Ultra panel — see below. | free to open |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Demo` | `Play the prototype — follows the links you placed`. Starts on the selected screen, or the first one if nothing is selected. See [Demo mode](#demo-mode) below. | free |
@@ -311,17 +327,31 @@ leaving one screen fan out instead of piling up.
 
 ## A selected screen's frame
 
-Select exactly one screen and a small bar appears above it. Select two and it
-disappears — every action in it is about one screen.
+Select exactly one screen and its tools appear in the app's top bar, after the
+canvas modes. Select two and they disappear — every action in the group is about
+one screen. The frame itself carries only its name, its badges and, while it is
+selected, a `Download` pill above it.
 
 | | Control | What it does | Cost |
 |---|---|---|---|
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Rename` | Edits the name in place. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z"/></svg> | `Show the request that created this screen` | Opens the original prompt, with a copy button. On a screen imported or made before this was recorded, the label reads `No request recorded` instead. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v10l-6 6H4zM14 20v-6h6M8 9h8M8 13h4"/></svg> | `Notes on this screen` | Opens the screen's private notes. See the context menu's `Notes` below. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | Animations, this screen | Cycles three states, not two: follows the composer / forced on / forced off. A two-state switch would strand a screen on an override you could no longer clear. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> | `More options (or right-click the screen)` | The same context menu the right-click opens. | free |
+| | The screen's name | Printed first in the group, from `xl` (1280px) up. | — |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z"/></svg> | `Edit with a message` | Puts the cursor in the composer: what you type next is an edit of this screen. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Polish (detect and correct)` | The quality pass. See [Quality pass](quality.md). | model |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Regenerate a variant` | The same prompt again, for a different design. | model |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v10l-6 6H4zM14 20v-6h6M8 9h8M8 13h4"/></svg> | `Notes on this screen` / `Notes (N)` | Opens the screen's private notes. See the context menu's `Notes` below. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `This screen animates — click to hold it still` / `This screen is held still — click to animate it again` | Play or pause the motion already in this screen's code. Not on a document: a page does not move. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Delete screen` | One confirmation. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> | `All the screen’s actions` | The same context menu the right-click opens, under the button. | free |
+
+Above the frame:
+
+| | Control | What it does | Cost |
+|---|---|---|---|
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Download` | A document: always there, selected or not, and opens `Download the document`. A web screen: only while it is selected, and opens a short menu — `Export as a PNG image (whole page)`, `Export as PowerPoint`, `Download .tsx`. Downloading stays beside the thing it downloads. | free |
+| | The name | **Double-click it to rename** the screen in place (`Double-click to rename`). The menu's `Rename` does the same through a prompt. | free |
+
+The request that created the screen is no longer a button on its label: it is
+`Show the request that created this screen` in the context menu.
 
 Drag any of the eight handles to resize; the pixel size is printed under the
 frame while it is selected.
@@ -348,10 +378,15 @@ sweeps across its neighbours is worse than no card.
 The badge under the picture names its **role**, which is the thing you cannot
 see by looking at it:
 
-- `Placed` — the image is in the screen, as a real `<img>`.
+- `Placed` — the image is in the screen, as a real `<img>`. When Muse also
+  painted its own inspiration plate for that run, the card shows the page's
+  picture: the plate was only looked at.
 - `Inspiration` — the image is **not** in the screen. It was shown to the model
-  as an art-direction reference: palette, light, composition.
-- `Placed + ref.` — both.
+  as an art-direction reference: palette, light, composition. That is what the
+  card shows when the page itself received no picture — Muse's plate, or a
+  library picture you ticked `Inspiration` only.
+- `Placed + ref.` — both: a library picture ticked `In the project` **and**
+  `Inspiration`, looked at and embedded.
 - `Muse image` — the role was never written down. Not a fourth role: it is what
   a screen generated before the distinction existed says instead of guessing.
 - `Motion Ultra · N pictures` — the screen was built by Motion Ultra, and the
@@ -374,21 +409,15 @@ hash belonging to another account — and it exists because the alternative was 
 black rectangle under the ordinary caption, which is also what a cut opening on
 a black frame looks like.
 
-Under that, the design system this screen was actually generated from. The card
-holds one of two buttons, **never both** — which is why they are easy to
-mistake for each other: you only ever see the one that applies, and the other
-is what the same corner of the screen shows on a different screen.
+The design system the screen was generated from is **not** a card beside the
+frame any more. It used to be — a DESIGN.md card under every frame — while the
+Style panel stayed empty whenever the project had no direction of its own, which
+is exactly when those cards were the only answer. It now lives in the Style
+panel, for the selected screen: see [System](#system).
 
-| | Control | What it does | Cost |
-|---|---|---|---|
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> | `Use this design` | Shown when a design **was** recorded. Restores the recorded copy as the project's current direction, byte for byte. No re-reading, no model call. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> | `Derive a DESIGN.md` | Shown when nothing was recorded, and only if the screen has code to read. Asks a model to read the screen and write the design system it implies. | model |
-
-When something was recorded, the little rendering above the swatches is itself a
-button: it opens the document full size, where the same `Use this design` sits
-beside `Save as…`. At canvas zoom that card is a postage stamp.
-
-The window opens on **Web preview**: a mock web page — a browser frame, a header,
+`View larger`, in that panel's `Selected screen` block, opens the design a
+screen recorded full size, where `Use this design` sits beside `Save as…`. The
+window opens on **Web preview**: a mock web page — a browser frame, a header,
 a hero, three cards, a form, a footer — painted with the colours the document
 resolves and set in the typefaces it declares. The headline is the document's
 concept when it has one, the cards are its first layout rules, and under the page
@@ -403,25 +432,25 @@ words too, not only on what a page looks like.
 
 ## The screen context menu
 
-Right-click a screen, or use <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> in its label bar.
+Right-click a screen, or use <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> `All the screen’s actions` at the end of the selected screen's tools, in the top bar.
 
 The menu is in three groups, a rule between them: what **changes** the screen
 (edit, polish, regenerate, media, frames, animations, revert), what **leaves**
 with it (`Export ›`, `Share`), and **housekeeping** (rename, duplicate, notes,
-versions, display format, DESIGN.md, code) — then `Delete screen`. An item with
+versions, display format, DESIGN.md, code, the request that created it) — then `Delete screen`. An item with
 `›` opens a second panel beside the menu, on hover, on a click, or with `→`.
 
 The menu of a document, which opens on its own two items:
 
 :::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
-- 50,4.4 **Edit with a message**: Selects the document and puts the cursor in the composer.
-- 50,10.6 **Polish**: Checks the design against named rules and corrects what it finds.
-- 50,16.7 **Regenerate a variant**: The same prompt again, for a different design.
-- 50,35.1 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
-- 50,43 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides, or PNG images — and the `.tsx`.
-- 50,49.1 **Share**: A temporary public link and a QR code.
-- 50,69.3 **Notes**: Private notes on this screen, never sent to a model.
-- 50,95.6 **Delete screen**: One confirmation, and it is gone.
+- 50,4.2 **Edit with a message**: Selects the document and puts the cursor in the composer.
+- 50,9.9 **Polish**: Checks the design against named rules and corrects what it finds.
+- 50,15.7 **Regenerate a variant**: The same prompt again, for a different design.
+- 50,33.1 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
+- 50,40.5 **Export ›**: `Download…` — PDF with fillable fields, PowerPoint / Google Slides, or PNG images — and the `.tsx`.
+- 50,46.3 **Share**: A temporary public link and a QR code.
+- 50,65.3 **Notes**: Private notes on this screen, never sent to a model.
+- 50,95.8 **Delete screen**: One confirmation, and it is gone.
 :::
 
 | | Item | What it does | Cost |
@@ -431,12 +460,13 @@ The menu of a document, which opens on its own two items:
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> | `Fit to page` | A document only: measures what runs past the page, asks the model to win it back, measures the answer and keeps it only if it fits better, on the same number of pages. See [Documents](documents.md#when-content-runs-past-the-page). | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Regenerate a variant` | Re-runs the screen's own original prompt for a different result. The previous code is kept, so `Revert to the previous version` undoes it. | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Polish (detect and correct)` | The quality pass: check, correct, check again. See [Quality pass](quality.md). | model |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Rename` | A browser prompt. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Rename` | A browser prompt. Double-clicking the name on the frame does the same in place. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 8v4.5l3 2"/></svg> | `Versions of this screen` | Every saved state of this screen — its own versions and every project version that held it — to compare with the current one or restore. See [Versions and branches](versions.md). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg> | `Duplicate` | Copies the screen, named `{name} (copy)`, placed by the same rule as any new screen rather than on top of the original. **The links are not copied** — a duplicate arrives inert, because a hotspot pointing where the original pointed is a flow nobody drew. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v10l-6 6H4zM14 20v-6h6M8 9h8M8 13h4"/></svg> | `Notes` / `Notes (N)` | Your notes on this screen: add, edit, delete, each dated. **Private: never sent to the model** (invariant I9) — to make a remark shape the next generation, copy it into the composer. Not carried over by `Duplicate`. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg> | `Share (QR code)` | Creates a temporary public link to this one screen, with a lifetime you choose. A snapshot: editing the screen afterwards does not change what the other person sees. | server |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l-6-6 6-6M15 6l6 6-6 6"/></svg> | `Show code` | The generated source, read-only. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z"/></svg> | `Show the request that created this screen` | Opens `Original request`, with `Copy the request`. On a screen imported or made before requests were recorded, it says none was. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z"/></svg> | `Pin as layout reference` / `Unpin as reference` | Makes this screen the layout the **next** generations imitate. It does not change this screen. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Export as a PNG image (whole page)` | An ordinary screen only: the whole page as one picture, at 1.5× its size, laid out at the screen's own height so a full-screen hero stays the size you see. See [Exporting a screen as a picture or slides](brand.md#exporting-a-screen-as-a-picture-or-slides). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Export as PowerPoint` | An ordinary screen only: the page cut into 16:9 slides (9:16 for a phone), its text editable, a cut never going through a block of text. | free |
@@ -479,17 +509,17 @@ The creation column on the left from `md` (see [the workspace](#the-project-work
 changes verb depending on what is selected.
 
 :::hotspots src=assets/ui/composer.webp alt="The creation workshop: format, screen type, the prompt, the options, Improve, Generate, Also make and the recent history"
-- 11.9,14.5 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
-- 25.7,19.2 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
-- 49.8,29.2 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
-- 49.8,50.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
-- 49.8,60 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
-- 49.8,65.7 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
-- 49.8,80.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
-- 19.6,40.1 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
-- 77.7,40.1 **Generate**: Creates the screen — or `Update` when screens are selected.
-- 49.8,66.2 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
-- 49.8,81.5 **Recent history**: The screens made last; click one to frame it on the canvas.
+- 11.9,14.9 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 25.7,18.6 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 49.8,26.4 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 49.8,42.8 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 49.8,50.2 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 49.8,54.7 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 49.8,69.1 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 19.6,34.8 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 77.7,34.8 **Generate**: Creates the screen — or `Update` when screens are selected.
+- 49.8,73.6 **Also make**: A campaign (one brief, several formats) or a Motion Ultra film.
+- 49.8,85.5 **Recent history**: The screens made last; click one to frame it on the canvas.
 :::
 
 `Screen type` opens this menu — a [[screen type|screen-type]] for a screen, or a [[document|document]]:
@@ -511,24 +541,26 @@ it is made — options in three named groups: **Style** (`New direction`,
 option is a row: its name, one line of what it does, and a switch that says
 whether it is on. `Motion Ultra` shows its settings (×3 / ×6, the video
 background) under its row once it is on. In the project's column the buttons
-sit right under the field and the options below them, so `Generate` never
-scrolls away. The first composer, on an empty project, is wider and shows the
-same options as one row of equal tiles — icon and switch, name, and what the
-option does in full — with `DESIGN.md` first and `Campaign` beside the format.
+sit right under the field and the options below them, so `Generate` is in view
+as soon as the column opens; the column scrolls as one piece, `Also make` and
+the history after the options. The first composer, on an empty project, is wider and shows the
+same options as equal tiles — icon and switch, name, and what the option does
+in full — with `DESIGN.md` first and `Campaign` beside the format: two columns on
+a phone, three on a tablet or an unfolded phone, two rows from 1024px.
 
 
 | | Chip | What it does | Cost |
 |---|---|---|---|
 | | `New direction` | This prompt writes the project's art direction, which every screen after it follows. **It unticks itself once the screen is generated.** Hidden while editing a screen — an edit reworks what a direction produced, and letting it rewrite that direction would reattribute every other screen in the project. | free (arms the next generation) |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, art direction and real copy. Turning it on changes what a generation costs — see [Muse](muse/overview.md). | free (arms the next generation) |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-6 0-11 4.5-12.5 11L6 20M20 4c0 6-4.5 10.5-11 11.5M20 4 9 15M5 20h6"/></svg> | `Muse` | Inspiration, art direction, real copy and pictures. **On by default**; switching it off gives back the plain generation, byte for byte. Its settings — inspiration links, your pictures, how many pictures to create, the video — are in the Muse panel. See [Muse](muse/overview.md). | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Flows` | On by default. New screens are pages of a **working prototype**: forms, a simulated sign-in, filters and a shared cart work in the demo, and the screens a flow leads to (`account`, `cart`, `confirmation`…) are **created automatically** after the screen, three at most. Off, a screen is generated on its own, as before. Hidden while editing. See [Working prototypes](flows.md). | each created screen is one generation |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg> `Campaign` | On an empty project, beside the format: opens the Campaign panel, which turns one brief into several formats. See [Campaign Studio](campaign.md). | each piece is one generation |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h7v16H3zM13 4h8v8h-8zM13 15h8v5h-8z"/></svg> `Campaign` | On an empty project, beside the format: opens the Campaign panel, which turns one brief into several formats. See [Campaign Studio](campaign.md). | each piece is one generation |
 | | `Format` | The viewport preset for the next screen. Only shown when creating, not when editing. With a document type, the same chips become **page formats** (A4, A3, US Letter, 16:9, or the social sizes). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Screen type` | What kind of screen the next one is — dashboard, planning, kanban, landing page, pricing… — or, under `Documents to print or export` and `Social media`, what kind of document. The type's structure guides the generation; your words still win. **It stays armed**, and a project opens on the type of its latest screen; the ✕ beside it removes it. Ignored in `Reproduce`. | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Picture` · `No picture` / `Generated` / `Free photo` | A document only: whether it carries one picture, and where it comes from. `No picture` composes with shapes and colour. Remembered by the browser. | Generated: the image model's price |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4"/></svg> | `Motion Ultra` | A **project** setting. Off: one quiet chip, and clicking it switches Motion Ultra on for the project. On: the chip pauses it for the next generations of this session, `×3` / `×6` picks how many pictures each new screen gets (`≈ +1 min` / `≈ +2–3 min` beside it), `Video background` gives one section a film rendered by your own machine (`+1–3 min`, off by default), and `✕` switches it off for the project. Hidden while editing. See [Motion Ultra](motion-ultra.md). | ×3 or ×6 pictures, one storyboard call, and one film render when the video background is on |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Images` · `AI` / `Free` / `None` | Where a new screen's new pictures come from: generated by the image model, real free photos from Pexels and Pixabay found from each picture's subject, or nowhere. **None** makes no new picture outside Motion Ultra (it is not offered while Motion Ultra is on, whose series is the pictures); with Muse on, the project's existing pictures then take the places its dossier planned for pictures. Whatever the choice, a new screen is offered the pictures the project's other screens already show, and asked to reuse them unless your request says otherwise. Shown when Muse or Motion Ultra is on or screenshots are attached, with only the choices your account has: no **AI** on the free plan, no **Free** without a Pexels or Pixabay key opened to you. Remembered by the browser. | AI: the image model's price · Free and None: nothing |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> | The brief | Folds and unfolds the Muse dossier. Shown only when Muse is on and you are creating. `Show the full brief` / `Collapse the brief`. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> | `Muse` · `Show` / `Hide` | Folds and unfolds the Muse panel and its dossier. Shown only when Muse is on and you are creating; on a phone it is one of the `Options`. Always folded when a project opens on a touch device — a phone or a tablet — whatever was chosen last time; on a computer it stays as you left it. | free |
 
 Above those sit the transient rows: numbered annotation thumbnails, each with a
 remove button that is visible at rest rather than on hover — hover does not
@@ -550,6 +582,15 @@ The buttons sit on a row of their own, so the field keeps the whole width:
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Improve` | `Improve the prompt` — rewrites what you typed into a complete brief (sections, realistic content, states), for the format and type chosen. The text streams into the field; `Stop` keeps what you had. Unavailable with site screenshots, which are the brief. | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5"/></svg> `Back to your text` | Appears after an improvement: puts your own words back. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Attach screenshots of a site`: see below. Screenshots also arrive by **pasting** into the field or **dropping** them anywhere on the bar. | free |
+
+On a phone (a coarse pointer), three things differ. The first composer, on an
+empty project, has a taller field, and **nothing puts the cursor in it on
+arrival** — nor in the library's search: the keyboard would cover the very
+thing the page was opened to show. And switching an option — a tile, the
+`Images` source, Motion Ultra's count or video, a box in the Muse panel — gives
+a short vibration, so a tap that changed something is felt as well as seen. It
+needs no permission, and a browser without the Vibration API simply stays
+silent.
 
 That one button doing two jobs is the single most common surprise in Mocky: if
 a screen is selected, you are editing it, and there is no new screen coming.
@@ -612,8 +653,28 @@ Open with `Link`. Lists every link in the project, with a count.
 
 ### System
 
-Open with `System`. Your DESIGN.md's colour tokens, as a palette and a rendered
-sample.
+Open with `Style` in the inspector's rail (`System` in the toolbar below `md`).
+Your DESIGN.md's colour tokens, as a palette and a rendered sample. It is the
+**one** place the design shows: no card beside a frame repeats it.
+
+When the project has no direction of its own yet — Muse switched off, no
+DESIGN.md written — the panel is not empty: it shows the design the selected
+screen was built from, or else the newest screen's, and says so (`The project
+has no DESIGN.md yet: this is the one screen “…” was built from`). Recolouring
+it there makes it the project's.
+
+With exactly one screen selected, a `Selected screen · {name}` block sits above
+the palette, with what can be done with that screen's design:
+
+| | Control | What it does | Cost |
+|---|---|---|---|
+| | `View larger` | Shown when the screen **recorded** a design. Opens it full size (below). | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> | `Use this design` | Shown when a design was recorded **and** it is not the project's current one. Restores the recorded copy as the project's direction, byte for byte. No re-reading, no model call. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> | `Derive a DESIGN.md` | Shown when nothing was recorded. Asks a model to read the screen and write the design system it implies. | model |
+
+`Use this design` and `Derive a DESIGN.md` are never shown together — you only
+ever see the one that applies, which is why they are easy to mistake for each
+other.
 
 | Control | What it does | Cost |
 |---|---|---|
@@ -853,9 +914,9 @@ model, everything is revertable from the screen menu.
 |---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1.5V4a1.5 1.5 0 0 1 3 0v7m0-1.5a1.5 1.5 0 0 1 3 0V13m-9 0a1.5 1.5 0 0 0-3 0v2a7 7 0 0 0 7 7h1a7 7 0 0 0 7-7v-4"/></svg> `Interact` (toolbar) | Double-clicking one screen | The toolbar button makes **every** preview clickable at once. The double-click makes exactly one, and that one wears an `Interactive — click outside to leave` badge. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> `Add animations` (context menu) | `Play animations` (context menu) | The first **rewrites the code** to add motion — a model call, revertable. The second only decides whether motion that is already there runs. Both are in the menu's `Animations ›` submenu, under two labels. |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> `Use this design` (beside a frame) | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> `Make this screen my DESIGN.md` (context menu) | The first restores a **recorded** document, exactly, for free. The second asks a model to **read the screen and write a new one**. Same intent, opposite mechanism, and only one of them costs anything. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> `Use this design` (Style panel) | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> `Make this screen my DESIGN.md` (context menu) | The first restores a **recorded** document, exactly, for free. The second asks a model to **read the screen and write a new one**. Same intent, opposite mechanism, and only one of them costs anything. |
 | `Apply` in the System panel | A `Recolor` swatch in the Element card | The System panel rewrites a token in DESIGN.md: free, and it changes **future** generations only. The Element swatch is a model edit of **this** element, right now, and leaves DESIGN.md alone. |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z"/></svg> `Pin as layout reference` | `Use this design` | The pin governs **layout** for the next screens. The design card governs the **art direction**. A screen can be one, the other, both or neither. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z"/></svg> `Pin as layout reference` | `Use this design` | The pin governs **layout** for the next screens. `Use this design` governs the **art direction**. A screen can be one, the other, both or neither. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> `System` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> `Edit DESIGN.md` | Same icon, two depths: the panel shows the tokens and recolours them; the page is the document itself. `Edit` inside the panel is the bridge. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> `Regenerate a variant` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` | The first throws the screen away and asks again from the same prompt: a different design. The second keeps the design and fixes named defects in it. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> `Audit` findings | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` findings | Two catalogues, two scores, two correction prompts. One is about markup, the other about taste. Neither one's score appears in the other's field. |
@@ -913,7 +974,7 @@ this is the complete list.
 
 | Control | Where | Note |
 |---|---|---|
-| `Generate` | Composer | With `Muse` on, the one click also runs the inspiration pass and may call the image provider. With `Motion Ultra` on, it also runs a storyboard call and generates ×3 or ×6 pictures — and, with `Video background`, composes one film (a text call) and renders it on the worker. |
+| `Generate` | Composer | With `Muse` on — the default — the one click also runs the inspiration pass and may call the image provider: for the page's pictures, and, when pictures are generated, once more for Muse's inspiration plate. With `Motion Ultra` on, it also runs a storyboard call and generates ×3 or ×6 pictures — and, with `Video background`, composes one film (a text call) and renders it on the worker. |
 | `Update ({count})` | Composer | One call per selected screen. |
 | `Improve` | Composer | One call that rewrites your prompt; nothing is generated until you press `Generate`. |
 | Repair | Automatic, after a failed render | The only unprompted model call — and it only happens after a generation you asked for produced code that will not run. Capped at two attempts. |
@@ -922,7 +983,7 @@ this is the complete list.
 | `Add animations` — `Subtle` / `Moderate` / `Rich` | Screen context menu | |
 | `Fit to page` | A document's context menu | One call, and two off-screen renders to measure before and after. |
 | `Make this screen my DESIGN.md` | Screen context menu | |
-| `Derive a DESIGN.md` | Design card beside a frame | |
+| `Derive a DESIGN.md` | Style panel, `Selected screen` block | |
 | `Text` → `Update` | Element card | **Only** when the text is not a unique verbatim match. Otherwise free and instant. |
 | `Recolor` swatches, custom hex → `Go` | Element card | Every swatch is a model edit. |
 | `Apply change` | Element card | |
