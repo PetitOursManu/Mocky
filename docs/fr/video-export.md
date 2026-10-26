@@ -1,5 +1,5 @@
 ---
-source_hash: 56e0f95ef4d6
+source_hash: ace8c9abc230
 ---
 
 # Motion Ultra — films
@@ -2716,10 +2716,12 @@ qui se réduit à rien une fois rognée. Mocky validait un document que son prop
 moteur de rendu renvoie — le montage passe, le travail est mis en file,
 l’utilisateur attend un rendu, et le refus arrive au bout à propos d’une légende
 qu’il a sous les yeux. Chaque champ texte du schéma passe désormais par `line()`,
-soit `min(1).max(n)` plus `/\S/`. Un `regex` et non un `refine`, parce qu’un
-raffinement enveloppe la chaîne dans un `ZodEffects` et que `draft.ts` lit
-`TextOverlaySchema.shape.content.maxLength` sur le schéma précisément pour qu’un
-attribut `maxLength` ne dérive pas de la règle. Et refusé plutôt que rogné :
+soit `min(1).max(n)` plus `/\S/`. Un `regex` et non un `refine`, parce que
+`draft.ts` lit `TextOverlaySchema.shape.content.maxLength` sur le schéma
+précisément pour qu’un attribut `maxLength` ne dérive pas de la règle, et que
+sous zod 3 un raffinement enveloppait la chaîne dans un `ZodEffects` qui n’a pas
+ce champ. Zod 4 raffine sur place ; le `regex` reste, et un test épingle la
+lecture. Et refusé plutôt que rogné :
 rogner est une réparation, et l’appelant est un modèle à qui l’on peut le dire.
 
 ---

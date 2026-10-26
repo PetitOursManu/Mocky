@@ -991,7 +991,8 @@ export function attachTheme(timeline, theme) {
  */
 export function readableIssues(error) {
   return (error?.issues || []).map((issue) => ({
-    path: issue.path.join('.'),
+    // zod 4 types a path as `PropertyKey[]`, and `join` throws on a symbol.
+    path: issue.path.map(String).join('.'),
     message: issue.message,
   }))
 }

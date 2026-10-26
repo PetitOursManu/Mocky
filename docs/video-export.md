@@ -2553,9 +2553,11 @@ nothing. Mocky validated a document its own renderer throws back — the timelin
 passes, the job is queued, the user waits out a render, and the refusal arrives
 at the end of it about a caption they can see on screen. Every text field in the
 schema now takes `line()`, which is `min(1).max(n)` plus `/\S/`. A `regex` and
-not a `refine`, because a refinement wraps the string in a `ZodEffects` and
-`draft.ts` reads `TextOverlaySchema.shape.content.maxLength` off the schema
-precisely so a `maxLength` attribute cannot drift from the rule. And refused
+not a `refine`, because `draft.ts` reads
+`TextOverlaySchema.shape.content.maxLength` off the schema precisely so a
+`maxLength` attribute cannot drift from the rule, and under zod 3 a refinement
+wrapped the string in a `ZodEffects` that has no such field. Zod 4 refines in
+place; the regex stays, and a test pins the read. And refused
 rather than trimmed: trimming is a repair, and the caller is a model that can be
 told.
 
