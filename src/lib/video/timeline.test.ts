@@ -135,10 +135,11 @@ describe('SlideshowSceneSchema', () => {
 
   it('keeps the bound readable off the schema, so a maxLength attribute cannot drift', () => {
     // `draft.ts` reads `TextOverlaySchema.shape.content.maxLength` rather than
-    // retyping 120 into an input. A refinement would wrap the string in a
-    // `ZodEffects` and that read would answer `undefined`, falling silently
-    // through to a copy of the number — which is why the blank check above is a
-    // `regex` and not a `refine`.
+    // retyping 120 into an input. Under zod 3 a refinement wrapped the string in
+    // a `ZodEffects` and that read answered `undefined`, falling silently through
+    // to a copy of the number — which is why the blank check above is a `regex`
+    // and not a `refine`. Zod 4 refines in place; this keeps the read honest
+    // whichever way the check is written.
     expect(TextOverlaySchema.shape.content.maxLength).toBe(TEXT_LIMITS.overlay)
   })
 

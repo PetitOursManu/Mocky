@@ -662,9 +662,9 @@ function buildCardSystem(imageCount, chosen) {
  */
 
 /** Every block schema, by kind. `z.discriminatedUnion` keeps its members in `.options`. */
-const BLOCK_OPTIONS = Object.fromEntries(BlockSchema.options.map((opt) => [opt.shape.kind._def.value, opt]))
+const BLOCK_OPTIONS = Object.fromEntries(BlockSchema.options.map((opt) => [opt.shape.kind.value, opt]))
 /** The same, for the six grounds. */
-const GROUND_OPTIONS = Object.fromEntries(BackgroundSchema.options.map((opt) => [opt.shape.kind._def.value, opt]))
+const GROUND_OPTIONS = Object.fromEntries(BackgroundSchema.options.map((opt) => [opt.shape.kind.value, opt]))
 
 /**
  * A field, unwrapped to the node that decides its shape.
@@ -679,14 +679,15 @@ function unwrap(schema) {
   let hasDefault = false
   let defaultValue
   for (;;) {
-    const kind = node?._def?.typeName
-    if (kind === 'ZodDefault') {
+    const kind = node?._def?.type
+    if (kind === 'default') {
       hasDefault = true
-      defaultValue = node._def.defaultValue()
+      // A value in zod 4 (a getter that clones it), where zod 3 had a function.
+      defaultValue = node._def.defaultValue
       node = node._def.innerType
       continue
     }
-    if (kind === 'ZodOptional' || kind === 'ZodNullable') {
+    if (kind === 'optional' || kind === 'nullable') {
       optional = true
       node = node._def.innerType
       continue
@@ -695,10 +696,18 @@ function unwrap(schema) {
   }
 }
 
-/** `min`/`max` off a zod check list, whichever are there. */
-function checkValue(checks, kind) {
-  const found = (checks || []).find((check) => check.kind === kind)
-  return found ? found.value : undefined
+/**
+ * One bound off a zod check list: `greater_than`/`less_than` on a number,
+ * `min_length`/`max_length` on a string or an array.
+ *
+ * Read off the checks and not off zod 4's `minValue`/`maxValue` getters, because
+ * `.int()` publishes the safe-integer range there: a whole number with no bound
+ * of its own would print as `-9007199254740991–9007199254740991` instead of
+ * "a whole number".
+ */
+function checkValue(checks, name) {
+  const found = (checks || []).map((check) => check._zod.def).find((def) => def.check === name)
+  return found ? (found.value ?? found.minimum ?? found.maximum) : undefined
 }
 
 /**
@@ -713,10 +722,15 @@ function checkValue(checks, kind) {
  */
 function stringSpec(name, checks) {
   if (name === 'imageId' || name === 'imageIds') return 'one id, copied from the list in the next message'
-  const max = checkValue(checks, 'max')
+  const max = checkValue(checks, 'max_length')
   if (max !== undefined) return `≤${max}`
-  const regex = (checks || []).find((check) => check.kind === 'regex')
-  if (regex?.message) return `(${regex.message})`
+  const regex = (checks || [])
+    .map((check) => check._zod.def)
+    .find((def) => def.check === 'string_format' && def.format === 'regex')
+  // zod 4 keeps a check's message behind a function, which hands back the
+  // string the schema was written with.
+  const message = regex?.error?.()
+  if (message) return `(${message})`
   return 'text'
 }
 
@@ -738,34 +752,34 @@ function describeField(name, schema) {
   const def = node?._def ?? {}
   let spec = '(unrecognised)'
   let hint = { type: 'string' }
-  switch (def.typeName) {
-    case 'ZodLiteral':
-      spec = JSON.stringify(def.value)
-      hint = { type: 'string', enum: [def.value] }
+  switch (def.type) {
+    case 'literal':
+      spec = JSON.stringify(node.value)
+      hint = { type: 'string', enum: [node.value] }
       break
-    case 'ZodEnum':
-      spec = def.values.join('|')
-      hint = { type: 'string', enum: [...def.values] }
+    case 'enum':
+      spec = node.options.join('|')
+      hint = { type: 'string', enum: [...node.options] }
       break
-    case 'ZodBoolean':
+    case 'boolean':
       spec = 'true|false'
       hint = { type: 'boolean' }
       break
-    case 'ZodNumber': {
-      const min = checkValue(def.checks, 'min')
-      const max = checkValue(def.checks, 'max')
+    case 'number': {
+      const min = checkValue(def.checks, 'greater_than')
+      const max = checkValue(def.checks, 'less_than')
       spec = min !== undefined && max !== undefined ? `${min}–${max}` : 'a whole number'
       hint = { type: 'integer' }
       break
     }
-    case 'ZodString':
+    case 'string':
       spec = stringSpec(name, def.checks)
       hint = { type: 'string' }
       break
-    case 'ZodArray': {
-      const inner = describeField(name, def.type)
-      const min = def.minLength?.value
-      const max = def.maxLength?.value
+    case 'array': {
+      const inner = describeField(name, def.element)
+      const min = checkValue(def.checks, 'min_length')
+      const max = checkValue(def.checks, 'max_length')
       const bounds =
         min !== undefined && max !== undefined ? `${min}–${max}` : max !== undefined ? `up to ${max}` : 'any'
       spec = `[${bounds} × ${inner.bare}]`
@@ -782,7 +796,7 @@ function describeField(name, schema) {
       }
       break
     }
-    case 'ZodObject': {
+    case 'object': {
       // The one nested shape in the catalogue: a `codeBlock` line, which is a
       // string plus what the line is FOR. It is walked rather than printed as
       // "an object" for the same reason everything else here is derived — a
@@ -862,7 +876,7 @@ function imageNeed(option) {
   let need = 0
   for (const [name, field] of Object.entries(option.shape)) {
     if (name === 'imageId') need = Math.max(need, 1)
-    if (name === 'imageIds') need = Math.max(need, unwrap(field).node?._def?.minLength?.value ?? 1)
+    if (name === 'imageIds') need = Math.max(need, checkValue(unwrap(field).node?._def?.checks, 'min_length') ?? 1)
   }
   return need
 }
@@ -939,8 +953,8 @@ function sceneVocabulary() {
   const layers = unwrap(ComposedSceneSchema.shape.layers).node._def
   const sample = BLOCK_OPTIONS[BLOCK_KINDS[0]]
   return {
-    layersMin: layers.minLength?.value,
-    layersMax: layers.maxLength?.value,
+    layersMin: checkValue(layers.checks, 'min_length'),
+    layersMax: checkValue(layers.checks, 'max_length'),
     enterSpec: describeField('enter', sample.shape.enter).bare,
     anchorDefault: unwrap(sample.shape.anchor).defaultValue,
   }

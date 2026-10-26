@@ -840,12 +840,13 @@ export const VideoThemeSchema = z
  * worker — `draftBlockers` trims before it calls a required box filled — so this
  * is the schema catching up with both of its neighbours.
  *
- * A `regex` check and not a `refine`, deliberately: a refinement wraps the string
- * in a `ZodEffects`, and `draft.ts` reads
+ * A `regex` check and not a `refine`, deliberately: `draft.ts` reads
  * `TextOverlaySchema.shape.content.maxLength` off the schema precisely so a
- * `maxLength` attribute cannot drift from the rule. Wrapped, that read answers
- * `undefined` and falls through to a copy of the number — the drift it exists to
- * prevent, arriving silently.
+ * `maxLength` attribute cannot drift from the rule, and under zod 3 a refinement
+ * wrapped the string in a `ZodEffects` on which that read answers `undefined` and
+ * falls through to a copy of the number — the drift it exists to prevent,
+ * arriving silently. Zod 4 refines in place and would keep the read; the regex
+ * stays, and `timeline.test.ts` pins the read whichever way it is kept.
  *
  * Refused, never trimmed. Trimming is a repair, and the caller is a model that
  * can simply be told.
@@ -1161,10 +1162,11 @@ export const LowerThirdBlockSchema = block('lowerThird', {
 // 10 000 flattens every other bar to a hairline. A percentage is a shape.
 //
 // `labels` is allowed to be a different length from `values` and the composition
-// draws the pairs it has. Enforcing equality would need a refinement, a
-// refinement wraps the object in a `ZodEffects`, and `z.discriminatedUnion`
-// accepts objects only — so the rule would have to move somewhere nobody reading
-// this file would find it, to refuse a document whose worst outcome is a bar
+// draws the pairs it has. Enforcing equality would need a refinement. Under
+// zod 3 that wrapped the object in a `ZodEffects`, which `z.discriminatedUnion`
+// refused, so the rule would have had to move somewhere nobody reading this file
+// would find it; zod 4 refines in place and lifts that. The trade is unchanged
+// either way: the rule would refuse a document whose worst outcome is a bar
 // without a caption under it.
 
 export const BarChartBlockSchema = block('barChart', {

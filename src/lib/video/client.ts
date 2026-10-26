@@ -213,8 +213,8 @@ const idsIn = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 
 /** The same projection `readableIssues()` makes server-side, so both read alike. */
-export function readableIssues(error: { issues?: { path: (string | number)[]; message: string }[] }): TimelineIssue[] {
-  return (error?.issues || []).map((issue) => ({ path: issue.path.join('.'), message: issue.message }))
+export function readableIssues(error: { issues?: { path: PropertyKey[]; message: string }[] }): TimelineIssue[] {
+  return (error?.issues || []).map((issue) => ({ path: issue.path.map(String).join('.'), message: issue.message }))
 }
 
 /**
