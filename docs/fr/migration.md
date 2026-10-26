@@ -1,5 +1,5 @@
 ---
-source_hash: 6f85c7c51203
+source_hash: d09a96bb6ba9
 ---
 
 # Maintenance et migration de serveur
@@ -135,6 +135,8 @@ Tout le dossier de données part, **sauf** :
 - `mcp-oauth.json` — les jetons des assistants connectés ([MCP](mcp.md)), pour
   la raison qui fait rester les sessions : chaque assistant redemande l’accord
   une fois ;
+- `mcp-keys.json` — les clés d’assistant, pour la même raison : chaque personne
+  crée une nouvelle clé sur le nouveau serveur et la donne à son assistant ;
 - `mcp-jobs.json` et `mcp-shots/` — la file de l’exécuteur sans interface et
   ses images : les travaux du serveur qu’on quitte, et des captures qui se
   reprennent ;

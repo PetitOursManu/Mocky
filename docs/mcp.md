@@ -8,6 +8,10 @@ It is **off by default**, and off means absent: no endpoint, no discovery
 document, nothing a scanner could find. It is switched on by an administrator,
 for the accounts they choose, and only on an instance served over HTTPS.
 
+An assistant configured by hand — an assistant like Claude, or a
+script — can use an [assistant key](#assistant-keys) instead: a fixed key the
+account makes for itself, read-only or read and write.
+
 ## What an assistant can do
 
 | Tool | What it does |
@@ -159,6 +163,9 @@ and connections kept.
 
 - **Allow assistants to connect** — the switch. Switching off suspends every
   connection without deleting it; they work again if it is switched back on.
+- **Allow assistant keys** — a second switch, off by default. On, each account
+  on the list can make its own [assistant keys](#assistant-keys); off, existing
+  keys are suspended, not deleted.
 - **Who may connect an assistant** — every account, or a list. The list starts
   **empty**, and an administrator is **not** allowed by their role: add yourself
   if you want to use it, as with every other access list in Mocky.
@@ -175,8 +182,11 @@ and connections kept.
   (from the runner onwards).
 
 The page shows the **address to give the assistant** — `${MOCKY_ORIGIN}/mcp` —
-and the list of **active connections**: account, assistant, since when, last
-used, and a button that cuts one.
+the list of **active connections**: account, assistant, since when, last
+used, and a button that cuts one — and the list of **assistant keys**: account,
+name, level, created, last used, expiry, and **Revoke**. Never a key's value:
+nobody can see one after its creation, and an administrator cannot make one for
+somebody else.
 
 ### The headless runner
 
@@ -214,12 +224,18 @@ Chromium itself. Nobody needs a tab open.
   **by hash** (SHA-256): a copy of the file does not let anyone call `/mcp`.
   Mode `0600`. It does **not** travel with a [migration](migration.md): like
   sessions, each assistant asks for consent again once on the new server.
+- `mcp-keys.json` — the [assistant keys](#assistant-keys), stored **by hash**
+  (SHA-256) with their name, level, account and dates: a copy of the file does
+  not let anyone call `/mcp`. Mode `0600`. It does **not** travel with a
+  migration either: each person makes a new key on the new server.
 - The **audit log** gains a group, *Assistants (MCP)*: a settings change (field
-  names only), a connection, a disconnection, and a **reused token** — two
-  parties holding the same refresh token, which cuts that connection.
+  names only), a connection, a disconnection, a **reused token** — two
+  parties holding the same refresh token, which cuts that connection —, and the
+  creation and revocation of an assistant key (its name and level, never the
+  key).
 
-Removing an account from the list cuts its connections at once; deleting an
-account deletes them.
+Removing an account from the list cuts its connections and deletes its keys at
+once; deleting an account deletes both.
 
 ## Who writes the code
 
@@ -305,6 +321,112 @@ Then, in every case:
    where you will be sent back. **Allow** or **Deny** — a refusal is handed back
    to the assistant, which stops waiting.
 
+## Assistant keys
+
+Some assistants do not go through OAuth: an assistant configured by hand — an
+assistant like Claude —, a script, a scheduled job. For them, an
+account can make an **assistant key**: a fixed key that acts as that account on
+`/mcp`, and nowhere else. Everything else on this page still holds for it — the
+switch, the access list, the account's daily quota and its one job at a time,
+maintenance.
+
+### The two levels
+
+| Level | What it reaches |
+|---|---|
+| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `audit_design`, `search_free_images` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
+| **Read and write** | Every tool the account may use, as with an OAuth connection. |
+
+The read-only list is **closed**, in code (`server/mcp/levels.js`): a tool
+added to Mocky later counts as one that writes until it is declared there. On a
+read-only key, `audit_design` changes nothing — though with `deep: true` it
+makes one call to Mocky's model, paid by the instance, like any audit —,
+`search_free_images` uses the instance's photo libraries, and `get_design` can
+wait for work the same account started elsewhere.
+
+A key's level cannot be changed: revoke it and make another.
+
+### Making one
+
+1. The administrator switches on **Allow assistant keys** in Admin → Assistants
+   (MCP), and puts the account on the list (or opens it to every account).
+2. Signed in as that account, **Settings → Connected assistants → Assistant
+   keys**: a name, a level (read-only unless you choose otherwise), an expiry
+   (never, 7, 30, 90 or 365 days), and the account's password again — a key
+   lasts longer than a session. An account that signs in through SSO only has
+   no password here, and its session is enough: for that account, a session
+   left open is all it takes to make a key that outlives it. Put such an account
+   on the list only if it needs an assistant, and check its keys after any doubt
+   about one of its sessions.
+3. The key is shown **once**, with a button to copy it and the line for Claude
+   Code. Mocky keeps only its fingerprint (SHA-256): nobody, the administrator
+   included, can show it again. A lost key is revoked and replaced.
+
+At most five keys per account, a thousand per instance.
+
+**For an assistant of its own, use an account of its own.** An administrator
+creates it (Admin → Users) with a long random password, adds it to the list,
+signs in as it once to make the key, and gives the key to the assistant. The
+key then reaches that account's projects and nobody else's. The password is
+needed only to make keys; keep it long, because ten wrong passwords freeze the
+account — its keys included — for fifteen minutes.
+
+An administrator never makes a key for another account. A key acts as the
+account that made it, from its own session — the same rule as a consent —, and
+the admin page can revoke a key but never show or create one (X8).
+
+### Using it
+
+The assistant sends the key in the `Authorization` header, on
+`${MOCKY_ORIGIN}/mcp`:
+
+```http
+Authorization: Bearer mocky_ak_…
+```
+
+For Claude Code, in one line:
+
+```bash
+claude mcp add --transport http --scope user mocky https://<your-mocky>/mcp --header "Authorization: Bearer <key>"
+```
+
+A key is never read from an address or a cookie, and it opens nothing but
+`/mcp`: it is not a session. Behind a reverse proxy, set `TRUST_PROXY` (see
+[deployment](deployment.md)): failed keys are counted per address, and without
+it every request seems to come from the proxy.
+
+**A key the assistant keeps sending after it expired or was revoked fails on
+every call**, and Mocky cannot tell those failures from guesses — that is why
+every refusal looks the same. After ten, the address is frozen on the key path
+for fifteen minutes, and each one is a `mocky auth failure` line: with the jail
+in `deploy/fail2ban/` (`maxretry = 10` in ten minutes, `bantime = 1h`),
+fail2ban then bans the address from the whole of Mocky for an hour. If the
+assistant goes out through the same address as the owner's browser — the same
+machine, the same home or office connection —, the owner loses access too. So
+take a key out of the assistant's configuration when you revoke it, and replace
+a key before it expires. A key suspended by the switch is not counted: nothing
+is compared.
+
+### Revoking it
+
+- **The person**: Settings → Connected assistants → **Revoke**. It stops working
+  on the next call.
+- **The administrator**: the **Assistant keys** list in Admin → Assistants
+  (MCP) → **Revoke**.
+- Removing the account from the list, or deleting the account, deletes its keys.
+- Switching the MCP server off, or **Allow assistant keys** off, **suspends**
+  every key; they work again when it is switched back on.
+- An expired key is refused, and stays on the list, marked expired, for thirty
+  days.
+- **Resetting the account's password** (Admin → Users) signs it out
+  everywhere, but revokes **neither its assistant keys nor its OAuth
+  connections**: neither is a session. When a reset is because the account may
+  be compromised, revoke its keys and cut its connections by hand, in Admin →
+  Assistants (MCP).
+
+Each creation and revocation is in the audit log, with the key's name and
+level — never the key.
+
 ## How it is secured
 
 - **The Mocky session decides who you are.** The OAuth authorization page sends
@@ -326,8 +448,17 @@ Then, in every case:
   `Content-Security-Policy: sandbox allow-scripts`: an opaque origin, no
   cookie, no storage, whoever opens it.
 
+- **An assistant key is kept like a token.** 256 random bits behind the
+  `mocky_ak_` prefix, stored only as a fingerprint and compared in constant
+  time. An unknown, wrong, expired, revoked or suspended key gets exactly the
+  answer an invalid OAuth token gets; ten failures freeze the address, and the
+  key, for fifteen minutes, and each one is a `mocky auth failure` line the
+  fail2ban filter in `deploy/fail2ban/` already matches. A read-only key
+  reaches a closed list of tools.
+
 The rules are written down as [series X](architecture/invariants.md) of the
-invariants, X5 and X6 for the runner, X7 for the live view.
+invariants, X5 and X6 for the runner, X7 for the live view, X8 and X9 for
+assistant keys.
 
 ## A Mocky the assistants cannot reach
 
@@ -370,5 +501,5 @@ unchanged. Mocky stays the server: same switch, same list, same consent page.
 `MOCKY_MCP_INSECURE_LOOPBACK=1` accepts an `http://localhost` or
 `http://127.0.0.1` origin. Nothing outside the machine can reach a loopback
 address, so this only serves a client on the same machine — Claude Code, for
-instance — and the end-to-end test (`tests/mcp-oauth-e2e.test.js`). Never on a
-server.
+instance — and the end-to-end tests (`tests/mcp-oauth-e2e.test.js`,
+`tests/mcp-keys-e2e.test.js`). Never on a server.

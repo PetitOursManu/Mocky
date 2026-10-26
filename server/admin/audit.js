@@ -56,6 +56,8 @@ export const AUDIT_ACTIONS = [
   'mcp.connect',
   'mcp.revoke',
   'mcp.token-reuse',
+  'mcp.key-create',
+  'mcp.key-revoke',
 ]
 
 const ACTIONS = new Set(AUDIT_ACTIONS)

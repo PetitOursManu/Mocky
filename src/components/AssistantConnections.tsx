@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, type AccountMcpView, type McpEngine } from '../lib/api'
 import { Button, ButtonLink, Icon, Input, Select } from '../ui'
 import { useT } from '../i18n'
+import AssistantKeys from './AssistantKeys'
 
 /**
  * Settings → Connected assistants: the address to give Claude or ChatGPT, and
@@ -181,6 +182,11 @@ export default function AssistantConnections() {
         </ul>
       ) : (
         view && view.active && view.allowed && <p className="text-body-sm text-ink-muted">{t('mcp.account.empty')}</p>
+      )}
+      {/* A fixed key, for an assistant configured by hand (X8). Listed — to be
+          revoked — even while it cannot be used; made only where it could be. */}
+      {view && ((view.active && view.allowed) || view.keys.length > 0) && (
+        <AssistantKeys view={view} canCreate={view.active && view.allowed} onChanged={load} />
       )}
     </section>
   )

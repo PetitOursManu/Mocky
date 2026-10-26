@@ -1065,9 +1065,10 @@ newer copy's.
 | `video-exports.json` | Exported films: bytes, container, scene count, duration — and `owners` under the same cap. Never the timeline, which carries somebody's overlay text |
 | `video-exports/<hash>.mp4\|.webm` | The finished film, whole. A different directory from `video-library/` on purpose: that one holds *scroll sequences*, cut into stills by ffmpeg, and every consumer of its `list()` expects frames a film does not have |
 | `video-jobs.json` | The render queue's journal: the newest 50 finished jobs, plus whatever is live. A job found mid-flight at boot is marked failed, never resumed |
-| `mcp-config.json` | Admin → Assistants (MCP): the switch, who may connect, accepted clients, token lifetimes, the daily quota |
+| `mcp-config.json` | Admin → Assistants (MCP): the switch, who may connect, accepted clients, token lifetimes, the daily quota, whether assistant keys are allowed |
 | `mcp-prefs.json` | Each person's default engine for designs asked for by an assistant (phase 4) |
 | `mcp-oauth.json` | Registered clients and connections, tokens stored **by hash** (X3), mode `0600`. Never travels with a migration |
+| `mcp-keys.json` | Assistant keys: account, name, level, dates, and the key **by hash** only (X8), mode `0600`. Never travels with a migration |
 | `mcp-jobs.json`, `mcp-shots/` | The runner's recent jobs and the pictures it took: the last 200, a week at most |
 | `.migration/` | A migration's own state on the NEW server: `staging/` (the files pulled so far), `staged.json` (their hashes, so a pass resumes), `report.json` (the last import, for *Check integrity*) and `previous-<time>/` (what the data directory held before the swap — moved, never deleted). Never listed by a manifest itself |
 
@@ -1102,13 +1103,14 @@ nothing inside them may grow without a ceiling.
 | `GET /api/review/:token`, `POST …/comments` (30/min), `…/decision` (10/min) | **the link**, no account | The client's side: one round, its version's screens through the `publicScreen` whitelist (V5) |
 | `GET /api/mcp/status` | session | State of every declared MCP server |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
-| `POST /mcp` | bearer | The MCP server: JSON-RPC, stateless. **404 while it is off**, like the OAuth routes and `/mcp-shot` (X1) |
+| `POST /mcp` | bearer: an OAuth token, or an assistant key (`mocky_ak_…`, X8) | The MCP server: JSON-RPC, stateless. **404 while it is off**, like the OAuth routes and `/mcp-shot` (X1). A read key reaches only the read tools (X9) |
 | `/.well-known/oauth-*`, `/register`, `/authorize`, `/token`, `/revoke` | — | OAuth 2.1 for assistants, from `@modelcontextprotocol/sdk` |
 | `GET`/`POST /api/connect/:id` | session | The consent page's question and its answer |
-| `GET`/`DELETE /api/account/mcp-connections` | session | Settings → Connected assistants |
+| `GET`/`DELETE /api/account/mcp-connections` | session | Settings → Connected assistants: connections, and the account's keys without their value |
+| `POST /api/account/mcp-keys`, `DELETE /api/account/mcp-keys/:id` | session (+ password to create) | A person makes and revokes their own assistant keys. The `201` of a creation is the only answer that carries a key |
 | `PUT /api/account/mcp-prefs` | session | Who writes this account's designs: `409` for an engine the administrator did not allow |
 | `GET /mcp-shot/:file` | signed link | A runner picture, for an assistant that shows no tool image. Valid a day, and not after a restart |
-| `/api/admin/mcp/*` | admin | Settings, connections, *Check the runner*, *Run the try* |
+| `/api/admin/mcp/*` | admin | Settings, connections, assistant keys (to see and revoke, never to create), *Check the runner*, *Run the try* |
 | `POST /api/muse/audit` | session | The judged half of the SEO/accessibility report. `400` only when `code` is missing; **`200` with an empty list and a notice when there is no model** |
 | `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` in, one report out. `400` only when `code` is missing; **`200` even with no model configured** — see below |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Generation is the expensive verb |

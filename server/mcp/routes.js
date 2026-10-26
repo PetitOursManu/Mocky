@@ -3,9 +3,11 @@
  *
  *   /.well-known/oauth-*                  discovery (SDK)
  *   /register /authorize /token /revoke   OAuth 2.1 (SDK router + provider.js)
- *   /mcp                                  the MCP endpoint, bearer-protected
+ *   /mcp                                  the MCP endpoint, bearer-protected: an OAuth
+ *                                         token, or an assistant key (key-auth.js, X8)
  *   /api/connect/:id                      the consent page's two calls (session)
- *   /api/account/mcp-connections          a person's own connections
+ *   /api/account/mcp-connections          a person's own connections and keys
+ *   /api/account/mcp-keys                 a person creates and revokes their keys
  *   /api/admin/mcp…                       the administrator's section
  *
  * X1 is enforced HERE, per request: unless an administrator switched it on AND
@@ -26,6 +28,9 @@ import { createOAuthStore } from './oauth-store.js'
 import { createMcpOAuthProvider } from './provider.js'
 import { buildMcpServer } from './tools.js'
 import { buildSkillZip } from './skill.js'
+import { createKeyStore, KeyError, KEY_EXPIRY_DAYS, MAX_KEYS_PER_ACCOUNT, KEY_NAME_MAX } from './keys.js'
+import { createKeyAuth } from './key-auth.js'
+import { KEY_LEVELS } from './levels.js'
 
 /** The paths that must not exist while the server is off (X1). */
 const MCP_PATHS = /^\/(?:mcp|mcp-shot|mcp-view|register|authorize|token|revoke)(?:\/|$)|^\/\.well-known\/oauth-(?:authorization-server|protected-resource)(?:\/|$)/
@@ -51,11 +56,16 @@ export const SHOT_LINK_TTL_MS = 24 * 60 * 60 * 1000
  * @param {(user:object) => boolean} d.hasTextProvider   whether this account has a generation provider
  * @param {(user:object) => boolean} [d.usesOwnText]     whether it chose its own key, kept in its browser
  * @param {(userId: string) => void} d.touchMcp     presence: this account is using Mocky through an assistant
+ * @param {(username: string) => number} [d.accountLocked]   seconds left on an account's sign-in freeze
+ * @param {(event: string, req, username: string) => void} [d.logAuth]  the fail2ban line
+ * @param {(req, res) => boolean} [d.confirmPassword]   step-up: the signed-in person's password again
+ * @param {(limit: number, windowMs: number, name: string) => Function} [d.rateLimit]  per-address limiter
  */
 export function createMcpServerRoutes(d) {
   const config = new McpConfigStore(d.dataDir)
   const prefs = new McpPrefsStore(d.dataDir)
   const store = createOAuthStore(d.dataDir)
+  const keys = createKeyStore(d.dataDir)
   const originOk = originAllowsMcp(d.origin)
   const origin = originOk ? new URL(d.origin).origin : null
   const resource = () => `${origin}/mcp`
@@ -102,6 +112,26 @@ export function createMcpServerRoutes(d) {
       })
     : null
 
+  // The other door to /mcp (X8), chosen on the key's prefix BEFORE the SDK's
+  // bearer: a value without it takes the OAuth path above, untouched.
+  const keyAuth = originOk
+    ? createKeyAuth({
+        keys,
+        config: () => config.get(),
+        findUser: d.findUser,
+        accountLocked: d.accountLocked,
+        logAuth: d.logAuth,
+        clientIp: d.clientIp,
+        resource,
+        resourceMetadataUrl: `${origin}/.well-known/oauth-protected-resource/mcp`,
+      })
+    : null
+  // Step-up and limiter for a key's creation; the defaults exist for tests that
+  // mount these routes without the rest of the server.
+  const confirmPassword = d.confirmPassword || (() => true)
+  const keyRateLimit = d.rateLimit ? d.rateLimit(20, 60_000, 'mcp-key') : (_req, _res, next) => next()
+  const keysOn = () => config.get().keys === true
+
   /*
    * Picture links for an assistant whose host does not show a tool's image
    * inline: `/mcp-shot/<hash>.jpg?e=<expiry>&s=<signature>`. A capability URL,
@@ -139,14 +169,19 @@ export function createMcpServerRoutes(d) {
     return list.map((c) => ({ ...c, username: d.findUser(c.userId)?.username ?? null }))
   }
 
-  /** Connections of accounts no longer on the list go at once, not at their next call. */
+  /** Connections and keys of accounts no longer on the list go at once, not at their next call. */
   function revokeDisallowed() {
-    let n = 0
+    let connections = 0
     for (const c of store.listConnections()) {
       const u = d.findUser(c.userId)
-      if (!u || !scopeAllows(config.get().access, u)) n += store.revoke(c.id) ? 1 : 0
+      if (!u || !scopeAllows(config.get().access, u)) connections += store.revoke(c.id) ? 1 : 0
     }
-    return n
+    let gone = 0
+    for (const userId of new Set(keys.list().map((k) => k.userId))) {
+      const u = d.findUser(userId)
+      if (!u || !scopeAllows(config.get().access, u)) gone += keys.revokeUser(userId)
+    }
+    return { connections, keys: gone }
   }
 
   function mount(app) {
@@ -166,7 +201,7 @@ export function createMcpServerRoutes(d) {
     // ---- the MCP endpoint ---------------------------------------------------
     // Stateless: one server and one transport per request, so nothing about a
     // conversation is held here and a restart loses nothing.
-    app.post('/mcp', (req, res, next) => bearer(req, res, next), async (req, res) => {
+    app.post('/mcp', (req, res, next) => (keyAuth.handles(req) ? keyAuth.middleware(req, res, next) : bearer(req, res, next)), async (req, res) => {
       const { userId } = req.auth.extra
       const user = d.findUser(userId)
       // Using Mocky through an assistant is being here: the admin sees the
@@ -190,6 +225,9 @@ export function createMcpServerRoutes(d) {
         viewLink,
         origin,
         pictures: d.pictures,
+        // An OAuth connection reaches every tool, as it always has; a key, the
+        // level it was created with (levels.js, X9).
+        level: req.auth.extra?.via === 'key' ? req.auth.extra.level : 'write',
       })
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
       res.on('close', () => {
@@ -267,6 +305,7 @@ export function createMcpServerRoutes(d) {
 
     // ---- a person's own connections ----------------------------------------
     app.get('/api/account/mcp-connections', d.requireUser, (req, res) => {
+      res.setHeader('Cache-Control', 'no-store')
       res.json({
         active: active(),
         allowed: scopeAllows(config.get().access, req.user),
@@ -276,7 +315,57 @@ export function createMcpServerRoutes(d) {
         // person's default within it.
         engines: config.get().engines,
         engine: resolveEngine(config.get(), { preferred: prefs.get(req.user.id).engine }),
+        // Assistant keys (X8): never a key, never its hash — keys.js's whitelist.
+        keysEnabled: keysOn(),
+        keys: keys.list(req.user.id),
+        keysMax: MAX_KEYS_PER_ACCOUNT,
+        keyLevels: KEY_LEVELS,
+        keyExpiryDays: KEY_EXPIRY_DAYS,
+        keyNameMax: KEY_NAME_MAX,
+        // The step-up the form asks for; an SSO-only account has no local password.
+        keyNeedsPassword: Boolean(req.user.salt && req.user.hash),
       })
+    })
+
+    /*
+     * A new assistant key, for the signed-in account and nobody else (X8). The
+     * password is asked again: a session is a laptop left open, and what this
+     * route hands out outlives the session. The answer is the only place the key
+     * ever appears, and it is not cached.
+     */
+    app.post('/api/account/mcp-keys', d.requireUser, keyRateLimit, (req, res) => {
+      if (!active() || !scopeAllows(config.get().access, req.user)) return res.status(404).json({ error: 'Not found.' })
+      if (!keysOn()) return res.status(409).json({ code: 'keys-off', error: 'Assistant keys are not allowed on this Mocky.' })
+      if (!confirmPassword(req, res)) return
+      const raw = req.body?.expiresInDays
+      const expiresInDays = raw === null || raw === undefined || raw === '' ? null : Number(raw)
+      let out
+      try {
+        out = keys.create({ userId: req.user.id, name: req.body?.name, level: req.body?.level, expiresInDays })
+      } catch (err) {
+        if (err instanceof KeyError) {
+          const conflict = err.code === 'limit' || err.code === 'full'
+          return res.status(conflict ? 409 : 400).json({ code: err.code, error: `Refused: ${err.code}.` })
+        }
+        return res.status(500).json({ error: 'Could not save.' })
+      }
+      d.audit.record({
+        action: 'mcp.key-create',
+        actor: d.auditActor(req.user),
+        detail: { name: out.key.name, level: out.key.level, expiresInDays },
+        ip: d.clientIp(req),
+      })
+      res.setHeader('Cache-Control', 'no-store')
+      res.status(201).json({ key: out.key, token: out.token })
+    })
+
+    app.delete('/api/account/mcp-keys/:id', d.requireUser, (req, res) => {
+      const k = keys.get(req.params.id)
+      // Someone else's key answers like a missing one (X4).
+      if (!k || k.userId !== req.user.id) return res.status(404).json({ error: 'Not found.' })
+      keys.revoke(k.id)
+      d.audit.record({ action: 'mcp.key-revoke', actor: d.auditActor(req.user), detail: { name: k.name, level: k.level }, ip: d.clientIp(req) })
+      res.json({ ok: true })
     })
 
     // The Claude skill (skill.js): this instance's guide as a SKILL.md, zipped
@@ -319,6 +408,8 @@ export function createMcpServerRoutes(d) {
         readiness: mcpReadiness(d.origin, req),
         active: active(),
         connections: connectionsWithNames(store.listConnections()),
+        // Every key of every account, without its value (X8): to see and to revoke.
+        keys: connectionsWithNames(keys.list()),
         users: d.listUsers().map((u) => ({ id: u.id, username: u.username, role: u.role })),
         runner: d.runner.status(),
       })
@@ -337,12 +428,18 @@ export function createMcpServerRoutes(d) {
       } catch (err) {
         return res.status(500).json({ error: `Could not save: ${err?.message || err}` })
       }
-      const revoked = revokeDisallowed()
+      const cut = revokeDisallowed()
+      const revoked = cut.connections + cut.keys
       const fields = changedMcpFields(before, after)
       if (fields.length) {
-        d.audit.record({ action: 'mcp.config', actor: d.auditActor(req.user), detail: { fields, connectionsRevoked: revoked }, ip: d.clientIp(req) })
+        d.audit.record({
+          action: 'mcp.config',
+          actor: d.auditActor(req.user),
+          detail: { fields, connectionsRevoked: cut.connections, keysRevoked: cut.keys },
+          ip: d.clientIp(req),
+        })
       }
-      res.json({ config: after, active: active(), revoked })
+      res.json({ config: after, active: active(), revoked, keysRevoked: cut.keys })
     })
 
     // ---- the runner, from the admin section ------------------------------------
@@ -389,6 +486,21 @@ export function createMcpServerRoutes(d) {
       res.end(png)
     })
 
+    /** An administrator revokes any key — and never sees or makes one (X8). */
+    app.delete('/api/admin/mcp/keys/:id', d.requireAdmin, (req, res) => {
+      const k = keys.get(req.params.id)
+      if (!k) return res.status(404).json({ error: 'Not found.' })
+      keys.revoke(k.id)
+      d.audit.record({
+        action: 'mcp.key-revoke',
+        actor: d.auditActor(req.user),
+        target: actorOf(k.userId),
+        detail: { name: k.name, level: k.level },
+        ip: d.clientIp(req),
+      })
+      res.json({ ok: true })
+    })
+
     app.delete('/api/admin/mcp/connections/:id', d.requireAdmin, (req, res) => {
       const c = store.getConnection(req.params.id)
       if (!c) return res.status(404).json({ error: 'Not found.' })
@@ -410,8 +522,12 @@ export function createMcpServerRoutes(d) {
     /** An account deleted: whatever it granted goes with it. */
     onUserDeleted: (userId) => {
       store.revokeUser(userId)
+      keys.revokeUser(userId)
       prefs.forget(userId)
     },
-    flush: () => store.flush(),
+    flush: () => {
+      store.flush()
+      keys.flush()
+    },
   }
 }

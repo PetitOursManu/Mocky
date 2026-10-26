@@ -1,5 +1,5 @@
 ---
-source_hash: 090e0b75e7f6
+source_hash: b7ce310cb964
 ---
 
 # Invariants
@@ -20,7 +20,7 @@ Il y a dix séries :
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
 - **D1 à D6**, apportés par le tableau de bord d’administration.
-- **X1 à X7**, apportés par Mocky comme serveur MCP.
+- **X1 à X9**, apportés par Mocky comme serveur MCP et ses clés d'assistant.
 - **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
 - **V1 à V8**, apportés par les versions, les branches, les liens de validation et les prototypes qui fonctionnent.
 - **C1 à C3**, apportés par la Campagne.
@@ -1074,6 +1074,61 @@ encadrée par l'hôte d'un assistant ou ouverte seule. Elle ne porte pas de
 **Comment c'est vérifié.** `tests/mcp-tools-e2e.test.js` : l'en-tête est
 présent, `X-Frame-Options` a disparu, une signature forgée répond 404, et un
 Chromium qui joue l'hôte encadre la vue, qui encadre l'écran, qui s'affiche.
+
+### X8. Une clé d'assistant appartient au compte, se montre une fois, et se garde comme un jeton
+
+**La règle.** Une clé d'assistant (`server/mcp/keys.js`) n'est créée que par le
+compte au nom duquel elle agit, depuis la session de ce compte et avec son mot
+de passe redemandé ; un administrateur active la fonction (`keys`, éteint par
+défaut), voit toutes les clés sans leur valeur et peut révoquer n'importe
+laquelle, et n'en crée jamais pour quelqu'un d'autre. Une clé fait 256 bits
+aléatoires derrière le préfixe `mocky_ak_` ; seul son SHA-256 est stocké, elle
+est comparée en temps constant — contre une empreinte factice quand sa partie de
+recherche est inconnue — et elle apparaît exactement une fois, dans la réponse à
+sa création, jamais dans une réponse ultérieure, une ligne de journal, le
+journal d'audit, une erreur ou une adresse. Elle est lue dans l'en-tête
+`Authorization` de `/mcp` et nulle part ailleurs : ce n'est jamais une session.
+Chaque appel relit l'interrupteur MCP (X1), l'interrupteur `keys`, la liste
+d'accès (X2) et le verrou de connexion du compte ; une clé inconnue, fausse,
+expirée, révoquée ou suspendue reçoit la réponse même d'un jeton OAuth invalide,
+et les échecs gèlent l'adresse et la clé. `mcp-keys.json` ne voyage jamais avec
+une migration. Le chemin OAuth est choisi comme avant pour toute valeur sans le
+préfixe, et ne change pas.
+
+**Ce qu'elle protège.** Ce que protège X3 — une copie du fichier, une capture de
+la page d'administration ou une ligne de journal ne doit pas devenir un moyen
+d'agir au nom de quelqu'un — pour un identifiant qui, contrairement à un jeton
+d'accès, n'expire pas dans l'heure. Et l'accord de X2 : la personne au nom de
+qui la clé agit est celle qui l'a créée, si bien que la page d'administration
+reste un endroit où décider et couper, jamais un moyen de devenir quelqu'un (D2).
+
+**Comment c'est vérifié.** `server/mcp/keys.test.js` (le format, l'empreinte
+sur le disque, la liste blanche, le temps constant dans les deux branches,
+l'expiration, les plafonds), `server/mcp/key-auth.test.js` (chaque refus
+identique au refus OAuth, les gels, le verrou du compte, la liste, rien dans une
+ligne de journal), `tests/mcp-keys-e2e.test.js` (un vrai serveur : les
+interrupteurs, le mot de passe, la clé absente de la sortie du serveur, du
+dossier de données, du journal d'audit et de chaque liste).
+
+### X9. Une clé en lecture n'atteint qu'une liste fermée d'outils
+
+**La règle.** `READ_TOOLS` dans `server/mcp/levels.js` est fermée. Sur une
+connexion `read`, un outil hors de cette liste n'est pas enregistré sur le
+serveur de la requête — il n'est donc ni listé ni appelable, et un appel répond
+comme pour un outil qui n'existe pas — et aucun prompt n'est proposé. La barrière
+est posée avant le premier outil, sur l'entonnoir unique du SDK, si bien que
+toutes les façons d'enregistrer un outil passent par elle. Un outil ajouté plus
+tard écrit tant qu'il n'y est pas déclaré ; un niveau absent ou inconnu vaut
+`read` ; une connexion OAuth vaut `write`, exactement comme avant.
+
+**Ce qu'elle protège.** Le mot « lecture ». Une clé en lecture seule remise à un
+assistant promet que rien ne change dans le compte, et une liste des outils qui
+écrivent aurait trahi cette promesse en silence le jour où un nouvel outil
+serait arrivé.
+
+**Comment c'est vérifié.** `server/mcp/levels.test.js` (par le client même du
+SDK : la liste, les refus, les prompts, un nouvel outil par chaque porte, la
+liste tenue à `readOnlyHint`), `tests/mcp-keys-e2e.test.js`.
 
 Les outils qui permettront à un assistant d'appeler l'exécuteur ajouteront leurs
 propres règles à cette série.

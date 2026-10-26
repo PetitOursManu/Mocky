@@ -76,7 +76,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 👤 **Optional accounts + SSO** — sign in to a Mocky instance and your projects + DESIGN.md sync across devices (self-hosted backend, no cloud). With a [Dashy](https://github.com/PetitOursManu/Dashy) instance, users can also **"Sign in with Dashy"** and reuse their projects. Without an account everything stays in your browser's `localStorage`.
 - 🚚 **Maintenance mode and server migration** — an admin can make the instance read-only for everyone else, and move the whole instance — accounts, projects, keys, images, clips, films — to another server piece by piece: the new server pulls, end-to-end encrypted with a one-time code, checks itself first (Node, version, disk, ffmpeg, render worker, SSO…) and replaces nothing until you confirm. Sessions are never transferred. See [Maintenance and migration](docs/migration.md).
 - 📊 **Admin dashboard** — Admin is one page with a menu on the left: who is connected and what each person is doing right now (the type of action, never the prompt), the machine's processor, memory and graphics card live, how each provider has been answering, every signed-in device with a way to close it, an audit log of sign-ins and admin actions, and an announcement shown to everybody. See [The admin dashboard](docs/admin-dashboard.md).
-- 🤖 **Design from Claude or ChatGPT (MCP)** — an administrator can let chosen accounts connect an assistant. You ask Claude or ChatGPT for a screen, it asks what it needs to know, Mocky makes the design with its own pipeline — screen types, Muse, pictures — in your account, and the assistant hands back a picture of it and a link to the project. Off by default, HTTPS only, OAuth with consent given in Mocky. See [Connect Claude or ChatGPT](#connect-claude-or-chatgpt-mcp).
+- 🤖 **Design from Claude or ChatGPT (MCP)** — an administrator can let chosen accounts connect an assistant. You ask Claude or ChatGPT for a screen, it asks what it needs to know, Mocky makes the design with its own pipeline — screen types, Muse, pictures — in your account, and the assistant hands back a picture of it and a link to the project. Off by default, HTTPS only, OAuth with consent given in Mocky — or, for an assistant configured by hand, an assistant key the account makes for itself, read-only or read and write. See [Connect Claude or ChatGPT](#connect-claude-or-chatgpt-mcp).
 - 🌗 **Two themes** — Papier and Encre, both first-class: same tokens, neither patched on top of the other. Every pairing is checked against WCAG AA by a test that reads the real token file.
 
 ## Tech stack
@@ -743,8 +743,19 @@ each step and the address to copy.
 
 The same page lists the assistants you let in, with **Disconnect**. Tokens are
 stored by hash, access is checked again on every call, and a screen's private
-notes never reach an assistant. Everything else — the tools, the pictures, the
-quotas, the runner's network rule — is in [docs/mcp.md](docs/mcp.md).
+notes never reach an assistant.
+
+**An assistant configured by hand** — an assistant like Claude, or a
+script — can use an **assistant key** instead of OAuth, once an administrator
+switches on *Allow assistant keys*: Settings → Connected assistants →
+Assistant keys, a name, **read-only** or **read and write**, an optional
+expiry, and your password. The key is shown once, kept by Mocky only as a
+fingerprint, sent as `Authorization: Bearer mocky_ak_…`, and revoked in one
+click by you or an administrator. A read-only key can list and look, never
+create or change.
+
+Everything else — the tools, the pictures, the quotas, the keys, the runner's
+network rule — is in [docs/mcp.md](docs/mcp.md).
 
 ## SSO — "Sign in with Dashy"
 

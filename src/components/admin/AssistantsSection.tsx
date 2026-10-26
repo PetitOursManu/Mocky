@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type AdminMcpView, type McpConfig, type VideoAccessMode } from '../../lib/api'
+import { api, type AdminMcpView, type McpConfig, type McpKey, type VideoAccessMode } from '../../lib/api'
 import { Banner, Button, Field, Icon, Input, Select } from '../../ui'
 import { useT } from '../../i18n'
 import { AccountScope } from '../VideoExportSettings'
@@ -15,6 +15,9 @@ import RunnerPanel from './RunnerPanel'
  * leave them looking for it, while one that lists what is missing tells them
  * what to fix. The server refuses the switch on its own as well
  * (`PUT /api/admin/mcp/config` → 409) — this page is not the guard.
+ *
+ * Assistant keys (X8) are a second switch, and a list the administrator can
+ * cut from but never add to: a key is made by its own account, in Settings.
  */
 export default function AssistantsSection() {
   const t = useT()
@@ -47,9 +50,9 @@ export default function AssistantsSection() {
     setNotice(null)
     try {
       const out = await api.admin.mcp.setConfig(patch)
-      // The switch saves on its own; the rest of the form keeps what was typed.
-      const onlySwitch = Object.keys(patch).length === 1 && 'enabled' in patch
-      setDraft((d) => (onlySwitch && d ? { ...d, enabled: out.config.enabled } : out.config))
+      // The switches save on their own; the rest of the form keeps what was typed.
+      const onlySwitch = Object.keys(patch).length === 1 && ('enabled' in patch || 'keys' in patch)
+      setDraft((d) => (onlySwitch && d ? { ...d, enabled: out.config.enabled, keys: out.config.keys } : out.config))
       setNotice(out.revoked ? t('mcp.admin.savedRevoked', { n: out.revoked }) : t('mcp.admin.saved'))
       await load()
     } catch (e) {
@@ -64,6 +67,17 @@ export default function AssistantsSection() {
     setError(null)
     try {
       await api.admin.mcp.revoke(id)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function revokeKey(k: McpKey) {
+    if (!window.confirm(t('mcp.admin.keyRevokeConfirm', { name: k.name, user: k.username ?? '—' }))) return
+    setError(null)
+    try {
+      await api.admin.mcp.revokeKey(k.id)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -155,6 +169,21 @@ export default function AssistantsSection() {
             <span>
               <span className="block text-body font-medium text-ink">{t('mcp.admin.enabled')}</span>
               <span className="measure mt-0.5 block text-body-sm text-ink-muted">{t('mcp.admin.enabledHelp')}</span>
+            </span>
+          </label>
+
+          {/* Assistant keys: a door of their own, closed by default (X8). */}
+          <label className={`flex items-start gap-3 rounded-lg border border-line-soft bg-ink/5 p-3 ${locked ? 'opacity-60' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-accent"
+              checked={draft.keys === true}
+              disabled={busy || locked}
+              onChange={(e) => void save({ keys: e.currentTarget.checked })}
+            />
+            <span>
+              <span className="block text-body font-medium text-ink">{t('mcp.admin.keys')}</span>
+              <span className="measure mt-0.5 block text-body-sm text-ink-muted">{t('mcp.admin.keysHelp')}</span>
             </span>
           </label>
 
@@ -308,6 +337,52 @@ export default function AssistantsSection() {
                     <td className="py-2 text-right">
                       <Button size="sm" variant="danger" onClick={() => void revoke(c.id)}>
                         {t('mcp.admin.revoke')}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Every key, never its value: the value exists once, in its owner's hands. */}
+      <div className="mt-10">
+        <div className="section-head">
+          <span className="kicker">{t('mcp.admin.keysList')}</span>
+          <span className="ml-auto font-mono text-caption text-accent-ink">{view.keys.length}</span>
+        </div>
+        {view.keys.length === 0 ? (
+          <p className="text-body-sm text-ink-muted">{t('mcp.admin.keysEmpty')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-body-sm">
+              <thead className="text-caption uppercase text-ink-muted">
+                <tr>
+                  <th className="py-2 pr-4 font-medium">{t('mcp.admin.col.account')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('mcp.admin.col.name')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('mcp.admin.col.level')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('mcp.admin.col.since')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('mcp.admin.col.lastUsed')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('mcp.admin.col.expires')}</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {view.keys.map((k) => (
+                  <tr key={k.id} className="border-t border-line-soft">
+                    <td className="py-2 pr-4 text-ink">{k.username ?? '—'}</td>
+                    <td className="py-2 pr-4 text-ink">{k.name}</td>
+                    <td className="py-2 pr-4 text-ink">{t(k.level === 'write' ? 'mcp.keys.level.write' : 'mcp.keys.level.read')}</td>
+                    <td className="py-2 pr-4 font-mono text-caption text-ink-muted">{date(k.createdAt)}</td>
+                    <td className="py-2 pr-4 font-mono text-caption text-ink-muted">{k.lastUsedAt ? date(k.lastUsedAt) : t('mcp.keys.neverUsed')}</td>
+                    <td className={`py-2 pr-4 font-mono text-caption ${k.expired ? 'text-danger' : 'text-ink-muted'}`}>
+                      {k.expired ? t('mcp.keys.expired') : k.expiresAt ? date(k.expiresAt) : t('mcp.keys.noExpiry')}
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button size="sm" variant="danger" onClick={() => void revokeKey(k)}>
+                        {t('mcp.admin.keyRevoke')}
                       </Button>
                     </td>
                   </tr>

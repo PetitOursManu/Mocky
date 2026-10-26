@@ -1,5 +1,5 @@
 ---
-source_hash: 4166dabce3a9
+source_hash: 135222c3b890
 ---
 
 # Vue d'ensemble de l'architecture
@@ -1124,9 +1124,10 @@ ceux de la copie la plus récente.
 | `video-exports.json` | Les films exportés : octets, conteneur, nombre de scènes, durée — et `owners` sous la même borne. Jamais le montage, qui porte le texte incrusté écrit par quelqu'un |
 | `video-exports/<hash>.mp4\|.webm` | Le film terminé, entier. Un répertoire distinct de `video-library/` à dessein : celui-là contient des *séquences de défilement*, découpées en images par ffmpeg, et tout ce qui lit son `list()` attend des images qu'un film n'a pas |
 | `video-jobs.json` | Le journal de la file de rendu : les 50 derniers jobs terminés, plus ceux en cours. Un job trouvé en cours au démarrage passe en erreur, jamais repris |
-| `mcp-config.json` | Admin → Assistants (MCP) : l'interrupteur, qui peut se connecter, les clients acceptés, la durée des jetons, le quota quotidien |
+| `mcp-config.json` | Admin → Assistants (MCP) : l'interrupteur, qui peut se connecter, les clients acceptés, la durée des jetons, le quota quotidien, si les clés d'assistant sont autorisées |
 | `mcp-prefs.json` | Le moteur par défaut de chaque personne pour les designs demandés par un assistant (phase 4) |
 | `mcp-oauth.json` | Clients enregistrés et connexions, jetons conservés **sous forme d'empreinte** (X3), mode `0600`. Ne voyage jamais avec une migration |
+| `mcp-keys.json` | Clés d'assistant : compte, nom, niveau, dates, et la clé **sous forme d'empreinte** seulement (X8), mode `0600`. Ne voyage jamais avec une migration |
 | `mcp-jobs.json`, `mcp-shots/` | Les travaux récents de l'exécuteur et les images qu'il a prises : les 200 derniers, une semaine au plus |
 | `.migration/` | L'état d'une migration sur le NOUVEAU serveur : `staging/` (les fichiers déjà récupérés), `staged.json` (leurs empreintes, pour qu'un passage reprenne), `report.json` (le dernier import, pour *Vérifier l'intégrité*) et `previous-<heure>/` (ce que contenait le dossier avant le remplacement — déplacé, jamais supprimé). Jamais listé lui-même dans un manifeste |
 
@@ -1162,13 +1163,14 @@ plafond.
 | `GET /api/review/:token`, `POST …/comments` (30/min), `…/decision` (10/min) | **le lien**, sans compte | Le côté client : un tour, les écrans de sa version à travers la liste blanche `publicScreen` (V5) |
 | `GET /api/mcp/status` | session | L'état de chaque serveur MCP déclaré |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
-| `POST /mcp` | bearer | Le serveur MCP : JSON-RPC, sans état. **404 tant qu'il est désactivé**, comme les routes OAuth et `/mcp-shot` (X1) |
+| `POST /mcp` | bearer : un jeton OAuth, ou une clé d'assistant (`mocky_ak_…`, X8) | Le serveur MCP : JSON-RPC, sans état. **404 tant qu'il est désactivé**, comme les routes OAuth et `/mcp-shot` (X1). Une clé en lecture n'atteint que les outils de lecture (X9) |
 | `/.well-known/oauth-*`, `/register`, `/authorize`, `/token`, `/revoke` | — | OAuth 2.1 pour les assistants, fourni par `@modelcontextprotocol/sdk` |
 | `GET`/`POST /api/connect/:id` | session | La question de la page de consentement et sa réponse |
-| `GET`/`DELETE /api/account/mcp-connections` | session | Réglages → Assistants connectés |
+| `GET`/`DELETE /api/account/mcp-connections` | session | Réglages → Assistants connectés : les connexions, et les clés du compte sans leur valeur |
+| `POST /api/account/mcp-keys`, `DELETE /api/account/mcp-keys/:id` | session (+ mot de passe pour créer) | Une personne crée et révoque ses propres clés d'assistant. Le `201` d'une création est la seule réponse qui porte une clé |
 | `PUT /api/account/mcp-prefs` | session | Qui écrit les designs de ce compte : `409` pour un moteur que l'administrateur n'a pas autorisé |
 | `GET /mcp-shot/:file` | lien signé | Une image de l'exécuteur, pour un assistant qui n'affiche pas l'image d'un outil. Valable un jour, et plus après un redémarrage |
-| `/api/admin/mcp/*` | admin | Réglages, connexions, *Vérifier l’exécuteur*, *Lancer l’essai* |
+| `/api/admin/mcp/*` | admin | Réglages, connexions, clés d'assistant (pour les voir et les révoquer, jamais pour en créer), *Vérifier l’exécuteur*, *Lancer l’essai* |
 | `POST /api/muse/audit` | session | La moitié jugée du rapport SEO / accessibilité. `400` uniquement si `code` manque ; **`200` avec une liste vide et une notice quand il n'y a pas de modèle** |
 | `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` en entrée, un rapport en sortie. `400` uniquement si `code` manque ; **`200` même sans modèle configuré** — voir plus bas |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Générer est le verbe coûteux |

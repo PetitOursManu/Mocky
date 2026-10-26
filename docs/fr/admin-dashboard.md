@@ -1,5 +1,5 @@
 ---
-source_hash: 219d52e4cbe2
+source_hash: f63a46bcc7fa
 ---
 
 # Le tableau de bord d’administration
@@ -20,7 +20,7 @@ secondes sans recharger, et passer d’une section à l’autre ne coûte aucune
 | **Dépenses** | Ce que coûtent les modèles de texte, par jour, mois, compte, projet, modèle ou fournisseur ; les modèles de chaque projet ; le tableau des prix. Voir [Dépenses](#dépenses). |
 | **Journal d’audit** | Qui a fait quoi : connexions et échecs, comptes, sessions, réglages, maintenance, annonces, migrations. |
 | **Annonce** | Un message affiché à tout le monde sous l’en-tête, tout de suite ou à partir d’une date programmée, avec une fin facultative — et des dates dans le texte affichées dans le fuseau de chaque lecteur. |
-| **Assistants (MCP)** | Si Claude, ChatGPT ou un autre client MCP peut agir dans Mocky au nom d’un compte : les prérequis HTTPS, l’interrupteur, qui peut se connecter, et chaque connexion active avec de quoi la couper — voir [Connecter un assistant](mcp.md). |
+| **Assistants (MCP)** | Si Claude, ChatGPT ou un autre client MCP peut agir dans Mocky au nom d’un compte : les prérequis HTTPS, l’interrupteur, qui peut se connecter, si les comptes peuvent créer des clés d’assistant, et chaque connexion active et chaque clé d’assistant avec de quoi la couper — voir [Connecter un assistant](mcp.md). |
 | **Maintenance et migration** | Inchangée — voir [Maintenance et migration](migration.md). |
 
 Le code est dans `server/admin/` (un fichier par magasin, chacun s’explique en

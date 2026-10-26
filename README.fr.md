@@ -76,7 +76,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - 👤 **Comptes et SSO en option** — connectez-vous à une instance Mocky et vos projets ainsi que votre DESIGN.md se synchronisent d'un appareil à l'autre (backend auto-hébergé, aucun cloud). Avec une instance [Dashy](https://github.com/PetitOursManu/Dashy), les utilisateurs peuvent aussi **« Se connecter avec Dashy »** et retrouver leurs projets. Sans compte, tout reste dans le `localStorage` de votre navigateur.
 - 🚚 **Mode maintenance et migration de serveur** — un administrateur peut passer l'instance en lecture seule pour tous les autres, et déplacer toute l'instance — comptes, projets, clés, images, séquences, films — vers un autre serveur morceau par morceau : le nouveau serveur tire les données, chiffrées de bout en bout avec un code à usage unique, se vérifie d'abord (Node, version, disque, ffmpeg, worker de rendu, SSO…) et ne remplace rien avant votre confirmation. Les sessions ne sont jamais transférées. Voir [Maintenance et migration](docs/fr/migration.md).
 - 📊 **Tableau de bord d'administration** — l'administration tient sur une page avec un menu à gauche : qui est connecté et ce que chacun fait en ce moment (le type d'action, jamais le prompt), le processeur, la mémoire et la carte graphique de la machine en direct, comment chaque fournisseur a répondu, chaque appareil connecté avec de quoi le déconnecter, un journal d'audit des connexions et des actions d'administration, et une annonce affichée à tout le monde. Voir [Le tableau de bord d'administration](docs/fr/admin-dashboard.md).
-- 🤖 **Créer depuis Claude ou ChatGPT (MCP)** — un administrateur peut autoriser des comptes choisis à connecter un assistant. Vous demandez un écran à Claude ou à ChatGPT, il vous pose les questions utiles, Mocky fait le design avec son propre pipeline — types d'écran, Muse, images — dans votre compte, et l'assistant vous rend une image du résultat et un lien vers le projet. Désactivé par défaut, HTTPS uniquement, OAuth avec un consentement donné dans Mocky. Voir [Connecter Claude ou ChatGPT](#connecter-claude-ou-chatgpt-mcp).
+- 🤖 **Créer depuis Claude ou ChatGPT (MCP)** — un administrateur peut autoriser des comptes choisis à connecter un assistant. Vous demandez un écran à Claude ou à ChatGPT, il vous pose les questions utiles, Mocky fait le design avec son propre pipeline — types d'écran, Muse, images — dans votre compte, et l'assistant vous rend une image du résultat et un lien vers le projet. Désactivé par défaut, HTTPS uniquement, OAuth avec un consentement donné dans Mocky — ou, pour un assistant configuré à la main, une clé d'assistant que le compte crée lui-même, en lecture seule ou en lecture + écriture. Voir [Connecter Claude ou ChatGPT](#connecter-claude-ou-chatgpt-mcp).
 - 🌗 **Deux thèmes** — Papier et Encre, tous deux de plein droit : mêmes jetons, aucun des deux plaqué sur l'autre. Chaque association est vérifiée face au WCAG AA par un test qui lit le vrai fichier de jetons.
 
 ## Pile technique
@@ -737,8 +737,20 @@ la page vous donne donc chaque étape et l'adresse à copier.
 La même page liste les assistants que vous avez autorisés, avec
 **Déconnecter**. Les jetons sont conservés sous forme d'empreinte, l'accès est
 revérifié à chaque appel, et les notes privées d'un écran ne parviennent jamais
-à un assistant. Tout le reste — les outils, les images, les quotas, la règle
-réseau de l'exécuteur — se trouve dans [docs/fr/mcp.md](docs/fr/mcp.md).
+à un assistant.
+
+**Un assistant configuré à la main** — un assistant comme Claude, ou
+un script — peut utiliser une **clé d'assistant** au lieu d'OAuth, dès qu'un
+administrateur active *Autoriser les clés d'assistant* : Réglages → Assistants
+connectés → Clés d'assistant, un nom, **lecture seule** ou **lecture +
+écriture**, une expiration facultative, et votre mot de passe. La clé est
+affichée une seule fois, Mocky n'en garde qu'une empreinte, elle s'envoie en
+`Authorization: Bearer mocky_ak_…`, et se révoque en un clic, par vous ou par
+un administrateur. Une clé en lecture seule peut lister et regarder, jamais
+créer ni modifier.
+
+Tout le reste — les outils, les images, les quotas, les clés, la règle réseau
+de l'exécuteur — se trouve dans [docs/fr/mcp.md](docs/fr/mcp.md).
 
 ## SSO — « Se connecter avec Dashy »
 

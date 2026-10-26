@@ -47,3 +47,21 @@ describe('who writes a design’s code (phase 4)', () => {
     expect(new McpPrefsStore(dir).get('u2')).toEqual({ engine: null })
   })
 })
+
+describe('assistant keys (X8)', () => {
+  it('are off by default — on an instance that already runs MCP too', () => {
+    expect(defaultMcpConfig().keys).toBe(false)
+    // A config written before keys existed reads as off.
+    const { keys: _gone, ...old } = defaultMcpConfig()
+    expect(mergeMcpConfig({ ...old, enabled: true }, {}).keys).toBe(false)
+  })
+
+  it('take a boolean and nothing else, and the change is audited by name', () => {
+    const on = mergeMcpConfig(defaultMcpConfig(), { keys: true })
+    expect(on.keys).toBe(true)
+    expect(mergeMcpConfig(on, { keys: 'false' }).keys).toBe(true)
+    expect(mergeMcpConfig(defaultMcpConfig(), { keys: 1 }).keys).toBe(false)
+    expect(mergeMcpConfig(on, {}).keys).toBe(true)
+    expect(changedMcpFields(defaultMcpConfig(), on)).toEqual(['keys'])
+  })
+})

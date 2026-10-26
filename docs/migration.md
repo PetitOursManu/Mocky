@@ -117,6 +117,8 @@ Everything in the data directory moves, **except**:
 - `sso-jti.json` — a replay cache for 60-second tokens;
 - `mcp-oauth.json` — the tokens of connected assistants ([MCP](mcp.md)), for
   the reason sessions stay behind: each assistant asks for consent again once;
+- `mcp-keys.json` — the assistant keys, for the same reason: each person makes
+  a new key on the new server and gives it to their assistant;
 - `mcp-jobs.json` and `mcp-shots/` — the headless runner's queue and its
   pictures: the jobs of the server being left, and screenshots that can be taken
   again;

@@ -161,9 +161,11 @@ async function req(path: string, options?: RequestInit): Promise<any> {
       noteMaintenance(typeof data.message === 'string' ? data.message : undefined)
       throw new MaintenanceError(translate(getLang(), 'migration.maintenance.refused'))
     }
-    const err = new Error(data.error || `HTTP ${res.status}`) as Error & { code?: string }
+    const err = new Error(data.error || `HTTP ${res.status}`) as Error & { code?: string; status?: number }
     // The migration panel keys its messages on the code, not on the sentence.
     if (typeof data.code === 'string') err.code = data.code
+    // And a refusal with no code — the shared rate limiter's 429 — on its status.
+    err.status = res.status
     throw err
   }
   return data
@@ -341,6 +343,8 @@ export interface McpConfig {
   dailyQuota: number | null
   /** Who may write a design's code: Mocky's model, the assistant's, or both (phase 4). */
   engines: McpEngines
+  /** Whether accounts may create assistant keys (server/mcp/keys.js, X8). Off by default. */
+  keys: boolean
 }
 
 export type McpEngine = 'mocky' | 'client'
@@ -369,6 +373,26 @@ export interface McpConnection {
   clientName: string
   createdAt: number
   lastUsedAt: number
+  username?: string | null
+}
+
+/** What an assistant key reaches (server/mcp/levels.js, X9). */
+export type McpKeyLevel = 'read' | 'write'
+
+/**
+ * One assistant key, as listed. Never the key, never its hash: the key exists
+ * once, in the answer to `createKey`, and this page forgets it when the
+ * dialog closes.
+ */
+export interface McpKey {
+  id: string
+  userId: string
+  name: string
+  level: McpKeyLevel
+  createdAt: number
+  lastUsedAt: number | null
+  expiresAt: number | null
+  expired: boolean
   username?: string | null
 }
 
@@ -408,6 +432,7 @@ export interface AdminMcpView {
   readiness: McpReadiness
   active: boolean
   connections: McpConnection[]
+  keys: McpKey[]
   users: AdminUser[]
   runner: RunnerStatus
 }
@@ -420,6 +445,14 @@ export interface AccountMcpView {
   engines?: McpEngines
   engine?: McpEngine
   connections: McpConnection[]
+  /** Assistant keys: whether the administrator allows them, and this account's. */
+  keysEnabled: boolean
+  keys: McpKey[]
+  keysMax: number
+  keyLevels: McpKeyLevel[]
+  keyExpiryDays: number[]
+  keyNameMax: number
+  keyNeedsPassword: boolean
 }
 
 export interface ConnectRequest {
@@ -631,6 +664,10 @@ export const api = {
     revoke: (id: string) => req(`/api/account/mcp-connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     setEngine: (engine: McpEngine) =>
       req('/api/account/mcp-prefs', { method: 'PUT', body: JSON.stringify({ engine }) }) as Promise<{ engine: McpEngine }>,
+    /** The one answer that carries a key. Keep it in memory, show it, forget it. */
+    createKey: (body: { name: string; level: McpKeyLevel; expiresInDays: number | null; password?: string }) =>
+      req('/api/account/mcp-keys', { method: 'POST', body: JSON.stringify(body) }) as Promise<{ key: McpKey; token: string }>,
+    revokeKey: (id: string) => req(`/api/account/mcp-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   },
 
   admin: {
@@ -641,8 +678,10 @@ export const api = {
           config: McpConfig
           active: boolean
           revoked: number
+          keysRevoked?: number
         }>,
       revoke: (id: string) => req(`/api/admin/mcp/connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+      revokeKey: (id: string) => req(`/api/admin/mcp/keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
       runnerCheck: () => req('/api/admin/mcp/runner/check', { method: 'POST' }) as Promise<{ ok: boolean; image?: string; error?: string }>,
       runnerTry: (brief: string, device: 'desktop' | 'mobile' | 'tablet' = 'desktop') =>
         req('/api/admin/mcp/runner/try', { method: 'POST', body: JSON.stringify({ brief, device }) }) as Promise<{

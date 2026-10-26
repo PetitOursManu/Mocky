@@ -21,11 +21,14 @@ export const MIGRATION_DIR = '.migration'
  * 60-second tokens, worthless an hour later and harmful if stale.
  * `mcp-oauth.json` holds the assistants' tokens (by hash) and is a session store
  * by another name: each connected assistant asks for consent again once.
+ * `mcp-keys.json` holds the assistant keys (by hash) for the same reason: a
+ * key is a credential for one server, and each person makes a new one on the
+ * new server and gives it to their assistant.
  * `mcp-jobs.json` and `mcp-shots/` are the runner's queue and its pictures:
  * the jobs of a server that is going away, and screenshots that can be taken
  * again.
  */
-export const EXCLUDED_FILES = new Set(['sessions.json', 'sso-jti.json', 'mcp-oauth.json', 'mcp-jobs.json', 'mcp-shots'])
+export const EXCLUDED_FILES = new Set(['sessions.json', 'sso-jti.json', 'mcp-oauth.json', 'mcp-keys.json', 'mcp-jobs.json', 'mcp-shots'])
 
 /**
  * One path segment. Deliberately narrow: whatever the source SAYS a file is
