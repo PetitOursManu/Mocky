@@ -13,6 +13,7 @@
  */
 export const composer = {
   fr: {
+    'composer.sheetFold': 'Replier pour voir le projet',
     // ---- screen type ----
     'composer.themeLabel': 'Type d’écran',
     'composer.themeActiveAria': 'Type d’écran : {name}',
@@ -177,6 +178,7 @@ export const composer = {
       'Indisponible avec des captures de site : ce sont elles qui décrivent l’écran, un brief inventé les contredirait',
   },
   en: {
+    'composer.sheetFold': 'Fold to see the project',
     // ---- screen type ----
     'composer.themeLabel': 'Screen type',
     'composer.themeActiveAria': 'Screen type: {name}',

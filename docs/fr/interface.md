@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 6130672ea03e
+source_hash: 9c3434d52caf
 ---
 
 # L’interface
@@ -82,8 +82,9 @@ l’historique du navigateur, si bien que Retour depuis Réglages ramène là o�
 étiez au lieu de quitter Mocky pour la page d’avant. Le bouton et le geste sont
 la même action. Un panneau d’Admin ou une section de Réglages n’est pas une
 entrée — onze panneaux ouverts à la suite feraient sinon onze retours pour
-sortir. Dans Admin, la liste des panneaux est un sélecteur qui reste en haut de
-la fenêtre pendant le défilement.
+sortir. Dans Admin, la liste des panneaux est un menu déroulant qui reste en haut
+de la fenêtre pendant le défilement : il nomme le panneau ouvert, et un appui
+déplie les onze avec leurs icônes et leurs badges.
 
 ---
 
@@ -185,9 +186,14 @@ portait quoi relevait de l’histoire. Ils sont listés sous
 
 Sous `md`, l’espace se replie : la barre d’outils flottante décrite ensuite (une
 barre pleine largeur sur un téléphone, au-dessus de la bande des écrans), et le
-composeur en panneau le long du bas de la toile. Le panneau montre le champ et
-ses boutons ; `Options` déplie le format et les puces, qui prenaient sinon la
-moitié d’une petite fenêtre. L’`Exporter` de la barre d’outils contient les
+composeur en panneau le long du bas de la toile. Le panneau se replie sur une
+ligne — sa poignée — pour montrer le projet, et se déplie d’un appui ; il démarre
+replié dans un projet qui a des écrans, et se replie de lui-même quand une
+génération commence. Déplié, il montre le champ et ses boutons ; `Options`
+déplie le format, les puces et le brief de Muse, qui prenaient sinon toute une
+petite fenêtre. Sur un téléphone, les écrans s’affichent un à la fois : les
+flèches de chaque côté (ou un balayage à côté de l’écran) passent au précédent
+ou au suivant, et `2 / 5` dit où vous en êtes. L’`Exporter` de la barre d’outils contient les
 mêmes lignes que celui de la barre du haut. Il n’y a pas là de barre du haut
 pour porter les outils d’un écran : son menu les porte tous.
 

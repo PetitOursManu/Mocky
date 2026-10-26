@@ -78,7 +78,8 @@ from Settings returns to where you were instead of leaving Mocky for whatever
 page came before it. The in-app button and the gesture are the same action. A
 panel of Admin or a section of Settings is not an entry — eleven panels opened
 in a row would otherwise be eleven backs to leave. In Admin, the panel list is a
-selector that stays at the top of the window while you scroll.
+dropdown that stays at the top of the window while you scroll: it names the open
+panel, and a tap unfolds all eleven with their icons and badges.
 
 ---
 
@@ -174,9 +175,13 @@ They are listed under [A selected screen's frame](#a-selected-screens-frame).
 
 Below `md` the workspace folds back: the floating toolbar described next (a
 full-width bar on a phone, above the strip of screens), and the composer as a
-sheet along the bottom of the canvas. The sheet shows the field and its buttons;
-`Options` unfolds the format and the chips, which otherwise took half of a small
-window. The toolbar's `Export` holds the same rows as the top bar's. There is no
+sheet along the bottom of the canvas. The sheet folds to one line — its handle —
+to show the project, and unfolds with a tap; it starts folded in a project that
+has screens, and folds itself when a generation starts. Unfolded, it shows the
+field and its buttons; `Options` unfolds the format, the chips and Muse's brief,
+which otherwise took the whole of a small window. On a phone the screens are
+shown one at a time: the arrows on either side (or a swipe beside the screen)
+move to the previous or next one, and `2 / 5` says where you are. The toolbar's `Export` holds the same rows as the top bar's. There is no
 top bar to hold a screen's tools there: its menu holds them all.
 
 ---

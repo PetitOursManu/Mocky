@@ -645,6 +645,14 @@ export default function ProjectView({
    * half a 700px-high window before a single screen could be seen.
    */
   const [narrowOptions, setNarrowOptions] = useState(false)
+  /**
+   * Below md, whether the composer sheet is unfolded. Unfolded, with Muse's
+   * brief open above the field, it covered the whole phone: the project was
+   * under it and nothing folded it away. It starts folded on a project that has
+   * screens to look at, open on one that has none, and folds itself when a
+   * generation starts so the screen being written can be watched.
+   */
+  const [sheetOpen, setSheetOpen] = useState(() => project.screens.length === 0)
   /** The toolbar's overflow menu below md. See the bar itself for why it exists. */
   const [plusMenu, setPlusMenu] = useState(false)
   /** The screen menu; `only: 'export'` is the download pill's short version of it. */
@@ -3790,7 +3798,8 @@ export default function ProjectView({
         device.
       */}
       {/* 54px = the phone bar: a 44px touch target inside p-1 and its rule. */}
-      <main className={`relative order-2 min-w-0 flex-1 ${phone ? 'pt-[54px]' : ''}`}>
+      {/* 60px under it on a phone: the folded composer sheet's handle. */}
+      <main className={`relative order-2 min-w-0 flex-1 ${phone ? 'pb-[60px] pt-[54px]' : ''}`}>
       {phone ? (
         <MobileProject
           screens={screens}
@@ -4344,11 +4353,34 @@ export default function ProjectView({
         {/* The whole bar takes a dropped screenshot, not only the field: a drop
             aimed at "the composer" lands wherever the pointer happens to be. */}
         <div
-          className={`pointer-events-auto w-full max-w-2xl rounded-t-2xl border border-b-0 bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl transition md:grow md:shrink-0 md:border-b md:max-w-none md:rounded-none md:border-0 md:bg-transparent md:p-3 md:shadow-none ${
+          className={`pointer-events-auto w-full max-w-2xl rounded-t-2xl border border-b-0 bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl transition max-md:max-h-[78dvh] max-md:overflow-y-auto md:grow md:shrink-0 md:border-b md:max-w-none md:rounded-none md:border-0 md:bg-transparent md:p-3 md:shadow-none ${
             siteDragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
-          }`}
+          } ${sheetOpen ? '' : 'max-md:[&>*:not([data-sheet-handle])]:hidden'}`}
           {...siteDropHandlers((files) => void addSiteFiles(files), setSiteDragOver)}
         >
+          {/* The sheet's handle, below md: folds the composer away to show the
+              project, and back. Folded, it says what is going on — the work in
+              progress, or what a tap will do. */}
+          <button
+            type="button"
+            data-sheet-handle
+            aria-expanded={sheetOpen}
+            onClick={() => setSheetOpen((v) => !v)}
+            className={`tap-target flex w-full items-center gap-2 text-left text-body-sm md:hidden ${sheetOpen ? '-mt-1 mb-2' : ''}`}
+          >
+            <span aria-hidden className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-line" />
+            <Icon name={busy ? 'pulse' : editing ? 'pencil' : 'plus'} size={16} className="shrink-0 text-accent-ink" />
+            <span className="min-w-0 flex-1 truncate text-ink">
+              {busy
+                ? busyLabel || t('composer.generating')
+                : sheetOpen
+                  ? t('composer.sheetFold')
+                  : editing
+                    ? t('workspace.editOne')
+                    : t('workspace.newScreen')}
+            </span>
+            <Icon name="chevronDown" size={16} className={`shrink-0 text-ink-faint transition-transform ${sheetOpen ? '' : 'rotate-180'}`} />
+          </button>
           {/*
             The whole message, wrapped — never `truncate`. A one-line ellipsis cut
             "…refused at scenes.0.layers" off exactly before the part that said
@@ -4487,8 +4519,10 @@ export default function ProjectView({
 
           {/* The brief — inspiration + moodboard, only when creating a new screen.
               Folded, it is one standing line; open, the whole dossier. */}
+          {/* On a phone the brief is one of the options: open by itself above the
+              field, it filled the sheet before the field was reached. */}
           {museConfig.enabled && !editing && (
-            <div className="mb-2">
+            <div className={`mb-2 ${narrowOptions ? '' : 'max-md:hidden'}`}>
               <button
                 type="button"
                 onClick={toggleBrief}
@@ -4651,7 +4685,11 @@ export default function ProjectView({
               <button
                 type="button"
                 className="btn-primary flex shrink-0 items-center gap-2"
-                onClick={generate}
+                onClick={() => {
+                  // On a phone the sheet folds so the screen being written shows.
+                  if (phone) setSheetOpen(false)
+                  void generate()
+                }}
                 // Screenshots are a request on their own for a new screen; an
                 // edit still needs the words saying what to change.
                 disabled={busy || enhancer.running || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}

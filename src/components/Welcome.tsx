@@ -183,7 +183,7 @@ export default function Welcome({
    */
   const museHint = !museConfig.enabled
 
-  /** How many option tiles are drawn — the first composer lays them out in one row. */
+  /** How many option tiles are drawn — the first composer lays them out in two rows. */
   const tileCount =
     3 + // DESIGN.md, Muse, the screenshots
     (ultraCounts === undefined || ultraCounts.length > 0 ? 1 : 0) +
@@ -295,11 +295,13 @@ export default function Welcome({
               the order of the groups — what the screen follows, what helps
               write it, where its pictures come from (see OptionTile for why not
               three columns of rows). */}
-          {/* As many columns as tiles, from sm: one row, never four and an
-              orphan. Two by two on a phone. */}
+          {/* Two rows from sm, as many columns as half the tiles: one row of
+              seven made every tile 115px wide, which cut each sentence to three
+              words and pushed the Images choice out of its own tile. Two by two
+              on a phone. */}
           <div
             className="grid grid-cols-2 gap-2 border-t border-line-soft px-1 pt-3 sm:[grid-template-columns:var(--tiles)]"
-            style={{ '--tiles': `repeat(${tileCount}, minmax(0, 1fr))` } as React.CSSProperties}
+            style={{ '--tiles': `repeat(${Math.ceil(tileCount / 2)}, minmax(0, 1fr))` } as React.CSSProperties}
           >
             <OptionTileAction
               icon="image"

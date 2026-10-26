@@ -171,9 +171,9 @@ export default function SettingsPanel() {
   const modelOptions = Array.from(new Set([settings.model, ...models].filter(Boolean)))
 
   return (
-    // `px-4` below sm: inside `.page`'s own 24px gutter, 24 more left 277px of a
-    // 375px phone for the forms.
-    <div className="rounded-2xl border border-line bg-surface px-4 py-5 sm:px-6 sm:py-6">
+    // `px-3` below sm, inside `.page`'s 12px gutter there: 24 + 24 left 277px
+    // of a 375px phone for the forms, and every row read as squeezed.
+    <div className="rounded-2xl border border-line bg-surface px-3 py-4 sm:px-6 sm:py-6">
       <header className="rule-double pb-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1">
           <div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Banner, Button, Icon, Select, type IconName } from '../../ui'
+import { Banner, Button, Icon, type IconName } from '../../ui'
 import { useT } from '../../i18n'
 import type { AuthUser } from '../../lib/api'
 import { useDashboard, type LiveStatus } from './useDashboard'
@@ -79,6 +79,14 @@ export default function AdminDashboard({
 }) {
   const t = useT()
   const [section, setSection] = useState<SectionId>(loadSection)
+  /** The phone's dropdown of panels. */
+  const [navOpen, setNavOpen] = useState(false)
+  useEffect(() => {
+    if (!navOpen) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setNavOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navOpen])
   const live = useDashboard()
   const d = live.data
   const rootRef = useRef<HTMLDivElement>(null)
@@ -121,6 +129,49 @@ export default function AdminDashboard({
     }
   }
 
+  /** The menu's rows: the column from md, the phone's dropdown below it. */
+  const navRows = (pick: (id: SectionId) => void) =>
+    SECTIONS.map((s) => {
+      const active = s.id === section
+      const b = badge(s.id)
+      return (
+        <li key={s.id} className="shrink-0">
+          <button
+            type="button"
+            aria-current={active ? 'page' : undefined}
+            onClick={() => pick(s.id)}
+            className={
+              // A rounded row, as the inspector's tabs and the screen menu draw theirs.
+              'tap-target mx-2 flex w-[calc(100%-1rem)] items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-left text-body-sm transition ' +
+              (active ? 'bg-selected text-on-selected' : 'text-ink-muted hover:bg-ink/5 hover:text-ink')
+            }
+          >
+            <Icon name={s.icon} size={18} />
+            <span className="flex-1">{t(`dashboard.nav.${s.id}`)}</span>
+            {b && (
+              <span
+                className={
+                  'min-w-5 px-1.5 text-center font-mono text-caption ' +
+                  (active
+                    ? 'bg-surface text-ink'
+                    : b.tone === 'danger'
+                      ? 'bg-danger text-on-danger'
+                      : b.tone === 'warn'
+                        ? 'bg-warn/15 text-warn'
+                        : 'bg-accent/10 text-accent-ink')
+                }
+              >
+                {b.text}
+              </span>
+            )}
+          </button>
+        </li>
+      )
+    })
+
+  const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0]
+  const currentBadge = badge(current.id)
+
   const body = (() => {
     switch (section) {
       case 'overview':
@@ -149,7 +200,9 @@ export default function AdminDashboard({
   })()
 
   return (
-    <div ref={rootRef} className="overflow-clip rounded-2xl border border-line bg-surface md:grid md:grid-cols-[13.5rem_minmax(0,1fr)]">
+    // Clipped from md only: below it the panel dropdown hangs out of the nav, and
+    // on a short panel the card's clip cut the list off half way.
+    <div ref={rootRef} className="rounded-2xl border border-line bg-surface md:grid md:grid-cols-[13.5rem_minmax(0,1fr)] md:overflow-clip">
       {/* Below md the nav is a bar that STICKS to the top of the window while
           a panel scrolls under it. It was a strip of tabs at the top of the
           card: scroll a long panel and the only way to the other ten was to
@@ -158,31 +211,40 @@ export default function AdminDashboard({
           them. */}
       <nav
         aria-label={t('dashboard.nav.label')}
-        className="sticky top-0 z-10 border-b border-line bg-surface md:static md:border-b-0 md:border-r md:bg-transparent"
+        className="sticky top-0 z-10 rounded-t-2xl border-b border-line bg-surface md:static md:rounded-none md:border-b-0 md:border-r md:bg-transparent"
       >
-        {/* A native select, below md: one control that SAYS which panel is open
-            and, tapped, lists all eleven at once in the phone's own picker —
-            badges included, as words. The strip it replaces needed the reader
-            to guess that it scrolled sideways. */}
-        <div className="flex items-center gap-3 px-4 py-2.5 md:hidden">
-          <Icon name={SECTIONS.find((s) => s.id === section)?.icon ?? 'grid'} size={18} className="shrink-0 text-ink-muted" />
-          <Select
-            aria-label={t('dashboard.nav.label')}
-            value={section}
-            onChange={(e) => setSection(e.currentTarget.value as SectionId)}
-            className="min-w-0 flex-1"
-          >
-            {SECTIONS.map((s) => {
-              const b = badge(s.id)
-              return (
-                <option key={s.id} value={s.id}>
-                  {t(`dashboard.nav.${s.id}`)}
-                  {b ? ` · ${b.text}` : ''}
-                </option>
-              )
-            })}
-          </Select>
-          <LiveBadge status={live.status} compact />
+        {/* Below md, a dropdown of our own: one control that SAYS which panel is
+            open and, tapped, unfolds the same rows as the column — icons and
+            badges included. It was a native select, whose Android picker is a
+            system dialog of plain words that looked like nothing else here. */}
+        <div className="relative md:hidden">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <button
+              type="button"
+              aria-expanded={navOpen}
+              aria-haspopup="true"
+              aria-label={t('dashboard.nav.label')}
+              onClick={() => setNavOpen((v) => !v)}
+              className="tap-target flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-line bg-raised px-3 py-2 text-left text-body-sm text-ink transition hover:border-ink/25"
+            >
+              <Icon name={current.icon} size={18} className="shrink-0 text-accent-ink" />
+              <span className="min-w-0 flex-1 truncate font-medium">{t(`dashboard.nav.${current.id}`)}</span>
+              {currentBadge && <span className="font-mono text-caption text-accent-ink">{currentBadge.text}</span>}
+              <Icon name="chevronDown" size={16} className={`shrink-0 text-ink-faint transition-transform ${navOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <LiveBadge status={live.status} compact />
+          </div>
+          {navOpen && (
+            <>
+              <div className="fixed inset-0 z-10" aria-hidden onClick={() => setNavOpen(false)} />
+              <ul className="absolute inset-x-0 top-full z-20 max-h-[70dvh] overflow-y-auto border-b border-line bg-surface py-2 shadow-2xl">
+                {navRows((id) => {
+                  setSection(id)
+                  setNavOpen(false)
+                })}
+              </ul>
+            </>
+          )}
         </div>
         <div className="hidden md:sticky md:top-0 md:block">
           <header className="hidden px-4 pb-3 pt-5 md:block">
@@ -190,54 +252,11 @@ export default function AdminDashboard({
             <h2 className="mt-1 text-h3 text-ink">{t('dashboard.title')}</h2>
             <LiveBadge status={live.status} />
           </header>
-          <ul className="md:block md:border-t md:border-line-soft md:py-2">
-            {SECTIONS.map((s) => {
-              const active = s.id === section
-              const b = badge(s.id)
-              return (
-                <li key={s.id} className="shrink-0">
-                  <button
-                    type="button"
-                    aria-current={active ? 'page' : undefined}
-                    onClick={() => setSection(s.id)}
-                    className={
-                      // A rounded row inside the column from md, as the inspector's
-                      // tabs and the screen menu draw theirs. (Below md the list
-                      // is hidden behind the select above; the border-b-2 is
-                      // what is left of the strip it used to be.)
-                      'tap-target flex w-full items-center gap-2.5 whitespace-nowrap border-b-2 px-4 py-2 text-left text-body-sm transition md:mx-2 md:w-[calc(100%-1rem)] md:rounded-md md:border-b-0 md:px-3 ' +
-                      (active
-                        ? 'border-accent/40 bg-selected text-on-selected md:border-transparent'
-                        : 'border-transparent text-ink-muted hover:bg-ink/5 hover:text-ink')
-                    }
-                  >
-                    <Icon name={s.icon} size={18} />
-                    <span className="flex-1">{t(`dashboard.nav.${s.id}`)}</span>
-                    {b && (
-                      <span
-                        className={
-                          'min-w-5 px-1.5 text-center font-mono text-caption ' +
-                          (active
-                            ? 'bg-surface text-ink'
-                            : b.tone === 'danger'
-                              ? 'bg-danger text-on-danger'
-                              : b.tone === 'warn'
-                                ? 'bg-warn/15 text-warn'
-                                : 'bg-accent/10 text-accent-ink')
-                        }
-                      >
-                        {b.text}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
+          <ul className="md:block md:border-t md:border-line-soft md:py-2">{navRows(setSection)}</ul>
         </div>
       </nav>
 
-      <div className="min-w-0 px-4 py-5 sm:px-6">
+      <div className="min-w-0 px-3 py-4 sm:px-6 sm:py-5">
         {live.status === 'error' && (
           <Banner
             tone="danger"

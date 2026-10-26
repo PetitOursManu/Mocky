@@ -591,8 +591,11 @@ export default function Bibliotheque({
       if (img) onTogglePin?.(img)
     } else onPinUse?.(p.hash, next)
   }
+  // Empty, the strip is a hint — worth its line on a desktop, not on a phone,
+  // where that line is a row of pictures. It appears at the FOOT when the first
+  // picture is ticked, so the grid above it still does not move.
   const selectionStrip = canPin ? (
-    <div className="h-16 shrink-0 border-t border-line-soft px-3 py-2">
+    <div className={`h-16 shrink-0 border-t border-line-soft px-3 py-2 ${pinned.length ? '' : 'hidden sm:block'}`}>
       {pinned.length === 0 ? (
         <p className="flex h-full items-center gap-2 text-body-sm text-ink-faint">
           <Icon name="check" size={15} />
@@ -698,7 +701,8 @@ export default function Bibliotheque({
       )}
       <Checkbox checked={onlyFav} onChange={setOnlyFav} className="whitespace-nowrap text-body-sm">
         <Icon name="star" size={14} />
-        {t('library.favorites')}
+        {/* The star alone on a phone, so the filters share the search's line. */}
+        <span className="sr-only sm:not-sr-only">{t('library.favorites')}</span>
       </Checkbox>
     </>
   )
@@ -1195,15 +1199,17 @@ export default function Bibliotheque({
             télécharger (.zip)" and "Terminé" set in French come to ~340px on
             their own, which is the whole width of the phone this has to fit. */}
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line-soft p-3 text-body-sm text-ink-muted">
-          <span>
+          <span className="hidden sm:inline">
             <span className="font-mono text-accent-ink">{images.length}</span>{' '}
             {t(images.length === 1 ? 'library.imageWord_one' : 'library.imageWord_other')} ·{' '}
             <span className="font-mono text-accent-ink">{pinned.length}</span>{' '}
             {t(pinned.length === 1 ? 'library.pinnedWord_one' : 'library.pinnedWord_other')}
           </span>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
             {uploader}
-            {tab === 'images' && zipLink}
+            {/* The archive is a desk job: on a phone its button took the line
+                the dialog's own "Done" needed. */}
+            {tab === 'images' && <span className="hidden sm:contents">{zipLink}</span>}
             <Button variant="primary" size="sm" onClick={onClose}>
               {t('library.done')}
             </Button>

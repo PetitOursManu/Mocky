@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useMedia } from '../lib/usePhone'
 import { Banner, Button, Icon, Input, Spinner } from '../ui'
 import { useT } from '../i18n'
 import {
@@ -80,6 +81,15 @@ export default function StockVideoSearch({
   const [error, setError] = useState<string | null>(null)
   const [searched, setSearched] = useState(false)
   const searchAbort = useRef<AbortController | null>(null)
+  /*
+   * Folded on a phone until asked for. Open, the search — its title, the two
+   * libraries, the field and the licence line — filled the whole first screen
+   * of the media library under its header, and a person who came to tick one of
+   * THEIR pictures saw none of them. From `sm` there is room for both.
+   */
+  const narrow = useMedia('(max-width: 639px)')
+  const [unfolded, setUnfolded] = useState(false)
+  const open = !narrow || unfolded
 
   useEffect(() => {
     const ac = new AbortController()
@@ -156,12 +166,30 @@ export default function StockVideoSearch({
   }
 
   return (
-    <section className="mb-5 border border-line-soft p-3">
+    <section className={`border border-line-soft ${open ? 'mb-5 p-3' : 'mb-3 rounded-lg'}`}>
+      {narrow && (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setUnfolded((v) => !v)}
+          className={`tap-target flex w-full items-center gap-1.5 text-left ${open ? 'mb-2' : 'px-3 py-2'}`}
+        >
+          <span className="kicker flex flex-1 items-center gap-1.5">
+            <Icon name="search" size={14} />
+            {t(w.title)}
+          </span>
+          <Icon name="chevronDown" size={16} className={`text-ink-faint transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+      {open && (
+      <>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="kicker flex items-center gap-1.5">
-          <Icon name="search" size={14} />
-          {t(w.title)}
-        </span>
+        {!narrow && (
+          <span className="kicker flex items-center gap-1.5">
+            <Icon name="search" size={14} />
+            {t(w.title)}
+          </span>
+        )}
         {enabled.length > 1 && (
           <span className="inline-flex border border-line-soft" role="group" aria-label={t('library.stockLibrary')}>
             {enabled.map((p) => (
@@ -180,7 +208,7 @@ export default function StockVideoSearch({
           </span>
         )}
         <form
-          className="flex min-w-[14rem] flex-1 items-center gap-2"
+          className="flex min-w-0 flex-1 basis-56 items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault()
             void run(1)
@@ -284,6 +312,8 @@ export default function StockVideoSearch({
             {t('library.stockMore')}
           </Button>
         </div>
+      )}
+      </>
       )}
     </section>
   )
