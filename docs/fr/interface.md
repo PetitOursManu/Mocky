@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 14a18df8f917
+source_hash: dcc1f352ad9d
 ---
 
 # L’interface
@@ -656,6 +656,20 @@ de la forme d’un écran, larges de 1 280 px et qui se chevauchent un peu : une
 page de 1 440 × 9 000 réduite d’un bloc à la taille d’entrée d’un modèle arrive
 large de 250 px, et plus une ligne de texte n’y est lisible. La vignette affiche
 `×5` quand c’est arrivé. Huit morceaux en tout par demande.
+
+**Le site lui-même fonctionne aussi** : une page `.html` (avec son CSS et son
+JavaScript dedans), ou un `.zip` du dossier du site avec ses feuilles de style,
+ses scripts, ses images et ses polices. Mocky l’affiche à 1 440 px de large et
+le photographie ; à partir de là c’est une capture comme les autres — même
+découpe, mêmes deux intentions. C’est le code de quelqu’un d’autre, donc il ne
+tourne jamais à côté de Mocky : ses scripts s’exécutent dans un cadre isolé,
+sans accès au stockage ni à la page de Mocky, autorisés à charger des
+ressources mais pas à envoyer quoi que ce soit (ni requête, ni formulaire, ni
+cadre) ; ce qui est photographié est une copie du résultat, débarrassée de tout
+script et de toute adresse extérieure. Une feuille de style chargée depuis un
+autre site ne peut pas être relue : une page qui en dépend peut sortir en
+partie sans style — joignez-en alors une capture. Le fichier n’est jamais
+envoyé ni conservé.
 
 **Les captures ne sont jamais enregistrées.** Elles quittent le navigateur dans
 la seule requête qui s’en sert, et nulle part ailleurs — ni envoi, ni

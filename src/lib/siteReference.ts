@@ -16,6 +16,8 @@
  * else's site is exactly the third-party image M2 keeps out of the library.
  */
 
+import { siteSourceKind } from './siteSource'
+
 export type SiteRefMode = 'reproduce' | 'redesign'
 
 export const SITE_REF_MODES: SiteRefMode[] = ['reproduce', 'redesign']
@@ -75,7 +77,7 @@ export const SITE_PART_OVERLAP = 0.04
 /** Source files accepted from the picker, a paste or a drop. */
 export const SITE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 
-/** Above this a file is not a screenshot, and decoding it can take the tab down. */
+/** Above this a file is not a screenshot (nor a page's zip), and decoding it can take the tab down. */
 export const SITE_FILE_MAX_BYTES = 30 * 1024 * 1024
 
 export interface SlicePlan {
@@ -120,19 +122,23 @@ export function partsUsed(shots: SiteShot[]): number {
   return shots.reduce((n, s) => n + s.parts.length, 0)
 }
 
-/** Why a file cannot be attached, as an i18n key — or null when it can. */
-export function refuseSiteFile(file: { type: string; size: number }, shots: SiteShot[]): string | null {
-  if (!SITE_IMAGE_TYPES.includes(file.type)) return 'project.siteNotImage'
+/**
+ * Why a file cannot be attached, as an i18n key — or null when it can. An .html
+ * or .zip of the site is accepted too: it is rendered into a screenshot
+ * (lib/siteSource.ts) and from then on is one.
+ */
+export function refuseSiteFile(file: { name?: string; type: string; size: number }, shots: SiteShot[]): string | null {
+  if (!SITE_IMAGE_TYPES.includes(file.type) && !siteSourceKind(file)) return 'project.siteNotImage'
   if (file.size > SITE_FILE_MAX_BYTES) return 'project.siteTooLarge'
   if (shots.length >= SITE_SHOTS_MAX || partsUsed(shots) >= SITE_PARTS_MAX) return 'project.siteFull'
   return null
 }
 
 /**
- * Decode an image file and cut it into parts, within what is left of the
- * request's budget. Browser only.
+ * Decode an image file — or the canvas a rendered .html/.zip came back as — and
+ * cut it into parts, within what is left of the request's budget. Browser only.
  */
-export async function prepareSiteShot(file: Blob, id: string, name: string, maxParts: number): Promise<SiteShot> {
+export async function prepareSiteShot(file: ImageBitmapSource, id: string, name: string, maxParts: number): Promise<SiteShot> {
   const bitmap = await createImageBitmap(file)
   try {
     const plan = planSlices(bitmap.width, bitmap.height, maxParts)

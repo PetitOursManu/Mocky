@@ -113,6 +113,16 @@ holds both. What the site's pictures SHOW is read with its content and replaced
 (`lib/sitePictures.ts`, free photos or generated, per the `Images` choice) —
 except on a redesign Muse ran for, whose dossier already made its pictures.
 
+**An .html or .zip of the site becomes a screenshot** (`lib/siteSource.ts`,
+`lib/siteSourceRender.ts`, `lib/zipRead.ts`) and nothing downstream knows it was
+a file. Two frames, and do not merge them: the page's scripts run in an
+OPAQUE-origin frame (`allow-scripts`, no `allow-same-origin`, `LIVE_CSP` sends
+nothing) that hands back its DOM and CSSOM; html2canvas runs from Mocky's realm
+over a copy with no script and no address but `data:` (`scrubCss`, `STILL_CSP`)
+in a frame WITHOUT `allow-scripts`. That copy is scrubbed because html2canvas
+loads pictures from Mocky's window, where no CSP applies. The capture shell's
+known same-origin limitation (capture.ts) is exactly what this split avoids.
+
 There are four independent correction passes, and they are not interchangeable:
 
 | | Trigger | Prompt | Budget |

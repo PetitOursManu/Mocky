@@ -94,6 +94,9 @@ describe('site screenshots stay in the browser', () => {
       'src/lib/project.ts',
       'src/lib/siteReference.ts',
       'src/lib/siteReference.test.ts',
+      // An .html or .zip of the site, turned into a screenshot before anything
+      // else sees it.
+      'src/lib/siteSource.ts',
     ])
     const offenders = [...files(join(root, 'src')), ...files(join(root, 'server'))]
       .filter((p) => /siteReference|SiteShot|siteShots/.test(readFileSync(p, 'utf8')))
@@ -109,7 +112,16 @@ describe('site screenshots stay in the browser', () => {
   })
 
   it('are never fetched, posted or uploaded by their module', () => {
-    const mod = readFileSync(join(root, 'src/lib/siteReference.ts'), 'utf8')
-    expect(mod).not.toMatch(/\bfetch\(|XMLHttpRequest|localStorage|indexedDB/)
+    // Nor is the .html or .zip they may be rendered from.
+    for (const name of ['siteReference.ts', 'siteSource.ts', 'siteSourceRender.ts', 'zipRead.ts']) {
+      const mod = readFileSync(join(root, 'src/lib', name), 'utf8')
+      expect(mod, name).not.toMatch(/\bfetch\(|XMLHttpRequest|localStorage|indexedDB|sendBeacon/)
+    }
+  })
+
+  it("render a site file with its scripts and Mocky's origin never in the same frame", () => {
+    const render = readFileSync(join(root, 'src/lib/siteSourceRender.ts'), 'utf8')
+    const sandboxes = [...render.matchAll(/hiddenFrame\('([^']*)'\)/g)].map((m) => m[1]).sort()
+    expect(sandboxes).toEqual(['allow-same-origin', 'allow-scripts'])
   })
 })

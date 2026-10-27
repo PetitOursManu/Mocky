@@ -100,6 +100,8 @@ import {
   type SiteRefMode,
   type SiteShot,
 } from '../lib/siteReference'
+import { siteSourceKind } from '../lib/siteSource'
+import { SiteSourceError, renderSiteSource } from '../lib/siteSourceRender'
 import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
 import {
   documentImageChoices,
@@ -945,10 +947,12 @@ export default function ProjectView({
   /**
    * Read image files into site screenshots, one after the other, each cut to
    * fit what is left of the request's budget. A refused file says why and the
-   * others still go through.
+   * others still go through. An .html or .zip of the site is rendered into its
+   * screenshot first, in frames that keep its scripts away from Mocky
+   * (lib/siteSource.ts).
    */
   async function addSiteFiles(files: File[]) {
-    const images = files.filter((f) => f.type.startsWith('image/'))
+    const images = files.filter((f) => f.type.startsWith('image/') || siteSourceKind(f))
     if (!images.length) return
     for (const file of images) {
       // Read fresh each time: a thumbnail removed while the previous file was
@@ -962,12 +966,13 @@ export default function ProjectView({
       }
       setSiteReading((n) => n + 1)
       try {
-        const shot = await prepareSiteShot(file, newId(), file.name || '', SITE_PARTS_MAX - partsUsed(shots))
+        const picture = siteSourceKind(file) ? await renderSiteSource(file) : file
+        const shot = await prepareSiteShot(picture, newId(), file.name || '', SITE_PARTS_MAX - partsUsed(siteShotsRef.current))
         const next = [...siteShotsRef.current, shot]
         siteShotsRef.current = next
         setSiteShots(next)
-      } catch {
-        setError(t('project.siteUnreadable'))
+      } catch (e) {
+        setError(t(e instanceof SiteSourceError ? e.key : siteSourceKind(file) ? 'project.siteSourceFailed' : 'project.siteUnreadable'))
       } finally {
         setSiteReading((n) => n - 1)
       }

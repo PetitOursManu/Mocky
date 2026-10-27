@@ -74,6 +74,13 @@ describe('refuseSiteFile', () => {
     expect(refuseSiteFile({ type: 'image/jpeg', size: 10 }, [shot(SITE_PARTS_MAX)])).toBe('project.siteFull')
   })
 
+  it('accepts the site itself, as a page or a zip — by type, or by name when the type is empty', () => {
+    expect(refuseSiteFile({ name: 'index.html', type: 'text/html', size: 10 }, [])).toBeNull()
+    expect(refuseSiteFile({ name: 'site.zip', type: '', size: 10 }, [])).toBeNull()
+    expect(refuseSiteFile({ name: 'site.zip', type: 'application/x-zip-compressed', size: SITE_FILE_MAX_BYTES + 1 }, [])).toBe('project.siteTooLarge')
+    expect(refuseSiteFile({ name: 'notes.txt', type: 'text/plain', size: 10 }, [])).toBe('project.siteNotImage')
+  })
+
   it('counts parts across shots', () => {
     expect(partsUsed([shot(3), shot(2)])).toBe(5)
   })

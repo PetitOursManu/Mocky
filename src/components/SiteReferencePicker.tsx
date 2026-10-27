@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useT } from '../i18n'
 import { Icon } from '../ui'
 import { SITE_IMAGE_TYPES, SITE_REF_MODES, type SiteRefMode, type SiteShot } from '../lib/siteReference'
+import { SITE_SOURCE_ACCEPT } from '../lib/siteSource'
 
 /**
  * The two pieces of the site-screenshot control, shared by both composers.
@@ -43,7 +44,7 @@ export function SiteAttachButton({
       <input
         ref={input}
         type="file"
-        accept={SITE_IMAGE_TYPES.join(',')}
+        accept={[...SITE_IMAGE_TYPES, ...SITE_SOURCE_ACCEPT].join(',')}
         multiple
         className="hidden"
         onChange={(e) => {
