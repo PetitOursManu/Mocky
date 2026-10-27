@@ -623,6 +623,18 @@ A full-page capture is cut, in the browser, into near-screen-shaped parts of
 a model's input size arrives 250 px wide with every line of copy unreadable. The
 thumbnail says `×5` when that happened. Eight parts in all per request.
 
+**The site itself works too**: an `.html` page (its CSS and JavaScript inside
+it), or a `.zip` of the site's folder with its stylesheets, scripts, pictures
+and fonts. Mocky renders it at 1 440 px wide and photographs it, and from then
+on it is a screenshot like the others — same cut, same two intents. It is
+someone else's code, so it never runs next to Mocky: its scripts run in a
+sandboxed frame with no access to Mocky's storage or page, and allowed to
+load resources but not to send anything (no fetch, no form, no frame); what
+gets photographed is a copy of the result with every script and every
+outside address removed. A stylesheet loaded from another site cannot be read
+back, so a page that depends on one may come out partly unstyled — attach a
+screenshot of it then. The file is never uploaded or kept.
+
 **The screenshots are never saved.** They leave the browser in the one request
 that uses them and nowhere else — no upload, no library, no sync. A screen
 remembers that it was built from a site and in which mode, so `Regenerate`

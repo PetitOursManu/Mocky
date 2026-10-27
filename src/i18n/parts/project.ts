@@ -117,7 +117,7 @@ export const project = {
     'project.siteAttach': 'Joindre des captures d’un site',
     'project.siteAttachShort': 'Captures d’un site',
     'project.siteAttachTitle':
-      'Joindre des captures d’un site existant, pour le reproduire ou en faire la refonte. Vous pouvez aussi les coller dans le champ ou les déposer sur la barre.',
+      'Joindre des captures d’un site existant — ou sa page .html, ou un .zip du site — pour le reproduire ou en faire la refonte. Vous pouvez aussi les coller dans le champ ou les déposer sur la barre.',
     'project.sitePlaceholder': 'Précisez si besoin (quelle page, ce qui compte)… ou générez directement',
     'project.siteModeLabel': 'Que faire de ce site',
     'project.siteReproduce': 'Reproduire',
@@ -134,10 +134,14 @@ export const project = {
     'project.siteReading': 'Lecture de la capture…',
     'project.siteDefaultReproduce': 'Reproduis ce site',
     'project.siteDefaultRedesign': 'Refonte graphique de ce site',
-    'project.siteNotImage': 'Seules les images PNG, JPEG, WebP ou GIF peuvent servir de capture.',
-    'project.siteTooLarge': 'Cette image dépasse 30 Mo : ce n’est sans doute pas une capture d’écran.',
+    'project.siteNotImage': 'Seules les images PNG, JPEG, WebP ou GIF, une page .html ou un .zip du site peuvent servir de capture.',
+    'project.siteTooLarge': 'Ce fichier dépasse 30 Mo : ce n’est sans doute ni une capture d’écran ni un site.',
     'project.siteFull': 'Assez de captures pour une demande : 4 au plus, et 8 morceaux de page en tout.',
     'project.siteUnreadable': 'Cette image n’a pas pu être lue.',
+    'project.siteSourceFailed': 'Cette page n’a pas pu être affichée : vérifiez qu’elle s’ouvre dans un navigateur, ou joignez-en une capture.',
+    'project.siteZipNoPage': 'Ce .zip ne contient aucune page .html.',
+    'project.siteZipUnsupported':
+      'Ce .zip ne peut pas être lu ici (chiffré, trop volumineux une fois décompressé, ou d’un format rare). Recompressez le dossier du site en .zip standard.',
     'project.siteNoVision':
       'Le modèle actif ne lit pas les images : il ne pourrait pas voir les captures. Choisissez un modèle avec vision dans Réglages.',
     'project.siteUltraSkipped':
@@ -475,7 +479,7 @@ export const project = {
     'project.siteAttach': 'Attach screenshots of a site',
     'project.siteAttachShort': 'Site screenshots',
     'project.siteAttachTitle':
-      'Attach screenshots of an existing site, to reproduce it or to redesign it. You can also paste them into the field or drop them on the bar.',
+      'Attach screenshots of an existing site — or its .html page, or a .zip of the site — to reproduce it or to redesign it. You can also paste them into the field or drop them on the bar.',
     'project.sitePlaceholder': 'Add details if needed (which page, what matters)… or just generate',
     'project.siteModeLabel': 'What to do with this site',
     'project.siteReproduce': 'Reproduce',
@@ -492,10 +496,14 @@ export const project = {
     'project.siteReading': 'Reading the screenshot…',
     'project.siteDefaultReproduce': 'Reproduce this site',
     'project.siteDefaultRedesign': 'Redesign this site',
-    'project.siteNotImage': 'Only PNG, JPEG, WebP or GIF images can be used as screenshots.',
-    'project.siteTooLarge': 'This image is over 30 MB — probably not a screenshot.',
+    'project.siteNotImage': 'Only PNG, JPEG, WebP or GIF images, an .html page or a .zip of the site can be used as screenshots.',
+    'project.siteTooLarge': 'This file is over 30 MB — probably neither a screenshot nor a site.',
     'project.siteFull': 'That is enough screenshots for one request: 4 at most, and 8 page parts in all.',
     'project.siteUnreadable': 'This image could not be read.',
+    'project.siteSourceFailed': 'This page could not be displayed: check that it opens in a browser, or attach a screenshot of it.',
+    'project.siteZipNoPage': 'This .zip contains no .html page.',
+    'project.siteZipUnsupported':
+      'This .zip cannot be read here (encrypted, too large once unpacked, or an unusual format). Zip the site’s folder again as a standard .zip.',
     'project.siteNoVision':
       'The active model does not read images, so it could not see the screenshots. Pick a vision model in Settings.',
     'project.siteUltraSkipped':
