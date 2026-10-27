@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `site` | une page .html ou un .zip du site comme référence | `7f07dbf` |
 | `mcp` | clés d'assistant à deux niveaux (lecture, lecture + écriture) | `8b44621` |
 | `ui` | Muse par défaut, images plus claires, actions d'écran en haut, corrections mobile | `110fbd9` |
 | `export` | avis dédié aux images chargées depuis un autre site | `c5955f6` |
