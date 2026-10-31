@@ -379,6 +379,25 @@ walk straight around it.
 
 ---
 
+
+### Thinking level
+
+Each text model has a **Thinking level**: `Auto`, `Off`, `Low`, `Medium` or
+`High`. **Who decides follows who pays**: on the instance's model, the
+administrator's level for that profile (Admin → Providers, one per model:
+generation, Muse, free plan); on a person's own key, the level in their
+Settings. A person cannot raise the level of a model an administrator pays for.
+
+`Auto` is what Mocky did before the choice existed, and the default. Any other
+level replaces the model's default where the vendor documents a parameter for
+it — Ollama (`think`), OpenRouter (`reasoning`), and `reasoning_effort` on
+OpenAI's gpt-5 and o-series, Gemini, Kimi K3 and Groq's gpt-oss — and does
+nothing elsewhere: a parameter a vendor does not know is a refused request on
+several of them. Where thinking cannot be switched off (Gemini Pro, the
+o-series), `Off` asks for the least the model accepts. **Anthropic is not
+handled yet**: its compatible API ignores `reasoning_effort`, so Claude keeps its
+own default. The translation is `applyReasoning` in `server/text/dialect.js`.
+
 ## Configure image generation
 
 Go to **Admin → Image generation (Muse)**. Keys are stored on the server and

@@ -10,7 +10,7 @@
 // UI says "détectée / non détectée", never "garantie".
 import crypto from 'node:crypto'
 import zlib from 'node:zlib'
-import { buildUpstream } from './dialect.js'
+import { buildUpstream, readReasoning } from './dialect.js'
 import { crc32 } from '../images/zip.js'
 
 /** Build a PNG chunk (length + type + data + CRC32). */
@@ -170,7 +170,8 @@ export function browserVisionTarget(req) {
   const model = String(req.body?.model || '')
   if (!baseUrl || !model) return null
   const kind = String(req.headers['x-provider-kind'] || '') === 'openai' ? 'openai' : 'ollama'
-  return { kind, baseUrl, apiKey: auth.startsWith('Bearer ') ? auth.slice(7) : '', model }
+  const reasoning = readReasoning(req.headers['x-mocky-reasoning'])
+  return { kind, baseUrl, apiKey: auth.startsWith('Bearer ') ? auth.slice(7) : '', model, ...(reasoning !== 'auto' ? { reasoning } : {}) }
 }
 
 /** Drop cached probes (model or credentials changed). */

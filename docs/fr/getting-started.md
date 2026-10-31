@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: a7a293e0d09e
+source_hash: 5352a559dd83
 ---
 
 # Démarrage
@@ -396,6 +396,27 @@ qui passe la protection SSRF puis répond `302 → http://169.254.169.254/…` l
 contournerait sinon d'un seul pas.
 
 ---
+
+
+### Niveau de réflexion
+
+Chaque modèle de texte a un **Niveau de réflexion** : `Auto`, `Désactivé`,
+`Faible`, `Moyen` ou `Élevé`. **Qui décide suit qui paie** : sur le modèle de
+l’instance, le niveau que l’administrateur a choisi pour ce profil (Admin →
+Fournisseurs, un par modèle : génération, Muse, forfait gratuit) ; sur la clé
+personnelle d’une personne, le niveau de ses Réglages. Une personne ne peut pas
+monter le niveau d’un modèle payé par l’administrateur.
+
+`Auto` est ce que Mocky faisait avant que le choix existe, et le réglage par
+défaut. Tout autre niveau remplace celui du modèle là où le fournisseur documente
+un paramètre pour cela — Ollama (`think`), OpenRouter (`reasoning`), et
+`reasoning_effort` sur gpt-5 et la série o d’OpenAI, Gemini, Kimi K3 et gpt-oss
+chez Groq — et ne fait rien ailleurs : un paramètre inconnu d’un fournisseur est
+une requête refusée chez plusieurs d’entre eux. Là où la réflexion ne se coupe
+pas (Gemini Pro, la série o), `Désactivé` demande le minimum que le modèle
+accepte. **Anthropic n’est pas encore géré** : son API compatible ignore
+`reasoning_effort`, donc Claude garde son réglage par défaut. La traduction est
+`applyReasoning` dans `server/text/dialect.js`.
 
 ## Configurer la génération d'images
 

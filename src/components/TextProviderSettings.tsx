@@ -10,6 +10,8 @@ import {
 import { Icon } from '../ui'
 import { groupProviders, providerGroupKey } from '../lib/providerGroups'
 import { useT } from '../i18n'
+import ReasoningSelect from './ReasoningSelect'
+import { readReasoning, type ReasoningLevel } from '../lib/reasoning'
 
 /** Translation keys, resolved at render — `useT` only runs inside a component. */
 const HINT_KEYS: Record<string, string> = {
@@ -98,6 +100,7 @@ function ProfileForm({
   const [baseUrl, setBaseUrl] = useState('')
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [reasoning, setReasoning] = useState<ReasoningLevel>(readReasoning(section.reasoning))
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -118,6 +121,7 @@ function ProfileForm({
     setBaseUrl(e.baseUrl)
     setModel(e.model)
     setApiKey('')
+    setReasoning(readReasoning(s.reasoning))
   }
 
   useEffect(() => {
@@ -139,7 +143,7 @@ function ProfileForm({
     setSaved(false)
     setTest(null)
     try {
-      const patch: Record<string, unknown> = { provider }
+      const patch: Record<string, unknown> = { provider, reasoning }
       if (provider) patch[provider] = { baseUrl, model, apiKey: apiKey || undefined }
       await push(patch, provider)
       setSaved(true)
@@ -330,6 +334,7 @@ function ProfileForm({
               )}
             </div>
           </label>
+          <ReasoningSelect value={reasoning} onChange={setReasoning} />
         </div>
       )}
 
