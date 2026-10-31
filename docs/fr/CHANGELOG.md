@@ -100,6 +100,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | Créatif in both READMEs and the MCP page | `4f643d1` |
 | `fr` | pages traduites marquées à jour après les captures | `19723a7` |
 | — | captures refaites (composer, toile, barre, menu d'écran, README) | `c35e249` |
 | — | captures refaites, et deux images pour le README | `4df0a92` |
@@ -114,6 +115,10 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | Thinking level per text model: admin per profile, each person on their own key | `95e547d` |
+| — | carry the project's Créatif mode, and a creative field on the tools | `1e28832` |
+| — | Namespace the Créatif strings under workspace. | `d44fd70` |
+| — | Add a Normal / Créatif creative mode per project | `2c2f054` |
 | `muse` | un liseret vert autour du panneau Muse | `83feb54` |
 | `muse` | l'en-tête du panneau Muse sur la couleur d'accent | `0697d01` |
 | — | retire un réglage local de .claude/launch.json entré par erreur | `84139d8` |
