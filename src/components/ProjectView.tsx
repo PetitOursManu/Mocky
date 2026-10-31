@@ -4778,11 +4778,11 @@ export default function ProjectView({
               {!editing && onSetCreative && (
                 <OptionToggle
                   icon="sparkle"
-                  label={t('creative.toggle')}
-                  hint={t('creative.hint')}
+                  label={t('workspace.creative.toggle')}
+                  hint={t('workspace.creative.hint')}
                   on={!!project.creative}
                   onClick={() => onSetCreative(!project.creative)}
-                  title={t(project.creative ? 'creative.onTitle' : 'creative.offTitle')}
+                  title={t(project.creative ? 'workspace.creative.onTitle' : 'workspace.creative.offTitle')}
                 />
               )}
               <OptionToggle

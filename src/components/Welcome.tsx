@@ -332,11 +332,11 @@ export default function Welcome({
             {onToggleCreative && (
               <OptionTile
                 icon="sparkle"
-                label={t('creative.toggle')}
-                hint={t('creative.hint')}
+                label={t('workspace.creative.toggle')}
+                hint={t('workspace.creative.hint')}
                 on={!!creativeOn}
                 onClick={onToggleCreative}
-                title={t(creativeOn ? 'creative.onTitle' : 'creative.offTitle')}
+                title={t(creativeOn ? 'workspace.creative.onTitle' : 'workspace.creative.offTitle')}
               />
             )}
             <OptionTile
