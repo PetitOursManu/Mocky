@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: dcc1f352ad9d
+source_hash: f1bc4c9a1ed4
 ---
 
 # L’interface
@@ -566,7 +566,7 @@ selon ce qui est sélectionné.
 Le composeur pose ses questions dans l’ordre où elles viennent : **ce qu’on
 fait** (`Format`, `Type d’écran`, un pli — au-dessus du champ), la demande, puis
 **comment** on le fait — des options en trois groupes nommés : **Style**
-(`Nouvelle direction`, `Marque`), **Aides à la génération** (`Muse`,
+(`Nouvelle direction`, `Marque`), **Aides à la génération** (`Créatif`, `Muse`,
 `Motion Ultra`, `Parcours`) et **Images** (d’où viennent les nouvelles images,
 et `Captures d’un site`). Chaque option est une ligne : son nom, une phrase sur
 ce qu’elle fait, et un interrupteur qui dit si elle est active. `Motion Ultra`
@@ -583,6 +583,7 @@ sur une tablette ou un téléphone déplié, deux rangées à partir de 1024 px.
 | | Puce | Ce qu’elle fait | Coût |
 |---|---|---|---|
 | | `Nouvelle direction` | Ce prompt-ci écrira la direction artistique du projet, que tous les écrans suivants suivront. **La case se décoche toute seule après la génération.** Cachée pendant une édition — une édition retravaille ce qu’une direction a produit, et la laisser réécrire cette direction reviendrait à réattribuer tous les autres écrans du projet. | libre (arme la génération suivante) |
+| | `Créatif` | Un réglage de **projet** : Normal (éteint, par défaut) ou Créatif. En Créatif, les nouveaux écrans sont invités à des compositions moins convenues — grilles asymétriques, contrastes d’échelle, rythme varié entre les sections — dans la même direction artistique, et Muse écrit un dossier plus audacieux. La palette, les polices et l’accessibilité ne changent pas, ni les corrections (réparation, `Peaufiner`, `Tout corriger`, `Ajuster à la page`). Ignoré en `Reproduire`. Caché pendant une édition. | libre (aucun appel en plus ; au plus une révision de dossier de plus avec Muse) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-6 0-11 4.5-12.5 11L6 20M20 4c0 6-4.5 10.5-11 11.5M20 4 9 15M5 20h6"/></svg> | `Muse` | Inspiration, direction artistique, vraie copie et images. **Activé par défaut** ; le désactiver rend la génération simple, à l’octet près. Ses réglages — liens d’inspiration, vos images, combien d’images créer, la vidéo — sont dans le panneau Muse. Voir [Muse](muse/overview.md). | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Parcours` | Activé par défaut. Les nouveaux écrans sont des pages d’un **prototype qui fonctionne** : formulaires, connexion simulée, filtres et panier partagé marchent en démo, et les écrans vers lesquels mène un parcours (`account`, `cart`, `confirmation`…) sont **créés automatiquement** après l’écran, trois au plus. Désactivé, un écran est généré seul, comme avant. Masqué pendant une modification. Voir [Des prototypes qui fonctionnent](flows.md). | une génération par écran créé |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h7v16H3zM13 4h8v8h-8zM13 15h8v5h-8z"/></svg> `Campagne` | Sur un projet vide, à côté du format : ouvre le panneau Campagne, qui décline un brief en plusieurs formats. Voir [Campagne](campaign.md). | une génération par création |

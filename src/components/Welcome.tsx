@@ -52,6 +52,8 @@ type Props = {
   /** The account's brand for this project (lib/brand.ts): drawn only when a brand exists. */
   brandOn?: boolean
   onToggleBrand?: () => void
+  creativeOn?: boolean
+  onToggleCreative?: () => void
   /** Open Campaign Studio: a brief made into several formats at once (lib/campaign.ts). */
   onOpenCampaign?: () => void
   museAvail: boolean | null
@@ -130,6 +132,8 @@ export default function Welcome({
   onToggleFlows,
   brandOn,
   onToggleBrand,
+  creativeOn,
+  onToggleCreative,
   onOpenCampaign,
   museAvail,
   museResult,
@@ -188,6 +192,7 @@ export default function Welcome({
     3 + // DESIGN.md, Muse, the screenshots
     (ultraCounts === undefined || ultraCounts.length > 0 ? 1 : 0) +
     (onToggleBrand ? 1 : 0) +
+    (onToggleCreative ? 1 : 0) +
     (onToggleFlows ? 1 : 0) +
     (pageFormat || imageChoiceAvailable ? 1 : 0)
 
@@ -322,6 +327,16 @@ export default function Welcome({
                 on={!!brandOn}
                 onClick={onToggleBrand}
                 title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
+              />
+            )}
+            {onToggleCreative && (
+              <OptionTile
+                icon="sparkle"
+                label={t('workspace.creative.toggle')}
+                hint={t('workspace.creative.hint')}
+                on={!!creativeOn}
+                onClick={onToggleCreative}
+                title={t(creativeOn ? 'workspace.creative.onTitle' : 'workspace.creative.offTitle')}
               />
             )}
             <OptionTile

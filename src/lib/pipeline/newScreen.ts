@@ -24,6 +24,7 @@
  * sends to a model. Checked by recording the provider's requests for the same
  * scenarios before and after the move: identical.
  */
+import { CREATIVE_SECTION, CREATIVE_TEMPERATURE } from '../creative'
 import type { Settings } from '../settings'
 import { buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Project, type Screen, type ScreenUltra } from '../project'
@@ -219,6 +220,12 @@ export interface NewScreenRequest {
    * always built.
    */
   brand?: BrandIdentity
+  /**
+   * The project is in Créatif (`Project.creative`, lib/creative.ts). Ignored on
+   * a reproduction, where fidelity to the screenshot is the whole request.
+   * Absent — every project left on Normal — builds the request it always built.
+   */
+  creative?: boolean
 }
 
 /** Everything `generateComponent` would have been given, for a writer that is not Mocky's model. */
@@ -353,6 +360,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
   const siteNew = !!site
   /** A reproduction takes the look from the screenshots, so nothing else may supply one. */
   const reproducing = siteNew && site.mode === 'reproduce'
+  const creative = !!req.creative && !reproducing
   const redesigning = req.redesign
   let siteSection = siteNew ? buildSiteReferenceSection(site.mode, site.groups, req.annotationCount + 1) : undefined
   /**
@@ -575,6 +583,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           // With Muse on, the dossier plans the picture and the document's own
           // search never runs: the requester's subject has to reach it.
           pictureSubject: req.pictureSubject?.trim() || undefined,
+          ...(creative ? { creative: true } : {}),
           // No question about films: none is made on its own any more (see
           // the note where the screen's 3D is read, after generation).
           signal: signal,
@@ -850,9 +859,12 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // exact pre-Muse composition (M1). Both now carry the same direction.
     const dirPreamble = dir.markdown ? buildDesignPreamble(dir.markdown) : undefined
     const brandPreamble = req.brand ? brandSection(req.brand, req.brand.logo ? absoluteUrl(imageUrl(req.brand.logo.hash)) : undefined) : undefined
+    // Créatif's section goes LAST: it asks for bolder layout inside the
+    // direction above it, never for another direction (lib/creative.ts).
+    const creativePreamble = creative ? CREATIVE_SECTION : undefined
     const extraSystem = musePreamble
-      ? joinSystem([musePreamble, brandPreamble, referencePreamble, formHint])
-      : joinSystem([dirPreamble, brandPreamble, referencePreamble, formHint])
+      ? joinSystem([musePreamble, brandPreamble, referencePreamble, formHint, creativePreamble])
+      : joinSystem([dirPreamble, brandPreamble, referencePreamble, formHint, creativePreamble])
 
     // Deterministic shortlist first — this is the guaranteed fallback.
     const shortlist = selectCapabilities(text, dir.markdown)
@@ -1170,6 +1182,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           (partial) => hooks.updateScreen(screenId, { code: partial }),
           caps,
           [planSection, photoReferenceNote(photoRefs.length)].filter(Boolean).join('\n\n') || undefined,
+          creative ? CREATIVE_TEMPERATURE : undefined,
         )
     hooks.updateScreen(screenId, {
       code: result.code,

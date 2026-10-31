@@ -151,6 +151,89 @@ export function createNdjsonMeter() {
   return look
 }
 
+/**
+ * A CHOSEN level of thinking — by the administrator for an instance profile, by
+ * the person for their own key (server/own-text.js decides which applies).
+ *
+ * `auto` is what Mocky did before the choice existed, byte for byte: the
+ * THINKING_EFFORT rows above and the model's own default everywhere else. Any
+ * other level REPLACES that default where the vendor documents a parameter for
+ * it, and does nothing anywhere else — a parameter a vendor does not know is a
+ * 400 on several of them (see `boundsThinking`), and a failed screen is a worse
+ * answer to "think less" than a screen made at the default.
+ *
+ * Not every vendor can switch thinking OFF: where it cannot, `off` asks for the
+ * least it accepts. Anthropic is left out on purpose — its OpenAI-compatible
+ * layer ignores `reasoning_effort`, and its own `thinking` object was not
+ * verified against the current models (decided with the user).
+ */
+export const REASONING_LEVELS = ['auto', 'off', 'low', 'medium', 'high']
+
+/** A level read strictly: one of REASONING_LEVELS, or `auto`. */
+export function readReasoning(v) {
+  const s = String(v ?? '').toLowerCase()
+  return REASONING_LEVELS.includes(s) ? s : 'auto'
+}
+
+/** gpt-oss is the one Ollama family that takes LEVELS; the rest take true/false. */
+const OLLAMA_LEVEL_MODELS = /gpt-oss/i
+
+/**
+ * The OpenAI-shaped rows: host, which models reason, and the `reasoning_effort`
+ * each level becomes. A model outside `models` is left alone — gpt-4o answers
+ * 400 to a `reasoning_effort`.
+ */
+const EFFORT_ROWS = [
+  // https://platform.openai.com/docs/guides/reasoning — the gpt-5 family takes
+  // `minimal`; the o-series stops at `low`.
+  { hosts: ['api.openai.com'], models: /^gpt-5/i, off: 'minimal' },
+  { hosts: ['api.openai.com'], models: /^o\d/i, off: 'low' },
+  // Gemini: "cannot be turned off for Gemini 2.5 Pro or 3 models" — so `none`
+  // only on a Flash, the least otherwise.
+  { hosts: ['generativelanguage.googleapis.com'], models: /^(?:models\/)?gemini-[\w.-]*flash/i, off: 'none' },
+  { hosts: ['generativelanguage.googleapis.com'], models: /^(?:models\/)?gemini-/i, off: 'low' },
+  { hosts: ['api.moonshot.ai', 'api.moonshot.cn'], models: /^kimi-k3/i, off: 'low' },
+  // https://console.groq.com/docs/reasoning — low/medium/high on gpt-oss.
+  { hosts: ['api.groq.com'], models: /gpt-oss/i, off: 'low' },
+]
+
+function matchesHost(baseUrl, hosts) {
+  const host = hostOf(baseUrl)
+  return !!host && hosts.some((h) => host === h || host.endsWith(`.${h}`))
+}
+
+/**
+ * Whether a chosen level can reach this target at all — what the Settings and
+ * Admin pages say under the selector. `ollama` is any Ollama endpoint.
+ */
+export function reasoningSupported(kind, baseUrl, model) {
+  if (kind !== KIND_OPENAI) return true
+  if (boundsThinking(baseUrl)) return true
+  return EFFORT_ROWS.some((r) => matchesHost(baseUrl, r.hosts) && r.models.test(String(model || '')))
+}
+
+/**
+ * The chosen level applied to a request body that is ALREADY in its wire shape
+ * (Ollama native, or translated and quirked OpenAI). Pure; `auto` returns it.
+ */
+export function applyReasoning(body, kind, baseUrl, level) {
+  const lvl = readReasoning(level)
+  if (lvl === 'auto' || !body || typeof body !== 'object') return body
+  const out = { ...body }
+  const model = String(out.model || '')
+  if (kind !== KIND_OPENAI) {
+    out.think = lvl === 'off' ? false : OLLAMA_LEVEL_MODELS.test(model) ? lvl : true
+    return out
+  }
+  if (boundsThinking(baseUrl)) {
+    out.reasoning = lvl === 'off' ? { enabled: false } : { effort: lvl }
+    return out
+  }
+  const row = EFFORT_ROWS.find((r) => matchesHost(baseUrl, r.hosts) && r.models.test(model))
+  if (row) out.reasoning_effort = lvl === 'off' ? row.off : lvl
+  return out
+}
+
 /** The one vendor whose API defines `reasoning` — see THINKING_EFFORT. */
 export function boundsThinking(baseUrl) {
   try {
@@ -622,9 +705,19 @@ export function authHeader(target) {
   return { authorization: `${scheme} ${target.apiKey}` }
 }
 
+/** The Ollama body with a chosen `think`, or the bytes untouched (`auto`, not a chat, not JSON). */
+export function withOllamaReasoning(rawBody, subpath, base, level) {
+  if (readReasoning(level) === 'auto' || !String(subpath).startsWith('/api/chat') || !rawBody?.length) return rawBody
+  try {
+    return Buffer.from(JSON.stringify(applyReasoning(JSON.parse(rawBody.toString()), KIND_OLLAMA, base, level)))
+  } catch {
+    return rawBody
+  }
+}
+
 /**
  * Build the upstream request for a target.
- * @param {{kind:string, baseUrl:string, apiKey?:string, auth?:string}} target
+ * @param {{kind:string, baseUrl:string, apiKey?:string, auth?:string, reasoning?:string}} target  `reasoning`: a chosen level (`applyReasoning`)
  * @param {string} subpath  the Ollama-style path the client asked for
  * @param {Buffer|undefined} rawBody
  * @returns {{url:string, headers:object, body:string|Buffer|undefined, translate:boolean, kind:string, isModels:boolean, quirks?:object|null}}
@@ -634,11 +727,12 @@ export function buildUpstream(target, subpath, rawBody) {
   const auth = authHeader(target)
 
   if (target.kind !== KIND_OPENAI) {
-    // Native Ollama — pass everything through untouched.
+    // Native Ollama — pass everything through untouched, unless a level of
+    // thinking was CHOSEN (`applyReasoning`): only then is the body re-written.
     return {
       url: base + subpath,
       headers: { accept: 'application/json', ...auth },
-      body: rawBody,
+      body: withOllamaReasoning(rawBody, subpath, base, target.reasoning),
       translate: false,
       kind: KIND_OLLAMA,
       isModels: false,
@@ -676,7 +770,7 @@ export function buildUpstream(target, subpath, rawBody) {
   return {
     url: `${root}/chat/completions`,
     headers: { accept: 'application/json', 'content-type': 'application/json', ...auth },
-    body: JSON.stringify(applyQuirks(out, quirks)),
+    body: JSON.stringify(applyReasoning(applyQuirks(out, quirks), KIND_OPENAI, base, target.reasoning)),
     translate: true,
     kind: KIND_OPENAI,
     isModels: false,

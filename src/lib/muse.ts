@@ -496,6 +496,8 @@ export async function runMuseDossier(
      * dans Mocky le visuel…") that a picture prompt anchored on it would paint.
      */
     pictureSubject?: string
+    /** The project is in Créatif (lib/creative.ts): a bolder dossier. */
+    creative?: boolean
     signal?: AbortSignal
   } = {},
 ): Promise<MuseResult> {
@@ -519,6 +521,7 @@ export async function runMuseDossier(
       motion: opts.motion ?? undefined,
       language: opts.language,
       pictureSubject: opts.pictureSubject,
+      ...(opts.creative ? { creative: true } : {}),
     }),
     signal: opts.signal,
   })

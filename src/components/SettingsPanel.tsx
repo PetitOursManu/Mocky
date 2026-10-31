@@ -11,6 +11,8 @@ import { groupProviders, providerGroupKey } from '../lib/providerGroups'
 import { api, type AccountPlan, type AuthUser } from '../lib/api'
 import { Banner, Button, Field, Icon, IconButton, Input, Segmented, Select } from '../ui'
 import { LANGS, useLang, useT } from '../i18n'
+import ReasoningSelect from './ReasoningSelect'
+import { readReasoning } from '../lib/reasoning'
 import ChimeSetting from './ChimeSetting'
 import BrandSection from './BrandSection'
 
@@ -437,6 +439,8 @@ export default function SettingsPanel() {
                   </div>
                 )}
               </Field>
+
+              <ReasoningSelect value={readReasoning(settings.reasoning)} onChange={(l) => update('reasoning', l)} />
             </div>
           </section>
         )}

@@ -13,7 +13,9 @@ import {
   fromOpenAiModels,
   fromOpenAiResponse,
   KIND_OPENAI,
+  readReasoning,
   usageOf,
+  withOllamaReasoning,
 } from './text/dialect.js'
 
 import dns from 'node:dns/promises'
@@ -361,6 +363,8 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
               // Forward the caller's own credential untouched. `authHeader`
               // rebuilds it from apiKey, so hand it the bare token.
               apiKey: String(req.headers['authorization'] || '').replace(/^Bearer\s+/i, ''),
+              // The person's own key, so the person's own level (src/lib/proxy.ts).
+              reasoning: readReasoning(req.headers['x-mocky-reasoning']),
             },
             subpath,
             body,
@@ -372,7 +376,8 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
               ...(req.headers['authorization'] ? { authorization: req.headers['authorization'] } : {}),
               ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
             },
-            body,
+            // The bytes as sent, unless the person chose a level for their key.
+            body: withOllamaReasoning(body, subpath, base, req.headers['x-mocky-reasoning']),
             translate: false,
             isModels: false,
           }

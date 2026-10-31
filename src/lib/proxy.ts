@@ -36,6 +36,9 @@ export function proxyHeaders(s: Settings): Record<string, string> {
   }
   if (s.apiKey.trim()) headers['authorization'] = `Bearer ${s.apiKey.trim()}`
   if (usageProject) headers['x-mocky-project'] = usageProject
+  // Only when chosen: `auto` sends nothing, so the request is the one it was.
+  // The server reads it on the person's own key only (lib/reasoning.ts).
+  if (s.reasoning && s.reasoning !== 'auto') headers['x-mocky-reasoning'] = s.reasoning
   return headers
 }
 

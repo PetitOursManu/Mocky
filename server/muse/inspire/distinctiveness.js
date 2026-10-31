@@ -23,7 +23,7 @@ function normHex(h) {
 /**
  * @param {((req:object)=>Promise<any>)|null} llm
  * @param {object} dossier  a validated dossier (mutated in place on revision)
- * @param {{prompt:string}} ctx
+ * @param {{prompt:string, creative?:boolean}} ctx
  * @param {{onNotice?:Function}} [opts]
  * @returns {Promise<object>} the (possibly revised) dossier
  */
@@ -40,7 +40,10 @@ export async function refineDistinctiveness(llm, dossier, ctx, opts = {}) {
     })
     const score = Number(critique?.score)
     dossier.__distinctiveness = Number.isFinite(score) ? score : null
-    if (!Number.isFinite(score) || score > 3) return dossier // distinctive enough
+    // Créatif raises the bar by one point: a 4/5 is revised once too. Same
+    // ceiling of one extra call, so the cost stays bounded.
+    const bar = ctx.creative ? 4 : 3
+    if (!Number.isFinite(score) || score > bar) return dossier // distinctive enough
 
     onNotice(`Muse: direction scored ${score}/5 — revising once for distinctiveness`)
     const revised = await llm({

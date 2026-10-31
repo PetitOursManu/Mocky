@@ -114,6 +114,8 @@ export interface RunnerJob {
   formats?: string[]
   /** A NEW project made in the account's brand identity (`Project.useBrand`). */
   useBrand?: boolean
+  /** A NEW project made in Créatif (`Project.creative`, lib/creative.ts). */
+  creative?: boolean
 }
 
 export interface RunnerResult {
@@ -231,6 +233,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       // The assistant asked for the person's brand: the new project keeps it on,
       // as the composer's "Marque" button would.
       ...(job.useBrand ? { useBrand: true } : {}),
+      ...(job.creative ? { creative: true } : {}),
     }
   }
 
@@ -327,6 +330,10 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     // The account's brand, when this project uses it — read from the same
     // design blob the composer reads it from (lib/brand.ts).
     ...(working.useBrand && brandFrom(data.design) ? { brand: brandFrom(data.design) } : {}),
+    // Créatif, when the project is in it — set in the composer or by `creative`
+    // above. With the "client" engine only the PROMPT section reaches the
+    // assistant's model: an MCP server cannot set another model's temperature.
+    ...(working.creative ? { creative: true } : {}),
   }
   const hooks: NewScreenHooks = {
     signal: controller.signal,

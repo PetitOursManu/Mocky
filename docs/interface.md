@@ -536,7 +536,7 @@ changes verb depending on what is selected.
 The composer asks its questions in the order they come: **what** is made
 (`Format`, `Screen type`, a fold — above the field), the request, then **how**
 it is made — options in three named groups: **Style** (`New direction`,
-`Brand`), **Generation aids** (`Muse`, `Motion Ultra`, `Flows`) and
+`Brand`), **Generation aids** (`Creative`, `Muse`, `Motion Ultra`, `Flows`) and
 **Pictures** (where new pictures come from, and `Screenshots of a site`). Each
 option is a row: its name, one line of what it does, and a switch that says
 whether it is on. `Motion Ultra` shows its settings (×3 / ×6, the video
@@ -552,6 +552,7 @@ a phone, three on a tablet or an unfolded phone, two rows from 1024px.
 | | Chip | What it does | Cost |
 |---|---|---|---|
 | | `New direction` | This prompt writes the project's art direction, which every screen after it follows. **It unticks itself once the screen is generated.** Hidden while editing a screen — an edit reworks what a direction produced, and letting it rewrite that direction would reattribute every other screen in the project. | free (arms the next generation) |
+| | `Creative` | A **project** setting: Normal (off, the default) or Creative. In Creative, new screens are asked for less expected compositions — asymmetric grids, scale contrast, varied rhythm between sections — inside the same art direction, and Muse writes a bolder dossier. The palette, the typefaces and accessibility do not change, and neither do the corrections (repair, Polish, accessibility fix, Fit). Ignored in `Reproduce`. Hidden while editing. | free (no extra call; at most one more dossier revision with Muse) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-6 0-11 4.5-12.5 11L6 20M20 4c0 6-4.5 10.5-11 11.5M20 4 9 15M5 20h6"/></svg> | `Muse` | Inspiration, art direction, real copy and pictures. **On by default**; switching it off gives back the plain generation, byte for byte. Its settings — inspiration links, your pictures, how many pictures to create, the video — are in the Muse panel. See [Muse](muse/overview.md). | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Flows` | On by default. New screens are pages of a **working prototype**: forms, a simulated sign-in, filters and a shared cart work in the demo, and the screens a flow leads to (`account`, `cart`, `confirmation`…) are **created automatically** after the screen, three at most. Off, a screen is generated on its own, as before. Hidden while editing. See [Working prototypes](flows.md). | each created screen is one generation |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h7v16H3zM13 4h8v8h-8zM13 15h8v5h-8z"/></svg> `Campaign` | On an empty project, beside the format: opens the Campaign panel, which turns one brief into several formats. See [Campaign Studio](campaign.md). | each piece is one generation |

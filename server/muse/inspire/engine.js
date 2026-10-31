@@ -55,6 +55,7 @@ export async function runInspiration(args, deps) {
       // Whether this screen gets a Motion film is decided in the same answer —
       // see ./film.js. Null when the composer did not ask.
       motion: args.motion ?? null,
+      creative: args.creative === true,
     },
     { onNotice },
   )
@@ -62,7 +63,7 @@ export async function runInspiration(args, deps) {
   // Opt-out via args.distinctiveness === false. Best-effort, never blocks.
   if (deps.llm && args.distinctiveness !== false) {
     onProgress('refining')
-    dossier = await refineDistinctiveness(deps.llm, dossier, { prompt: args.prompt }, { onNotice })
+    dossier = await refineDistinctiveness(deps.llm, dossier, { prompt: args.prompt, creative: args.creative === true }, { onNotice })
   }
   const markdown = dossierToMarkdown(dossier, { projectName: args.projectName })
   onProgress('done')

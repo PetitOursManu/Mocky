@@ -209,9 +209,12 @@ export interface Settings {
   model: string
   /** Run a cheap planner pass before generating (slower, better structure). */
   usePlanner: boolean
+  /** Thinking level for THIS key (lib/reasoning.ts). Ignored on the instance's model. */
+  reasoning?: ReasoningLevel
 }
 
 import { reportStorageFailure } from './sync'
+import type { ReasoningLevel } from './reasoning'
 
 const STORAGE_KEY = 'mocky.settings.v1'
 
@@ -223,6 +226,7 @@ export function defaultSettings(): Settings {
     apiKey: '',
     model: p.defaultModel,
     usePlanner: true,
+    reasoning: 'auto',
   }
 }
 

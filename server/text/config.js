@@ -10,7 +10,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { KIND_OLLAMA, KIND_OPENAI } from './dialect.js'
+import { KIND_OLLAMA, KIND_OPENAI, REASONING_LEVELS, readReasoning } from './dialect.js'
 
 /**
  * Selectable providers, in the order shown in the Admin UI.
@@ -155,7 +155,9 @@ export function looksLikeImageModel(id) {
 export const TEXT_PROFILES = ['generation', 'inspiration', 'free']
 
 function emptyProfile() {
-  const p = { provider: '' } // '' = not configured
+  // `reasoning` belongs to the PROFILE — the model it serves — and `auto` is
+  // what every profile did before it could be chosen (dialect.js).
+  const p = { provider: '', reasoning: 'auto' } // '' = not configured
   for (const def of TEXT_PROVIDERS) {
     p[def.id] = { baseUrl: def.baseUrl, apiKey: '', model: def.model }
   }
@@ -191,7 +193,10 @@ const secret = (next, prev) => {
 function mergeProfile(current, patch) {
   const base = { ...emptyProfile(), ...(current || {}) }
   const p = patch && typeof patch === 'object' ? patch : {}
-  const out = { provider: p.provider === '' || TEXT_PROVIDER_IDS.includes(p.provider) ? p.provider : base.provider }
+  const out = {
+    provider: p.provider === '' || TEXT_PROVIDER_IDS.includes(p.provider) ? p.provider : base.provider,
+    reasoning: p.reasoning !== undefined ? readReasoning(p.reasoning) : readReasoning(base.reasoning),
+  }
   for (const def of TEXT_PROVIDERS) {
     const cur = base[def.id] || {}
     const next = p[def.id] || {}
@@ -216,7 +221,7 @@ export function mergeTextConfig(current, patch) {
 
 function publicProfile(prof) {
   const c = { ...emptyProfile(), ...(prof || {}) }
-  const out = { provider: c.provider || '' }
+  const out = { provider: c.provider || '', reasoning: readReasoning(c.reasoning) }
   for (const def of TEXT_PROVIDERS) {
     const v = c[def.id] || {}
     out[def.id] = { baseUrl: v.baseUrl || '', model: v.model || '', hasApiKey: Boolean(v.apiKey) }
@@ -230,6 +235,7 @@ export function publicTextConfig(cfg) {
   return {
     providers: TEXT_PROVIDERS.map((p) => ({ id: p.id, label: p.label, group: p.group })),
     profiles: TEXT_PROFILES,
+    reasoningLevels: REASONING_LEVELS,
     generation: publicProfile(c.generation),
     inspiration: publicProfile(c.inspiration),
     free: publicProfile(c.free),
@@ -244,7 +250,7 @@ function resolveProfile(prof) {
   const baseUrl = str(v.baseUrl, def.baseUrl)
   const model = str(v.model, def.model)
   if (!baseUrl || !model) return null // incomplete → don't hijack the request
-  return { id: def.id, kind: def.kind, auth: def.auth || 'bearer', baseUrl, apiKey: v.apiKey || '', model }
+  return { id: def.id, kind: def.kind, auth: def.auth || 'bearer', baseUrl, apiKey: v.apiKey || '', model, ...(readReasoning(c.reasoning) !== 'auto' ? { reasoning: readReasoning(c.reasoning) } : {}) }
 }
 
 /**

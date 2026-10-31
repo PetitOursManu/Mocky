@@ -162,6 +162,23 @@ export function dossierJsonSchema(motion) {
   }
 }
 
+/**
+ * Créatif (src/lib/creative.ts). The first attempt samples wider; the retry
+ * stays at 0.4 either way, because a retry exists to get VALID JSON back.
+ */
+export function dossierTemperature(attempt, creative) {
+  if (attempt > 0) return 0.4
+  return creative ? 0.9 : 0.7
+}
+
+/** Empty in Normal, so the prompt is byte-identical to what it was. */
+function creativePromptLines(creative) {
+  if (!creative) return []
+  return [
+    '- CREATIVE MODE — the user asked for a bolder project. Push the concept further from the expected look of this category: a stronger point of view, a composition idea in the concept itself (asymmetry, scale contrast, an editorial or poster-like rhythm), a less obvious pairing of typefaces. Bold is not careless: the palette stays coherent, the copy stays true to the request, and nothing the user asked for is dropped.',
+  ]
+}
+
 function buildSystem(ctx = {}) {
   return [
     'You are a world-class ART DIRECTOR. Design a DISTINCTIVE visual direction for ONE product, then return it as JSON matching the schema.',
@@ -187,6 +204,7 @@ function buildSystem(ctx = {}) {
     '- References: an ARRAY of objects, each { sourceUrl, note }, citing which reference or pattern inspired which choice.',
     '- Forbidden: restate the key clichés to avoid for THIS project. NEVER forbid something the user explicitly asked for — a request for a 3D mascot, a neon look or a gradient is the brief, not a cliché; the list is for what nobody asked for.',
     ...filmPromptLines(ctx.motion),
+    ...creativePromptLines(ctx.creative),
     'Respond with ONLY the JSON object. No prose, no code fences.',
   ].join('\n')
 }
@@ -492,7 +510,7 @@ export async function buildDossier(llm, ctx, opts = {}) {
           // the prompt covers colour either way; this adds what a histogram
           // cannot report — composition, subject, density, light.
           images: ctx.userMedia?.image ? [ctx.userMedia.image] : undefined,
-          options: { num_predict: 4096, num_ctx: 16384, temperature: attempt === 0 ? 0.7 : 0.4 },
+          options: { num_predict: 4096, num_ctx: 16384, temperature: dossierTemperature(attempt, ctx.creative) },
         })
         const dossier = DossierSchema.parse(normalizeDossierRaw(raw))
         dossier.tokens.typography = settleTypography(dossier.tokens.typography, ctx.patternHints?.[0]?.tokenSeeds?.typography)

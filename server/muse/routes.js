@@ -120,6 +120,8 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
               : undefined,
           // Read strictly: two modes and the server's own kinds, or nothing.
           motion: readMotionRequest(body.motion),
+          // Créatif (src/lib/creative.ts). Strictly true, or Normal.
+          creative: body.creative === true,
         },
         { fetcher, llm, patterns, blacklist, sources: sources ? () => sources.active() : undefined },
       )

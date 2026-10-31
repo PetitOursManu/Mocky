@@ -9,7 +9,7 @@
 // Non-streamed + Ollama structured output (`format`), mirroring src/lib/plan.ts.
 // Never uses the <<<MOCKY>>> sentinel path (that's for streamed code gen only).
 import { assertSafeTarget } from '../provider-proxy.js'
-import { buildUpstream, fromOpenAiResponse, KIND_OPENAI, usageOf } from '../text/dialect.js'
+import { buildUpstream, fromOpenAiResponse, KIND_OPENAI, readReasoning, usageOf } from '../text/dialect.js'
 
 /**
  * @typedef {object} ProviderCreds
@@ -62,6 +62,7 @@ export async function museChat(creds, req) {
         auth: creds.auth, // fal.ai wants "Key", not "Bearer"
         baseUrl: base,
         apiKey: creds.apiKey,
+        reasoning: creds.reasoning,
       },
       '/api/chat',
       Buffer.from(JSON.stringify(b)),
@@ -193,5 +194,9 @@ export function credsFromReq(req) {
   // OpenAI-dialect providers in the picker — OpenAI, Anthropic, OpenRouter and
   // "compatible" — silently failed here while working everywhere else.
   const kind = String(req.headers['x-provider-kind'] || '') === 'openai' ? 'openai' : 'ollama'
-  return { baseUrl, apiKey, model, kind }
+  // A level of thinking the person chose for their OWN key (src/lib/proxy.ts).
+  // Only read here, on the browser's credentials: an instance target carries
+  // the administrator's level and never this header.
+  const reasoning = readReasoning(req.headers['x-mocky-reasoning'])
+  return { baseUrl, apiKey, model, kind, ...(reasoning !== 'auto' ? { reasoning } : {}) }
 }

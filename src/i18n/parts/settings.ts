@@ -51,6 +51,13 @@ export const settings = {
     'settings.modelCustomPlaceholder': 'ou saisissez un modèle, par ex. {model}',
 
     'settings.generation': 'Génération',
+    'settings.reasoning': 'Niveau de réflexion',
+    'settings.reasoning.auto': 'Auto (réglage par défaut de Mocky)',
+    'settings.reasoning.off': 'Désactivé (le minimum accepté)',
+    'settings.reasoning.low': 'Faible',
+    'settings.reasoning.medium': 'Moyen',
+    'settings.reasoning.high': 'Élevé',
+    'settings.reasoningHint': 'Plus de réflexion : souvent de meilleurs écrans, mais plus lent et plus cher. Pris en compte par Ollama, OpenRouter, OpenAI (gpt-5, o3…), Gemini, Kimi K3 et Groq (gpt-oss) ; sans effet ailleurs, Anthropic compris pour l’instant.',
     'settings.usePlanner': 'Utiliser le planificateur (plus lent, meilleure structure)',
     'settings.usePlannerHelp':
       'Une passe rapide qui planifie la mise en page, les sections et le contenu de l’écran avant l’écriture du code. Ajoute quelques secondes ; abandonnée automatiquement en cas d’échec ou de délai dépassé.',
@@ -428,6 +435,13 @@ export const settings = {
     'settings.modelCustomPlaceholder': 'or type a model, e.g. {model}',
 
     'settings.generation': 'Generation',
+    'settings.reasoning': 'Thinking level',
+    'settings.reasoning.auto': 'Auto (Mocky’s default)',
+    'settings.reasoning.off': 'Off (the least accepted)',
+    'settings.reasoning.low': 'Low',
+    'settings.reasoning.medium': 'Medium',
+    'settings.reasoning.high': 'High',
+    'settings.reasoningHint': 'More thinking: often better screens, but slower and more expensive. Honoured by Ollama, OpenRouter, OpenAI (gpt-5, o3…), Gemini, Kimi K3 and Groq (gpt-oss); no effect elsewhere, Anthropic included for now.',
     'settings.usePlanner': 'Use the planner (slower, better structure)',
     'settings.usePlannerHelp':
       'A quick pass that plans the screen’s layout, sections and content before the code is written. Adds a few seconds; dropped automatically if it fails or times out.',
