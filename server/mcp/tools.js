@@ -743,6 +743,7 @@ export function buildMcpServer(deps) {
       ...(args.flows === true ? { flows: true } : {}),
       ...(FOLDS[args.fold] ? { fold: args.fold } : {}),
       ...(!project && args.use_brand === true ? { useBrand: true } : {}),
+      ...(!project && args.creative === true ? { creative: true } : {}),
     })
     const waited = await runner.wait(job.id, user.id, WAIT_MS)
     const out = jobResult(waited, lang)
@@ -841,6 +842,13 @@ export function buildMcpServer(deps) {
       .describe(
         'Make the NEW project in the person\'s own brand identity, kept in Mocky (Settings → My brand): their logo, colours, typefaces and tone. ' +
           'Pass true when the person asks for "my logo", "my brand", "my company\'s colours". In an existing project (add_screen) the project\'s own setting decides and this is ignored.',
+      ),
+    creative: z
+      .boolean()
+      .optional()
+      .describe(
+        'Make the NEW project in Creative mode instead of Normal: bolder, less expected layouts (and a bolder Muse direction), same accessibility. ' +
+          'Pass true when the person asks for something original, daring, unconventional, "pas comme les autres". Never for a faithful reproduction. In an existing project (add_screen) the project\'s own setting decides and this is ignored.',
       ),
     device: z.enum(DEVICES).optional().describe('desktop (default), mobile or tablet.'),
     kind: z.string().max(200).optional().describe('The type of screen: home page, dashboard, sign-in, pricing…'),
@@ -961,6 +969,7 @@ export function buildMcpServer(deps) {
       engine: 'mocky',
       lang,
       ...(args.use_brand === true ? { useBrand: true } : {}),
+      ...(args.creative === true ? { creative: true } : {}),
       ...extra,
     })
     const out = jobResult(await runner.wait(job.id, user.id, WAIT_MS), lang)
@@ -986,6 +995,7 @@ export function buildMcpServer(deps) {
     style: designFields.style,
     project_name: z.string().max(120).optional().describe('A short name for the new project.'),
     use_brand: designFields.use_brand,
+    creative: designFields.creative,
     muse: z
       .boolean()
       .optional()

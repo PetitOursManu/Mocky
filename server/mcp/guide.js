@@ -287,6 +287,9 @@ ${client ? CLIENT_SECTION : ''}## Other options
 - \`use_brand\` — a new project in the person's OWN brand (Settings → My brand
   in Mocky): their logo, colours, typefaces and tone. Pass it when they say "my
   logo", "my brand", "my company's colours"; never invent a logo instead.
+- \`creative\` — a new project in Mocky's Creative mode: bolder, less expected
+  layouts. Pass it when they ask for something original or daring; never for a
+  faithful reproduction of an existing site.
 
 ## When something goes wrong
 
