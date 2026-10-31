@@ -1,5 +1,5 @@
 ---
-source_hash: 01347ebcb475
+source_hash: a9d056d36db2
 ---
 
 # Connecter un assistant (MCP)
@@ -90,6 +90,12 @@ rien remplir, un prompt démarre quand même une conversation sensée.
   `fold` fait d’un flyer ou d’un menu un [dépliant](documents.md#flyers-tailles-et-plis),
   `page_format` nommant alors la feuille à plat. La réponse liste chaque écran
   fabriqué, avec son lien.
+- **Mode Créatif.** `creative: true` sur `create_design` (et les outils qui
+  fabriquent plusieurs écrans) crée le NOUVEAU projet en mode Créatif — des
+  mises en page plus audacieuses, voir [les options du composeur](interface.md#les-options-sous-le-champ) ;
+  dans un projet existant, c’est le réglage du projet qui décide. Avec le moteur
+  « client », le modèle de l’assistant reçoit la consigne Créatif mais pas la
+  température : un serveur MCP ne règle pas l’échantillonnage d’un autre modèle.
 - **Plusieurs écrans, un seul travail.** Une campagne, une publication ou un
   écran avec son parcours sont UN travail : il compte une fois dans le quota du
   jour, il reçoit le temps d’autant de générations (`jobBudgetFactor`), et il est

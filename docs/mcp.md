@@ -80,6 +80,12 @@ a prompt still starts a sensible conversation.
   a verso; a post becomes a carousel. `fold` makes a flyer or a menu a
   [folded leaflet](documents.md#flyers-sizes-and-folds), `page_format` then
   naming the flat sheet. The answer lists every screen made, with its link.
+- **Creative mode.** `creative: true` on `create_design` (and the tools that
+  make several screens) makes the NEW project in Creative mode — bolder
+  layouts, see [the composer's options](interface.md#the-options-under-the-field);
+  in an existing project, the project's own setting decides. With the "client"
+  engine the assistant's model receives the Creative instruction but not the
+  temperature: an MCP server cannot set another model's sampling.
 - **Several screens, one job.** A campaign, a publication or a screen with its
   flow is ONE job: it counts once in the daily quota, it is given the time of
   as many generations (`jobBudgetFactor`), and it is always written by Mocky's
