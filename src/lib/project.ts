@@ -418,6 +418,12 @@ export interface Project {
    * brand. On Project for the reason `folder` is.
    */
   useBrand?: boolean
+  /**
+   * Créatif instead of Normal (lib/creative.ts): bolder layouts for new
+   * screens, in Muse's dossier and in the generation. Absent is Normal, the
+   * behaviour every project had before. On Project for the reason `folder` is.
+   */
+  creative?: boolean
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -1312,6 +1318,19 @@ export function useProjects() {
     )
   }, [])
 
+  /** Put one project in Créatif, or back to Normal. */
+  const setProjectCreative = useCallback((projectId: string, on: boolean) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId || !!p.creative === on) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (on) next.creative = true
+        else delete next.creative
+        return next
+      }),
+    )
+  }, [])
+
   /** Add or replace one publication of a project, by id. */
   const setProjectPublication = useCallback((projectId: string, pub: Publication) => {
     setProjects((prev) =>
@@ -1359,5 +1378,6 @@ export function useProjects() {
     setProjectCampaign,
     setProjectPublication,
     setProjectUseBrand,
+    setProjectCreative,
   }
 }

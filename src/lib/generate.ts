@@ -83,6 +83,8 @@ export interface GeneratedComponent {
 /** Out-param so chat() can report why the response ended. */
 interface ChatMeta {
   truncated?: boolean
+  /** In: the sampling temperature, when not the default 0.4 (lib/creative.ts). */
+  temperature?: number
 }
 
 /** Ollama sends `done_reason`, OpenAI-compatible providers `finish_reason`. */
@@ -178,7 +180,7 @@ export async function chat(
     // A full screen easily runs past 8k tokens; when the cap is hit the code is
     // cut mid-string and the preview shows a cryptic syntax error, so give it
     // real headroom. num_predict must stay positive (invariant I8).
-    options: { temperature: 0.4, num_ctx: 32768, num_predict: 16384 },
+    options: { temperature: meta?.temperature ?? 0.4, num_ctx: 32768, num_predict: 16384 },
   })
 
   let res: Response
@@ -384,9 +386,11 @@ export async function generateComponent(
   onChunk?: (partialCode: string) => void,
   caps?: Capability[],
   planSection?: string,
+  /** Créatif (lib/creative.ts). Absent: the call it always was. */
+  temperature?: number,
 ): Promise<GeneratedComponent> {
   const { system, user } = buildGenerationMessages(userPrompt, extraSystem, images, caps, planSection)
-  const meta: ChatMeta = {}
+  const meta: ChatMeta = temperature != null ? { temperature } : {}
   const content = await chat(
     s,
     [

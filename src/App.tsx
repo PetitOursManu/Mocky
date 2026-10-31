@@ -150,6 +150,7 @@ function MockyApp() {
     setProjectCampaign,
     setProjectPublication,
     setProjectUseBrand,
+    setProjectCreative,
   } = useProjects()
   const [route, setRoute] = useState<Route>('home')
   /** DESIGN.md shown over the current project, without leaving it. */
@@ -829,6 +830,7 @@ function MockyApp() {
             onSetCampaign={(campaign) => setProjectCampaign(activeProject.id, campaign)}
             onSetPublication={(publication) => setProjectPublication(activeProject.id, publication)}
             onSetUseBrand={(on) => setProjectUseBrand(activeProject.id, on)}
+            onSetCreative={(on) => setProjectCreative(activeProject.id, on)}
             initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}
           />
           </ErrorBoundary>

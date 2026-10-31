@@ -269,6 +269,7 @@ export default function ProjectView({
   onSetCampaign,
   onSetPublication,
   onSetUseBrand,
+  onSetCreative,
   initialFocusScreenId,
   plan = 'standard',
 }: {
@@ -303,6 +304,8 @@ export default function ProjectView({
   onSetPublication?: (publication: Publication) => void
   /** Use the account's brand identity in this project, or stop (lib/brand.ts). */
   onSetUseBrand?: (on: boolean) => void
+  /** Créatif or Normal for this project (lib/creative.ts). */
+  onSetCreative?: (on: boolean) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -1793,6 +1796,7 @@ export default function ProjectView({
             ...(flowsOn ? { flows: true } : {}),
             ...(composerFold ? { foldId: composerFold } : {}),
             ...(projectBrand() ? { brand: projectBrand() } : {}),
+            ...(project.creative ? { creative: true } : {}),
           }
         const hooks: NewScreenHooks = {
             signal: ac.signal,
@@ -3292,6 +3296,8 @@ export default function ProjectView({
         onToggleFlows={toggleFlows}
         brandOn={!!project.useBrand}
         onToggleBrand={brandAvailable && onSetUseBrand ? () => onSetUseBrand(!project.useBrand) : undefined}
+        creativeOn={!!project.creative}
+        onToggleCreative={onSetCreative ? () => onSetCreative(!project.creative) : undefined}
         onOpenCampaign={() => setRightSlot('campaign')}
         museAvail={museAvail}
         museResult={museResult}
@@ -4768,6 +4774,17 @@ export default function ProjectView({
               </OptionGroup>
             )}
             <OptionGroup label={t('workspace.groupHelp')}>
+              {/* New screens only, like Motion Ultra: an edit keeps its screen's look. */}
+              {!editing && onSetCreative && (
+                <OptionToggle
+                  icon="sparkle"
+                  label={t('creative.toggle')}
+                  hint={t('creative.hint')}
+                  on={!!project.creative}
+                  onClick={() => onSetCreative(!project.creative)}
+                  title={t(project.creative ? 'creative.onTitle' : 'creative.offTitle')}
+                />
+              )}
               <OptionToggle
                 icon="muse"
                 label={t('muse.title')}
