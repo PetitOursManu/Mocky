@@ -34,6 +34,9 @@ export const BRANCH_MAX = 40
 /** Longest a version's label may be. Mirrors `LABEL_MAX`. */
 export const VERSION_LABEL_MAX = 80
 
+/** Longest a version's note — what changed — may be. Mirrors `NOTE_MAX`. */
+export const VERSION_NOTE_MAX = 500
+
 export type VersionKind = 'manual' | 'auto' | 'branch' | 'review'
 export type VersionScope = 'project' | 'screen'
 
@@ -43,6 +46,8 @@ export interface VersionSummary {
   projectId: string
   branch: string
   label: string
+  /** What changed, in words: an edit's instruction, "Polish"… Absent on versions saved before it existed. */
+  note?: string
   kind: VersionKind
   scope: VersionScope
   screenId?: string
@@ -280,7 +285,7 @@ export async function listVersions(projectId: string): Promise<VersionSummary[]>
 }
 
 export async function saveVersion(
-  input: (ReturnType<typeof projectSnapshot> | ReturnType<typeof screenSnapshot>) & { label?: string; kind?: VersionKind },
+  input: (ReturnType<typeof projectSnapshot> | ReturnType<typeof screenSnapshot>) & { label?: string; note?: string; kind?: VersionKind },
 ): Promise<{ version: VersionSummary; unchanged: boolean }> {
   return call('/api/versions', {
     method: 'POST',

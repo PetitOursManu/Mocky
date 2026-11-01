@@ -107,7 +107,8 @@ const FORMAT_NAMES: Record<PageFormatId, string> = {
   'square-21': 'square sheet (210 × 210 mm)',
   card: 'landscape business card (85 × 55 mm)',
   'card-portrait': 'portrait business card (55 × 85 mm)',
-  'card-us': 'US business card (3.5 × 2 in)',
+  'card-us': 'landscape US business card (3.5 × 2 in)',
+  'card-us-portrait': 'portrait US business card (2 × 3.5 in)',
   letter: 'US Letter portrait (8.5 × 11 in)',
   'letter-landscape': 'US Letter landscape (11 × 8.5 in)',
   slides: '16:9 presentation slide (13.33 × 7.5 in)',
@@ -160,7 +161,7 @@ export const STORY_SAFE_BOTTOM_PX = 340
  * paper is a sign, and a card's lines are set at 7–9 pt.
  */
 export const CARD_SAFE_MARGIN_PX = 16
-const CARD_FORMATS: readonly PageFormatId[] = ['card', 'card-portrait', 'card-us']
+const CARD_FORMATS: readonly PageFormatId[] = ['card', 'card-portrait', 'card-us', 'card-us-portrait']
 export const isCardFormat = (id: PageFormatId) => CARD_FORMATS.includes(id)
 /**
  * The form-factor hint for a document: the one string that travels wherever

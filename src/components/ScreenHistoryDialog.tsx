@@ -67,6 +67,11 @@ export default function ScreenHistoryDialog({
             <li key={v.id} className="flex items-center gap-2 rounded-lg border border-line-soft px-3 py-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-body text-ink">{v.label || t(`versions.kind.${v.kind}`)}</div>
+                {v.note && (
+                  <p className="line-clamp-2 break-words text-body-sm text-ink-muted" title={v.note}>
+                    {v.note}
+                  </p>
+                )}
                 <div className="text-caption text-ink-faint">
                   {when(v.createdAt)} · {v.branch === MAIN_BRANCH ? t('versions.mainBranch') : v.branch} ·{' '}
                   {t(v.scope === 'screen' ? 'versions.fromScreen' : 'versions.fromProject')}

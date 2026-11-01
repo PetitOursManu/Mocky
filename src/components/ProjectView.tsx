@@ -810,12 +810,32 @@ export default function ProjectView({
   /** The screen whose history is open, and the comparison on screen. */
   const [historyScreenId, setHistoryScreenId] = useState<string | null>(null)
   const [compare, setCompare] = useState<{ left: CompareSource; right: CompareSource; screenId?: string } | null>(null)
+  /*
+   * What the next automatic version of a screen will say changed — the
+   * instruction of an edit, "Polish", "Restored"… Every automatic version used
+   * to read "Modification" beside the screen's name, which is its FIRST prompt:
+   * ten of them in a row and no way to tell which one held the dark background.
+   * Set where a change is written back, read and cleared by the automatic save
+   * that follows (`autoSaveScreen`). A ref, not state: nothing renders it.
+   */
+  const changeNotes = useRef(new Map<string, string>())
+  const noteChange = useCallback((screenId: string, note: string) => {
+    if (note.trim()) changeNotes.current.set(screenId, note.trim())
+  }, [])
+
   const versions = useVersions({
     projectId: project.id,
     getProject: () => projectRef.current,
-    onRestoreProject: onRestoreVersion,
+    onRestoreProject: (version) => {
+      const label = version.label || new Date(version.createdAt).toLocaleString()
+      for (const s of version.screens) noteChange(s.id, t('versions.note.restored', { label }))
+      onRestoreVersion(version)
+    },
     onSetBranch,
-    onUpdateScreen,
+    onUpdateScreen: (screenId, patch) => {
+      if (patch.code !== undefined) noteChange(screenId, t('versions.note.restoredScreen'))
+      onUpdateScreen(screenId, patch)
+    },
     // Shown once added, like any new screen: a version kept beside its present
     // is the thing the person wants to look at next. `setFocus` is read when it
     // is called, after this render has declared it.
@@ -1446,6 +1466,7 @@ export default function ProjectView({
     const screen = screens.find((s) => s.id === screenId)
     if (!screen || !screen.previousCode) return
     const back = screen.previousCode
+    noteChange(screenId, t('versions.note.revert'))
     // Swap: current code becomes the new previousCode, old code becomes current
     onUpdateScreen(screenId, {
       code: back,
@@ -1513,6 +1534,7 @@ export default function ProjectView({
       // the end-of-work chime must not call that a success (useWorkChime).
       noteWorkFailure()
       if (!fallback || fallback === now.code) return
+      noteChange(screenId, t('versions.note.autoRevert'))
       onUpdateScreen(screenId, { code: fallback, componentName: detectComponentName(fallback), previousCode: now.code })
       setNotice(t('project.autoReverted', { name: now.name }))
       return
@@ -1550,6 +1572,7 @@ export default function ProjectView({
       // other write path (edit, regenerate, animations, modify) already records
       // it; this one silently overwrote the last version that the user could
       // still fall back to.
+      noteChange(screenId, t('versions.note.repair', { error: errorMessage.slice(0, 160) }))
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: screen.code })
     } catch {
       // Retry failed — leave the error visible to the user, and let the chime
@@ -1732,6 +1755,7 @@ export default function ProjectView({
               signal: ac.signal,
               onPartial: (partial) => onUpdateScreen(sc.id, { code: partial }),
             })
+            noteChange(sc.id, text)
             onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: res.caps })
             // A Motion Ultra screen can lose its pictures or its kit to an edit
             // about one line. Said, not undone: Revert is one click away.
@@ -2109,6 +2133,7 @@ export default function ProjectView({
       }
       // The kit re-reports the new pages by itself; the verdict below is the
       // sentence that answers the click, so its report is not said twice.
+      noteChange(screenId, t('versions.note.fit'))
       docOverflowSaid.current[screenId] = after.over.map((p) => p.page).join(',')
       onUpdateScreen(screenId, {
         code: res.code,
@@ -2294,6 +2319,7 @@ export default function ProjectView({
               // A measure that failed is not a page that overflows (Q1).
             }
           }
+          noteChange(id, t('versions.note.campaign'))
           onUpdateScreen(id, {
             code: res.code,
             componentName: res.componentName,
@@ -2408,6 +2434,7 @@ export default function ProjectView({
       // edit reworks what the original design produced, and overwriting the
       // record there would quietly reattribute the screen to a document that
       // never made it.
+      noteChange(screenId, t('versions.note.regenerate'))
       onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, result.code), design: designMd })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
@@ -2471,6 +2498,7 @@ export default function ProjectView({
       // `record` is undefined when the check never completed: `quality:
       // undefined` — "never checked" — is the honest state for that.
       if (outcome.code !== codeAtStart) {
+        noteChange(screenId, t('versions.note.polish'))
         onUpdateScreen(screenId, {
           code: outcome.code,
           componentName: detectComponentName(outcome.code),
@@ -2552,6 +2580,7 @@ export default function ProjectView({
         undefined,
         caps,
       )
+      noteChange(screenId, t('versions.note.animations'))
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
@@ -2703,6 +2732,7 @@ export default function ProjectView({
       const oldSrc = videoStreamUrl(oldHash)
       const newSrc = videoStreamUrl(finished.videoHash)
       if (now.code.includes(oldSrc)) {
+        noteChange(screenId, t('versions.note.film', { request }))
         onUpdateScreen(screenId, {
           code: now.code.split(oldSrc).join(newSrc),
           previousCode: now.code,
@@ -2768,6 +2798,7 @@ export default function ProjectView({
         undefined,
         caps,
       )
+      noteChange(screenId, info.label ? t('versions.note.modify', { element: info.label.slice(0, 60), change }) : change)
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
@@ -2853,6 +2884,7 @@ export default function ProjectView({
       if (!now || now.code !== codeAtStart) return null
 
       if (outcome.code !== codeAtStart) {
+        noteChange(screenId, t('versions.note.auditFix', { count: findings.length }))
         onUpdateScreen(screenId, {
           code: outcome.code,
           componentName: detectComponentName(outcome.code),
@@ -2907,6 +2939,7 @@ export default function ProjectView({
      * next edit reports the OLD one as lost. `imageHash` is left alone: it
      * says what the screen was BUILT from, which a later swap does not change.
      */
+    noteChange(screenId, t('versions.note.images'))
     const follows = (hash: string) => (swap && hash === swap.from ? swap.to : hash)
     onUpdateScreen(screenId, {
       code: nextCode,
@@ -2927,6 +2960,7 @@ export default function ProjectView({
   function writeScreenFrames(screenId: string, nextCode: string) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
+    noteChange(screenId, t('versions.note.frames'))
     onUpdateScreen(screenId, {
       code: nextCode,
       componentName: detectComponentName(nextCode),
@@ -2971,6 +3005,7 @@ export default function ProjectView({
     }
     const direct = tryDirectTextReplace(screen.code, info.label, newText)
     if (direct) {
+      noteChange(screenId, t('versions.note.text', { text: newText.slice(0, 120) }))
       onUpdateScreen(screenId, { code: direct, componentName: detectComponentName(direct), previousCode: screen.code })
       setPendingModify(null)
       setModifyLabelDraft('')
@@ -3045,7 +3080,11 @@ export default function ProjectView({
           // The state it had when the project opened, kept before it is lost.
           if (before && !before.kept) void autoSaveScreen(id, t('versions.autoOriginal'), before.code)
           state.known.set(id, { code: now.code, kept: true })
-          void autoSaveScreen(id, before ? t('versions.autoChanged') : t('versions.autoCreated'))
+          const note = changeNotes.current.get(id)
+          changeNotes.current.delete(id)
+          // A new screen's note is the request it was made from: its name is
+          // that request cut short, and the list shows the name.
+          void autoSaveScreen(id, before ? t('versions.autoChanged') : t('versions.autoCreated'), undefined, note ?? (before ? undefined : now.prompt))
         }, AUTO_VERSION_SETTLE_MS),
       )
     }

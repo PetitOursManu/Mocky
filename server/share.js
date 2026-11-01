@@ -77,6 +77,7 @@ export const SHARE_PAGE_FORMATS = [
   'card',
   'card-portrait',
   'card-us',
+  'card-us-portrait',
   'letter',
   'letter-landscape',
   'slides',

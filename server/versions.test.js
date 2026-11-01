@@ -10,6 +10,7 @@ import {
   MAX_CODE_BYTES,
   MAX_VERSIONS_PER_PROJECT,
   MAX_AUTO_SCREEN_VERSIONS,
+  NOTE_MAX,
 } from './versions.js'
 import { createDiskBudget } from './storage-quota.js'
 
@@ -111,6 +112,25 @@ describe('saving and reading back', () => {
     expect(s.get('u1', version.id).screens.map((x) => x.code)).toEqual(['B'])
     // No project fields on a screen version: restoring it must not rename the project.
     expect(s.get('u1', version.id).project).toBeNull()
+  })
+
+  it('keeps what changed, in words, beside the label — and says nothing when it was told nothing', () => {
+    const s = store()
+    const { version } = s.create('u1', {
+      projectId: 'p1',
+      scope: 'screen',
+      screenId: 's1',
+      kind: 'auto',
+      label: 'Modification',
+      note: '  Rends le fond   plus sombre\n et le titre plus grand ',
+      screens: [screen('s1', 'A')],
+    })
+    expect(version.note).toBe('Rends le fond plus sombre et le titre plus grand')
+    expect(s.list('u1', 'p1')[0].note).toBe(version.note)
+    expect(s.create('u1', project([screen('s1', 'B')])).version).not.toHaveProperty('note')
+    const long = s.create('u1', project([screen('s1', 'C')], { note: 'x'.repeat(NOTE_MAX + 50) })).version
+    expect(long.note).toHaveLength(NOTE_MAX)
+    expect(s.create('u1', project([screen('s1', 'D')], { note: { evil: true } })).version).not.toHaveProperty('note')
   })
 
   it('refuses a screen version of a screen it was not given', () => {

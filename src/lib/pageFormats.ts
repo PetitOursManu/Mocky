@@ -29,6 +29,7 @@ export type PageFormatId =
   | 'card'
   | 'card-portrait'
   | 'card-us'
+  | 'card-us-portrait'
   | 'letter'
   | 'letter-landscape'
   | 'slides'
@@ -67,8 +68,9 @@ export interface PageFormat {
  * `@page` names only A3–A5 and Letter, so the others state their millimetres.
  *
  * The business card is 85 × 55 mm, the size every European print shop quotes,
- * landscape and turned; and 3.5 × 2 in, the US one, which is NOT the same card a
- * few millimetres off: a European card cut on a US die loses its margin. At
+ * landscape and turned; and 3.5 × 2 in, the US one, turned too, which is NOT the
+ * same card a few millimetres off: a European card cut on a US die loses its
+ * margin. At
  * 321 × 208 px it is the one format smaller than a phone's screen, which is why
  * `documentMode.ts` gives it a margin and a type floor of its own.
  *
@@ -98,6 +100,7 @@ export const PAGE_FORMATS: readonly PageFormat[] = [
   { id: 'card', w: 321, h: 208, widthPt: 240.94, heightPt: 155.91, cssSize: '85mm 55mm', kind: 'print' },
   { id: 'card-portrait', w: 208, h: 321, widthPt: 155.91, heightPt: 240.94, cssSize: '55mm 85mm', kind: 'print' },
   { id: 'card-us', w: 336, h: 192, widthPt: 252, heightPt: 144, cssSize: '3.5in 2in', kind: 'print' },
+  { id: 'card-us-portrait', w: 192, h: 336, widthPt: 144, heightPt: 252, cssSize: '2in 3.5in', kind: 'print' },
   { id: 'letter', w: 816, h: 1056, widthPt: 612, heightPt: 792, cssSize: 'letter portrait', kind: 'print' },
   { id: 'letter-landscape', w: 1056, h: 816, widthPt: 792, heightPt: 612, cssSize: 'letter landscape', kind: 'print' },
   { id: 'slides', w: 1280, h: 720, widthPt: 960, heightPt: 540, cssSize: '1280px 720px', kind: 'slides' },

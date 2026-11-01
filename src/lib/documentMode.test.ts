@@ -125,7 +125,7 @@ describe('documentHint', () => {
     expect(h).not.toContain(`${SAFE_MARGIN_PX}px inside`)
     expect(h).toMatch(/nothing under 9px/)
     expect(documentHint(getPageFormat('a6'))).toContain(`${SAFE_MARGIN_PX}px inside`)
-    for (const id of ['card', 'card-portrait', 'card-us'] as const) expect(isCardFormat(id), id).toBe(true)
+    for (const id of ['card', 'card-portrait', 'card-us', 'card-us-portrait'] as const) expect(isCardFormat(id), id).toBe(true)
     expect(isCardFormat('a6')).toBe(false)
   })
 

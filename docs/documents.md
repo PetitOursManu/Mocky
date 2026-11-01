@@ -77,7 +77,7 @@ any conflict, and the look stays your direction's.
 | `Résumé / CV` | A4 | One page in two columns: profile, experience with achievements, education, skills, languages. Sober and legible. |
 | `Invoice / quote` | A4 | The issuer, the client, a line-item table with VAT, totals that add up exactly, payment terms. A quote gets an acceptance block made of fillable fields. |
 | `Certificate` | A4 landscape | A decorative border, the recipient's name as the most prominent text, signatures and a seal. Name and date become fields when you ask for a blank template. |
-| `Business card` | 85 × 55 mm (portrait, US) | Front and back: the name set largest, the role and the company on the front; the contact details one per line on the back — or the back as a brand side. Few lines, one graphic idea carried across both sides. |
+| `Business card` | 85 × 55 mm landscape (portrait, US landscape or portrait) | Front and back: the name set largest, the role and the company on the front; the contact details one per line on the back — or the back as a brand side. Few lines, one graphic idea carried across both sides. |
 | `Menu` | A4 (A5 to A3, DL) | Flat or [folded](#flyers-sizes-and-folds). Starters, mains, desserts and drinks, prices aligned, dietary markers with a legend, one framed special. |
 | `Magazine` | A4 (A5, Letter) | A [publication](#magazines-and-books): front cover, two inside pages, back cover — then pages added one by one. Editorial hierarchy, columns, pull quotes, folios and running heads. |
 | `Book` | A5 (A6, A4, Letter) | A [publication](#magazines-and-books): front cover, two inside pages, back cover — then pages added one by one. Book setting, running heads, even folios on the left. |
@@ -105,8 +105,8 @@ a report does not follow you to the Instagram post typed next.
 | Paper | `A6` | 397 × 559 px (105 × 148 mm), postcard size |
 | Paper | `DL` | 374 × 794 px (99 × 210 mm), the third of an A4 that fits a rack |
 | Paper | `Square 21` | 794 × 794 px (210 × 210 mm) |
-| Paper | `Card 85 × 55` · `Portrait card` | 321 × 208 px (85 × 55 mm), and turned — a business card |
-| Paper | `US card` | 336 × 192 px (3.5 × 2 in) |
+| Paper | `Landscape` · `Portrait` (business card) | 321 × 208 px (85 × 55 mm), and turned |
+| Paper | `US landscape` · `US portrait` (business card) | 336 × 192 px (3.5 × 2 in), and turned |
 | Paper | `US Letter` · `US landscape` | 816 × 1 056 px (8.5 × 11 in), and turned |
 | Paper | `Presentation 16:9` | 1 280 × 720 px — PowerPoint's and Google Slides' "Widescreen" |
 | Social | `Square 1:1` | 1 080 × 1 080 px |

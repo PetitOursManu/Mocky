@@ -63,6 +63,14 @@ export const MAX_DESIGN_BYTES = 128 * 1024
 export const MAX_META_BYTES = 256 * 1024
 export const LABEL_MAX = 80
 /**
+ * Longest the NOTE of a version may be: what changed — the instruction of an
+ * edit, "Polish", "Restored"… An automatic version's label is a kind of change
+ * ("Modification") and every one of them read the same in the list, beside the
+ * screen's name, which is its FIRST prompt; the note is the line that tells two
+ * of them apart. A prompt is longer than a label, so the bound is its own.
+ */
+export const NOTE_MAX = 500
+/**
  * How many AUTOMATIC versions of one screen are kept, per branch. The browser
  * takes one each time a screen's code settles after a change (a generation, an
  * edit, a polish…), so they arrive by the dozen; past this the oldest is
@@ -96,6 +104,10 @@ export function normalizeBranch(name) {
 
 function cleanLabel(label) {
   return typeof label === 'string' ? label.replace(/\s+/g, ' ').trim().slice(0, LABEL_MAX) : ''
+}
+
+function cleanNote(note) {
+  return typeof note === 'string' ? note.replace(/\s+/g, ' ').trim().slice(0, NOTE_MAX) : ''
 }
 
 /** The fields of a project a version restores, besides its screens. */
@@ -204,6 +216,7 @@ export function createVersionStore(dataDir, { now = () => Date.now(), budget = n
       projectId: v.projectId,
       branch: v.branch,
       label: v.label,
+      ...(v.note ? { note: v.note } : {}),
       kind: v.kind,
       scope: v.scope,
       ...(v.screenId ? { screenId: v.screenId } : {}),
@@ -344,11 +357,13 @@ export function createVersionStore(dataDir, { now = () => Date.now(), budget = n
       }
       budget?.add(written)
 
+      const note = cleanNote(input?.note)
       const record = {
         id: 'v' + crypto.randomBytes(12).toString('hex'),
         projectId,
         branch,
         label: cleanLabel(input?.label),
+        ...(note ? { note } : {}),
         kind,
         scope,
         ...(screenId ? { screenId } : {}),

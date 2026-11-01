@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 69458e50c11c
+source_hash: 22870fd48c5f
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -81,7 +81,7 @@ l’emportent en cas de conflit, et le style reste celui de votre direction.
 | `CV` | A4 | Une page en deux colonnes : profil, expériences et réalisations, formation, compétences, langues. Sobre et lisible. |
 | `Facture / devis` | A4 | L’émetteur, le client, un tableau de lignes avec TVA, des totaux qui tombent juste, les conditions de paiement. Un devis reçoit un bloc « bon pour accord » fait de champs à remplir. |
 | `Certificat` | A4 paysage | Un cadre décoratif, le nom du lauréat comme texte le plus visible, des signatures et un sceau. Le nom et la date deviennent des champs quand vous demandez un modèle vierge. |
-| `Carte de visite` | 85 × 55 mm (portrait, US) | Recto verso : le nom en plus grand, le rôle et l’entreprise au recto ; les coordonnées une par ligne au verso — ou un verso consacré à la marque. Peu de lignes, une seule idée graphique reprise sur les deux faces. |
+| `Carte de visite` | 85 × 55 mm paysage (portrait, US paysage ou portrait) | Recto verso : le nom en plus grand, le rôle et l’entreprise au recto ; les coordonnées une par ligne au verso — ou un verso consacré à la marque. Peu de lignes, une seule idée graphique reprise sur les deux faces. |
 | `Menu` | A4 (A5 à A3, DL) | À plat ou [plié](#flyers-tailles-et-plis). Entrées, plats, desserts et boissons, prix alignés, pictogrammes de régime avec une légende, une formule mise en valeur. |
 | `Magazine` | A4 (A5, Letter) | Une [publication](#magazines-et-livres) : première de couverture, deux pages intérieures, quatrième — puis des pages ajoutées une à une. Hiérarchie éditoriale, colonnes, citations en exergue, folios et titres courants. |
 | `Livre` | A5 (A6, A4, Letter) | Une [publication](#magazines-et-livres) : première de couverture, deux pages intérieures, quatrième — puis des pages ajoutées une à une. Composition de livre, titres courants, folios pairs à gauche. |
@@ -110,8 +110,8 @@ post Instagram tapé ensuite.
 | Papier | `A6` | 397 × 559 px (105 × 148 mm), format carte postale |
 | Papier | `DL` | 374 × 794 px (99 × 210 mm), le tiers d’A4 des présentoirs |
 | Papier | `Carré 21` | 794 × 794 px (210 × 210 mm) |
-| Papier | `Carte 85 × 55` · `Carte portrait` | 321 × 208 px (85 × 55 mm), et tournée — une carte de visite |
-| Papier | `Carte US` | 336 × 192 px (3,5 × 2 in) |
+| Papier | `Paysage` · `Portrait` (carte de visite) | 321 × 208 px (85 × 55 mm), et tournée |
+| Papier | `US paysage` · `US portrait` (carte de visite) | 336 × 192 px (3,5 × 2 in), et tournée |
 | Papier | `US Letter` · `US paysage` | 816 × 1 056 px (8,5 × 11 in), et tournée |
 | Papier | `Présentation 16:9` | 1 280 × 720 px — le « Grand écran » de PowerPoint et Google Slides |
 | Réseaux | `Carré 1:1` | 1 080 × 1 080 px |

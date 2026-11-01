@@ -8,7 +8,13 @@ import type { VersionsApi } from '../lib/useVersions'
  * Versions and branches of the open project, in the canvas' right-hand slot.
  *
  * Three blocks, in the order a person needs them: which branch the working copy
- * is on (and the others), saving the current state, and the history. Comparing
+ * is on (and the others), saving the current state, and the history.
+ *
+ * The history has a trail — branch › all versions › one screen — because a
+ * project's automatic versions arrive by the dozen, several screens mixed, and
+ * a flat list of "Modification" gave no way to follow one screen. A screen's
+ * name in a row narrows the list to it; the trail says where the list stands
+ * and goes back up. Each row carries its NOTE, what changed in words. Comparing
  * is a selection — tick one version to compare it with what is on the canvas,
  * two to compare them with each other — because "compare" with no second term
  * is a question the interface would otherwise have to ask in a dialog.
@@ -37,11 +43,20 @@ export default function VersionsPanel({
   const [newBranch, setNewBranch] = useState<string | null>(null)
   const [scope, setScope] = useState<'branch' | 'all'>('branch')
   const [picked, setPicked] = useState<string[]>([])
+  /** The screen the history is narrowed to, or null for every version. */
+  const [screenFocus, setScreenFocus] = useState<string | null>(null)
 
   const branches = useMemo(() => branchesOf(api.versions, branch), [api.versions, branch])
   const shown = useMemo(
-    () => api.versions.filter((v) => scope === 'all' || v.branch === branch),
-    [api.versions, scope, branch],
+    () =>
+      api.versions.filter(
+        (v) =>
+          (scope === 'all' || v.branch === branch) &&
+          // A screen's history is its own versions AND every project version
+          // that holds it: a project saved ten times is ten moments of it.
+          (!screenFocus || (v.scope === 'screen' ? v.screenId === screenFocus : v.screens.some((s) => s.id === screenFocus))),
+      ),
+    [api.versions, scope, branch, screenFocus],
   )
   const name = (b: string) => (b === MAIN_BRANCH ? t('versions.mainBranch') : b)
   const when = (at: number) => new Date(at).toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' })
@@ -51,12 +66,30 @@ export default function VersionsPanel({
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p.slice(-1), id]))
   }
 
-  function describe(v: VersionSummary): string {
+  const nameOf = (id: string, fallback?: string) => screenName(id) ?? fallback ?? '?'
+
+  function describe(v: VersionSummary) {
     if (v.scope === 'screen' && v.screenId) {
-      return t('versions.ofScreen', { name: screenName(v.screenId) ?? v.screens[0]?.name ?? '?' })
+      const label = t('versions.ofScreen', { name: nameOf(v.screenId, v.screens[0]?.name) })
+      if (screenFocus === v.screenId) return label
+      const id = v.screenId
+      return (
+        <button
+          type="button"
+          className="underline decoration-line underline-offset-2 hover:text-ink"
+          title={t('versions.showScreen')}
+          onClick={() => setScreenFocus(id)}
+        >
+          {label}
+        </button>
+      )
     }
     return t('versions.screenCount', { count: v.screens.length })
   }
+
+  const focusName = screenFocus
+    ? nameOf(screenFocus, api.versions.flatMap((v) => v.screens).find((s) => s.id === screenFocus)?.name)
+    : null
 
   return (
     <Panel
@@ -215,6 +248,33 @@ export default function VersionsPanel({
             label={t('versions.historyScope')}
           />
         </div>
+        <nav aria-label={t('versions.crumbs')} className="mb-2">
+          <ol className="flex min-w-0 flex-wrap items-center gap-1 text-caption text-ink-faint">
+            <li>{scope === 'all' ? t('versions.allBranches') : name(branch)}</li>
+            <li aria-hidden="true">›</li>
+            <li>
+              {screenFocus ? (
+                <button type="button" className="underline decoration-line underline-offset-2 hover:text-ink" onClick={() => setScreenFocus(null)}>
+                  {t('versions.crumbAll')}
+                </button>
+              ) : (
+                <span aria-current="page" className="font-medium text-ink">
+                  {t('versions.crumbAll')}
+                </span>
+              )}
+            </li>
+            {screenFocus && (
+              <>
+                <li aria-hidden="true">›</li>
+                <li className="min-w-0 max-w-full">
+                  <span aria-current="page" className="block truncate font-medium text-ink" title={focusName ?? undefined}>
+                    {t('versions.ofScreen', { name: focusName ?? '?' })}
+                  </span>
+                </li>
+              </>
+            )}
+          </ol>
+        </nav>
         {api.loading && api.versions.length === 0 ? (
           <div className="flex justify-center py-4">
             <Spinner className="h-5 w-5" />
@@ -239,6 +299,11 @@ export default function VersionsPanel({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-body-sm text-ink">{v.label || t(`versions.kind.${v.kind}`)}</div>
+                    {v.note && (
+                      <p className="mt-0.5 line-clamp-3 break-words text-body-sm text-ink-muted" title={v.note}>
+                        {v.note}
+                      </p>
+                    )}
                     <div className="text-caption text-ink-faint">
                       {when(v.createdAt)} · {describe(v)}
                       {scope === 'all' && <> · {name(v.branch)}</>}

@@ -397,7 +397,7 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
     id: 'business-card',
     icon: 'user',
     name: 'business card',
-    document: { page: 'card', formats: ['card', 'card-portrait', 'card-us'] },
+    document: { page: 'card', formats: ['card', 'card-portrait', 'card-us', 'card-us-portrait'] },
     brief: `A BUSINESS CARD: the small card handed over at a meeting, read in two seconds and kept in a wallet. TWO <Page>s, the front then the back, unless the request asks for a single side.
 - The FRONT carries the identity: the person's name set as the largest text, their role on one line under it, and the company as a wordmark or a logo slot.
 - The BACK carries the contact details, each on its own short line with a small icon or a label: phone, email, website, address — and a social handle or a square QR-code placeholder box labelled as such only when the request implies it. Or the back is a bold brand side: the logo or the wordmark alone on a full colour field, with the details on the front instead.

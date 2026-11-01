@@ -135,15 +135,15 @@ export function useVersions({
    * not be kept (offline, the disk budget) is no reason to interrupt them — the
    * next change tries again (degrade, never fail). `code` saves a state the
    * screen is no longer in: the one it had before its first change of the
-   * session, which nothing had kept yet.
+   * session, which nothing had kept yet. `note` is what changed, in words.
    */
   const autoSaveScreen = useCallback(
-    async (screenId: string, label: string, code?: string) => {
+    async (screenId: string, label: string, code?: string, note?: string) => {
       const snap = screenSnapshot(getProject(), screenId)
       if (!snap.screens.length) return
       const screens = code === undefined ? snap.screens : snap.screens.map((s) => ({ ...s, code }))
       try {
-        const res = await saveVersion({ ...snap, screens, kind: 'auto', label })
+        const res = await saveVersion({ ...snap, screens, kind: 'auto', label, ...(note ? { note } : {}) })
         if (!res.unchanged && enabledRef.current) void refresh()
       } catch {
         /* kept next time */

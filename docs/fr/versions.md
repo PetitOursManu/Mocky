@@ -1,7 +1,7 @@
 ---
 description: Enregistrer un projet ou un écran, comparer deux états côte à côte, revenir à n’importe lequel, et essayer une autre direction artistique sur une branche.
 badge: Nouveau
-source_hash: 7f95bf2d4d7f
+source_hash: f9d2910e63a4
 ---
 
 # Versions et branches
@@ -51,6 +51,20 @@ qu’aucune passe ne tourne dessus : un écran encore en cours d’écriture n�
 jamais gardé à moitié. Elles apparaissent dans le panneau `Versions` sous
 `Écran créé` ou `Modification`, avec le nom de l’écran, et se comparent et se
 restaurent comme les autres.
+
+Sous ce titre, chacune dit **ce qui a changé**, en toutes lettres : la consigne
+d’une modification telle que vous l’avez tapée, l’élément et le changement
+d’une modification ciblée, `Passe qualité (Polir)`, `Corrections SEO et
+accessibilité`, `Ajusté à la page`, `Régénéré`, `Restauré depuis…`, `Cadres
+modifiés`, le texte d’un texte remplacé sur place, l’erreur qu’une réparation
+automatique a corrigée. La ligne d’un nouvel écran est la demande dont il est
+né, en entier. Les versions enregistrées avant cet ajout n’en ont pas.
+
+L’historique a un **fil d’Ariane** au-dessus — la branche, puis `Toutes les
+versions`, puis un écran. Le nom d’un écran dans une ligne (`écran « … »`)
+restreint la liste à cet écran : ses propres versions et toutes les versions
+de projet qui le contiennent. Le fil dit où en est la liste ; `Toutes les
+versions` y fait remonter.
 
 Un écran qui était déjà là à l’ouverture du projet n’est pas enregistré d’emblée
 ; la première fois qu’il change, l’état qu’il avait est gardé d’abord, sous

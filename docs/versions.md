@@ -46,6 +46,18 @@ written is never kept half-done. They appear in the `Versions` panel as
 `Screen created` or `Change`, with the screen's name, and can be compared and
 restored like any other.
 
+Under that title, each one says **what changed**, in words: the instruction of
+an edit as you typed it, the element and the change of a targeted modification,
+`Quality pass (Polish)`, `SEO and accessibility fixes`, `Fitted to the page`,
+`Regenerated`, `Restored from…`, `Frames changed`, the text of a text replaced
+in place, the error an automatic repair fixed. A new screen's line is the
+request it was made from, whole. Versions saved before this existed have none.
+
+The history has a **trail** above it — the branch, then `All versions`, then
+one screen. A screen's name in a row (`screen “…”`) narrows the list to that
+screen: its own versions and every project version that holds it. The trail
+says where the list stands; `All versions` in it goes back up.
+
 A screen that was already there when the project opened is not saved on sight;
 the first time it changes, the state it had is kept first, as `Original state`.
 
