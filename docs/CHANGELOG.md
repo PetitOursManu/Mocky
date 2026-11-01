@@ -15,6 +15,12 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 | `ornaments` | 41 formes abstraites, traits et textures de plus | `86b6742` |
 | `documents` | carte de visite, 23 cadres, ornements et nouvelles animations | `d091691` |
 
+**Fixes**
+
+| Scope | Change | Commit |
+| --- | --- | --- |
+| `design` | la direction revient avec une version restaurée | `d085421` |
+
 **Documentation**
 
 | Scope | Change | Commit |

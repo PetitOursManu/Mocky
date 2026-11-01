@@ -19,6 +19,12 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 | `ornaments` | 41 formes abstraites, traits et textures de plus | `86b6742` |
 | `documents` | carte de visite, 23 cadres, ornements et nouvelles animations | `d091691` |
 
+**Correctifs**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `design` | la direction revient avec une version restaurée | `d085421` |
+
 **Documentation**
 
 | Portée | Modification | Commit |
