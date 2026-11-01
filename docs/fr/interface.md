@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 5ff6f25cad06
+source_hash: a87a02d7802c
 ---
 
 # L’interface
