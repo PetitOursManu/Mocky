@@ -526,7 +526,7 @@ changes verb depending on what is selected.
 
 :::hotspots src=assets/ui/types.webp alt="The Screen type menu: documents, social media and screens"
 - 50,3.6 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
-- 50,19.1 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
+- 50,19.1 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu, business card — fixed pages. See [Documents](documents.md).
 - 50,91.6 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
 - 50,123.9 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
 :::
@@ -898,7 +898,7 @@ actually made.
 | `Download the document` | A document's `Download` pill, or `Download…` in its menu | Three buttons — PDF, `.pptx`, PNG — and a `Save “{file}”` link once the file is ready, because a browser may block a second automatic download. What could not be exported perfectly is listed under it. See [Documents](documents.md#downloading). | free |
 | `Share this screen` | `Share (QR code)` | A lifetime of `1 hour`, `24 hours` or `7 days`, a QR code, and `Revoke`. | server |
 | `Media in “{name}”` | `Change the media…` | **Two sections, never one list.** `Images in the screen’s code`: per image, `Replace`, or `Everywhere ({n})` when the same file appears several times, or one slot at a time — this **rewrites the source**, and `Revert` undoes it. `Media attached to the screen (not in the code)`: a cut or a sequence to hang on the canvas card, and `Detach` — this **leaves the code alone**. `Upload a file` is free; `Generate` calls the image provider. | free / image |
-| `Frames — {name}` | `Frames…` | `The screen’s frames`: per frame, `Shape` opens the 42 shapes by family and the 3 × 3 `Framing` grid, `Picture` the image picker, `Shadow` a checkbox. `Pictures to put in a frame`: each `<img>` with a written address, and `Put in a frame`. A frame repeated in a list changes for every item, and its picture, which the code computes, is left to the model. | free |
+| `Frames — {name}` | `Frames…` | `The screen’s frames`: per frame, `Shape` opens the 65 shapes by family and the 3 × 3 `Framing` grid, `Picture` the image picker, `Shadow` a checkbox. `Pictures to put in a frame`: each `<img>` with a written address, and `Put in a frame`. A frame repeated in a list changes for every item, and its picture, which the code computes, is left to the model. | free |
 
 The `Element` card, opened by clicking something in `Modify` mode, is the one
 place where three costs sit in one dialog:

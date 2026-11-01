@@ -7,7 +7,7 @@
  * ("forced" meant a text call and minutes of the worker on every screen). Both
  * halves are settled now:
  *
- * - the vocabulary (`<Animated>`, `<Ticker>`, `<CountUp>`) is always in scope.
+ * - the vocabulary (`<Animated>`, `<Ticker>`, `<CountUp>`, `<AnimatedText>`) is always in scope.
  *   It costs nothing, a screen that does not need motion simply does not use it,
  *   and prefers-reduced-motion is honoured by the components themselves;
  * - a film is made only when asked for — Motion Ultra's video background, or

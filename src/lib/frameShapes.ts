@@ -202,6 +202,19 @@ function tornEdge(from: number, to: number, y: number, amp: number, teeth: numbe
   return d
 }
 
+/** `tornEdge` turned on its side: a jagged edge down (or up) the line `x`. */
+function tornEdgeV(from: number, to: number, x: number, amp: number, teeth: number, seed: number): string {
+  const rand = seeded(seed)
+  const step = (to - from) / teeth
+  let d = ''
+  for (let i = 1; i <= teeth; i++) {
+    const y = i === teeth ? to : from + step * i + (rand() - 0.5) * step * 0.5
+    const off = i === teeth ? 0 : (rand() - 0.5) * 2 * amp
+    d += `L${pt([x + off, y])}`
+  }
+  return d
+}
+
 /** A zigzag edge from `from` to `to` along `y`, its points `offset` away from it. */
 function zigzagEdge(from: number, to: number, y: number, offset: number, teeth: number): string {
   const step = (to - from) / teeth
@@ -234,9 +247,12 @@ function bitten(inset: number, bumps: number, outward: boolean): string {
   return d + 'Z'
 }
 
-/** Petals: arcs bulging outward between points on a circle. */
-function flower(petals: number): string {
-  const R = 38
+/**
+ * Petals: arcs bulging outward between points on a circle. `R` is chosen so the
+ * petals' tips touch the box and no further: R·cos(π/n) + R·sin(π/n) = 50, which
+ * is 38 for eight petals and 35.36 for four — 38 with four poked out by 4 units.
+ */
+function flower(petals: number, R = 38): string {
   const pts: Pt[] = []
   for (let i = 0; i < petals; i++) {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / petals
@@ -250,6 +266,7 @@ function flower(petals: number): string {
 // ---- the catalogue -----------------------------------------------------------
 
 const star5 = starPoints(5, 0.45)
+const star6 = starPoints(6, 0.58)
 const burst = starPoints(16, 0.8)
 const hexagon: Pt[] = [
   [25, 0],
@@ -348,7 +365,131 @@ const geometric: FrameShape[] = [
   },
   { id: 'flower', family: 'geometric', ratio: 1, clip: flower(8) },
   { id: 'leaf', family: 'geometric', ratio: 1, clip: 'M0 100C0 40 40 0 100 0C100 60 60 100 0 100Z' },
+  // A quarter disc: the corner at the bottom left, the arc facing the page.
+  { id: 'quarter', family: 'geometric', ratio: 1, clip: 'M0 0A100 100 0 0 1 100 100H0Z' },
+  {
+    id: 'trapezoid',
+    family: 'geometric',
+    ratio: 1.3,
+    clip: poly([
+      [18, 0],
+      [82, 0],
+      [100, 100],
+      [0, 100],
+    ]),
+  },
+  {
+    id: 'chevron',
+    family: 'geometric',
+    ratio: 1.2,
+    clip: poly([
+      [0, 0],
+      [70, 0],
+      [100, 50],
+      [70, 100],
+      [0, 100],
+      [30, 50],
+    ]),
+  },
+  {
+    id: 'arrow',
+    family: 'geometric',
+    ratio: 1.6,
+    clip: poly([
+      [0, 26],
+      [60, 26],
+      [60, 0],
+      [100, 50],
+      [60, 100],
+      [60, 74],
+      [0, 74],
+    ]),
+  },
+  { id: 'star-6', family: 'geometric', ratio: aspect(star6), clip: poly(fill(star6)) },
+  // Four points and concave sides: the sparkle a post puts beside a word. Every
+  // control point is inside the box, so the curve is too.
+  { id: 'sparkle', family: 'geometric', ratio: 1, clip: 'M50 0C54 34 66 46 100 50C66 54 54 66 50 100C46 66 34 54 0 50C34 46 46 34 50 0Z' },
+  { id: 'clover', family: 'geometric', ratio: 1, clip: flower(4, 35.36) },
+  // A crescent drawn at 1:2, where the outer arc is half a circle.
+  { id: 'moon', family: 'geometric', ratio: 0.5, clip: 'M100 0A100 50 0 0 0 100 100A60 50 0 0 1 100 0Z' },
+  {
+    id: 'cut-corner',
+    family: 'geometric',
+    ratio: 0.8,
+    clip: poly([
+      [0, 0],
+      [78, 0],
+      [100, 22],
+      [100, 100],
+      [0, 100],
+    ]),
+  },
+  {
+    id: 'slant',
+    family: 'geometric',
+    ratio: 0.85,
+    clip: poly([
+      [0, 0],
+      [100, 0],
+      [100, 82],
+      [0, 100],
+    ]),
+  },
+  { id: 'egg', family: 'geometric', ratio: 0.78, clip: 'M50 0C80 0 100 40 100 64C100 86 78 100 50 100C22 100 0 86 0 64C0 40 20 0 50 0Z' },
 ]
+
+/**
+ * A cloud: four circles over a flat base, drawn as their UNION — an arc of each
+ * circle from where the last one crosses it to where the next one does. A
+ * smooth curve through anchors was tried first and came back a blob with a
+ * dent: a cloud's lobes meet in a corner, and Catmull-Rom has none.
+ *
+ * Worked out in its own units, then mapped onto the 0–100 box by the bounds of
+ * the union (each circle's arc becomes an ellipse's: an axis-aligned stretch
+ * of a circle is exactly one).
+ */
+function cloudShape(): { d: string; ratio: number } {
+  const circles: [number, number, number][] = [
+    [24, 62, 20],
+    [52, 40, 28],
+    [86, 36, 24],
+    [112, 60, 18],
+  ]
+  const base = 78
+  // Where two circles cross, the upper of the two points.
+  const cross = ([x0, y0, r0]: [number, number, number], [x1, y1, r1]: [number, number, number]): Pt => {
+    const d = Math.hypot(x1 - x0, y1 - y0)
+    const a = (r0 * r0 - r1 * r1 + d * d) / (2 * d)
+    const h = Math.sqrt(r0 * r0 - a * a)
+    const mx = x0 + (a * (x1 - x0)) / d
+    const my = y0 + (a * (y1 - y0)) / d
+    const p: Pt = [mx + (h * (y1 - y0)) / d, my - (h * (x1 - x0)) / d]
+    const q: Pt = [mx - (h * (y1 - y0)) / d, my + (h * (x1 - x0)) / d]
+    return p[1] < q[1] ? p : q
+  }
+  const c0 = circles[0]
+  const cn = circles[circles.length - 1]
+  const first: Pt = [c0[0] - Math.sqrt(c0[2] ** 2 - (base - c0[1]) ** 2), base]
+  const last: Pt = [cn[0] + Math.sqrt(Math.max(0, cn[2] ** 2 - (base - cn[1]) ** 2)), base]
+  const stops: Pt[] = [first, ...circles.slice(1).map((c, i) => cross(circles[i], c)), last]
+  // The union's bounds: every circle's left, top and right, and the base.
+  const x0 = Math.min(...circles.map(([x, , r]) => x - r))
+  const x1 = Math.max(...circles.map(([x, , r]) => x + r))
+  const y0 = Math.min(...circles.map(([, y, r]) => y - r))
+  const sx = 100 / (x1 - x0)
+  const sy = 100 / (base - y0)
+  const map = ([x, y]: Pt): Pt => [(x - x0) * sx, (y - y0) * sy]
+  let d = `M${pt(map(stops[0]))}`
+  circles.forEach(([cx, cy, r], i) => {
+    const [from, to] = [stops[i], stops[i + 1]]
+    // Clockwise on screen is increasing angle in a y-down box.
+    const span = (Math.atan2(to[1] - cy, to[0] - cx) - Math.atan2(from[1] - cy, from[0] - cx) + 4 * Math.PI) % (2 * Math.PI)
+    d += `A${fmt(r * sx)} ${fmt(r * sy)} 0 ${span > Math.PI ? 1 : 0} 1 ${pt(map(to))}`
+  })
+  return { d: d + 'Z', ratio: r2((x1 - x0) / (base - y0)) }
+}
+const cloud = cloudShape()
+geometric.push({ id: 'cloud', family: 'geometric', ratio: cloud.ratio, clip: cloud.d })
 
 const blobs = [
   { id: 'blob-1', b: blob(11, { wobble: 0.34 }) },
@@ -359,6 +500,10 @@ const blobs = [
   { id: 'blob-6', b: blob(73, { points: 9, wobble: 0.22 }) },
   { id: 'splash', b: blob(97, { points: 14, wobble: 0.55 }) },
   { id: 'pebble', b: blob(5, { points: 6, wobble: 0.08, stretch: 1.45 }) },
+  { id: 'blob-7', b: blob(83, { wobble: 0.3 }) },
+  { id: 'blob-8', b: blob(101, { points: 10, wobble: 0.26 }) },
+  // A wide, low blob: a picture laid along a band of the page.
+  { id: 'puddle', b: blob(131, { points: 9, wobble: 0.2, stretch: 1.9 }) },
 ]
 const organic: FrameShape[] = blobs.map(({ id, b }) => ({ id, family: 'organic', ratio: b.ratio, clip: b.d }))
 
@@ -370,6 +515,18 @@ const wave: FrameShape[] = [
   { id: 'scallop', family: 'wave', ratio: 1, clip: bitten(5, 10, true) },
   { id: 'zigzag', family: 'wave', ratio: 1, clip: `M0 6${zigzagEdge(0, 100, 6, -6, 12)}V94${zigzagEdge(100, 0, 94, 6, 12)}Z` },
   { id: 'torn', family: 'wave', ratio: 0.9, clip: `M0 5${tornEdge(0, 100, 5, 4, 18, 7)}V95${tornEdge(100, 0, 95, 4, 18, 13)}Z` },
+  // The control point is twice as far as the curve goes: a quadratic reaches
+  // half-way to it, so the belly lands exactly on the box's edge.
+  { id: 'curve-bottom', family: 'wave', ratio: 0.85, clip: 'M0 0H100V84Q50 116 0 84Z' },
+  { id: 'curve-top', family: 'wave', ratio: 0.85, clip: 'M0 16Q50 -16 100 16V100H0Z' },
+  { id: 'zigzag-bottom', family: 'wave', ratio: 0.85, clip: `M0 0H100V92${zigzagEdge(100, 0, 92, 8, 10)}Z` },
+  // Four rough edges, finer than torn: a picture painted on with a brush.
+  {
+    id: 'brush',
+    family: 'wave',
+    ratio: 1,
+    clip: `M3 3${tornEdge(3, 97, 3, 2, 30, 29)}${tornEdgeV(3, 97, 97, 2, 30, 31)}${tornEdge(97, 3, 97, 2, 30, 37)}${tornEdgeV(97, 3, 3, 2, 30, 43)}Z`,
+  },
 ]
 
 const photo: FrameShape[] = [
@@ -430,6 +587,46 @@ const photo: FrameShape[] = [
     clip: 'M8 7H92V93H8Z',
   },
   { id: 'mat', family: 'photo', ratio: 0.8, paper: 'M0 0H100V100H0Z', paperColor: '#f4efe6', clip: ellipse(50, 50, 36, 40) },
+  // A browser window: the picture under a title bar, its three dots drawn over.
+  // At 1.4:1 a dot 1.4 across is 1.96 down — the ry that keeps it round.
+  {
+    id: 'browser',
+    family: 'photo',
+    ratio: 1.4,
+    paper: roundRect(0, 0, 100, 100, 1.6, 2.24),
+    paperColor: '#f4f4f5',
+    clip: 'M1 10H99V99H1Z',
+    over: ellipse(4, 5, 1.4, 1.96) + ellipse(8.5, 5, 1.4, 1.96) + ellipse(13, 5, 1.4, 1.96),
+    overColor: '#a1a1aa',
+    overOpacity: 1,
+  },
+  // A phone, for a screenshot of an app: the bezel is the paper, the notch is over.
+  {
+    id: 'phone',
+    family: 'photo',
+    ratio: 0.49,
+    paper: roundRect(0, 0, 100, 100, 16, 7.84),
+    paperColor: '#111111',
+    clip: roundRect(4.5, 2.2, 91, 95.6, 12, 5.88),
+    over: roundRect(36, 3.4, 28, 2.4, 2.45, 1.2),
+    overColor: '#111111',
+    overOpacity: 1,
+  },
+  // A 35 mm slide in its mount: a 3:2 window in a square of card.
+  { id: 'slide', family: 'photo', ratio: 1, paper: roundRect(0, 0, 100, 100, 4, 4), paperColor: '#f3f1ea', clip: roundRect(16, 26, 68, 48, 2, 2) },
+  // A wooden frame with a gilt fillet: the fillet is a ring over the paper,
+  // outside the hole, so it never covers the picture.
+  {
+    id: 'gilt',
+    family: 'photo',
+    ratio: 0.8,
+    paper: 'M0 0H100V100H0Z',
+    paperColor: '#2b2118',
+    clip: 'M10 8H90V92H10Z',
+    over: 'M8.5 6.8H91.5V93.2H8.5Z' + 'M10 8V92H90V8Z',
+    overColor: '#c9a86a',
+    overOpacity: 1,
+  },
 ]
 
 export const FRAME_SHAPES: readonly FrameShape[] = [...geometric, ...organic, ...wave, ...photo]

@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: f1bc4c9a1ed4
+source_hash: 5ff6f25cad06
 ---
 
 # L’interface
@@ -556,7 +556,7 @@ selon ce qui est sélectionné.
 
 :::hotspots src=../assets/ui/fr/types.webp alt="Le menu Type d’écran : documents, réseaux sociaux et écrans"
 - 50,3.6 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
-- 50,19.1 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
+- 50,19.1 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu, carte de visite — des pages fixes. Voir [Documents](documents.md).
 - 50,98 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
 - 50,130.4 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
 :::
@@ -566,7 +566,7 @@ selon ce qui est sélectionné.
 Le composeur pose ses questions dans l’ordre où elles viennent : **ce qu’on
 fait** (`Format`, `Type d’écran`, un pli — au-dessus du champ), la demande, puis
 **comment** on le fait — des options en trois groupes nommés : **Style**
-(`Nouvelle direction`, `Marque`), **Aides à la génération** (`Créatif`, `Muse`,
+(`Nouvelle direction`, `Marque`), **Aides à la génération** (`Muse`,
 `Motion Ultra`, `Parcours`) et **Images** (d’où viennent les nouvelles images,
 et `Captures d’un site`). Chaque option est une ligne : son nom, une phrase sur
 ce qu’elle fait, et un interrupteur qui dit si elle est active. `Motion Ultra`
@@ -583,7 +583,6 @@ sur une tablette ou un téléphone déplié, deux rangées à partir de 1024 px.
 | | Puce | Ce qu’elle fait | Coût |
 |---|---|---|---|
 | | `Nouvelle direction` | Ce prompt-ci écrira la direction artistique du projet, que tous les écrans suivants suivront. **La case se décoche toute seule après la génération.** Cachée pendant une édition — une édition retravaille ce qu’une direction a produit, et la laisser réécrire cette direction reviendrait à réattribuer tous les autres écrans du projet. | libre (arme la génération suivante) |
-| | `Créatif` | Un réglage de **projet** : Normal (éteint, par défaut) ou Créatif. En Créatif, les nouveaux écrans sont invités à des compositions moins convenues — grilles asymétriques, contrastes d’échelle, rythme varié entre les sections — dans la même direction artistique, et Muse écrit un dossier plus audacieux. La palette, les polices et l’accessibilité ne changent pas, ni les corrections (réparation, `Peaufiner`, `Tout corriger`, `Ajuster à la page`). Ignoré en `Reproduire`. Caché pendant une édition. | libre (aucun appel en plus ; au plus une révision de dossier de plus avec Muse) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c-6 0-11 4.5-12.5 11L6 20M20 4c0 6-4.5 10.5-11 11.5M20 4 9 15M5 20h6"/></svg> | `Muse` | Inspiration, direction artistique, vraie copie et images. **Activé par défaut** ; le désactiver rend la génération simple, à l’octet près. Ses réglages — liens d’inspiration, vos images, combien d’images créer, la vidéo — sont dans le panneau Muse. Voir [Muse](muse/overview.md). | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Parcours` | Activé par défaut. Les nouveaux écrans sont des pages d’un **prototype qui fonctionne** : formulaires, connexion simulée, filtres et panier partagé marchent en démo, et les écrans vers lesquels mène un parcours (`account`, `cart`, `confirmation`…) sont **créés automatiquement** après l’écran, trois au plus. Désactivé, un écran est généré seul, comme avant. Masqué pendant une modification. Voir [Des prototypes qui fonctionnent](flows.md). | une génération par écran créé |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h7v16H3zM13 4h8v8h-8zM13 15h8v5h-8z"/></svg> `Campagne` | Sur un projet vide, à côté du format : ouvre le panneau Campagne, qui décline un brief en plusieurs formats. Voir [Campagne](campaign.md). | une génération par création |
@@ -945,7 +944,7 @@ fait réellement.
 | `Télécharger le document` | La pastille `Télécharger` d’un document, ou `Télécharger…` dans son menu | Trois boutons — PDF, `.pptx`, PNG — et un lien `Enregistrer « {file} »` une fois le fichier prêt, parce qu’un navigateur peut bloquer un deuxième téléchargement automatique. Ce qui n’a pas pu être exporté parfaitement est listé dessous. Voir [Documents](documents.md#telecharger). | libre |
 | `Partager cet écran` | `Partager (QR code)` | Une durée de `1 heure`, `24 heures` ou `7 jours`, un QR code, et `Révoquer`. | serveur |
 | `Médias de « {name} »` | `Changer les médias…` | **Deux sections, jamais une liste.** `Images dans le code de l’écran` : par image, `Remplacer`, ou `Partout ({n})` quand le même fichier apparaît plusieurs fois, ou un emplacement à la fois — cela **réécrit la source**, et `Revenir à la version précédente` l’annule. `Média attaché à l’écran (hors du code)` : un montage ou une séquence à poser sur la carte du canevas, et `Détacher` — cela **ne touche pas au code**. `Importer un fichier` est libre ; `Générer` appelle le fournisseur d’images. | libre / image |
-| `Cadres — {name}` | `Cadres…` | `Les cadres de l’écran` : par cadre, `Forme` ouvre les 42 formes par famille et la grille 3 × 3 du `Cadrage`, `Image` le sélecteur d’images, `Ombre` une case à cocher. `Les images à mettre dans un cadre` : chaque `<img>` à l’adresse écrite, et `Mettre dans un cadre`. Un cadre répété dans une liste change pour tous les éléments, et son image, que le code calcule, reste l’affaire du modèle. | libre |
+| `Cadres — {name}` | `Cadres…` | `Les cadres de l’écran` : par cadre, `Forme` ouvre les 65 formes par famille et la grille 3 × 3 du `Cadrage`, `Image` le sélecteur d’images, `Ombre` une case à cocher. `Les images à mettre dans un cadre` : chaque `<img>` à l’adresse écrite, et `Mettre dans un cadre`. Un cadre répété dans une liste change pour tous les éléments, et son image, que le code calcule, reste l’affaire du modèle. | libre |
 
 La carte `Élément`, ouverte en cliquant quelque chose en mode `Modifier`, est le
 seul endroit où trois coûts cohabitent dans un même dialogue :

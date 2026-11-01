@@ -1016,7 +1016,7 @@ here:
 
 ## Pictures in a shape
 
-`<ShapeFrame shape="…" src="…">` cuts a picture into one of 42 shapes, like a
+`<ShapeFrame shape="…" src="…">` cuts a picture into one of 65 shapes, like a
 clipping mask: `src/lib/frameShapes.ts` is the closed catalogue (paths in a
 0–100 box, stretched to the frame, each with the `ratio` it was drawn for), and
 `snippets/ShapeFrame.ts` draws one with a CSS `mask-image` whose image is a

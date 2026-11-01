@@ -26,6 +26,9 @@ export type PageFormatId =
   | 'a6'
   | 'dl'
   | 'square-21'
+  | 'card'
+  | 'card-portrait'
+  | 'card-us'
   | 'letter'
   | 'letter-landscape'
   | 'slides'
@@ -63,6 +66,12 @@ export interface PageFormat {
  * 210 mm square, A3 landscape and A2 (420 × 594, the poster in a shop window).
  * `@page` names only A3–A5 and Letter, so the others state their millimetres.
  *
+ * The business card is 85 × 55 mm, the size every European print shop quotes,
+ * landscape and turned; and 3.5 × 2 in, the US one, which is NOT the same card a
+ * few millimetres off: a European card cut on a US die loses its margin. At
+ * 321 × 208 px it is the one format smaller than a phone's screen, which is why
+ * `documentMode.ts` gives it a margin and a type floor of its own.
+ *
  * The presentation page is 1280 × 720 px, i.e. 13.333 × 7.5 in: the size
  * PowerPoint and Google Slides call "Widescreen 16:9", so a deck exported from
  * here opens there at its own size instead of being letterboxed.
@@ -86,6 +95,9 @@ export const PAGE_FORMATS: readonly PageFormat[] = [
   { id: 'a6', w: 397, h: 559, widthPt: 297.64, heightPt: 419.53, cssSize: '105mm 148mm', kind: 'print' },
   { id: 'dl', w: 374, h: 794, widthPt: 280.63, heightPt: 595.28, cssSize: '99mm 210mm', kind: 'print' },
   { id: 'square-21', w: 794, h: 794, widthPt: 595.28, heightPt: 595.28, cssSize: '210mm 210mm', kind: 'print' },
+  { id: 'card', w: 321, h: 208, widthPt: 240.94, heightPt: 155.91, cssSize: '85mm 55mm', kind: 'print' },
+  { id: 'card-portrait', w: 208, h: 321, widthPt: 155.91, heightPt: 240.94, cssSize: '55mm 85mm', kind: 'print' },
+  { id: 'card-us', w: 336, h: 192, widthPt: 252, heightPt: 144, cssSize: '3.5in 2in', kind: 'print' },
   { id: 'letter', w: 816, h: 1056, widthPt: 612, heightPt: 792, cssSize: 'letter portrait', kind: 'print' },
   { id: 'letter-landscape', w: 1056, h: 816, widthPt: 792, heightPt: 612, cssSize: 'letter landscape', kind: 'print' },
   { id: 'slides', w: 1280, h: 720, widthPt: 960, heightPt: 540, cssSize: '1280px 720px', kind: 'slides' },

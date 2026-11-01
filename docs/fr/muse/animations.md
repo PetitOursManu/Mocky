@@ -1,5 +1,5 @@
 ---
-source_hash: d3ed6ad5076c
+source_hash: f4baad93172a
 ---
 
 # Animations
@@ -13,6 +13,7 @@ Il choisit un nom dans une liste fermée.
 <Animated preset="fade-up" delay={0.1} as="section">…</Animated>
 <Ticker speed={24} pauseOnHover>{logos}</Ticker>
 <CountUp to={1284} suffix="+" />
+<AnimatedText as="h1" preset="mask">Un titre, mot après mot</AnimatedText>
 ```
 
 Tout le reste — les variantes, les ressorts, les seuils de détection, le repli en
@@ -51,7 +52,7 @@ testé.
 
 ---
 
-## Les onze presets
+## Les vingt-six presets
 
 | Catégorie | Preset | Effet |
 |---|---|---|
@@ -64,7 +65,22 @@ testé.
 | | `stagger-list` | Les enfants apparaissent l'un après l'autre, à 0,06 s d'intervalle |
 | **Survol** | `hover-lift` | Se soulève de 4 px avec une ombre |
 | | `hover-glow` | `scale(1.02)` plus `brightness(1.08) saturate(1.08)` |
+| | `rise` | Opacité plus une montée de 48 px, 700 ms — un grand titre, une grande image |
+| | `slide-down` | Entre par le haut (−24 px), 450 ms |
+| | `zoom-out` | Arrive à `scale(1.12)` et se pose, 800 ms — une image |
+| | `flip-up` | Se redresse de 60° autour de son bord bas, 600 ms |
+| | `rotate-in` | Tourne de −8° et grandit jusqu'à sa place, un ressort |
+| | `bounce-in` | Jaillit de `scale(0.6)` et dépasse, `damping: 12` — un badge, un prix |
+| | `reveal-up` | Découvert depuis le bas par un `clip-path`, 800 ms : rien ne bouge |
+| | `wipe-right` | Découvert de gauche à droite, 800 ms |
+| **Survol** | `hover-scale` | `scale(1.04)` |
+| | `hover-rotate` | `rotate(-2deg) scale(1.03)`, un autocollant qu'on soulève |
 | **Défilement** | `parallax` | Dérive plus lentement que la page, profondeur 0,25 |
+| **Pointeur** | `tilt-3d` | Se tourne vers le curseur dans sa propre perspective, 9° |
+| **Boucle** | `float` | Flotte de 8 px vers le haut et revient, 5 s |
+| | `pulse` | Respire jusqu'à `scale(1.04)` et revient, 2,4 s |
+| | `spin-slow` | Un tour toutes les 24 s — un badge rond, une étoile |
+| | `wobble` | Oscille de ±3°, 3 s |
 | **Sortie** | `exit-slide` | Entre par la gauche, sort par la droite quand l'élément est retiré |
 
 Deux détails méritent une explication.
@@ -72,6 +88,12 @@ Deux détails méritent une explication.
 **`stagger-list` se pose sur la liste, pas sur chaque élément.** C'est dit
 explicitement dans la description que lit le modèle, parce que l'erreur inverse
 est naturelle et produit onze animations simultanées au lieu d'un décalage.
+
+**Une boucle ne s'arrête jamais, donc elle est proposée pour UNE petite chose.**
+Les quatre boucles sont des keyframes CSS dans les deux moteurs — une variante
+n'apporte rien à un mouvement qui ne finit pas — et la fiche que lit le modèle
+les tient à l'écart de tout texte à lire. Une capture les fige au repos
+(`__mockyStill`) : un badge pris en plein tour est un badge mal placé.
 
 **`hover-glow` joue sur la lumière, pas sur la couleur.** L'écran généré a sa
 propre palette, et ce preset ne doit pas la deviner. `brightness` fonctionne sur
@@ -96,7 +118,7 @@ que `validatePack` existe pour attraper.
 
 ---
 
-## Les trois composants
+## Les quatre composants
 
 ### `<Animated>`
 
@@ -129,6 +151,25 @@ paragraphe pour le styler.
 
 **Quand l'animation est coupée, il affiche la valeur finale.** Une statistique
 bloquée à 0 est pire qu'une statistique qui n'a pas bougé : elle est **fausse**.
+
+### `<AnimatedText>`
+
+Une ligne de texte dont les mots — ou les lettres, avec `by="letter"` — arrivent
+l'un après l'autre quand elle entre dans le champ de vision. Ses enfants doivent
+être du **texte brut**. `as` est la balise (un titre, le plus souvent), `preset`
+vaut `up`, `fade`, `blur` ou `mask` (chaque mot glisse vers le haut depuis
+derrière une ligne), `stagger` les secondes entre deux morceaux.
+
+Des transitions CSS simples, sans Motion. La phrase entière est le nom
+accessible de l'élément et les morceaux sont cachés aux lecteurs d'écran : on
+entend un titre, pas une liste de mots. Un mot ne se coupe jamais sur deux
+lignes, lettres ou non.
+
+**Quand l'animation est coupée, c'est le texte brut** — le balisage qu'aurait eu
+un titre — si bien qu'une capture, un PDF ou « Sans animation » ne peuvent pas
+deviner qu'il a été découpé. Ce n'est pas le `TextReveal` du pack retiré, qui
+prenait une prop `text` : un autre nom, pour qu'un modèle qui se souvient de
+l'ancien ne puisse pas charger le mauvais composant.
 
 ---
 

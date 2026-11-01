@@ -12,6 +12,8 @@ import { FOLD_IDS } from '../folds'
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from './snippets/ShapeFrame'
 import { FlowSource, FLOW_EXPORTS } from './snippets/Flow'
 import { FRAME_FAMILIES, FRAME_SHAPES } from '../frameShapes'
+import { OrnamentSource, ORNAMENT_EXPORTS } from './snippets/Ornament'
+import { ORNAMENTS } from '../ornaments'
 import { FIELD_TYPES, PAGE_FORMAT_IDS } from '../pageFormats'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
@@ -136,7 +138,7 @@ export const CAPABILITIES: Capability[] = [
         name: 'Animated',
         signature: '<Animated preset="fade-up" delay={0.1} as="section" className="…">{children}</Animated>',
         description:
-          'Wraps any block to animate it. `preset` is REQUIRED and must be EXACTLY one of these twelve: "fade-in" (opacity), "fade-up" (opacity + rise), "scale-in" (spring pop), "slide-left" (enters from the left), "slide-right" (enters from the right), "blur-in" (blur lifts as it appears), "stagger-list" (children appear one after another — put it on the LIST, not on each item), "hover-lift" (lifts under the cursor, no entrance), "hover-glow" (brightens and grows slightly under the cursor, no entrance), "parallax" (drifts slower than the page as it scrolls — for a hero or a background block, never for body text), "tilt-3d" (turns towards the cursor inside its own perspective, for a card or a picture — depth with no 3D renderer, so it costs nothing and may be used on many elements), "exit-slide" (slides in, and out when removed). `delay` is in seconds, 0–2. `as` picks the tag, default "div". Any other preset name renders a plain, unanimated element — never invent one.',
+          'Wraps any block to animate it. `preset` is REQUIRED and must be EXACTLY one of these twenty-six: "fade-in" (opacity), "fade-up" (opacity + rise), "scale-in" (spring pop), "slide-left" (enters from the left), "slide-right" (enters from the right), "blur-in" (blur lifts as it appears), "stagger-list" (children appear one after another — put it on the LIST, not on each item), "hover-lift" (lifts under the cursor, no entrance), "hover-glow" (brightens and grows slightly under the cursor, no entrance), "parallax" (drifts slower than the page as it scrolls — for a hero or a background block, never for body text), "tilt-3d" (turns towards the cursor inside its own perspective, for a card or a picture — depth with no 3D renderer, so it costs nothing and may be used on many elements), "exit-slide" (slides in, and out when removed), "rise" (a long, slow rise — for a hero headline or a large picture), "slide-down" (enters from above), "zoom-out" (a picture that arrives slightly too close and settles), "flip-up" (turns up from its bottom edge, like a card flipped), "rotate-in" (turns and grows into place), "bounce-in" (pops and overshoots — a badge, a sticker, a price, never a paragraph), "reveal-up" (uncovered from the bottom like a curtain — nothing moves, the block appears), "wipe-right" (uncovered from left to right — a picture, a coloured band, a rule), "hover-scale" (grows a little under the cursor, no entrance), "hover-rotate" (tilts like a picked-up sticker under the cursor, no entrance), and four that LOOP forever and so belong on ONE small decorative thing per section, never on text to read: "float" (drifts gently up and down), "pulse" (breathes, slightly larger and back), "spin-slow" (one turn every 24 s — a round badge or a starburst), "wobble" (rocks a few degrees either way). `delay` is in seconds, 0–2. `as` picks the tag, default "div". Any other preset name renders a plain, unanimated element — never invent one.',
         tags: ['animation', 'motion', 'entrance', 'hover', 'stagger', 'reveal', 'parallax', 'blur'],
       },
       {
@@ -152,6 +154,13 @@ export const CAPABILITIES: Capability[] = [
         description:
           'A number that counts up when it scrolls into view — for statistics and KPIs. `to` is the final value and is REQUIRED. Renders as an inline <span>, so wrap it in your own heading or paragraph for styling. Thousands are spaced automatically.',
         tags: ['counter', 'number', 'stat', 'kpi', 'metric'],
+      },
+      {
+        name: 'AnimatedText',
+        signature: '<AnimatedText as="h1" preset="up" by="word" stagger={0.06} delay={0} className="…">The words of the headline</AnimatedText>',
+        description:
+          'A line of text whose words (or letters) arrive one after another when it scrolls into view — for a hero headline or one key sentence, at most two per screen. Its children must be PLAIN TEXT (a string, no tags inside). `as` is the tag, usually a heading ("h1", "h2", "p"; default "span"), and it takes your classes like that tag would. `preset` is "up" (each word rises — the default), "fade", "blur" (each word comes into focus) or "mask" (each word slides up from behind a line, the editorial reveal). `by` is "word" (default) or "letter" (only for a few large words). `stagger` is the seconds between two pieces (default 0.06 by word, 0.025 by letter), `delay` the seconds before the first. Screen readers hear the whole sentence, and with animations off it is the plain text.',
+        tags: ['text', 'headline', 'reveal', 'typography', 'animation', 'split', 'words', 'letters'],
       },
     ],
   },
@@ -233,8 +242,43 @@ export const CAPABILITIES: Capability[] = [
           (f) => `${{ geometric: 'geometric', organic: 'organic', wave: 'waves and edges', photo: 'photo frames' }[f]} — ${FRAME_SHAPES.filter((s) => s.family === f)
             .map((s) => `"${s.id}"`)
             .join(', ')}`,
-        ).join('; ')}. The photo frames carry their own paper: "polaroid" a white card with a deep caption margin, "stamp" a perforated stamp, "film" a strip of film, "ticket" notched corners, "bubble" a speech bubble, "tape" two strips of tape on the corners, "deckle" a torn-edged print, "mat" an oval window in a mount. \`src\` is a picture you were GIVEN (the same address you would put in an <img>), never an invented one; without \`src\` the shape is drawn in quiet grey as a placeholder. \`alt\` describes the picture, in the page's language. Give it a WIDTH with Tailwind (\`w-full\`, \`w-[420px]\`): it keeps the proportions the shape was drawn for — unless you also give it a height or an aspect class, and then it is stretched to your box, a circle becoming an oval. Optional: \`focus\` keeps a part of the picture in view ("center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right" — "top" for a face), \`zoom\` 1 to 2, \`rotate\` −30 to 30 degrees for a hand-placed look, \`stroke\` a hex outline with \`strokeWidth\` in px, \`paper\` a hex for a photo frame's card, \`shadow\` for a soft drop shadow that follows the shape. It is a box like an image: place it with your own layout classes, overlap two for a collage, put type beside or over it. Use it where the shape MEANS something — one or two per page, not on every picture — and never draw a shape of your own with an inline <svg> path.`,
+        ).join('; ')}. The photo frames carry their own paper: "polaroid" a white card with a deep caption margin, "stamp" a perforated stamp, "film" a strip of film, "ticket" notched corners, "bubble" a speech bubble, "tape" two strips of tape on the corners, "deckle" a torn-edged print, "mat" an oval window in a mount, "browser" a browser window with its title bar (for a screenshot of a site), "phone" a phone's bezel and notch (for a screenshot of an app — tall, so give it a narrow width), "slide" a 35 mm slide in its card mount, "gilt" a dark wooden frame with a gilt fillet. \`src\` is a picture you were GIVEN (the same address you would put in an <img>), never an invented one; without \`src\` the shape is drawn in quiet grey as a placeholder. \`alt\` describes the picture, in the page's language. Give it a WIDTH with Tailwind (\`w-full\`, \`w-[420px]\`): it keeps the proportions the shape was drawn for — unless you also give it a height or an aspect class, and then it is stretched to your box, a circle becoming an oval. Optional: \`focus\` keeps a part of the picture in view ("center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right" — "top" for a face), \`zoom\` 1 to 2, \`rotate\` −30 to 30 degrees for a hand-placed look, \`stroke\` a hex outline with \`strokeWidth\` in px, \`paper\` a hex for a photo frame's card, \`shadow\` for a soft drop shadow that follows the shape. It is a box like an image: place it with your own layout classes, overlap two for a collage, put type beside or over it. Use it where the shape MEANS something — one or two per page, not on every picture — and never draw a shape of your own with an inline <svg> path.`,
         tags: ['image', 'photo', 'frame', 'mask', 'clip', 'shape', 'blob', 'polaroid', 'collage', 'social'],
+      },
+    ],
+  },
+  {
+    /**
+     * Decorative shapes — see snippets/Ornament.ts and the closed catalogue in
+     * lib/ornaments.ts. Force-offered to every DOCUMENT (lib/documentMode.ts),
+     * whose briefs all ask for shapes, and offered elsewhere on the words that
+     * ask for decoration.
+     */
+    id: 'ornaments',
+    kind: 'snippet-pack',
+    triggers: {
+      // Phrases, for `frames`' reason: the text searched includes the DESIGN.md.
+      keywords: [
+        'formes décoratives', 'forme décorative', 'éléments décoratifs', 'élément décoratif', 'décoratif', 'décorative',
+        'gribouillis', 'griffonnage', 'dessiné à la main', 'dessinée à la main', 'fait main', 'confettis', 'motif géométrique',
+        'ludique', 'stickers', 'squiggle', 'doodle', 'hand-drawn', 'hand drawn', 'decorative shapes', 'decorative shape',
+        'ornament', 'ornement', 'playful', 'confetti', 'memphis', 'pattern background', 'fond à motif',
+      ],
+      intents: [],
+    },
+    snippets: [{ source: OrnamentSource, exports: [...ORNAMENT_EXPORTS] }],
+    components: [
+      {
+        name: 'Ornament',
+        signature: '<Ornament shape="squiggle" color="#e11d48" className="absolute -bottom-4 left-0 w-48" />',
+        description: `A decorative shape drawn for you — a blob behind a picture, a squiggle under a word, a circle scribbled round a price, a dotted texture in a corner. \`shape\` is REQUIRED and must be EXACTLY one of: solid shapes — ${ORNAMENTS.filter((o) => o.kind === 'fill')
+          .map((o) => `"${o.id}"`)
+          .join(', ')}; hand-drawn strokes — ${ORNAMENTS.filter((o) => o.kind === 'line')
+          .map((o) => `"${o.id}"`)
+          .join(', ')}; textures — ${ORNAMENTS.filter((o) => o.kind === 'pattern')
+          .map((o) => `"${o.id}"`)
+          .join(', ')}. Any other name draws nothing. \`color\` is a hex from your palette; without it the shape takes the text colour, so a \`text-*\` class colours it too. Size it like an image: a WIDTH (\`w-40\`) keeps the proportions it was drawn for, a width AND a height stretch it; a texture needs both (\`w-64 h-40\`, or \`absolute inset-0\` to fill a block) and \`density\` (3–40) sets how many dots, lines or squares run across it. A stroke takes \`weight\` in px (default 3) and keeps it whatever the size; "scribble-circle", "underline" and "squiggle" are made to sit around or under a word — put them in a \`relative\` wrapper with the word, absolutely positioned. \`accent\` is a second hex for "checker" and "confetti". Optional: \`rotate\` in degrees, \`flip\` ("x" or "y"), \`opacity\` 0–1, and \`draw\` (with \`delay\` in seconds) on a stroke to trace it when it scrolls into view — never on a printed document. Place it with your own classes, most often \`absolute\` inside a \`relative\` block and behind the content (\`-z-0\`, or before it in the markup), several bleeding off an edge. It is decorative: it is hidden from screen readers and carries no text. Never write your own <svg> path for a shape this list has.`,
+        tags: ['shape', 'decoration', 'ornament', 'blob', 'squiggle', 'doodle', 'pattern', 'texture', 'arrow', 'confetti'],
       },
     ],
   },

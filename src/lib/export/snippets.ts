@@ -33,6 +33,7 @@ import { UltraSource, ULTRA_EXPORTS } from '../capabilities/snippets/Ultra'
 import { DocumentSource, DOCUMENT_EXPORTS } from '../capabilities/snippets/Document'
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from '../capabilities/snippets/ShapeFrame'
 import { FlowSource, FLOW_EXPORTS } from '../capabilities/snippets/Flow'
+import { OrnamentSource, ORNAMENT_EXPORTS } from '../capabilities/snippets/Ornament'
 import { cnSource } from '../capabilities/snippets/cn'
 
 const MOCKY_HEADER = '/* Vendored by Mocky export — inline, dependency-free. */'
@@ -105,7 +106,7 @@ export function motionJsx(): string {
   return `${MOCKY_HEADER}\nimport React, { useState, useEffect, useRef } from 'react'\nimport { cn } from '@/lib/utils'\n\n${MotionSource}\n\nexport { ${MOTION_EXPORTS.join(', ')} }\n`
 }
 
-/** src/components/ui/animate.jsx — `<Animated preset>`, `Ticker`, `CountUp`. */
+/** src/components/ui/animate.jsx — `<Animated preset>`, `Ticker`, `CountUp`, `AnimatedText`. */
 export function animateJsx(): string {
   /*
    * No Motion dependency, and that is the component's own design: it uses
@@ -190,6 +191,16 @@ export function framesJsx(): string {
 }
 
 /**
+ * src/components/ui/ornaments.jsx — `<Ornament shape>`, a decorative shape out
+ * of the catalogue. Inline SVG and plain React, like the frames: it draws the
+ * same outside Mocky, and a traced stroke draws itself at once there unless the
+ * visitor's browser lets it move.
+ */
+export function ornamentsJsx(): string {
+  return packJsx(OrnamentSource, ORNAMENT_EXPORTS)
+}
+
+/**
  * src/components/ui/flow.jsx — `useFlowState`, `MockyFlow`, `<FlowLink>`.
  *
  * In an exported project every screen is a component of ONE page, so the
@@ -235,6 +246,7 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('ultra', ultraJsx(), ULTRA_EXPORTS),
     ...pack('document', documentJsx(), DOCUMENT_EXPORTS),
     ...pack('frames', framesJsx(), SHAPEFRAME_EXPORTS),
+    ...pack('ornaments', ornamentsJsx(), ORNAMENT_EXPORTS),
     ...pack('flow', flowJsx(), FLOW_EXPORTS),
   ]
 }

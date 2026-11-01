@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 2032ae0a1c59
+source_hash: dd001dcf352d
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -46,7 +46,7 @@ fichier, et l’endroit où un champ à remplir y tombe.
 
 :::hotspots src=../assets/ui/fr/types.webp alt="Le menu Type d’écran : documents, réseaux sociaux et écrans"
 - 50,3.6 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
-- 50,19.1 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
+- 50,19.1 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu, carte de visite — des pages fixes. Voir [Documents](documents.md).
 - 50,98 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
 - 50,130.4 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
 :::
@@ -81,6 +81,7 @@ l’emportent en cas de conflit, et le style reste celui de votre direction.
 | `CV` | A4 | Une page en deux colonnes : profil, expériences et réalisations, formation, compétences, langues. Sobre et lisible. |
 | `Facture / devis` | A4 | L’émetteur, le client, un tableau de lignes avec TVA, des totaux qui tombent juste, les conditions de paiement. Un devis reçoit un bloc « bon pour accord » fait de champs à remplir. |
 | `Certificat` | A4 paysage | Un cadre décoratif, le nom du lauréat comme texte le plus visible, des signatures et un sceau. Le nom et la date deviennent des champs quand vous demandez un modèle vierge. |
+| `Carte de visite` | 85 × 55 mm (portrait, US) | Recto verso : le nom en plus grand, le rôle et l’entreprise au recto ; les coordonnées une par ligne au verso — ou un verso consacré à la marque. Peu de lignes, une seule idée graphique reprise sur les deux faces. |
 | `Menu` | A4 (A5 à A3, DL) | À plat ou [plié](#flyers-tailles-et-plis). Entrées, plats, desserts et boissons, prix alignés, pictogrammes de régime avec une légende, une formule mise en valeur. |
 | `Magazine` | A4 (A5, Letter) | Une [publication](#magazines-et-livres) : première de couverture, deux pages intérieures, quatrième — puis des pages ajoutées une à une. Hiérarchie éditoriale, colonnes, citations en exergue, folios et titres courants. |
 | `Livre` | A5 (A6, A4, Letter) | Une [publication](#magazines-et-livres) : première de couverture, deux pages intérieures, quatrième — puis des pages ajoutées une à une. Composition de livre, titres courants, folios pairs à gauche. |
@@ -109,6 +110,8 @@ post Instagram tapé ensuite.
 | Papier | `A6` | 397 × 559 px (105 × 148 mm), format carte postale |
 | Papier | `DL` | 374 × 794 px (99 × 210 mm), le tiers d’A4 des présentoirs |
 | Papier | `Carré 21` | 794 × 794 px (210 × 210 mm) |
+| Papier | `Carte 85 × 55` · `Carte portrait` | 321 × 208 px (85 × 55 mm), et tournée — une carte de visite |
+| Papier | `Carte US` | 336 × 192 px (3,5 × 2 in) |
 | Papier | `US Letter` · `US paysage` | 816 × 1 056 px (8,5 × 11 in), et tournée |
 | Papier | `Présentation 16:9` | 1 280 × 720 px — le « Grand écran » de PowerPoint et Google Slides |
 | Réseaux | `Carré 1:1` | 1 080 × 1 080 px |
@@ -122,7 +125,9 @@ tailles des réseaux sont les pixels des plateformes : l’image exportée est l
 fichier qu’elles demandent, tel quel.
 
 Le modèle connaît les marges à laisser libres : 40 px sur papier, au-delà de ce
-qu’une imprimante de bureau n’atteint pas ; 64 px sur un post ; et sur une story,
+qu’une imprimante de bureau n’atteint pas ; 16 px sur une carte de visite (4 mm,
+la zone de sécurité de l’imprimeur — 40 px en prendraient le cinquième), avec du
+texte jusqu’à 9 px ; 64 px sur un post ; et sur une story,
 les bandes du haut et du bas où l’application dessine ses propres barres.
 
 ---
@@ -365,14 +370,14 @@ masque d'écrêtage dans un logiciel de retouche. Demandez-le dans la consigne
 arches »). Les formats réseaux sociaux le proposent toujours au modèle ; sur les
 autres pages, ce sont ces mots qui le proposent.
 
-Il y a 42 cadres, en quatre familles :
+Il y a 65 cadres, en quatre familles :
 
 | Famille | Cadres |
 |---|---|
-| Géométriques | cercle, rectangle arrondi, squircle, triangle, losange, pentagone, hexagone, octogone, étoile, éclat, cœur, arche, dôme, pilule, goutte, bouclier, croix, parallélogramme, fleur, feuille |
-| Organiques | six blobs, tache, galet |
-| Vagues et bords | vague en bas, vague en haut, vagues des deux côtés, festonné, zigzag, déchiré |
-| Cadres photo | polaroid, timbre, pellicule, ticket, bulle, photo scotchée, tirage à bords déchirés, passe-partout ovale |
+| Géométriques | cercle, rectangle arrondi, squircle, triangle, losange, pentagone, hexagone, octogone, étoile, éclat, cœur, arche, dôme, pilule, goutte, bouclier, croix, parallélogramme, fleur, feuille, quart de cercle, trapèze, chevron, flèche, étoile à six branches, scintillement, trèfle, croissant de lune, coin coupé, biseau, œuf, nuage |
+| Organiques | huit blobs, tache, galet, flaque |
+| Vagues et bords | vague en bas, vague en haut, vagues des deux côtés, festonné, zigzag, déchiré, courbe en bas, courbe en haut, zigzag en bas, coup de pinceau |
+| Cadres photo | polaroid, timbre, pellicule, ticket, bulle, photo scotchée, tirage à bords déchirés, passe-partout ovale, fenêtre de navigateur, téléphone, diapositive, cadre doré |
 
 Un cadre garde en vue la partie importante de l'image (un visage en haut, par
 exemple), et peut recevoir un contour, une ombre douce qui suit la forme et une
@@ -383,6 +388,26 @@ Pour changer un cadre ensuite, clic droit sur l'écran, puis `Cadres…` : la
 forme, l'image, le cadrage et l'ombre d'un cadre, et `Mettre dans un cadre` pour
 les images simples de l'écran. Le code de l'écran est modifié directement, sans
 appel au modèle, et `Revenir à la version précédente` l'annule.
+
+---
+
+## Formes décoratives
+
+Chaque document se voit proposer `<Ornament>` : des blobs, des éclats et les
+autres formes pleines des cadres, un anneau ; des traits comme tracés à la main
+— une vague ou un double soulignement sous un mot, un cercle griffonné autour
+d'un prix, des flèches courbes, en boucle ou droites, une spirale, des rayons,
+une coche ; et des textures — points, grille, rayures, diagonales, damier,
+trame, vagues, petites croix, confettis. Demandez « formes décoratives »,
+« gribouillis », « confettis » ou « un fond à motif » sur un écran ordinaire et
+il y est proposé aussi.
+
+Le modèle choisit un nom et une couleur de la palette de la page ; la forme est
+dessinée par Mocky, de la même façon dans l'aperçu, le PDF et les exports en
+image. Un trait garde son épaisseur quelle que soit sa taille, et une texture
+est coupée à sa boîte plutôt qu'étirée, si bien que ses points restent ronds.
+Les formes ne sont que du décor : cachées aux lecteurs d'écran, elles ne portent
+jamais de texte.
 
 ---
 

@@ -43,7 +43,7 @@ the file contains, and where a fillable field lands in it.
 
 :::hotspots src=assets/ui/types.webp alt="The Screen type menu: documents, social media and screens"
 - 50,3.6 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
-- 50,19.1 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
+- 50,19.1 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu, business card — fixed pages. See [Documents](documents.md).
 - 50,91.6 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
 - 50,123.9 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
 :::
@@ -77,6 +77,7 @@ any conflict, and the look stays your direction's.
 | `Résumé / CV` | A4 | One page in two columns: profile, experience with achievements, education, skills, languages. Sober and legible. |
 | `Invoice / quote` | A4 | The issuer, the client, a line-item table with VAT, totals that add up exactly, payment terms. A quote gets an acceptance block made of fillable fields. |
 | `Certificate` | A4 landscape | A decorative border, the recipient's name as the most prominent text, signatures and a seal. Name and date become fields when you ask for a blank template. |
+| `Business card` | 85 × 55 mm (portrait, US) | Front and back: the name set largest, the role and the company on the front; the contact details one per line on the back — or the back as a brand side. Few lines, one graphic idea carried across both sides. |
 | `Menu` | A4 (A5 to A3, DL) | Flat or [folded](#flyers-sizes-and-folds). Starters, mains, desserts and drinks, prices aligned, dietary markers with a legend, one framed special. |
 | `Magazine` | A4 (A5, Letter) | A [publication](#magazines-and-books): front cover, two inside pages, back cover — then pages added one by one. Editorial hierarchy, columns, pull quotes, folios and running heads. |
 | `Book` | A5 (A6, A4, Letter) | A [publication](#magazines-and-books): front cover, two inside pages, back cover — then pages added one by one. Book setting, running heads, even folios on the left. |
@@ -104,6 +105,8 @@ a report does not follow you to the Instagram post typed next.
 | Paper | `A6` | 397 × 559 px (105 × 148 mm), postcard size |
 | Paper | `DL` | 374 × 794 px (99 × 210 mm), the third of an A4 that fits a rack |
 | Paper | `Square 21` | 794 × 794 px (210 × 210 mm) |
+| Paper | `Card 85 × 55` · `Portrait card` | 321 × 208 px (85 × 55 mm), and turned — a business card |
+| Paper | `US card` | 336 × 192 px (3.5 × 2 in) |
 | Paper | `US Letter` · `US landscape` | 816 × 1 056 px (8.5 × 11 in), and turned |
 | Paper | `Presentation 16:9` | 1 280 × 720 px — PowerPoint's and Google Slides' "Widescreen" |
 | Social | `Square 1:1` | 1 080 × 1 080 px |
@@ -116,7 +119,9 @@ so a page exports at its real paper size. Social sizes are the platforms' own
 pixels, so the exported image is the file they ask for, as it is.
 
 The model is told the margins that must stay clear: 40 px on paper, past what an
-office printer cannot reach; 64 px on a post; and on a story, the top and bottom
+office printer cannot reach; 16 px on a business card (4 mm, the print shop's
+safe zone — 40 px would be a fifth of the card), with type down to 9 px; 64 px
+on a post; and on a story, the top and bottom
 bands where the app draws its own bars.
 
 ---
@@ -351,14 +356,14 @@ does in an image editor. Ask for it in the brief ("the photo in a blob", "a
 polaroid", "a collage of three photos in arches"). The social formats always
 offer it to the model; on other pages, those words do.
 
-There are 42 frames in four families:
+There are 65 frames in four families:
 
 | Family | Frames |
 |---|---|
-| Geometric | circle, rounded, squircle, triangle, diamond, pentagon, hexagon, octagon, star, burst, heart, arch, dome, pill, drop, shield, cross, parallelogram, flower, leaf |
-| Organic | six blobs, splash, pebble |
-| Waves and edges | wavy bottom, wavy top, wavy both, scalloped, zigzag, torn |
-| Photo frames | polaroid, stamp, film strip, ticket, speech bubble, taped photo, torn-edged print, oval mount |
+| Geometric | circle, rounded, squircle, triangle, diamond, pentagon, hexagon, octagon, star, burst, heart, arch, dome, pill, drop, shield, cross, parallelogram, flower, leaf, quarter circle, trapezoid, chevron, arrow, six-pointed star, sparkle, clover, crescent moon, cut corner, slant, egg, cloud |
+| Organic | eight blobs, splash, pebble, puddle |
+| Waves and edges | wavy bottom, wavy top, wavy both, scalloped, zigzag, torn, curved bottom, curved top, zigzag bottom, brush stroke |
+| Photo frames | polaroid, stamp, film strip, ticket, speech bubble, taped photo, torn-edged print, oval mount, browser window, phone, 35 mm slide, gilt frame |
 
 A frame keeps the picture's important part in view (a face at the top, for
 instance), and can take an outline, a soft shadow that follows the shape and a
@@ -368,6 +373,24 @@ To change a frame afterwards, right-click the screen, then `Frames…`: a
 frame's shape, picture, framing and shadow, and `Put in a frame` for the
 screen's plain pictures. It edits the screen's code directly, with no call to
 the model, and `Revert` undoes it.
+
+---
+
+## Decorative shapes
+
+Every document is offered `<Ornament>`: blobs, bursts and the other solid
+shapes of the frames, a ring; strokes drawn as if by hand — a squiggle or a
+double underline under a word, a circle scribbled round a price, curved, looped
+and straight arrows, a spiral, rays, a check mark; and textures — dots, a grid,
+stripes, diagonals, a checkerboard, halftone, waves, small crosses, confetti.
+Ask for "formes décoratives", "gribouillis", "confettis", "un fond à motif" on
+an ordinary screen and it is offered there too.
+
+The model picks a name and a colour from the page's palette; the shape is drawn
+by Mocky, the same way in the preview, the PDF and the image exports. A stroke
+keeps its thickness whatever its size, and a texture is cut to its box rather
+than stretched, so its dots stay round. Shapes are decoration only: hidden from
+screen readers, never carrying text.
 
 ---
 

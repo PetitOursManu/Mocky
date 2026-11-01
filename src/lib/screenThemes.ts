@@ -54,6 +54,7 @@ export const SCREEN_THEME_IDS = [
   'invoice',
   'certificate',
   'menu',
+  'business-card',
   'magazine',
   'book',
   'instagram',
@@ -391,6 +392,20 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - One highlight: a set menu or the chef's special in a framed box with its price.
 - A footer with the allergen information, the address, the opening hours and a phone number or website.
 - Prices consistent with the kind of restaurant; real dish names and descriptions for the cuisine requested, never placeholders.`,
+  },
+  {
+    id: 'business-card',
+    icon: 'user',
+    name: 'business card',
+    document: { page: 'card', formats: ['card', 'card-portrait', 'card-us'] },
+    brief: `A BUSINESS CARD: the small card handed over at a meeting, read in two seconds and kept in a wallet. TWO <Page>s, the front then the back, unless the request asks for a single side.
+- The FRONT carries the identity: the person's name set as the largest text, their role on one line under it, and the company as a wordmark or a logo slot.
+- The BACK carries the contact details, each on its own short line with a small icon or a label: phone, email, website, address — and a social handle or a square QR-code placeholder box labelled as such only when the request implies it. Or the back is a bold brand side: the logo or the wordmark alone on a full colour field, with the details on the front instead.
+- Few words and a lot of air: at most six lines on a side, generous spacing, strict alignment on one edge or the centre.
+- One graphic idea carried across both sides — a colour field on one side answered by a rule or a corner on the other, a pattern, a monogram, a shape bleeding off one edge — and decorative shapes marked aria-hidden.
+- Print contrast: dark on light or light on dark, never thin pale type; nothing that must be read touches the edge.
+- No fillable fields, no web button, no paragraph.
+- Real, consistent details for the person and the business described — a plausible name, role, phone number in the country's format, email on the company's domain — never placeholders.`,
   },
   {
     id: 'magazine',

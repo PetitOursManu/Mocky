@@ -123,6 +123,7 @@ describe('the Flyer, the first DOCUMENT type', () => {
       'invoice',
       'certificate',
       'menu',
+      'business-card',
       'magazine',
       'book',
       'instagram',

@@ -9,9 +9,12 @@ import { generateComponent, SYSTEM_PROMPT } from './generate'
 import { resolveCapabilities } from './capabilities/select'
 import {
   DOCUMENT_CAP,
+  ORNAMENTS_CAP,
   DOCUMENT_EXCLUDED_CAPS,
   DOCUMENT_RULES,
   SAFE_MARGIN_PX,
+  CARD_SAFE_MARGIN_PX,
+  isCardFormat,
   SOCIAL_SAFE_MARGIN_PX,
   STORY_SAFE_BOTTOM_PX,
   STORY_SAFE_TOP_PX,
@@ -106,7 +109,7 @@ describe('documentHint', () => {
       expect(h, f.id).toContain(`${f.w}×${f.h}px`)
       expect(h, f.id).toContain(`<Doc format="${f.id}">`)
       expect(h, f.id).toContain('<Page')
-      expect(h, f.id).toContain(`${f.kind === 'social' ? SOCIAL_SAFE_MARGIN_PX : SAFE_MARGIN_PX}px`)
+      expect(h, f.id).toContain(`${f.kind === 'social' ? SOCIAL_SAFE_MARGIN_PX : isCardFormat(f.id) ? CARD_SAFE_MARGIN_PX : SAFE_MARGIN_PX}px`)
       expect(h, f.id).toMatch(/^FORMAT: /)
       expect(h, f.id).toMatch(/no hover/i)
       expect(h, f.id).toMatch(/no animation/i)
@@ -114,6 +117,16 @@ describe('documentHint', () => {
       // responsive headline ships at its small size.
       expect(h, f.id).toContain('no responsive prefixes (sm:, md:, lg:, xl:, 2xl:)')
     }
+  })
+
+  it('gives a business card a margin and a type floor of its own: 40 px is a fifth of it', () => {
+    const h = documentHint(getPageFormat('card'))
+    expect(h).toContain(`${CARD_SAFE_MARGIN_PX}px inside`)
+    expect(h).not.toContain(`${SAFE_MARGIN_PX}px inside`)
+    expect(h).toMatch(/nothing under 9px/)
+    expect(documentHint(getPageFormat('a6'))).toContain(`${SAFE_MARGIN_PX}px inside`)
+    for (const id of ['card', 'card-portrait', 'card-us'] as const) expect(isCardFormat(id), id).toBe(true)
+    expect(isCardFormat('a6')).toBe(false)
   })
 
   it('calls a slide a slide and a sheet of paper a printed document', () => {
@@ -185,9 +198,9 @@ describe('documentPipeline', () => {
   it('offers a document only what can live on paper, and always the page kit', () => {
     const p = documentPipeline('slides')
     const out = p.caps(['icons', 'charts', 'scene3d', 'three-lib', 'scrollvideo', 'motionfilm', 'ultra', 'animate', 'motion-lib'])
-    expect(out).toEqual(['icons', 'charts', DOCUMENT_CAP])
+    expect(out).toEqual(['icons', 'charts', DOCUMENT_CAP, ORNAMENTS_CAP])
     for (const id of DOCUMENT_EXCLUDED_CAPS) expect(out).not.toContain(id)
-    expect(p.caps(['icons', DOCUMENT_CAP])).toEqual(['icons', DOCUMENT_CAP])
+    expect(p.caps(['icons', DOCUMENT_CAP])).toEqual(['icons', DOCUMENT_CAP, ORNAMENTS_CAP])
   })
 })
 

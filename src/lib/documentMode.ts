@@ -105,6 +105,9 @@ const FORMAT_NAMES: Record<PageFormatId, string> = {
   a6: 'A6 portrait card (105 × 148 mm)',
   dl: 'DL portrait leaflet (99 × 210 mm)',
   'square-21': 'square sheet (210 × 210 mm)',
+  card: 'landscape business card (85 × 55 mm)',
+  'card-portrait': 'portrait business card (55 × 85 mm)',
+  'card-us': 'US business card (3.5 × 2 in)',
   letter: 'US Letter portrait (8.5 × 11 in)',
   'letter-landscape': 'US Letter landscape (11 × 8.5 in)',
   slides: '16:9 presentation slide (13.33 × 7.5 in)',
@@ -148,6 +151,17 @@ export const SAFE_MARGIN_PX = 40
 export const SOCIAL_SAFE_MARGIN_PX = 64
 export const STORY_SAFE_TOP_PX = 250
 export const STORY_SAFE_BOTTOM_PX = 340
+
+/**
+ * A business card is cut by a guillotine to ±1 mm, and a print shop asks for
+ * 3 mm of safe zone: 16 px is 4.2 mm. The page's own 40 px is 10.6 mm, a fifth of
+ * the card's height — the first card generated with it was a name in a postage
+ * stamp of white. The type floor is the card's too: 14 px of body on 55 mm of
+ * paper is a sign, and a card's lines are set at 7–9 pt.
+ */
+export const CARD_SAFE_MARGIN_PX = 16
+const CARD_FORMATS: readonly PageFormatId[] = ['card', 'card-portrait', 'card-us']
+export const isCardFormat = (id: PageFormatId) => CARD_FORMATS.includes(id)
 /**
  * The form-factor hint for a document: the one string that travels wherever
  * `preset.hint` goes (the preamble, Muse's, the planner's, the storyboard's).
@@ -167,7 +181,8 @@ function flatDocumentHint(format: PageFormat): string {
   const { what, page } = KIND_WORDS[format.kind]
   const social = format.kind === 'social'
   const story = format.id === 'social-story'
-  const margin = social ? SOCIAL_SAFE_MARGIN_PX : SAFE_MARGIN_PX
+  const card = isCardFormat(format.id)
+  const margin = social ? SOCIAL_SAFE_MARGIN_PX : card ? CARD_SAFE_MARGIN_PX : SAFE_MARGIN_PX
   return [
     `FORMAT: ${what}, not a web page — ${FORMAT_NAMES[format.id]}. Every ${page} is a FIXED box of exactly ${format.w}×${format.h}px${social ? '' : ' (96 px per inch)'}.`,
     `Write the root as <Doc format="${format.id}"> and put each ${page} in its own <Page className="…">, in order. The kit gives every <Page> its exact size, stacks them and lays them out for ${social ? 'export as images' : 'print and PDF'}: never set a ${page}'s width or height yourself, never make one scroll, and never let content run from one ${page} into the next — each ${page} is composed on its own, like a sheet in a layout program. If the content does not fit, cut copy or add a <Page>.`,
@@ -182,7 +197,9 @@ function flatDocumentHint(format: PageFormat): string {
       ? `It is seen on a phone, in a feed, at about a third of its size and for a second: few words, a headline at least 64px, every other line at least 28px, nothing under 24px.`
       : format.kind === 'slides'
         ? `Type is read on a screen or a projector from across a room: body text at least 20px, nothing under 16px.`
-        : `Type is read on paper at arm's length: body text at least 14px, captions at least 11px.`,
+        : card
+          ? `It is a card held in one hand: the name or the brand at least 16px, every other line at least 10px, nothing under 9px — few lines, and plenty of air around them.`
+          : `Type is read on paper at arm's length: body text at least 14px, captions at least 11px.`,
     `No navigation bar, no menu, no hover or focus states, no web buttons, no scrolling layout, no min-h-screen, no fixed or sticky positioning, no animation and no 3D scene.`,
     // The frame is exactly the page wide, so Tailwind's breakpoints resolve
     // against 794 px on A4: `md:` applies, `lg:` never does — and a model
@@ -214,8 +231,8 @@ export const DOCUMENT_RULES = [
   '- Paper has one state: no hover, focus, active or disabled styles, no cursor classes, no onClick, no useState for interaction, no tabs, menus, modals or links styled as buttons. A call to action is printed words (a verb, a URL, a phone number) or a QR-code placeholder box.',
   '- It must look like a finished piece laid out by a graphic designer — a flyer, a poster, a report page, a slide, a social media visual — never like an interface.',
   '- A blank someone fills in (a name, a date, a box to tick, a choice) is a <Field>, never a hand-drawn line or a bare <input>: every Field becomes a real form field in the exported PDF. Give each a unique `name`.',
-  '- No animation of any kind: no <Animated>, <Ticker> or <CountUp>, no animate-* classes, no transitions. Every element is at its final, fully visible state in a still capture.',
-  '- Decorative shapes are CSS boxes (rounded-full, rotate-*, rings, clip-path polygons) or SHORT inline SVG primitives (<circle>, <ellipse>, <rect>, <polygon>, a <path> of a few curve commands), absolutely positioned inside their Page and marked aria-hidden="true". Never long path data.',
+  '- No animation of any kind: no <Animated>, <Ticker>, <CountUp> or <AnimatedText>, no animate-* classes, no transitions. Every element is at its final, fully visible state in a still capture.',
+  '- Decorative shapes are <Ornament>s (blobs, bursts, squiggles, scribbled circles, arrows, dotted and striped textures — see its card), CSS boxes (rounded-full, rotate-*, rings) or SHORT inline SVG primitives (<circle>, <ellipse>, <rect>, <polygon>), absolutely positioned inside their Page and marked aria-hidden="true". Never long path data. An <Ornament> never takes `draw` on a page.',
   '- Section ids still apply, INSIDE each page (id="hero", id="details", id="coupon"…).',
 ].join('\n')
 
@@ -327,6 +344,13 @@ export const DOCUMENT_CAP = 'document'
  */
 export const FRAMES_CAP = 'frames'
 
+/**
+ * `<Ornament>`, offered to EVERY document: each document brief asks for shapes
+ * — blobs, bursts, stripes, a dotted grid — and before it the model's only pen
+ * was a CSS box or a hand-written SVG path the rules forbid past a few commands.
+ */
+export const ORNAMENTS_CAP = 'ornaments'
+
 export interface DocumentPipeline {
   /** A document, or an ordinary screen with every stage as it always was. */
   document: boolean
@@ -393,7 +417,7 @@ export function documentPipeline(page: PageFormatId | null | undefined): Documen
     animations: false,
     caps: (ids) => {
       const out = ids.filter((id) => !DOCUMENT_EXCLUDED_CAPS.includes(id))
-      for (const id of format.kind === 'social' ? [DOCUMENT_CAP, FRAMES_CAP] : [DOCUMENT_CAP]) if (!out.includes(id)) out.push(id)
+      for (const id of format.kind === 'social' ? [DOCUMENT_CAP, ORNAMENTS_CAP, FRAMES_CAP] : [DOCUMENT_CAP, ORNAMENTS_CAP]) if (!out.includes(id)) out.push(id)
       return out
     },
   }

@@ -80,6 +80,7 @@ const TYPE_WORDS = [
   ['instagram', /instagram/],
   ['facebook', /facebook/],
   ['linkedin', /linkedin/],
+  ['business-card', /cartes? de visite|business cards?/],
   ['flyer', /\bflyers?\b|\bprospectus\b|\btracts?\b/],
   ['poster', /\baffiches?\b|\bposters?\b/],
   ['resume', /\bcv\b|curriculum vitae/],

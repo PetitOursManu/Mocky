@@ -95,8 +95,81 @@ export const AnimateSource = `var MOCKY_PRESETS = {
     },
     exit: true,
     css: { from: 'opacity:0;transform:translateX(-24px)', to: 'opacity:1;transform:none', ms: 360 }
-  }
+  },
+  /* A long, slow rise: the entrance of a hero headline or a large picture,
+     where fade-up's 16 px would not be seen. */
+  'rise': {
+    variants: { hidden: { opacity: 0, y: 48 }, visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } } },
+    css: { from: 'opacity:0;transform:translateY(48px)', to: 'opacity:1;transform:none', ms: 700 }
+  },
+  'slide-down': {
+    variants: { hidden: { opacity: 0, y: -24 }, visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } } },
+    css: { from: 'opacity:0;transform:translateY(-24px)', to: 'opacity:1;transform:none', ms: 450 }
+  },
+  /* A picture that settles: it arrives slightly too close and steps back. */
+  'zoom-out': {
+    variants: { hidden: { opacity: 0, scale: 1.12 }, visible: { opacity: 1, scale: 1, transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } } },
+    css: { from: 'opacity:0;transform:scale(1.12)', to: 'opacity:1;transform:none', ms: 800 }
+  },
+  'flip-up': {
+    variants: { hidden: { opacity: 0, rotateX: 60, transformPerspective: 800 }, visible: { opacity: 1, rotateX: 0, transformPerspective: 800, transition: { duration: 0.6, ease: 'easeOut' } } },
+    css: { from: 'opacity:0;transform:perspective(800px) rotateX(60deg)', to: 'opacity:1;transform:perspective(800px) rotateX(0deg)', ms: 600 }
+  },
+  'rotate-in': {
+    variants: { hidden: { opacity: 0, rotate: -8, scale: 0.92 }, visible: { opacity: 1, rotate: 0, scale: 1, transition: { type: 'spring', stiffness: 220, damping: 20 } } },
+    css: { from: 'opacity:0;transform:rotate(-8deg) scale(0.92)', to: 'opacity:1;transform:none', ms: 500 }
+  },
+  /* A spring with little damping: it overshoots and comes back. A badge, a
+     sticker, a price — never a paragraph. */
+  'bounce-in': {
+    variants: { hidden: { opacity: 0, scale: 0.6 }, visible: { opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 420, damping: 12 } } },
+    css: { from: 'opacity:0;transform:scale(0.6)', to: 'opacity:1;transform:none', ms: 520, ease: 'cubic-bezier(0.34,1.56,0.64,1)' }
+  },
+  /* Curtains: the block is uncovered rather than moved, so nothing around it
+     shifts and the text is never seen sliding. */
+  'reveal-up': {
+    variants: { hidden: { clipPath: 'inset(100% 0% 0% 0%)' }, visible: { clipPath: 'inset(0% 0% 0% 0%)', transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } } },
+    css: { from: 'clip-path:inset(100% 0% 0% 0%)', to: 'clip-path:inset(0% 0% 0% 0%)', ms: 800 }
+  },
+  'wipe-right': {
+    variants: { hidden: { clipPath: 'inset(0% 100% 0% 0%)' }, visible: { clipPath: 'inset(0% 0% 0% 0%)', transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } } },
+    css: { from: 'clip-path:inset(0% 100% 0% 0%)', to: 'clip-path:inset(0% 0% 0% 0%)', ms: 800 }
+  },
+  'hover-scale': {
+    whileHover: { scale: 1.04 },
+    hover: true,
+    hoverCss: { transform: 'scale(1.04)' }
+  },
+  /* The hand-placed look of a sticker that is picked up. */
+  'hover-rotate': {
+    whileHover: { rotate: -2, scale: 1.03 },
+    hover: true,
+    hoverCss: { transform: 'rotate(-2deg) scale(1.03)' }
+  },
+  /* Loops: CSS keyframes in both engines (there is nothing a variant adds to a
+     movement that never ends), held at rest by everything that holds an
+     entrance — and by a capture frame, where a loop caught mid-swing is a
+     picture of an element in the wrong place. */
+  'float': { loop: 'mocky-float 5s ease-in-out infinite' },
+  'pulse': { loop: 'mocky-pulse 2.4s ease-in-out infinite' },
+  'spin-slow': { loop: 'mocky-spin 24s linear infinite' },
+  'wobble': { loop: 'mocky-wobble 3s ease-in-out infinite' }
 };
+
+var MOCKY_LOOP_CSS = '@keyframes mocky-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}' +
+  '@keyframes mocky-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}' +
+  '@keyframes mocky-spin{to{transform:rotate(360deg)}}' +
+  '@keyframes mocky-wobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}';
+/* Once per document, at load: one stylesheet for every loop on the page. */
+(function () {
+  try {
+    if (document.getElementById('mocky-loop-kf')) return;
+    var st = document.createElement('style');
+    st.id = 'mocky-loop-kf';
+    st.textContent = MOCKY_LOOP_CSS;
+    document.head.appendChild(st);
+  } catch (e) {}
+})();
 
 /* Animate at all? Four independent reasons not to, all of them the user's. */
 var mockyMayAnimate = function () {
@@ -136,7 +209,7 @@ var Animated = function (props) {
   var rafRef = React.useRef(0);
 
   var animating = Boolean(config) && allowed.current === true;
-  var usesCssReveal = animating && !!config && !config.hover && !config.parallax && !(window.Motion && window.Motion.motion);
+  var usesCssReveal = animating && !!config && !config.hover && !config.parallax && !config.tilt && !config.loop && !(window.Motion && window.Motion.motion);
 
   React.useEffect(function () {
     if (!usesCssReveal) return;
@@ -223,6 +296,14 @@ var Animated = function (props) {
     );
   }
 
+  if (config.loop) {
+    var lStyle = Object.assign({}, props && props.style);
+    var still = false;
+    try { still = !!window.__mockyStill; } catch (e) {}
+    if (!still) lStyle.animation = config.loop + (delay ? ' ' + delay + 's' : '');
+    return React.createElement(Tag, { ref: ref, className: className, style: lStyle }, children);
+  }
+
   if (config.parallax) {
     var pStyle = Object.assign({}, props && props.style);
     pStyle.transform = 'translate3d(0,' + Math.round(offset) + 'px,0)';
@@ -262,9 +343,14 @@ var Animated = function (props) {
     var parts = target.split(';');
     for (var p = 0; p < parts.length; p++) {
       var kv = parts[p].split(':');
-      if (kv.length === 2) style[kv[0].trim() === 'transform' ? 'transform' : kv[0].trim()] = kv[1].trim();
+      /* clip-path → clipPath: React sets a style key as it is written. */
+      if (kv.length === 2) style[kv[0].trim().replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); })] = kv[1].trim();
     }
-    style.transition = 'opacity ' + config.css.ms + 'ms ease-out ' + (delay * 1000) + 'ms, transform ' + config.css.ms + 'ms ease-out ' + (delay * 1000) + 'ms';
+    /* Every property a preset moves: blur-in's filter jumped for want of one. */
+    var ease = config.css.ease || 'ease-out';
+    style.transition = ['opacity', 'transform', 'filter', 'clip-path'].map(function (prop) {
+      return prop + ' ' + config.css.ms + 'ms ' + ease + ' ' + (delay * 1000) + 'ms';
+    }).join(', ');
   }
 
   var hoverCss = config.hoverCss || { transform: 'translateY(-4px)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' };
@@ -388,9 +474,85 @@ var CountUp = function (props) {
     { ref: ref, className: className },
     prefix + value.toFixed(decimals).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ' ') + suffix
   );
+};
+
+/**
+ * AnimatedText — a line of text whose words (or letters) arrive one after another.
+ *
+ * Plain CSS transitions, no Motion: the pieces are inline-blocks with a delay
+ * each, revealed together when the line scrolls into view. The whole string is
+ * the element's accessible name and the pieces are hidden from screen readers,
+ * so a reader hears a heading and not a list of words.
+ *
+ * When nothing may move it renders the string ALONE — the same markup a plain
+ * heading would have — so a still, a PDF or "Sans animation" cannot tell it was
+ * ever split.
+ */
+var MOCKY_ANIMATED_TEXT = {
+  up: { from: { opacity: 0, transform: 'translateY(0.45em)' } },
+  fade: { from: { opacity: 0 } },
+  blur: { from: { opacity: 0, filter: 'blur(8px)' } },
+  mask: { from: { transform: 'translateY(105%)' }, mask: true }
+};
+var mockyTextOf = function (children) {
+  if (typeof children === 'string' || typeof children === 'number') return String(children);
+  if (Array.isArray(children) && children.every(function (c) { return typeof c === 'string' || typeof c === 'number'; })) return children.join('');
+  return null;
+};
+var AnimatedText = function (props) {
+  var Tag = (props && props.as) || 'span';
+  var className = (props && props.className) || undefined;
+  var text = mockyTextOf(props ? props.children : null);
+  var style = MOCKY_ANIMATED_TEXT[props && props.preset] || MOCKY_ANIMATED_TEXT.up;
+  var letters = props && props.by === 'letter';
+  var stagger = Math.min(0.3, Math.max(0.01, Number(props && props.stagger) || (letters ? 0.025 : 0.06)));
+  var delay = Math.min(2, Math.max(0, Number(props && props.delay) || 0));
+
+  var allowed = React.useRef(null);
+  if (allowed.current === null) allowed.current = mockyMayAnimate() && !(typeof window !== 'undefined' && window.__mockyStill);
+  var ref = React.useRef(null);
+  var st = React.useState(false);
+  var shown = st[0], setShown = st[1];
+  var on = allowed.current === true && text !== null;
+  React.useEffect(function () {
+    if (!on) return;
+    var node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') { setShown(true); return; }
+    var io = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) if (entries[i].isIntersecting) { setShown(true); io.disconnect(); return; }
+    }, { rootMargin: '0px 0px -10% 0px' });
+    io.observe(node);
+    return function () { io.disconnect(); };
+  }, [on]);
+
+  if (!on) return React.createElement(Tag, { className: className, style: props && props.style }, props ? props.children : null);
+
+  var n = 0;
+  var piece = function (str, key) {
+    var i = n++;
+    var s = { display: 'inline-block', transition: 'opacity 600ms cubic-bezier(0.22,1,0.36,1), transform 600ms cubic-bezier(0.22,1,0.36,1), filter 600ms cubic-bezier(0.22,1,0.36,1)', transitionDelay: (delay + i * stagger).toFixed(3) + 's', willChange: 'transform' };
+    if (!shown) Object.assign(s, style.from);
+    return React.createElement('span', { key: key, style: s }, str);
+  };
+  var words = text.split(/(\\s+)/);
+  var out = [];
+  for (var w = 0; w < words.length; w++) {
+    var word = words[w];
+    if (!word) continue;
+    if (/^\\s+$/.test(word)) { out.push(' '); continue; }
+    /* A word never breaks across lines, letters or not: its pieces sit in a
+       nowrap box, and a masked word in a box that clips it. */
+    var inner = letters ? Array.from(word).map(function (ch, c) { return piece(ch, c); }) : [piece(word, 0)];
+    out.push(React.createElement('span', { key: 'w' + w, style: { display: 'inline-block', whiteSpace: 'nowrap', overflow: style.mask ? 'hidden' : undefined, verticalAlign: 'top' } }, inner));
+  }
+  return React.createElement(
+    Tag,
+    { ref: ref, className: className, style: props && props.style, 'aria-label': text },
+    React.createElement('span', { 'aria-hidden': true }, out)
+  );
 }`
 
-export const ANIMATE_EXPORTS = ['Animated', 'Ticker', 'CountUp'] as const
+export const ANIMATE_EXPORTS = ['Animated', 'Ticker', 'CountUp', 'AnimatedText'] as const
 
 /**
  * The closed vocabulary, restated for the prompt and for tests.
@@ -412,6 +574,23 @@ export const ANIMATE_PRESETS = [
   'parallax',
   'tilt-3d',
   'exit-slide',
+  'rise',
+  'slide-down',
+  'zoom-out',
+  'flip-up',
+  'rotate-in',
+  'bounce-in',
+  'reveal-up',
+  'wipe-right',
+  'hover-scale',
+  'hover-rotate',
+  'float',
+  'pulse',
+  'spin-slow',
+  'wobble',
 ] as const
+
+/** The ways `<AnimatedText>` brings its words in — the snippet's `MOCKY_ANIMATED_TEXT`, restated for the same reason. */
+export const ANIMATED_TEXT_PRESETS = ['up', 'fade', 'blur', 'mask'] as const
 
 export type AnimatePreset = (typeof ANIMATE_PRESETS)[number]

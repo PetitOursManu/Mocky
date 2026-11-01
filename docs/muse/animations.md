@@ -9,6 +9,7 @@ list.
 <Animated preset="fade-up" delay={0.1} as="section">…</Animated>
 <Ticker speed={24} pauseOnHover>{logos}</Ticker>
 <CountUp to={1284} suffix="+" />
+<AnimatedText as="h1" preset="mask">A headline, word by word</AnimatedText>
 ```
 
 Everything else — variants, springs, intersection thresholds, the CSS fallback —
@@ -43,7 +44,7 @@ model can get wrong, and move the complexity into tested code.
 
 ---
 
-## The eleven presets
+## The twenty-six presets
 
 | Category | Preset | Effect |
 |---|---|---|
@@ -56,7 +57,22 @@ model can get wrong, and move the complexity into tested code.
 | | `stagger-list` | Children appear one after another, 0.06 s apart |
 | **Hover** | `hover-lift` | Rises 4 px with a shadow |
 | | `hover-glow` | `scale(1.02)` plus `brightness(1.08) saturate(1.08)` |
+| | `rise` | Opacity plus a 48 px rise, 700 ms — a hero headline, a large picture |
+| | `slide-down` | Enters from above (−24 px), 450 ms |
+| | `zoom-out` | Arrives at `scale(1.12)` and settles, 800 ms — a picture |
+| | `flip-up` | Turns up from 60° around its bottom edge, 600 ms |
+| | `rotate-in` | Turns −8° and grows into place, a spring |
+| | `bounce-in` | Pops from `scale(0.6)` and overshoots, `damping: 12` — a badge, a price |
+| | `reveal-up` | Uncovered from the bottom with a `clip-path`, 800 ms: nothing moves |
+| | `wipe-right` | Uncovered from left to right, 800 ms |
+| **Hover** | `hover-scale` | `scale(1.04)` |
+| | `hover-rotate` | `rotate(-2deg) scale(1.03)`, a sticker picked up |
 | **Scroll** | `parallax` | Drifts more slowly than the page, depth 0.25 |
+| **Pointer** | `tilt-3d` | Turns towards the cursor inside its own perspective, 9° |
+| **Loop** | `float` | Drifts 8 px up and back, 5 s |
+| | `pulse` | Breathes to `scale(1.04)` and back, 2.4 s |
+| | `spin-slow` | One turn every 24 s — a round badge, a starburst |
+| | `wobble` | Rocks ±3°, 3 s |
 | **Exit** | `exit-slide` | Enters from the left, exits to the right when removed |
 
 Two details are worth explaining.
@@ -64,6 +80,12 @@ Two details are worth explaining.
 **`stagger-list` goes on the list, not on each item.** This is stated explicitly
 in the description the model reads, because the opposite mistake is natural and
 produces eleven simultaneous animations instead of a stagger.
+
+**A loop never ends, so it is offered for ONE small thing.** The four loops are
+CSS keyframes in both engines — a variant adds nothing to a movement that never
+stops — and the card the model reads keeps them off anything to be read. A
+capture frame holds them at rest (`__mockyStill`): a badge caught mid-turn is a
+badge in the wrong place.
 
 **`hover-glow` uses light, not colour.** The generated screen has its own palette
 and this preset must not guess at it. `brightness` works on any background,
@@ -87,7 +109,7 @@ name present in one but absent from the other is exactly the divergence
 
 ---
 
-## The three components
+## The four components
 
 ### `<Animated>`
 
@@ -119,6 +141,22 @@ styling.
 
 **When animation is off it renders the final value.** A statistic stuck at 0 is
 worse than a statistic that never moved: it is **wrong**.
+
+### `<AnimatedText>`
+
+A line of text whose words — or letters, with `by="letter"` — arrive one after
+another when it scrolls into view. Its children must be **plain text**. `as` is
+the tag (a heading, usually), `preset` is `up`, `fade`, `blur` or `mask` (each
+word slides up from behind a line), `stagger` the seconds between two pieces.
+
+Plain CSS transitions, no Motion. The whole sentence is the element's accessible
+name and the pieces are hidden from screen readers, so a reader hears a heading,
+not a list of words. A word never breaks across two lines, letters or not.
+
+**When animation is off it is the plain text** — the markup a heading would have
+had — so a still, a PDF or "no animation" cannot tell it was ever split. It is
+not the retired pack's `TextReveal`, which took a `text` prop: a different name,
+so a model that remembers the old one cannot load the wrong component.
 
 ---
 

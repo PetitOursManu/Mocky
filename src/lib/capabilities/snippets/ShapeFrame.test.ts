@@ -100,7 +100,7 @@ describe('the frames capability', () => {
 
   it('is offered to a social post, and not to a sheet of paper', () => {
     expect(documentPipeline('social-square').caps(['icons'])).toContain(FRAMES_CAP)
-    expect(documentPipeline('social-story').caps(['icons', FRAMES_CAP])).toEqual(['icons', FRAMES_CAP, 'document'])
+    expect(documentPipeline('social-story').caps(['icons', FRAMES_CAP])).toEqual(['icons', FRAMES_CAP, 'document', 'ornaments'])
     expect(documentPipeline('a4').caps(['icons'])).not.toContain(FRAMES_CAP)
     expect(documentPipeline(undefined).caps(['icons'])).toEqual(['icons'])
   })
