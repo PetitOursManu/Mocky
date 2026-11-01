@@ -4,6 +4,21 @@
 This page is generated from the Git history by `npm run changelog`. Commit messages in this repository are written in French, and are reproduced **verbatim** rather than translated: a translated subject sitting beside a hash points at a commit whose text says something else, and the reader can then search for neither.
 :::
 
+## November 2026
+
+**Features**
+
+| Scope | Change | Commit |
+| --- | --- | --- |
+| `ornaments` | 41 formes abstraites, traits et textures de plus | `86b6742` |
+| `documents` | carte de visite, 23 cadres, ornements et nouvelles animations | `d091691` |
+
+**Documentation**
+
+| Scope | Change | Commit |
+| --- | --- | --- |
+| `fr` | interface marquée à jour après le rebase sur main | `ae9dbdb` |
+
 ## October 2026
 
 **Features**

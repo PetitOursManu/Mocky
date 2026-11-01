@@ -8,6 +8,21 @@ generated: true
 Cette page est produite à partir de l’historique Git par `npm run changelog`. Les messages de commit de ce dépôt sont écrits en français : ils sont reproduits **tels quels**, sans traduction, parce qu’un intitulé traduit posé à côté d’une empreinte renvoie vers un commit dont le texte dit autre chose — et le lecteur ne peut alors chercher ni l’un ni l’autre.
 :::
 
+## novembre 2026
+
+**Fonctionnalités**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `ornaments` | 41 formes abstraites, traits et textures de plus | `86b6742` |
+| `documents` | carte de visite, 23 cadres, ornements et nouvelles animations | `d091691` |
+
+**Documentation**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `fr` | interface marquée à jour après le rebase sur main | `ae9dbdb` |
+
 ## octobre 2026
 
 **Fonctionnalités**
