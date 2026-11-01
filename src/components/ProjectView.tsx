@@ -35,6 +35,7 @@ import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { type QualityFinding } from '../lib/quality'
 import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
+import { followRecolor } from '../lib/designFollow'
 import { downloadZip, downloadTsx } from '../lib/export'
 import { downloadBlob } from '../lib/docExport/files'
 import type { WebExportKind } from '../lib/docExport/web'
@@ -1256,6 +1257,33 @@ export default function ProjectView({
    * recolour landed in a document no generation would read and the palette on
    * screen never moved.
    */
+  /**
+   * After an edit, move the direction's colours where the edit moved the
+   * screen's (`lib/designFollow.ts`): "du rouge au bleu" came back blue while
+   * the Design System panel and every NEXT screen stayed red. Only an edit the
+   * person asked for — never Polish or an accessibility fix, whose colour
+   * changes are corrections, not a new palette.
+   *
+   * The screen's own record (`Screen.design`) follows too when it was the
+   * direction, or when there is no direction and the panel is showing it: a
+   * record that disagreed with the code beside it is the bug, one layer down.
+   */
+  function followDesign(screenId: string, before: string, after: string) {
+    const sc = screensRef.current.find((x) => x.id === screenId)
+    const direction = activeDirection()
+    const source = direction?.trim() ? direction : sc?.design?.trim() ? sc.design : null
+    if (!source) return
+    const out = followRecolor(source, before, after)
+    if (!out) return
+    if (direction?.trim()) onSetDesign(out.markdown)
+    if (sc?.design?.trim() && sc.design.trim() === source.trim()) onUpdateScreen(screenId, { design: out.markdown })
+    setNotice(
+      t('project.designFollowed', {
+        changes: out.changes.map((c) => t('project.designFollowedOne', { label: c.label, from: c.from, to: c.to })).join(', '),
+      }),
+    )
+  }
+
   function recolorToken(token: DesignToken, newHex: string) {
     const md = activeDirection()
     if (!md) return
@@ -1757,6 +1785,7 @@ export default function ProjectView({
             })
             noteChange(sc.id, text)
             onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: res.caps })
+            followDesign(sc.id, oldCode, res.code)
             // A Motion Ultra screen can lose its pictures or its kit to an edit
             // about one line. Said, not undone: Revert is one click away.
             const loss = res.loss
@@ -2800,6 +2829,7 @@ export default function ProjectView({
       )
       noteChange(screenId, info.label ? t('versions.note.modify', { element: info.label.slice(0, 60), change }) : change)
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
+      followDesign(screenId, oldCode, res.code)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))

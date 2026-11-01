@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: a87a02d7802c
+source_hash: 75209f83b538
 ---
 
 # L’interface
@@ -712,6 +712,18 @@ DESIGN.md écrit —, le panneau n’est pas vide : il montre le design dont l�
 sélectionné est issu, sinon celui de l’écran le plus récent, et le dit (`Le
 projet n’a pas encore de DESIGN.md : voici celui de l’écran « … »`). Le
 recolorer là en fait celui du projet.
+
+**Une modification qui recolore un écran recolore le panneau.** Demandez
+« passe les couleurs du rouge au bleu » et les couleurs de la direction que la
+modification a déplacées — le rouge et sa teinte foncée, ici — sont réécrites
+dans le DESIGN.md avec les bleus qui les ont remplacées, et un message les
+énumère (`Primaire #dc2626 → #2563eb`). C’est lu dans le code avant et après,
+sans appel au modèle : une couleur ne bouge que si la plupart des endroits qui
+l’utilisaient ont changé, si bien que « mets ce bouton en bleu » laisse
+l’accent tranquille. Seulement pour les modifications que vous demandez (le
+composeur et `Modifier`), jamais pour Polir ni une correction d’accessibilité.
+Les prochains écrans suivent les nouvelles couleurs ; les écrans déjà là
+gardent les leurs.
 
 Avec exactement un écran sélectionné, un bloc `Écran sélectionné · {nom}` se
 place au-dessus de la palette, avec ce qu’on peut faire du design de cet écran :

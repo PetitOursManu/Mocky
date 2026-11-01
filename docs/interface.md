@@ -676,6 +676,16 @@ screen was built from, or else the newest screen's, and says so (`The project
 has no DESIGN.md yet: this is the one screen “…” was built from`). Recolouring
 it there makes it the project's.
 
+**An edit that recolours a screen recolours the panel.** Ask "passe les couleurs
+du rouge au bleu" and the colours of the direction the edit moved — the red and
+its darker shade, here — are rewritten in DESIGN.md to the blues that replaced
+them, and a notice lists each one (`Primary #dc2626 → #2563eb`). It is read off
+the code before and after, with no model call: a colour moves only where most of
+the places that used it changed, so "make this one button blue" leaves the
+accent alone. Only edits you ask for (the composer and `Modify`), never Polish
+or an accessibility fix. The next screens follow the new colours; the screens
+already there keep theirs.
+
 With exactly one screen selected, a `Selected screen · {name}` block sits above
 the palette, with what can be done with that screen's design:
 
