@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `versions` | ce qui a changé et un fil d'Ariane ; cartes US portrait | `275394a` |
 | `ornaments` | 41 formes abstraites, traits et textures de plus | `86b6742` |
 | `documents` | carte de visite, 23 cadres, ornements et nouvelles animations | `d091691` |
 
