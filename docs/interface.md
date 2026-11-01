@@ -683,7 +683,9 @@ them, and a notice lists each one (`Primary #dc2626 → #2563eb`). It is read of
 the code before and after, with no model call: a colour moves only where most of
 the places that used it changed, so "make this one button blue" leaves the
 accent alone. Only edits you ask for (the composer and `Modify`), never Polish
-or an accessibility fix. The next screens follow the new colours; the screens
+or an accessibility fix. Going back works the same way: restoring a screen's
+version or `Revert` puts the direction's colours back to the ones that code
+used. The next screens follow the new colours; the screens
 already there keep theirs.
 
 With exactly one screen selected, a `Selected screen · {name}` block sits above

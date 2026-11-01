@@ -37,6 +37,12 @@ describe('followRecolor', () => {
     expect(out.markdown).not.toMatch(/#dc2626/i)
   })
 
+  it('goes back the same way: restoring the red version turns the blue direction red again', () => {
+    const blue = followRecolor(DESIGN, RED, BLUE)!.markdown
+    const back = followRecolor(blue, BLUE, RED)!
+    expect(back.markdown).toBe(DESIGN)
+  })
+
   it('leaves the accent alone when one element changed colour out of many', () => {
     const one = RED.replace('<h1 className="text-red-600">', '<h1 className="text-blue-600">')
     expect(followRecolor(DESIGN, RED, one)).toBeNull()

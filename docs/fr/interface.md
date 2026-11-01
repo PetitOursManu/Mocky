@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 75209f83b538
+source_hash: cdefbcc5181d
 ---
 
 # L’interface
@@ -722,6 +722,9 @@ sans appel au modèle : une couleur ne bouge que si la plupart des endroits qui
 l’utilisaient ont changé, si bien que « mets ce bouton en bleu » laisse
 l’accent tranquille. Seulement pour les modifications que vous demandez (le
 composeur et `Modifier`), jamais pour Polir ni une correction d’accessibilité.
+Revenir en arrière marche de la même façon : restaurer une version d’un écran
+ou `Revenir à la version précédente` remet dans la direction les couleurs que
+ce code utilisait.
 Les prochains écrans suivent les nouvelles couleurs ; les écrans déjà là
 gardent les leurs.
 

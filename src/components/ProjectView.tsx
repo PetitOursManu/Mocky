@@ -834,8 +834,10 @@ export default function ProjectView({
     },
     onSetBranch,
     onUpdateScreen: (screenId, patch) => {
+      const before = screensRef.current.find((s) => s.id === screenId)?.code
       if (patch.code !== undefined) noteChange(screenId, t('versions.note.restoredScreen'))
       onUpdateScreen(screenId, patch)
+      if (before !== undefined && patch.code !== undefined) followDesign(screenId, before, patch.code, { record: false })
     },
     // Shown once added, like any new screen: a version kept beside its present
     // is the thing the person wants to look at next. `setFocus` is read when it
@@ -1267,8 +1269,13 @@ export default function ProjectView({
    * The screen's own record (`Screen.design`) follows too when it was the
    * direction, or when there is no direction and the panel is showing it: a
    * record that disagreed with the code beside it is the bug, one layer down.
+   *
+   * Going BACK is the same question asked the other way round: a restored
+   * version or a Revert puts the red code back, and a direction left blue was
+   * the same panel lying in the other direction. A restore already brings the
+   * screen's record back with its code, so it passes `record: false`.
    */
-  function followDesign(screenId: string, before: string, after: string) {
+  function followDesign(screenId: string, before: string, after: string, opts: { record?: boolean } = {}) {
     const sc = screensRef.current.find((x) => x.id === screenId)
     const direction = activeDirection()
     const source = direction?.trim() ? direction : sc?.design?.trim() ? sc.design : null
@@ -1276,7 +1283,7 @@ export default function ProjectView({
     const out = followRecolor(source, before, after)
     if (!out) return
     if (direction?.trim()) onSetDesign(out.markdown)
-    if (sc?.design?.trim() && sc.design.trim() === source.trim()) onUpdateScreen(screenId, { design: out.markdown })
+    if (opts.record !== false && sc?.design?.trim() && sc.design.trim() === source.trim()) onUpdateScreen(screenId, { design: out.markdown })
     setNotice(
       t('project.designFollowed', {
         changes: out.changes.map((c) => t('project.designFollowedOne', { label: c.label, from: c.from, to: c.to })).join(', '),
@@ -1495,6 +1502,7 @@ export default function ProjectView({
     if (!screen || !screen.previousCode) return
     const back = screen.previousCode
     noteChange(screenId, t('versions.note.revert'))
+    followDesign(screenId, screen.code, back)
     // Swap: current code becomes the new previousCode, old code becomes current
     onUpdateScreen(screenId, {
       code: back,
