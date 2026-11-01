@@ -22,8 +22,10 @@ import { ORNAMENTS, ORNAMENT_PATTERN_IDS } from '../../ornaments'
  * Babel.transform, like every other snippet pack.
  */
 
-/** The stored shapes, short keys: kind ('f' fill, 'l' line), ratio, path. Patterns are drawn below. */
-const RUNTIME = Object.fromEntries(ORNAMENTS.filter((o) => o.kind !== 'pattern').map((o) => [o.id, { k: o.kind === 'fill' ? 'f' : 'l', r: o.ratio, d: o.d }]))
+/** The stored shapes, short keys: kind ('f' fill, 'l' line), ratio, path, `z` for a nonzero fill. Patterns are drawn below. */
+const RUNTIME = Object.fromEntries(
+  ORNAMENTS.filter((o) => o.kind !== 'pattern').map((o) => [o.id, { k: o.kind === 'fill' ? 'f' : 'l', r: o.ratio, d: o.d, ...(o.nonzero ? { z: 1 } : {}) }]),
+)
 
 /** The density each texture looks right at when the page gives none. */
 export const PATTERN_DENSITY: Record<(typeof ORNAMENT_PATTERN_IDS)[number], number> = {
@@ -36,6 +38,13 @@ export const PATTERN_DENSITY: Record<(typeof ORNAMENT_PATTERN_IDS)[number], numb
   waves: 8,
   crosses: 8,
   confetti: 10,
+  triangles: 8,
+  rings: 8,
+  scales: 8,
+  bricks: 8,
+  zigzags: 8,
+  speckle: 10,
+  diamonds: 8,
 }
 
 export const OrnamentSource = `var MOCKY_ORNAMENTS = ${JSON.stringify(RUNTIME)};
@@ -72,12 +81,24 @@ var mockyOrnPattern = function (id, n, color, accent, weight) {
     line(w);
   }
   else if (id === 'crosses') { var c = '', a = cell * 0.18; for (i = 0; i < n; i++) for (j = 0; j < n; j++) { var cx = (i + 0.5) * cell, cy = (j + 0.5) * cell; c += 'M' + mockyOrnR(cx - a) + ' ' + mockyOrnR(cy) + 'H' + mockyOrnR(cx + a) + 'M' + mockyOrnR(cx) + ' ' + mockyOrnR(cy - a) + 'V' + mockyOrnR(cy + a); } line(c); }
-  else if (id === 'confetti') {
+  else if (id === 'triangles') { var tr = ''; for (i = 0; i < n; i++) for (j = 0; j < n; j++) { var tx = i * cell + (j % 2 ? cell / 2 : 0), ty = j * cell; tr += 'M' + mockyOrnR(tx + cell * 0.15) + ' ' + mockyOrnR(ty + cell * 0.8) + 'L' + mockyOrnR(tx + cell / 2) + ' ' + mockyOrnR(ty + cell * 0.2) + 'L' + mockyOrnR(tx + cell * 0.85) + ' ' + mockyOrnR(ty + cell * 0.8) + 'Z'; } out.push(React.createElement('path', { key: k++, d: tr, fill: color })); }
+  else if (id === 'diamonds') { var dm = ''; for (i = 0; i < n; i++) for (j = 0; j < n; j++) { var dx = (i + 0.5) * cell, dy = (j + 0.5) * cell, h2 = cell * 0.32; dm += 'M' + mockyOrnR(dx) + ' ' + mockyOrnR(dy - h2) + 'L' + mockyOrnR(dx + h2) + ' ' + mockyOrnR(dy) + 'L' + mockyOrnR(dx) + ' ' + mockyOrnR(dy + h2) + 'L' + mockyOrnR(dx - h2) + ' ' + mockyOrnR(dy) + 'Z'; } out.push(React.createElement('path', { key: k++, d: dm, fill: color })); }
+  else if (id === 'rings') { var rg = '', rr = cell * 0.3; for (i = 0; i < n; i++) for (j = 0; j < n; j++) { var rx = (i + 0.5) * cell, ry = (j + 0.5) * cell; rg += 'M' + mockyOrnR(rx - rr) + ' ' + mockyOrnR(ry) + 'A' + mockyOrnR(rr) + ' ' + mockyOrnR(rr) + ' 0 1 1 ' + mockyOrnR(rx + rr) + ' ' + mockyOrnR(ry) + 'A' + mockyOrnR(rr) + ' ' + mockyOrnR(rr) + ' 0 1 1 ' + mockyOrnR(rx - rr) + ' ' + mockyOrnR(ry); } line(rg); }
+  /* Fish scales: a row of half circles hanging under a line, every other row
+     shifted by half a scale so each one sits between two above it. */
+  else if (id === 'scales') { var sc = ''; for (j = 0; j <= n; j++) { var off = j % 2 ? -cell / 2 : 0; for (i = 0; i <= n; i++) { var sx = i * cell + off; sc += 'M' + mockyOrnR(sx) + ' ' + mockyOrnR(j * cell) + 'A' + mockyOrnR(cell / 2) + ' ' + mockyOrnR(cell / 2) + ' 0 0 0 ' + mockyOrnR(sx + cell) + ' ' + mockyOrnR(j * cell); } } line(sc); }
+  else if (id === 'bricks') { var br = ''; for (j = 0; j <= n * 2; j++) { br += 'M0 ' + mockyOrnR(j * cell / 2) + 'H100'; for (i = 0; i <= n; i++) { var bx = i * cell + (j % 2 ? cell / 2 : 0); br += 'M' + mockyOrnR(bx) + ' ' + mockyOrnR(j * cell / 2) + 'V' + mockyOrnR((j + 1) * cell / 2); } } line(br); }
+  else if (id === 'zigzags') { var zz = ''; for (j = 0; j < n; j++) { var zy = (j + 0.5) * cell; zz += 'M0 ' + mockyOrnR(zy + cell * 0.18); for (i = 1; i <= n * 2; i++) zz += 'L' + mockyOrnR(i * cell / 2) + ' ' + mockyOrnR(zy + (i % 2 ? -1 : 1) * cell * 0.18); } line(zz); }
+  else if (id === 'confetti' || id === 'speckle') {
     /* mulberry32 on a fixed seed: the same scatter on every render, in every
        export and in every capture — a texture that moved between two renders of
        one page would read as a bug. */
-    var s = 7 >>> 0;
+    var s = (id === 'speckle' ? 13 : 7) >>> 0;
     var rand = function () { s = (s + 0x6d2b79f5) >>> 0; var t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    if (id === 'speckle') {
+      for (i = 0; i < n * n; i++) dot(rand() * 100, rand() * 100, cell * (0.05 + rand() * 0.12), accent && i % 3 === 0 ? accent : color);
+      return out;
+    }
     for (i = 0; i < n * 3; i++) {
       var fill = accent && i % 2 ? accent : color;
       var x = rand() * 100, yy = rand() * 100, size = cell * (0.25 + rand() * 0.25);
@@ -139,7 +160,7 @@ var Ornament = function (props) {
       style: draw ? { strokeDasharray: 1, strokeDashoffset: isDrawn ? 0 : 1, transition: still.current ? 'none' : 'stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1) ' + delay + 's' } : undefined
     });
   } else {
-    children = React.createElement('path', { d: s.d, fill: color, fillRule: 'evenodd' });
+    children = React.createElement('path', { d: s.d, fill: color, fillRule: s.z ? 'nonzero' : 'evenodd' });
   }
   return React.createElement(
     'svg',

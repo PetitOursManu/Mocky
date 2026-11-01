@@ -57,6 +57,12 @@ describe('Ornament', () => {
     expect(out).toContain('preserveAspectRatio="none"')
   })
 
+  it('fills a shape of overlapping pieces nonzero, so a crossing is not a hole', () => {
+    expect(html({ shape: 'asterisk-bold' })).toContain('fill-rule="nonzero"')
+    expect(html({ shape: 'target' })).toContain('fill-rule="evenodd"')
+    for (const o of ORNAMENTS.filter((x) => x.nonzero)) expect(o.kind, o.id).toBe('fill')
+  })
+
   it('takes the text colour when it is given none, and refuses a colour that is not one', () => {
     expect(html({ shape: 'ring' })).toContain('fill="currentColor"')
     expect(html({ shape: 'ring', color: 'url(#x)' })).toContain('fill="currentColor"')

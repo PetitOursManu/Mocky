@@ -36,6 +36,12 @@ export interface Ornament {
   ratio: number
   /** Paths in a 0–100 box (fill: `evenodd`; line: stroked, round caps). Empty for a pattern. */
   d: string
+  /**
+   * A fill made of OVERLAPPING pieces — the three bars of a bold asterisk, a
+   * sun's rays over its disc — is filled `nonzero`: even-odd would punch a
+   * hole wherever two of them cross.
+   */
+  nonzero?: boolean
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -89,6 +95,205 @@ function rays(n: number, inner: number, outer: number): string {
 const circlePath = (cx: number, cy: number, r: number) =>
   `M${fmt(cx)} ${fmt(cy - r)}A${fmt(r)} ${fmt(r)} 0 1 1 ${fmt(cx)} ${fmt(cy + r)}A${fmt(r)} ${fmt(r)} 0 1 1 ${fmt(cx)} ${fmt(cy - r)}Z`
 
+type Pt = [number, number]
+const pt = ([x, y]: Pt) => `${fmt(x)} ${fmt(y)}`
+const polar = (r: number, deg: number, cx = 50, cy = 50): Pt => [cx + r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)]
+const poly = (points: Pt[]) => `M${points.map(pt).join('L')}Z`
+
+/** A star (or a regular polygon when `inner` is 1), first point straight up, radius 50. */
+function star(points: number, inner: number): Pt[] {
+  return Array.from({ length: points * 2 }, (_, i) => polar(i % 2 ? 50 * inner : 50, -90 + (i * 180) / points))
+}
+
+/**
+ * A band of a ring between two angles (degrees, clockwise from 3 o'clock in a
+ * y-down box): the arch of a rainbow, the quarter of a target.
+ */
+function ringBand(R: number, r: number, from: number, to: number, cx = 50, cy = 50, sy = 1): string {
+  const large = to - from > 180 ? 1 : 0
+  // `sy` stretches it down: on a 2:1 box a circle is twice as tall in box units.
+  const at = (rad: number, deg: number): Pt => {
+    const [x, y] = polar(rad, deg, cx, cy)
+    return [x, cy + (y - cy) * sy]
+  }
+  return (
+    `M${pt(at(R, from))}A${fmt(R)} ${fmt(R * sy)} 0 ${large} 1 ${pt(at(R, to))}` +
+    `L${pt(at(r, to))}A${fmt(r)} ${fmt(r * sy)} 0 ${large} 0 ${pt(at(r, from))}Z`
+  )
+}
+
+/**
+ * A closed curve around the centre whose radius undulates `bumps` times, as
+ * quadratics through the midpoints of its samples — smooth, and a tenth of the
+ * length of the same curve as a polygon.
+ */
+function wavyCircle(bumps: number, R: number, amp: number): string {
+  const n = bumps * 4
+  const ctl = Array.from({ length: n }, (_, i) => polar(R + amp * Math.cos((i / n) * bumps * 2 * Math.PI), (i * 360) / n - 90))
+  const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+  let d = `M${pt(mid(ctl[n - 1], ctl[0]))}`
+  for (let i = 0; i < n; i++) d += `Q${pt(ctl[i])} ${pt(mid(ctl[i], ctl[(i + 1) % n]))}`
+  return d + 'Z'
+}
+
+/** Petals on a circle, sized so their tips touch the box: R·cos(π/n) + R·sin(π/n) = 50. */
+function petals(n: number): string {
+  const R = 50 / (Math.cos(Math.PI / n) + Math.sin(Math.PI / n))
+  const rr = R * Math.sin(Math.PI / n)
+  const tips = Array.from({ length: n }, (_, i) => polar(R, -90 + (i * 360) / n))
+  return `M${pt(tips[0])}` + tips.map((_, i) => `A${fmt(rr)} ${fmt(rr)} 0 0 1 ${pt(tips[(i + 1) % n])}`).join('') + 'Z'
+}
+
+/** A bar of `w` units across, through the centre, turned by `deg`. */
+function bar(w: number, deg: number): string {
+  const a = polar(50, deg)
+  const b = polar(50, deg + 180)
+  const [nx, ny] = [(-Math.sin((deg * Math.PI) / 180) * w) / 2, (Math.cos((deg * Math.PI) / 180) * w) / 2]
+  return poly([
+    [a[0] + nx, a[1] + ny],
+    [b[0] + nx, b[1] + ny],
+    [b[0] - nx, b[1] - ny],
+    [a[0] - nx, a[1] - ny],
+  ])
+}
+
+/**
+ * A ribbon: a wave along `top`, then the same wave back along `top + thick`,
+ * so the two edges stay parallel. `edge` draws one way of undulating.
+ */
+function ribbon(top: number, thick: number, edge: (from: number, to: number, y: number, sign: 1 | -1) => string): string {
+  return `M0 ${fmt(top)}${edge(0, 100, top, 1)}L100 ${fmt(top + thick)}${edge(100, 0, top + thick, -1)}Z`
+}
+const waveEdge = (halves: number, amp: number) => (from: number, to: number, y: number, dir: 1 | -1) => {
+  const step = (to - from) / halves
+  let d = ''
+  for (let i = 0; i < halves; i++) {
+    // Walked backwards, the half-waves come in the reverse order: index them from the left.
+    const k = dir === 1 ? i : halves - 1 - i
+    d += `Q${pt([from + step * (i + 0.5), y + (k % 2 ? 1 : -1) * amp * 2])} ${pt([from + step * (i + 1), y])}`
+  }
+  return d
+}
+const zigEdge = (teeth: number, amp: number) => (from: number, to: number, y: number, dir: 1 | -1) => {
+  const step = (to - from) / (teeth * 2)
+  let d = ''
+  for (let i = 1; i <= teeth * 2; i++) {
+    const k = dir === 1 ? i : teeth * 2 - i
+    d += `L${pt([from + step * i, y + (k % 2 ? -amp : 0)])}`
+  }
+  return d
+}
+
+/** Short arcs round a circle: a dotted ring drawn with a pen, no dash array to scale. */
+function dottedCircle(r: number, dashes: number): string {
+  const step = 360 / dashes
+  return Array.from({ length: dashes }, (_, i) => `M${pt(polar(r, i * step))}A${fmt(r)} ${fmt(r)} 0 0 1 ${pt(polar(r, i * step + step * 0.5))}`).join('')
+}
+
+/**
+ * The abstract shapes: the vocabulary of a Bauhaus or a Memphis poster —
+ * arches, half circles, targets, gears, bold crosses, ribbons — which the
+ * picture frames, being holes for a photograph, never needed.
+ */
+const abstract: Ornament[] = [
+  { id: 'arc-band', kind: 'fill', ratio: 2, d: ringBand(50, 30, 180, 360, 50, 100, 2) },
+  {
+    id: 'rainbow',
+    kind: 'fill',
+    ratio: 2,
+    d: ringBand(50, 40, 180, 360, 50, 100, 2) + ringBand(34, 24, 180, 360, 50, 100, 2) + ringBand(18, 8, 180, 360, 50, 100, 2),
+  },
+  { id: 'quarter-ring', kind: 'fill', ratio: 1, d: ringBand(100, 60, 270, 360, 0, 100) },
+  { id: 'target', kind: 'fill', ratio: 1, d: [50, 40, 30, 20, 10].map((r) => circlePath(50, 50, r)).join('') },
+  // Two half discs, one up and one down: the Bauhaus pair. At 2:1 a radius of
+  // 25 across is 50 down.
+  { id: 'half-circles', kind: 'fill', ratio: 2, d: 'M0 50A25 50 0 0 1 50 50ZM50 50A25 50 0 0 0 100 50Z' },
+  // A quadratic reaches half-way to its control: controls at -50 and 150 put the curve on 0 and 100.
+  { id: 'lens', kind: 'fill', ratio: 2, d: 'M0 50Q50 -50 100 50Q50 150 0 50Z' },
+  { id: 'eye', kind: 'fill', ratio: 2, d: 'M0 50Q50 -50 100 50Q50 150 0 50Z' + 'M50 25A12.5 25 0 1 1 50 75A12.5 25 0 1 1 50 25Z' },
+  { id: 'pie', kind: 'fill', ratio: 1, d: 'M50 50L100 50A50 50 0 1 1 50 0Z' },
+  { id: 'seal', kind: 'fill', ratio: 1, d: wavyCircle(14, 46, 4) },
+  {
+    id: 'cog',
+    kind: 'fill',
+    ratio: 1,
+    d:
+      poly(
+        Array.from({ length: 10 }, (_, i) => {
+          const a = i * 36
+          return [polar(38, a - 13), polar(50, a - 8), polar(50, a + 8), polar(38, a + 13)]
+        }).flat(),
+      ) + circlePath(50, 50, 14),
+  },
+  { id: 'flower-5', kind: 'fill', ratio: 1, d: petals(5) },
+  { id: 'flower-6', kind: 'fill', ratio: 1, d: petals(6) },
+  { id: 'star-4', kind: 'fill', ratio: 1, d: poly(star(4, 0.38)) },
+  { id: 'star-8', kind: 'fill', ratio: 1, d: poly(star(8, 0.62)) },
+  { id: 'badge-burst', kind: 'fill', ratio: 1, d: poly(star(24, 0.86)) },
+  {
+    id: 'sun',
+    kind: 'fill',
+    ratio: 1,
+    nonzero: true,
+    d: circlePath(50, 50, 26) + Array.from({ length: 12 }, (_, i) => poly([polar(30, i * 30 - 9), polar(50, i * 30), polar(30, i * 30 + 9)])).join(''),
+  },
+  { id: 'asterisk-bold', kind: 'fill', ratio: 1, nonzero: true, d: bar(18, 90) + bar(18, 30) + bar(18, 150) },
+  { id: 'cross-x', kind: 'fill', ratio: 1, nonzero: true, d: bar(22, 45) + bar(22, 135) },
+  {
+    id: 'hourglass',
+    kind: 'fill',
+    ratio: 0.8,
+    d: 'M0 0H100L50 50Z' + 'M50 50L100 100H0Z',
+  },
+  { id: 'bowtie', kind: 'fill', ratio: 1.25, d: 'M0 0L50 50L0 100Z' + 'M100 0V100L50 50Z' },
+  {
+    id: 'kite',
+    kind: 'fill',
+    ratio: 0.75,
+    d: poly([
+      [50, 0],
+      [100, 35],
+      [50, 100],
+      [0, 35],
+    ]),
+  },
+  {
+    id: 'stairs',
+    kind: 'fill',
+    ratio: 1,
+    d: poly([
+      [0, 100],
+      [0, 75],
+      [25, 75],
+      [25, 50],
+      [50, 50],
+      [50, 25],
+      [75, 25],
+      [75, 0],
+      [100, 0],
+      [100, 100],
+    ]),
+  },
+  {
+    id: 'l-shape',
+    kind: 'fill',
+    ratio: 1,
+    d: poly([
+      [0, 0],
+      [34, 0],
+      [34, 66],
+      [100, 66],
+      [100, 100],
+      [0, 100],
+    ]),
+  },
+  { id: 'rounded-triangle', kind: 'fill', ratio: 1.15, d: 'M42 6Q50 -6 58 6L97 82Q100 96 88 96H12Q0 96 3 82Z' },
+  { id: 'wave-band', kind: 'fill', ratio: 4, d: ribbon(25, 50, waveEdge(4, 12)) },
+  { id: 'zigzag-band', kind: 'fill', ratio: 4, d: ribbon(30, 40, zigEdge(5, 24)) },
+  // Three half discs on one base, each as tall as the box: at 6:1 a radius of 16.67 across is 100 down.
+  { id: 'semicircle-row', kind: 'fill', ratio: 6, d: [0, 1, 2].map((i) => `M${fmt(i * 33.33)} 100A16.67 100 0 0 1 ${fmt((i + 1) * 33.33)} 100Z`).join('') },
+]
+
 const fills: Ornament[] = [
   ...FRAME_SHAPES.filter((s) => s.family !== 'photo').map((s): Ornament => ({ id: s.id, kind: 'fill', ratio: s.ratio, d: s.clip })),
   // Two circles, filled even-odd: the hole is the inner one.
@@ -117,17 +322,48 @@ const lines: Ornament[] = [
   { id: 'check', kind: 'line', ratio: 1.2, d: 'M8 54L36 82L92 16' },
   { id: 'plus', kind: 'line', ratio: 1, d: 'M50 8V92M8 50H92' },
   { id: 'dash-line', kind: 'line', ratio: 8, d: Array.from({ length: 8 }, (_, i) => `M${fmt(2 + i * 12.5)} 50H${fmt(9 + i * 12.5)}`).join('') },
+  // Joined-up handwriting with no letters in it: a row of loops.
+  {
+    id: 'loops',
+    kind: 'line',
+    ratio: 4,
+    d: 'M2 70' + [0, 1, 2, 3].map((i) => { const x = 8 + i * 22; return `C${fmt(x + 14)} 70 ${fmt(x + 20)} 20 ${fmt(x + 10)} 20C${fmt(x)} 20 ${fmt(x + 4)} 70 ${fmt(x + 22)} 70` }).join(''),
+  },
+  { id: 'swoosh', kind: 'line', ratio: 3, d: 'M4 80C30 84 62 64 96 14' },
+  // Shading a hand would scribble in: strokes back and forth, leaning.
+  { id: 'scribble', kind: 'line', ratio: 1.6, d: 'M6 80L30 10L22 90L52 8L44 92L74 10L66 90L94 20' },
+  { id: 'brackets', kind: 'line', ratio: 2, d: 'M16 6H6V94H16M84 6H94V94H84' },
+  { id: 'star-line', kind: 'line', ratio: 1, d: poly(star(5, 0.45)) },
+  { id: 'heart-line', kind: 'line', ratio: 1.1, d: 'M50 94C24 76 4 58 4 34C4 18 16 6 30 6C40 6 47 12 50 20C53 12 60 6 70 6C84 6 96 18 96 34C96 58 76 76 50 94Z' },
+  { id: 'dotted-circle', kind: 'line', ratio: 1, d: dottedCircle(46, 24) },
 ]
 
 /**
  * The textures, by name only: the snippet draws them (`ORNAMENT_PATTERNS` in
  * snippets/Ornament.ts holds the same list, and the test holds the two equal).
  */
-export const ORNAMENT_PATTERN_IDS = ['dots', 'grid', 'stripes', 'diagonal', 'checker', 'halftone', 'waves', 'crosses', 'confetti'] as const
+export const ORNAMENT_PATTERN_IDS = [
+  'dots',
+  'grid',
+  'stripes',
+  'diagonal',
+  'checker',
+  'halftone',
+  'waves',
+  'crosses',
+  'confetti',
+  'triangles',
+  'rings',
+  'scales',
+  'bricks',
+  'zigzags',
+  'speckle',
+  'diamonds',
+] as const
 
 const patterns: Ornament[] = ORNAMENT_PATTERN_IDS.map((id) => ({ id, kind: 'pattern', ratio: 1, d: '' }))
 
-export const ORNAMENTS: readonly Ornament[] = [...fills, ...lines, ...patterns]
+export const ORNAMENTS: readonly Ornament[] = [...fills, ...abstract, ...lines, ...patterns]
 
 export const ORNAMENT_IDS: readonly string[] = ORNAMENTS.map((o) => o.id)
 

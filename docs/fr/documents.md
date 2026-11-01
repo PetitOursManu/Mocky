@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: dd001dcf352d
+source_hash: 69458e50c11c
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -393,12 +393,25 @@ appel au modèle, et `Revenir à la version précédente` l'annule.
 
 ## Formes décoratives
 
-Chaque document se voit proposer `<Ornament>` : des blobs, des éclats et les
-autres formes pleines des cadres, un anneau ; des traits comme tracés à la main
-— une vague ou un double soulignement sous un mot, un cercle griffonné autour
-d'un prix, des flèches courbes, en boucle ou droites, une spirale, des rayons,
-une coche ; et des textures — points, grille, rayures, diagonales, damier,
-trame, vagues, petites croix, confettis. Demandez « formes décoratives »,
+Chaque document se voit proposer `<Ornament>`, environ 120 formes de trois
+sortes :
+
+- **Des formes pleines** : des blobs, des éclats et les autres formes des
+  cadres, et le vocabulaire abstrait d'une affiche Bauhaus, suisse ou Memphis —
+  une arche, un arc-en-ciel, un quart d'anneau, une cible, deux demi-cercles,
+  une lentille, un œil, un camembert, un sceau, un engrenage, des fleurs à cinq
+  et six pétales, des étoiles à quatre, huit et 24 branches, un soleil, un
+  astérisque et une croix épais, un sablier, un nœud papillon, un cerf-volant,
+  un escalier, un L, un triangle arrondi, un ruban ondulé et un en zigzag, une
+  rangée de demi-cercles.
+- **Des traits comme tracés à la main** : une vague ou un double soulignement
+  sous un mot, un cercle griffonné autour d'un prix, des flèches courbes, en
+  boucle ou droites, une spirale, des rayons, des boucles, un élan, un
+  gribouillis, des crochets, une étoile, un cœur, un cercle pointillé, une coche.
+- **Des textures** : points, grille, rayures, diagonales, damier, trame,
+  vagues, petites croix, confettis, triangles, anneaux, écailles, briques,
+  zigzags, moucheture, losanges.
+ Demandez « formes décoratives »,
 « gribouillis », « confettis » ou « un fond à motif » sur un écran ordinaire et
 il y est proposé aussi.
 

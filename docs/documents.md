@@ -378,11 +378,22 @@ the model, and `Revert` undoes it.
 
 ## Decorative shapes
 
-Every document is offered `<Ornament>`: blobs, bursts and the other solid
-shapes of the frames, a ring; strokes drawn as if by hand — a squiggle or a
-double underline under a word, a circle scribbled round a price, curved, looped
-and straight arrows, a spiral, rays, a check mark; and textures — dots, a grid,
-stripes, diagonals, a checkerboard, halftone, waves, small crosses, confetti.
+Every document is offered `<Ornament>`, about 120 shapes in three kinds:
+
+- **Solid shapes**: blobs, bursts and the other shapes of the frames, and the
+  abstract vocabulary of a Bauhaus, Swiss or Memphis poster — an arch band, a
+  rainbow, a quarter ring, a target, two half circles, a lens, an eye, a pie, a
+  seal, a cog, five- and six-petal flowers, four-, eight- and 24-point stars, a
+  sun, a bold asterisk and cross, an hourglass, a bow tie, a kite, stairs, an L,
+  a rounded triangle, a wavy and a zigzag ribbon, a row of half circles.
+- **Strokes drawn as if by hand**: a squiggle or a double underline under a
+  word, a circle scribbled round a price, curved, looped and straight arrows, a
+  spiral, rays, loops, a swoosh, a scribble, brackets, a star, a heart, a dotted
+  ring, a check mark.
+- **Textures**: dots, a grid, stripes, diagonals, a checkerboard, halftone,
+  waves, small crosses, confetti, triangles, rings, fish scales, bricks,
+  zigzags, speckle, diamonds.
+
 Ask for "formes décoratives", "gribouillis", "confettis", "un fond à motif" on
 an ordinary screen and it is offered there too.
 
