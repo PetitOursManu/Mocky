@@ -349,6 +349,15 @@ did, stored like one, with the author's credit kept beside it. The browser sends
 an id, never a URL, and every address the server downloads passes the SSRF
 guard, redirects included.
 
+A **picture link the person typed** in Muse's `Inspiration` field is not an
+exception either: it is the person's own reference for this screen, the same
+thing as a capture they pasted, and the rule is about what Mocky goes and fetches
+on its own. `POST /api/muse/linked-image` fetches it once — the browser-facing
+SSRF guard on every hop, a size cap counted while reading, the type read off the
+bytes — and hands it back with `no-store`. Nothing writes it: not the library,
+not `MuseCache`, not a disk. From there it lives where a pasted capture lives, in
+the tab, until the screen is made.
+
 ### M3. Every failure degrades; a Muse run can never fail a generation
 
 The pattern is the same everywhere, and it is the one `plan.ts` already

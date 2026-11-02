@@ -642,6 +642,17 @@ remembers that it was built from a site and in which mode, so `Regenerate`
 reuses the screenshots during the same session and, after a reload, says it
 needs them again rather than inventing a page from "Reproduce this site".
 
+**A link to a picture becomes a screenshot too.** Muse reads pages, so a
+direct link to a picture typed in the Muse panel's `Inspiration` field — a
+flyer's `.jpg`, a mock-up's `.png` — used to reach it as an empty page, and the
+screen followed nothing you had pointed at. Each link is now looked at once the
+field holds still: a picture leaves the field and joins the screenshots, with a
+sentence saying so, and you choose `Reproduce` or `Redesign` before generating,
+exactly as if you had pasted it. A page stays in the field for Muse. The server
+fetches the picture once, through the same protection against internal
+addresses as every other fetch, hands it to your browser and keeps nothing; a
+picture over 15 MB, or one it cannot read, is reported rather than ignored.
+
 On a selected screen, attached screenshots are plain references like the
 annotations: the words say what to take from them. A model without vision is
 refused up front, with a sentence saying so.

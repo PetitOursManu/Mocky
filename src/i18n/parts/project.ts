@@ -138,6 +138,10 @@ export const project = {
     'project.siteTooLarge': 'Ce fichier dépasse 30 Mo : ce n’est sans doute ni une capture d’écran ni un site.',
     'project.siteFull': 'Assez de captures pour une demande : 4 au plus, et 8 morceaux de page en tout.',
     'project.siteUnreadable': 'Cette image n’a pas pu être lue.',
+    'project.siteLinkMoved':
+      'Ce lien d’inspiration est une image, pas une page : il est joint comme capture. Choisissez Reproduire ou Refonte.',
+    'project.siteLinkTooLarge': 'L’image de ce lien dépasse 15 Mo : enregistrez-la et joignez-la comme capture.',
+    'project.siteLinkUnreadable': 'L’image de ce lien n’a pas pu être lue : enregistrez-la et joignez-la comme capture.',
     'project.siteSourceFailed': 'Cette page n’a pas pu être affichée : vérifiez qu’elle s’ouvre dans un navigateur, ou joignez-en une capture.',
     'project.siteZipNoPage': 'Ce .zip ne contient aucune page .html.',
     'project.siteZipUnsupported':
@@ -502,6 +506,10 @@ export const project = {
     'project.siteTooLarge': 'This file is over 30 MB — probably neither a screenshot nor a site.',
     'project.siteFull': 'That is enough screenshots for one request: 4 at most, and 8 page parts in all.',
     'project.siteUnreadable': 'This image could not be read.',
+    'project.siteLinkMoved':
+      'This inspiration link is a picture, not a page: it is attached as a screenshot. Choose Reproduce or Redesign.',
+    'project.siteLinkTooLarge': 'The picture at this link is over 15 MB: save it and attach it as a screenshot.',
+    'project.siteLinkUnreadable': 'The picture at this link could not be read: save it and attach it as a screenshot.',
     'project.siteSourceFailed': 'This page could not be displayed: check that it opens in a browser, or attach a screenshot of it.',
     'project.siteZipNoPage': 'This .zip contains no .html page.',
     'project.siteZipUnsupported':

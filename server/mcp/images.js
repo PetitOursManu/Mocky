@@ -19,11 +19,10 @@
  * carry script.
  */
 import { sniffImageMime } from '../images/library.js'
+import { downloadPicture, MAX_PICTURE_BYTES } from '../images/remote.js'
 
 /** Same ceiling as an upload from the interface. */
-export const MAX_PICTURE_BYTES = 15 * 1024 * 1024
-const MAX_REDIRECTS = 3
-const FETCH_TIMEOUT_MS = 20_000
+export { MAX_PICTURE_BYTES }
 
 /**
  * @param {object} d
@@ -35,8 +34,6 @@ const FETCH_TIMEOUT_MS = 20_000
  * @param {typeof fetch} [d.fetchImpl]
  */
 export function createMcpPictures(d) {
-  const fetchImpl = d.fetchImpl || fetch
-
   function store(buffer, ingest) {
     if (d.budget?.wouldExceed(buffer.length)) throw Object.assign(new Error('The storage quota of this Mocky is full.'), { code: 'quota' })
     const out = ingest()
@@ -44,37 +41,8 @@ export function createMcpPictures(d) {
     return out.hash
   }
 
-  /** Download `url` as a picture, refusing anything the guard or the sniffer would. */
-  async function download(url) {
-    let target = String(url || '')
-    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      if (!/^https?:\/\//i.test(target)) throw Object.assign(new Error('Only http(s) addresses can be read.'), { code: 'bad-url' })
-      await d.guard(target)
-      const ac = new AbortController()
-      const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS)
-      try {
-        const res = await fetchImpl(target, { redirect: 'manual', signal: ac.signal })
-        if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
-          target = new URL(res.headers.get('location'), target).href
-          continue
-        }
-        if (!res.ok) throw Object.assign(new Error(`The address answered HTTP ${res.status}.`), { code: 'http' })
-        const declared = Number(res.headers.get('content-length') || 0)
-        if (declared > MAX_PICTURE_BYTES) throw Object.assign(new Error('The picture is larger than 15 MB.'), { code: 'too-large' })
-        const chunks = []
-        let size = 0
-        for await (const chunk of res.body) {
-          size += chunk.length
-          if (size > MAX_PICTURE_BYTES) throw Object.assign(new Error('The picture is larger than 15 MB.'), { code: 'too-large' })
-          chunks.push(chunk)
-        }
-        return Buffer.concat(chunks)
-      } finally {
-        clearTimeout(timer)
-      }
-    }
-    throw Object.assign(new Error('Too many redirects.'), { code: 'redirects' })
-  }
+  /** Download `url` as a picture, refusing anything the guard would (server/images/remote.js). */
+  const download = (url) => downloadPicture(url, { guard: d.guard, fetchImpl: d.fetchImpl, maxBytes: MAX_PICTURE_BYTES })
 
   return {
     /** Whether this account may use free photos at all, and whether a library is configured. */

@@ -64,6 +64,14 @@ references always get a slot in the quota.
 Pages are fetched through a **local, free MCP server** — `fetcher-mcp`, which is
 Playwright plus Readability.
 
+It reads **pages**, and keeps their text. A link straight to a picture has no
+text, so it used to come back empty and the dossier was written as if no link had
+been given. The composer now asks the server first
+(`POST /api/muse/linked-image`) and turns a picture into a
+[site screenshot](../interface.md#screenshots-of-an-existing-site), where the
+person chooses to reproduce or redesign it. A picture address that still reaches
+the fetcher is skipped with a notice that says it is a picture.
+
 This stage is **not a choice any more**: it runs whenever Muse runs. It used to
 wait for a "live inspiration" box that was off by default, so a run nobody had
 configured wrote from the offline patterns alone. The panel now only asks for the

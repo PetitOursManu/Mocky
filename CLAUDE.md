@@ -113,6 +113,13 @@ holds both. What the site's pictures SHOW is read with its content and replaced
 (`lib/sitePictures.ts`, free photos or generated, per the `Images` choice) —
 except on a redesign Muse ran for, whose dossier already made its pictures.
 
+**A picture LINK in Muse's `Inspiration` field becomes a screenshot too**
+(`lib/linkedImage.ts`, `POST /api/muse/linked-image`): Muse's fetcher reads
+pages, and a `.jpg` reached it as an empty one — the screen followed nothing the
+person had pointed at. The route fetches once through the browser-facing SSRF
+guard and keeps nothing (M2's paragraph on it); the link leaves the field for
+the capture row, where Reproduce / Redesign is chosen.
+
 **An .html or .zip of the site becomes a screenshot** (`lib/siteSource.ts`,
 `lib/siteSourceRender.ts`, `lib/zipRead.ts`) and nothing downstream knows it was
 a file. Two frames, and do not merge them: the page's scripts run in an

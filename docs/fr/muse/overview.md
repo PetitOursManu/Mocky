@@ -1,5 +1,5 @@
 ---
-source_hash: b198ac168634
+source_hash: 5ecb1c93ba75
 ---
 
 # Vue d'ensemble de Muse
@@ -71,6 +71,15 @@ une place dans le quota.
 
 Les pages sont récupérées par un **serveur MCP local et gratuit** :
 `fetcher-mcp`, qui est du Playwright plus Readability.
+
+Il lit des **pages**, et en garde le texte. Un lien direct vers une image n'a
+pas de texte : il revenait vide, et le dossier s'écrivait comme si aucun lien
+n'avait été donné. Le composer interroge désormais le serveur d'abord
+(`POST /api/muse/linked-image`) et fait d'une image une
+[capture de site](../interface.md#captures-dun-site-existant), où la personne
+choisit de la reproduire ou d'en faire la refonte. Une adresse d'image qui
+atteint malgré tout le récupérateur est sautée avec un avis qui dit que c'est
+une image.
 
 Cette étape **n'est plus un choix** : elle tourne chaque fois que Muse tourne.
 Elle attendait une case « inspiration live », désactivée par défaut, si bien

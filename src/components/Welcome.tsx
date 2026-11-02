@@ -30,6 +30,8 @@ type Props = {
   onGenerate: () => void
   busy: boolean
   error: string | null
+  /** A neutral word from the composer — e.g. a Muse link that became a capture. */
+  notice?: string | null
   designActive: boolean
   examples: string[]
   presetId: string
@@ -114,6 +116,7 @@ export default function Welcome({
   onGenerate,
   busy,
   error,
+  notice,
   designActive,
   examples,
   presetId,
@@ -516,6 +519,12 @@ export default function Welcome({
             ))}
           </div>
         </div>
+
+        {notice && !error && (
+          <Banner tone="info" className="mt-6">
+            {notice}
+          </Banner>
+        )}
 
         {error && (
           <Banner

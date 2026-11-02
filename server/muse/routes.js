@@ -10,6 +10,28 @@ import { runInspiration } from './inspire/engine.js'
 import { readMotionRequest } from './inspire/film.js'
 import { runQuality } from './quality/index.js'
 import { judgeAudit } from './quality/audit-judge.js'
+import { USER_AGENT } from './fetch/fetcher.js'
+import { assertSafeTargetResolved } from '../provider-proxy.js'
+import { downloadPicture } from '../images/remote.js'
+import { sniffImageMime } from '../images/library.js'
+
+/**
+ * The ceiling of a picture given to Muse by link. The composer's own for a
+ * dropped file is 30 MB, but that one never crosses the network twice; a flyer
+ * or a screenshot worth reading is a few megabytes.
+ */
+export const LINKED_IMAGE_MAX_BYTES = 15 * 1024 * 1024
+
+/**
+ * What a linked picture is, by its bytes. The library's sniffer, plus GIF: the
+ * composer takes a GIF capture, and the bytes go to a canvas, never to an
+ * origin a page could script — which is why SVG stays out all the same.
+ */
+export function sniffLinkedImage(buf) {
+  const known = sniffImageMime(buf)
+  if (known) return known
+  return buf && buf.length >= 6 && /^GIF8[79]a$/.test(buf.toString('latin1', 0, 6)) ? 'image/gif' : null
+}
 
 /** A hex string, and nothing that could be smuggled into a prompt as one. */
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
@@ -70,8 +92,54 @@ export function sanitizeUserMedia(raw) {
  *   because the answer depends on the ACCOUNT: one on the free plan gets the
  *   free model (server/plan.js).
  */
-export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget, sources, meter }) {
+export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget, sources, meter, guard, fetchImpl }) {
   const router = express.Router()
+
+  /*
+   * POST /api/muse/linked-image — a link given to Muse that is a PICTURE.
+   *
+   * Muse reads PAGES: its fetcher hands a URL to a headless browser and keeps
+   * the text. A direct picture (`…/carte-remerciement-flyer.jpg`) has none, so
+   * it came back "empty content", the dossier was written from the request
+   * alone, and the screen followed nothing the person had pointed at — the one
+   * notice that said so was the last line of a panel nobody had open. The
+   * composer asks here first: a picture becomes a site capture there, exactly
+   * like one pasted, with its Reproduce / Redesign choice in view.
+   *
+   * The bytes are handed back ONCE and nothing is kept — not the library, not
+   * MuseCache, not a disk — and the response says `no-store`. That is the
+   * reading of M2 the assistant's picture-by-address already made: the rule is
+   * about what Mocky goes and fetches on its own; this is the person's own
+   * reference, chosen for this screen, the same thing as a capture they pasted.
+   * The guard is the browser-facing one, every hop, and a page is answered 415
+   * on its headers so the composer leaves it to Muse.
+   */
+  router.post('/muse/linked-image', async (req, res) => {
+    const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
+    if (!/^https?:\/\//i.test(url) || url.length > 2048) return res.status(400).json({ code: 'bad-url' })
+    try {
+      const buffer = await downloadPicture(url, {
+        guard: guard || assertSafeTargetResolved,
+        fetchImpl,
+        maxBytes: LINKED_IMAGE_MAX_BYTES,
+        headers: { 'user-agent': USER_AGENT },
+      })
+      const mime = sniffLinkedImage(buffer)
+      if (!mime) return res.status(415).json({ code: 'not-image' })
+      res.set({
+        'content-type': mime,
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'content-disposition': 'attachment',
+      })
+      res.send(buffer)
+    } catch (err) {
+      const code = typeof err?.code === 'string' ? err.code : 'unreachable'
+      const status = code === 'not-image' ? 415 : code === 'too-large' ? 413 : code === 'bad-url' ? 400 : 502
+      // A word, never the remote's text: it is the browser that reads this.
+      res.status(status).json({ code })
+    }
+  })
 
   // GET /api/mcp/status — per-server lifecycle state for the Advanced drawer.
   router.get('/mcp/status', (req, res) => {

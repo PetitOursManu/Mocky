@@ -2272,6 +2272,9 @@ app.use('/api/muse', requireUser)
 // Chromium instance, and a handful of model round-trips. It was the only
 // expensive route with no ceiling at all, while image generation had one.
 app.use('/api/muse/dossier', authRateLimit(10, 60_000, 'muse-dossier'))
+// One GET of a remote picture per call, on a link the person typed. Generous for
+// a field edited by hand, and still a ceiling on a server fetching for a browser.
+app.use('/api/muse/linked-image', authRateLimit(30, 60_000, 'muse-linked-image'))
 app.use(
   '/api',
   createMuseRouter({

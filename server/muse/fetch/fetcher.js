@@ -36,6 +36,23 @@ function normalizeUrl(raw) {
   }
 }
 
+/**
+ * An address whose path names a picture file. The fetcher reads PAGES through a
+ * headless browser and keeps their text; a picture has none, so it came back
+ * "empty content" and the dossier went on as if no link had been given. The
+ * composer turns such a link into a site capture before Muse runs
+ * (POST /api/muse/linked-image); this is for whatever still reaches here — an
+ * address the composer could not read, another caller — so the notice names the
+ * reason instead of an empty page.
+ */
+export function looksLikePictureUrl(url) {
+  try {
+    return /\.(jpe?g|png|webp|gif|avif|bmp|svg)$/i.test(new URL(url).pathname)
+  } catch {
+    return false
+  }
+}
+
 export class InspirationFetcher {
   /**
    * @param {import('../mcp/router.js').McpToolRouter} router
@@ -74,6 +91,10 @@ export class InspirationFetcher {
 
     const out = []
     for (const url of targets) {
+      if (looksLikePictureUrl(url)) {
+        notice(`Muse: ${url} is a picture, not a page — Muse reads pages; attach it to the composer as a capture`)
+        continue
+      }
       try {
         // SSRF guard — never let a pasted URL reach an internal address.
         //
