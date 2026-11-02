@@ -21,6 +21,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `muse` | un lien d'image est une inspiration, pas une capture de site | `c02c73e` |
 | `muse` | un lien d'image donné à Muse devient une capture de référence | `00ff98b` |
 | `design` | la direction revient avec une version restaurée | `d085421` |
 

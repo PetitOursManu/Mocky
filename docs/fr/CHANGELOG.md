@@ -25,6 +25,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `muse` | un lien d'image est une inspiration, pas une capture de site | `c02c73e` |
 | `muse` | un lien d'image donné à Muse devient une capture de référence | `00ff98b` |
 | `design` | la direction revient avec une version restaurée | `d085421` |
 
