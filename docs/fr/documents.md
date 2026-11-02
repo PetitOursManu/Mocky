@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 57b75c4f5294
+source_hash: af9f51308cb9
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -378,13 +378,13 @@ masque d'écrêtage dans un logiciel de retouche. Demandez-le dans la consigne
 arches »). Les formats réseaux sociaux le proposent toujours au modèle ; sur les
 autres pages, ce sont ces mots qui le proposent.
 
-Il y a 65 cadres, en quatre familles :
+Il y a 73 cadres, en quatre familles :
 
 | Famille | Cadres |
 |---|---|
-| Géométriques | cercle, rectangle arrondi, squircle, triangle, losange, pentagone, hexagone, octogone, étoile, éclat, cœur, arche, dôme, pilule, goutte, bouclier, croix, parallélogramme, fleur, feuille, quart de cercle, trapèze, chevron, flèche, étoile à six branches, scintillement, trèfle, croissant de lune, coin coupé, biseau, œuf, nuage |
+| Géométriques | cercle, rectangle arrondi, squircle, triangle, losange, pentagone, hexagone, octogone, étoile, éclat, cœur, arche, dôme, pilule, goutte, bouclier, croix, parallélogramme, fleur, feuille, quart de cercle, trapèze, chevron, flèche, étoile à six branches, scintillement, trèfle, croissant de lune, coin coupé, biseau, œuf, nuage, dossier, pixel, coins crantés, coins creusés, arcade, pièce de puzzle |
 | Organiques | huit blobs, tache, galet, flaque |
-| Vagues et bords | vague en bas, vague en haut, vagues des deux côtés, festonné, zigzag, déchiré, courbe en bas, courbe en haut, zigzag en bas, coup de pinceau |
+| Vagues et bords | vague en bas, vague en haut, vagues des deux côtés, festonné, zigzag, déchiré, courbe en bas, courbe en haut, zigzag en bas, coup de pinceau, drapeau, timbre festonné |
 | Cadres photo | polaroid, timbre, pellicule, ticket, bulle, photo scotchée, tirage à bords déchirés, passe-partout ovale, fenêtre de navigateur, téléphone, diapositive, cadre doré |
 
 Un cadre garde en vue la partie importante de l'image (un visage en haut, par
@@ -401,25 +401,38 @@ appel au modèle, et `Revenir à la version précédente` l'annule.
 
 ## Formes décoratives
 
-Chaque document se voit proposer `<Ornament>`, environ 120 formes de trois
+Chaque document se voit proposer `<Ornament>`, environ 300 formes de cinq
 sortes :
 
-- **Des formes pleines** : des blobs, des éclats et les autres formes des
-  cadres, et le vocabulaire abstrait d'une affiche Bauhaus, suisse ou Memphis —
+- **Des formes pleines** (145) : des blobs, des éclats et les autres formes des
+  cadres, le vocabulaire abstrait d'une affiche Bauhaus, suisse ou Memphis —
   une arche, un arc-en-ciel, un quart d'anneau, une cible, deux demi-cercles,
-  une lentille, un œil, un camembert, un sceau, un engrenage, des fleurs à cinq
-  et six pétales, des étoiles à quatre, huit et 24 branches, un soleil, un
-  astérisque et une croix épais, un sablier, un nœud papillon, un cerf-volant,
-  un escalier, un L, un triangle arrondi, un ruban ondulé et un en zigzag, une
-  rangée de demi-cercles.
-- **Des traits comme tracés à la main** : une vague ou un double soulignement
-  sous un mot, un cercle griffonné autour d'un prix, des flèches courbes, en
-  boucle ou droites, une spirale, des rayons, des boucles, un élan, un
-  gribouillis, des crochets, une étoile, un cœur, un cercle pointillé, une coche.
-- **Des textures** : points, grille, rayures, diagonales, damier, trame,
-  vagues, petites croix, confettis, triangles, anneaux, écailles, briques,
-  zigzags, moucheture, losanges.
- Demandez « formes décoratives »,
+  une lentille, un œil, un camembert, un sceau, un engrenage, des fleurs, des
+  étoiles, un soleil, un astérisque et une croix épais, un sablier, un nœud
+  papillon, un escalier, des rubans — et des pièces modulaires : doubles arches,
+  portail, coulures, éclair, triskèle, éventail, couronne, rangée d'arches,
+  anneaux carré, octogonal, triangulaire ou en pilule, grille de 3 × 3, cube,
+  labyrinthe.
+- **Des formes fluides** (25), en deux couleurs : un blob organique avec un
+  ruban, un anneau ou des bulles dans la seconde couleur de la page (`accent`)
+  — un ruban liquide, une planète, un blob drapé, une rosette, une bannière.
+- **Des traits** (71) : comme tracés à la main — une vague ou un double
+  soulignement sous un mot, un cercle griffonné autour d'un prix, des flèches,
+  une spirale, une échelle, un infini, un trajet pointillé, un signal — et des
+  cadres décoratifs à poser sur une image ou un bloc : coins, coins arrondis ou
+  en pétales, une mire, un billet à souche, une double fenêtre, un cadre ondulé
+  ou drapé.
+- **Des textures** (46) : points, grilles, rayures, diagonales, damiers, trame,
+  vagues, confettis, écailles, briques, nid d'abeille, cubes isométriques,
+  chevrons, rayons de soleil, tartan, moulinets, arlequin, éventails Art déco,
+  code-barres, circuit, grecque, cercles concentriques, papier millimétré,
+  vagues de pixels.
+- **Des signes animés** (17) : chargements et pulsations — des points en
+  orbite, des barres, un anneau coupé, des ondes, un éventail qui tourne. Ils
+  restent immobiles dans un document, avec le mouvement réduit, avec
+  `Sans animation` et dans tous les exports.
+
+Demandez « formes décoratives »,
 « gribouillis », « confettis » ou « un fond à motif » sur un écran ordinaire et
 il y est proposé aussi.
 

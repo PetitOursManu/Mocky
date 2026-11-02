@@ -18,7 +18,7 @@ const Ornament = new Function('React', `${OrnamentSource}\nreturn Ornament`)(Rea
 const html = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(Ornament, props))
 
 describe('the ornament catalogue', () => {
-  it('names every shape once, in three kinds, with the frames’ solid shapes among them', () => {
+  it('names every shape once, in five kinds, with the frames’ solid shapes among them', () => {
     expect(new Set(ORNAMENT_IDS).size).toBe(ORNAMENT_IDS.length)
     for (const id of ORNAMENT_IDS) expect(id).toMatch(/^[a-z][a-z0-9-]*$/)
     for (const k of ORNAMENT_KINDS) expect(ORNAMENTS.filter((o) => o.kind === k).length, k).toBeGreaterThanOrEqual(9)
@@ -31,19 +31,32 @@ describe('the ornament catalogue', () => {
     expect([...ORNAMENT_PATTERNS].sort()).toEqual([...ORNAMENT_PATTERN_IDS].sort())
   })
 
-  it('keeps its strokes inside their box, rounded to two decimals', () => {
-    for (const o of ORNAMENTS.filter((x) => x.kind === 'line')) {
-      expect(o.d, o.id).not.toMatch(/NaN|Infinity|\.\d{3}/)
+  it('keeps its strokes and its layers inside their box, rounded to two decimals', () => {
+    // A fluid's ribbon and a loader's dots too: the proposals they were drawn
+    // from ran a curve to -11 and to 109, cut by the box they were drawn in.
+    for (const o of ORNAMENTS.filter((x) => x.kind === 'line' || x.kind === 'fluid' || x.kind === 'motion')) {
       expect(o.ratio, o.id).toBeGreaterThan(0.3)
-      // End points and controls alike: a quadratic's control may sit outside
-      // its curve, but these were written so that none needs to. An arc is
-      // read by its end point; its radii are not coordinates.
-      const nums = (o.d.replace(/A[^A-Za-z]*/g, (arc) => ` ${arc.trim().split(/[\s,]+/).slice(-2).join(' ')} `).match(/-?\d*\.?\d+/g) ?? []).map(Number)
-      for (const n of nums) {
-        expect(n, o.id).toBeGreaterThanOrEqual(0)
-        expect(n, o.id).toBeLessThanOrEqual(100)
+      for (const d of [o.d, ...(o.layers ?? []).map((l) => l.d)]) {
+        expect(d, o.id).not.toMatch(/NaN|Infinity|\.\d{3}/)
+        // End points and controls alike: a quadratic's control may sit outside
+        // its curve, but these were written so that none needs to. An arc is
+        // read by its end point; its radii are not coordinates.
+        const nums = (d.replace(/A[^A-Za-z]*/g, (arc) => ` ${arc.trim().split(/[\s,]+/).slice(-2).join(' ')} `).match(/-?\d*\.?\d+/g) ?? []).map(Number)
+        for (const n of nums) {
+          expect(n, o.id).toBeGreaterThanOrEqual(0)
+          expect(n, o.id).toBeLessThanOrEqual(100)
+        }
       }
     }
+  })
+
+  it('gives every fluid shape its second colour, and every moving sign something that moves', () => {
+    for (const o of ORNAMENTS.filter((x) => x.kind === 'fluid')) expect(o.layers?.some((l) => l.paint === 'accent' || l.paint === 'light'), o.id).toBe(true)
+    for (const o of ORNAMENTS.filter((x) => x.kind === 'motion')) {
+      expect(o.motion, o.id).toBeTruthy()
+      expect(o.layers?.some((l) => l.moves), o.id).toBe(true)
+    }
+    for (const o of ORNAMENTS.filter((x) => x.kind !== 'motion')) expect(o.layers?.some((l) => l.moves) ?? false, o.id).toBe(false)
   })
 })
 
@@ -60,7 +73,7 @@ describe('Ornament', () => {
   it('fills a shape of overlapping pieces nonzero, so a crossing is not a hole', () => {
     expect(html({ shape: 'asterisk-bold' })).toContain('fill-rule="nonzero"')
     expect(html({ shape: 'target' })).toContain('fill-rule="evenodd"')
-    for (const o of ORNAMENTS.filter((x) => x.nonzero)) expect(o.kind, o.id).toBe('fill')
+    for (const o of ORNAMENTS.filter((x) => x.nonzero)) expect(['fill', 'fluid'], o.id).toContain(o.kind)
   })
 
   it('takes the text colour when it is given none, and refuses a colour that is not one', () => {
@@ -103,6 +116,27 @@ describe('Ornament', () => {
       expect(out).toContain('stroke-dashoffset:0')
     } finally {
       delete g.window
+    }
+  })
+
+  it('paints a fluid shape’s ribbon in the accent, or in its own colour at half strength', () => {
+    expect(html({ shape: 'liquid-ribbon', color: '#7c3aed', accent: '#fb7185' })).toMatch(/stroke="#fb7185" stroke-width="7"/)
+    const alone = html({ shape: 'liquid-ribbon', color: '#7c3aed' })
+    expect(alone).toMatch(/opacity="0.5"[^>]*stroke="#7c3aed"|stroke="#7c3aed"[^>]*opacity="0.5"/)
+  })
+
+  it('moves a moving sign only where something may move', () => {
+    const g = globalThis as Record<string, unknown>
+    g.window = {}
+    g.document = { hidden: false, getElementById: () => null }
+    try {
+      expect(html({ shape: 'orbit-loader' })).toContain('mocky-orn-spin')
+      expect(html({ shape: 'bar-loader' })).toContain('mocky-orn-pulse')
+      g.window = { __mockyStill: true }
+      expect(html({ shape: 'orbit-loader' })).not.toContain('animation')
+    } finally {
+      delete g.window
+      delete g.document
     }
   })
 })

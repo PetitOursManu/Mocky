@@ -364,13 +364,13 @@ does in an image editor. Ask for it in the brief ("the photo in a blob", "a
 polaroid", "a collage of three photos in arches"). The social formats always
 offer it to the model; on other pages, those words do.
 
-There are 65 frames in four families:
+There are 73 frames in four families:
 
 | Family | Frames |
 |---|---|
-| Geometric | circle, rounded, squircle, triangle, diamond, pentagon, hexagon, octagon, star, burst, heart, arch, dome, pill, drop, shield, cross, parallelogram, flower, leaf, quarter circle, trapezoid, chevron, arrow, six-pointed star, sparkle, clover, crescent moon, cut corner, slant, egg, cloud |
+| Geometric | circle, rounded, squircle, triangle, diamond, pentagon, hexagon, octagon, star, burst, heart, arch, dome, pill, drop, shield, cross, parallelogram, flower, leaf, quarter circle, trapezoid, chevron, arrow, six-pointed star, sparkle, clover, crescent moon, cut corner, slant, egg, cloud, folder, pixel, notched corners, scooped corners, arcade, puzzle piece |
 | Organic | eight blobs, splash, pebble, puddle |
-| Waves and edges | wavy bottom, wavy top, wavy both, scalloped, zigzag, torn, curved bottom, curved top, zigzag bottom, brush stroke |
+| Waves and edges | wavy bottom, wavy top, wavy both, scalloped, zigzag, torn, curved bottom, curved top, zigzag bottom, brush stroke, flag, scalloped sticker |
 | Photo frames | polaroid, stamp, film strip, ticket, speech bubble, taped photo, torn-edged print, oval mount, browser window, phone, 35 mm slide, gilt frame |
 
 A frame keeps the picture's important part in view (a face at the top, for
@@ -386,21 +386,30 @@ the model, and `Revert` undoes it.
 
 ## Decorative shapes
 
-Every document is offered `<Ornament>`, about 120 shapes in three kinds:
+Every document is offered `<Ornament>`, about 300 shapes in five kinds:
 
-- **Solid shapes**: blobs, bursts and the other shapes of the frames, and the
-  abstract vocabulary of a Bauhaus, Swiss or Memphis poster — an arch band, a
-  rainbow, a quarter ring, a target, two half circles, a lens, an eye, a pie, a
-  seal, a cog, five- and six-petal flowers, four-, eight- and 24-point stars, a
-  sun, a bold asterisk and cross, an hourglass, a bow tie, a kite, stairs, an L,
-  a rounded triangle, a wavy and a zigzag ribbon, a row of half circles.
-- **Strokes drawn as if by hand**: a squiggle or a double underline under a
-  word, a circle scribbled round a price, curved, looped and straight arrows, a
-  spiral, rays, loops, a swoosh, a scribble, brackets, a star, a heart, a dotted
-  ring, a check mark.
-- **Textures**: dots, a grid, stripes, diagonals, a checkerboard, halftone,
-  waves, small crosses, confetti, triangles, rings, fish scales, bricks,
-  zigzags, speckle, diamonds.
+- **Solid shapes** (145): blobs, bursts and the other shapes of the frames, and
+  the abstract vocabulary of a Bauhaus, Swiss or Memphis poster — an arch band,
+  a rainbow, a quarter ring, a target, two half circles, a lens, an eye, a pie,
+  a seal, a cog, flowers, stars, a sun, a bold asterisk and cross, an hourglass,
+  a bow tie, stairs, ribbons — and modular pieces: double arches, a portal,
+  drips, a bolt, a triskelion, a fan, a crown, a row of arches, rings that are
+  square, octagonal, triangular or pill-shaped, a 3 × 3 grid, a cube, a maze.
+- **Fluid shapes** (25), in two colours: an organic blob with a ribbon, a ring
+  or bubbles in the page's second colour (`accent`) — a liquid ribbon, a
+  planet, a draped blob, a rosette, a flying banner.
+- **Strokes** (71): drawn as if by hand — a squiggle or a double underline under
+  a word, a circle scribbled round a price, arrows, a spiral, a ladder, an
+  infinity sign, a dotted route, a signal — and decorative frames to lay over a
+  picture or a block: corner marks, rounded or petal corners, a crosshair, a
+  ticket stub, a double window, a wavy or a draped frame.
+- **Textures** (46): dots, grids, stripes, diagonals, checkerboards, halftone,
+  waves, confetti, fish scales, bricks, honeycomb, isometric cubes, herringbone,
+  a sunburst, tartan, pinwheels, harlequin, art-deco fans, a barcode, a
+  circuit, a Greek key, concentric rings, graph paper, pixel waves.
+- **Moving signs** (17): loaders and beats — dots on an orbit, bars, a cut
+  ring, pulses, a turning fan. They hold still in a document, with reduced
+  motion, with `Sans animation` and in every export.
 
 Ask for "formes décoratives", "gribouillis", "confettis", "un fond à motif" on
 an ordinary screen and it is offered there too.

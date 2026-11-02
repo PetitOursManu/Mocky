@@ -491,6 +491,21 @@ function cloudShape(): { d: string; ratio: number } {
 const cloud = cloudShape()
 geometric.push({ id: 'cloud', family: 'geometric', ratio: cloud.ratio, clip: cloud.d })
 
+// From a sheet of proposed frames: the ones whose outline is a silhouette a
+// picture can fill. The rest of that sheet — corner marks, orbits, a crosshair —
+// lay OVER a picture, and are strokes in lib/ornaments.ts.
+geometric.push(
+  // A folder: a tab on the top left, the picture as the paper inside.
+  { id: 'folder', family: 'geometric', ratio: 1.25, clip: 'M0 4H38L46 14H100V100H0Z' },
+  { id: 'pixel', family: 'geometric', ratio: 1, clip: 'M12 0H88V6H94V12H100V88H94V94H88V100H12V94H6V88H0V12H6V6H12Z' },
+  { id: 'notched', family: 'geometric', ratio: 1, clip: 'M14 0H86V14H100V86H86V100H14V86H0V14H14Z' },
+  // Corners scooped inward, a quarter circle each: the opposite of a rounded corner.
+  { id: 'scoop', family: 'geometric', ratio: 1, clip: 'M16 0H84A16 16 0 0 0 100 16V84A16 16 0 0 0 84 100H16A16 16 0 0 0 0 84V16A16 16 0 0 0 16 0Z' },
+  { id: 'arcade', family: 'geometric', ratio: 1.2, clip: 'M0 100V34A16.67 16.67 0 0 1 33.33 34A16.67 16.67 0 0 1 66.67 34A16.67 16.67 0 0 1 100 34V100Z' },
+  // Knobs cut INTO each side, like a piece in the middle of a jigsaw.
+  { id: 'puzzle', family: 'geometric', ratio: 1, clip: 'M0 0H40A10 10 0 1 0 60 0H100V40A10 10 0 1 0 100 60V100H60A10 10 0 1 0 40 100H0V60A10 10 0 1 0 0 40Z' },
+)
+
 const blobs = [
   { id: 'blob-1', b: blob(11, { wobble: 0.34 }) },
   { id: 'blob-2', b: blob(23, { wobble: 0.32 }) },
@@ -527,6 +542,10 @@ const wave: FrameShape[] = [
     ratio: 1,
     clip: `M3 3${tornEdge(3, 97, 3, 2, 30, 29)}${tornEdgeV(3, 97, 97, 2, 30, 31)}${tornEdge(97, 3, 97, 2, 30, 37)}${tornEdgeV(97, 3, 3, 2, 30, 43)}Z`,
   },
+  // A flag in the wind: both long edges ripple the same way, so the cloth keeps its width.
+  { id: 'flag', family: 'wave', ratio: 1.4, clip: 'M0 12C20 0 34 22 52 12C70 2 84 2 100 12V88C80 100 66 78 48 88C30 98 16 98 0 88Z' },
+  // Scalloped all round in soft bumps, like a sticker cut with pinking shears.
+  { id: 'soft-stamp', family: 'wave', ratio: 1, clip: 'M8 16Q16 4 29 11Q40 0 50 10Q60 0 71 11Q84 4 92 16Q100 28 92 40Q100 50 92 60Q100 72 92 84Q84 96 71 89Q60 100 50 90Q40 100 29 89Q16 96 8 84Q0 72 8 60Q0 50 8 40Q0 28 8 16Z' },
 ]
 
 const photo: FrameShape[] = [
