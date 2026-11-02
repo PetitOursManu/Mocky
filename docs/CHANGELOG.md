@@ -21,6 +21,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `muse` | la référence liée survit à un modèle sans vision et guide l'aspect | `7048753` |
 | `composeur` | Améliorer ne passe plus sous Arrêter pendant une génération | `c343661` |
 | `muse` | l'image d'inspiration liée mène la direction | `d0e64be` |
 | `muse` | un lien d'image est une inspiration, pas une capture de site | `c02c73e` |
