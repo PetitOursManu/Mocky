@@ -17,7 +17,8 @@ export const muse = {
     'muse.subtitle': 'Direction artistique, inspiration trouvée en direct sur le web, et images.',
     'muse.visionTitle': 'Le modèle de texte voit les images : il peut s’inspirer de vos références.',
     'muse.inspirationLabel': 'Inspiration',
-    'muse.inspirationHint': 'Muse cherche toujours des références en direct. Ajoutez vos liens si vous en avez.',
+    'muse.inspirationHint':
+      'Muse cherche toujours des références en direct. Ajoutez vos liens si vous en avez : une page, ou une image dont s’inspirer.',
     'muse.ownImages': 'Vos images',
     'muse.ownImagesHint': 'Choisies dans la bibliothèque. Cochez à quoi chacune sert.',
     'muse.ownImagesPick': 'Choisir dans la bibliothèque',
@@ -126,7 +127,8 @@ export const muse = {
     'muse.subtitle': 'Art direction, inspiration found live on the web, and pictures.',
     'muse.visionTitle': 'The text model can see images: it can draw on your references.',
     'muse.inspirationLabel': 'Inspiration',
-    'muse.inspirationHint': 'Muse always looks for references live. Add your own links if you have some.',
+    'muse.inspirationHint':
+      'Muse always looks for references live. Add your own links if you have some: a page, or a picture to be inspired by.',
     'muse.ownImages': 'Your pictures',
     'muse.ownImagesHint': 'Chosen from the library. Tick what each one is for.',
     'muse.ownImagesPick': 'Choose from the library',

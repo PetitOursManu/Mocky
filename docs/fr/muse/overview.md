@@ -1,5 +1,5 @@
 ---
-source_hash: 5ecb1c93ba75
+source_hash: b821518daa23
 ---
 
 # Vue d'ensemble de Muse
@@ -32,8 +32,9 @@ Muse a besoin du back-end. En mode `localStorage` pur, l'interrupteur est masqu�
 il ne doit jamais *sembler* fonctionner tout en ne faisant rien.
 
 Le panneau Muse pose ses questions en lignes titrées, chacune disant ce qu'elle
-fait : `Inspiration` (les liens que vous voulez faire regarder — facultatif,
-puisque Muse cherche toujours des références en direct), `Vos images` (choisies
+fait : `Inspiration` (les liens que vous voulez faire regarder — une page, ou une
+image dont s'inspirer ; facultatif, puisque Muse cherche toujours des références
+en direct), `Vos images` (choisies
 dans la bibliothèque, chacune cochée selon ce à quoi elle sert), `Images à
 créer` (`Auto` · `1` · `2` · `3` · `4`) et, quand votre compte y a droit,
 `Vidéo`. En dessous, l'étape où en est le passage et le moodboard du dossier.
@@ -71,15 +72,6 @@ une place dans le quota.
 
 Les pages sont récupérées par un **serveur MCP local et gratuit** :
 `fetcher-mcp`, qui est du Playwright plus Readability.
-
-Il lit des **pages**, et en garde le texte. Un lien direct vers une image n'a
-pas de texte : il revenait vide, et le dossier s'écrivait comme si aucun lien
-n'avait été donné. Le composer interroge désormais le serveur d'abord
-(`POST /api/muse/linked-image`) et fait d'une image une
-[capture de site](../interface.md#captures-dun-site-existant), où la personne
-choisit de la reproduire ou d'en faire la refonte. Une adresse d'image qui
-atteint malgré tout le récupérateur est sautée avec un avis qui dit que c'est
-une image.
 
 Cette étape **n'est plus un choix** : elle tourne chaque fois que Muse tourne.
 Elle attendait une case « inspiration live », désactivée par défaut, si bien
@@ -240,6 +232,23 @@ panneau Muse :
 Décocher les deux retire l'image de la sélection. Sur un modèle sans vision, une
 référence est écartée pour **ce passage-là**, et une image cochée pour les deux
 va quand même dans la page.
+
+**Une image par lien.** Un lien du champ `Inspiration` qui mène directement à
+une image — le `.jpg` d'un flyer, le `.png` d'une carte — est lu comme une
+inspiration, le rôle d'une image de la bibliothèque cochée `Inspiration`. Le
+lecteur de pages de Muse garde le texte d'une page, et une image n'en a pas :
+elle revenait vide, et le dossier s'écrivait comme si aucun lien n'avait été
+donné. Désormais le serveur récupère l'image une fois
+(`POST /api/muse/linked-image`) et n'en garde rien ; le navigateur mesure sa
+palette et, quand le modèle voit les images, envoie l'image elle-même. Le dossier
+la reçoit comme **référence**, pas comme visuel principal : ses couleurs (sauf si
+votre propre image principale les fixe), sa typographie, sa composition et son
+ambiance — et le format et le sujet de votre demande, si bien que le type d'écran
+choisi reste le vôtre. La génération la voit comme une référence d'ambiance
+qu'elle ne doit pas insérer. Sur un modèle sans vision seule la palette passe, et
+une phrase le dit ; une image de plus de 15 Mo ou illisible est signalée aussi,
+comme un deuxième lien d'image (seul le premier sert). Elle n'est jamais
+transformée en capture de site.
 
 Ce que le prompt de génération apprend en découle : des images à insérer, une
 référence à regarder, les deux en une seule image, ou — c'est nouveau — des

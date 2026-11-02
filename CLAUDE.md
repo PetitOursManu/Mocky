@@ -113,12 +113,12 @@ holds both. What the site's pictures SHOW is read with its content and replaced
 (`lib/sitePictures.ts`, free photos or generated, per the `Images` choice) —
 except on a redesign Muse ran for, whose dossier already made its pictures.
 
-**A picture LINK in Muse's `Inspiration` field becomes a screenshot too**
-(`lib/linkedImage.ts`, `POST /api/muse/linked-image`): Muse's fetcher reads
-pages, and a `.jpg` reached it as an empty one — the screen followed nothing the
-person had pointed at. The route fetches once through the browser-facing SSRF
-guard and keeps nothing (M2's paragraph on it); the link leaves the field for
-the capture row, where Reproduce / Redesign is chosen.
+**A picture LINK in Muse's `Inspiration` field is NOT a screenshot.** It is the
+dossier's visual REFERENCE (`lib/linkedImage.ts`, `POST /api/muse/linked-image`,
+`buildReferenceSection` in `server/muse/inspire/dossier.js`): the look to be
+inspired by, never placed, never the hero, and the screen type stays the
+person's. Turning it into a site capture was shipped once and refused by the
+user — it switched the composer to Reproduce / Redesign and locked the type.
 
 **An .html or .zip of the site becomes a screenshot** (`lib/siteSource.ts`,
 `lib/siteSourceRender.ts`, `lib/zipRead.ts`) and nothing downstream knows it was

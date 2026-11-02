@@ -119,6 +119,16 @@ describe('site screenshots stay in the browser', () => {
     }
   })
 
+  it('are never made from a picture linked in Muse — that is an inspiration', () => {
+    // Shipped once as a capture, and refused by the person it was for: it
+    // switched the composer to Reproduce / Redesign and took the screen type away.
+    const view = readFileSync(join(root, 'src/components/ProjectView.tsx'), 'utf8')
+    expect(view).not.toMatch(/linkedImage/)
+    expect(readFileSync(join(root, 'src/lib/linkedImage.ts'), 'utf8')).not.toMatch(/siteReference|SiteShot|siteShots/)
+    expect(pipeline).toContain('reference: linkReference')
+    expect(pipeline).toContain('urls: linked.pages')
+  })
+
   it("render a site file with its scripts and Mocky's origin never in the same frame", () => {
     const render = readFileSync(join(root, 'src/lib/siteSourceRender.ts'), 'utf8')
     const sandboxes = [...render.matchAll(/hiddenFrame\('([^']*)'\)/g)].map((m) => m[1]).sort()

@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: d1c0329f9f87
+source_hash: 9933b9f82bd4
 ---
 
 # L’interface
@@ -677,18 +677,6 @@ médiathèque, ni synchronisation. Un écran retient qu’il a été fait d’ap
 site et dans quel mode : `Régénérer` réutilise les captures pendant la même
 session et, après un rechargement, dit qu’il en a de nouveau besoin plutôt que
 d’inventer une page à partir de « Reproduis ce site ».
-
-**Un lien vers une image devient aussi une capture.** Muse lit des pages : un
-lien direct vers une image tapé dans le champ `Inspiration` du panneau Muse — le
-`.jpg` d’un flyer, le `.png` d’une maquette — lui arrivait comme une page vide,
-et l’écran ne suivait rien de ce que vous aviez montré. Chaque lien est
-désormais regardé une fois le champ immobile : une image quitte le champ et
-rejoint les captures, avec une phrase qui le dit, et vous choisissez
-`Reproduire` ou `Refonte` avant de générer, exactement comme si vous l’aviez
-collée. Une page reste dans le champ pour Muse. Le serveur récupère l’image une
-fois, avec la même protection contre les adresses internes que toute autre
-récupération, la remet à votre navigateur et n’en garde rien ; une image de plus
-de 15 Mo, ou illisible, est signalée plutôt qu’ignorée.
 
 Sur un écran sélectionné, les captures jointes sont de simples références, comme
 les annotations : les mots disent ce qu’il faut en reprendre. Un modèle sans

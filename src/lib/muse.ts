@@ -478,6 +478,11 @@ export async function runMuseDossier(
     /** The user's own picture or clip, so the dossier is written around it. */
     userMedia?: MuseUserMedia | null
     /**
+     * A picture linked in the Inspiration field, described the same way: the
+     * look the screen is inspired by, never placed in it (lib/linkedImage.ts).
+     */
+    reference?: MuseUserMedia | null
+    /**
      * Ask the dossier to decide whether this screen gets a Motion film. `kinds`
      * are the ids this account can render, read off `/api/video/status`; the
      * server intersects them with its own enum. Omitted when Motion cannot run —
@@ -518,6 +523,7 @@ export async function runMuseDossier(
       model: s.model,
       projectName: opts.projectName,
       userMedia: opts.userMedia,
+      reference: opts.reference ?? undefined,
       motion: opts.motion ?? undefined,
       language: opts.language,
       pictureSubject: opts.pictureSubject,

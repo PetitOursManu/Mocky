@@ -81,6 +81,16 @@ export function sanitizeUserMedia(raw) {
 }
 
 /**
+ * A picture linked in Muse's Inspiration field, described in the browser the way
+ * the user's own media is: same shape, same checks, minus what only a clip has.
+ */
+export function sanitizeReference(raw) {
+  const media = sanitizeUserMedia(raw && typeof raw === 'object' ? { ...raw, kind: 'image', drive: undefined } : null)
+  if (!media) return null
+  return { swatches: media.swatches, accent: media.accent, image: media.image }
+}
+
+/**
  * @param {object} deps
  * @param {import('./mcp/host.js').McpHost} deps.host
  * @param {import('./fetch/fetcher.js').InspirationFetcher} [deps.fetcher]
@@ -103,16 +113,20 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
    * it came back "empty content", the dossier was written from the request
    * alone, and the screen followed nothing the person had pointed at — the one
    * notice that said so was the last line of a panel nobody had open. The
-   * composer asks here first: a picture becomes a site capture there, exactly
-   * like one pasted, with its Reproduce / Redesign choice in view.
+   * generation asks here first: a picture is described in the browser (its
+   * measured palette, and the picture itself for a model with vision) and goes
+   * to the dossier as the REFERENCE to be inspired by — the role a library
+   * picture ticked "Inspiration" has. Not a site capture: that was tried, and it
+   * switched the composer to Reproduce / Redesign and took the screen type away
+   * from a person who wanted a business card inspired by a flyer.
    *
    * The bytes are handed back ONCE and nothing is kept — not the library, not
    * MuseCache, not a disk — and the response says `no-store`. That is the
    * reading of M2 the assistant's picture-by-address already made: the rule is
    * about what Mocky goes and fetches on its own; this is the person's own
-   * reference, chosen for this screen, the same thing as a capture they pasted.
+   * reference, chosen for this screen, the same thing as a picture they pasted.
    * The guard is the browser-facing one, every hop, and a page is answered 415
-   * on its headers so the composer leaves it to Muse.
+   * on its headers so it stays Muse's page fetcher's to read.
    */
   router.post('/muse/linked-image', async (req, res) => {
     const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
@@ -180,6 +194,8 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
               : undefined,
           projectName: body.projectName,
           userMedia: sanitizeUserMedia(body.userMedia),
+          // The same checks: a measured palette, and a downscaled picture or none.
+          reference: sanitizeReference(body.reference),
           // What the main picture must show, when said apart from the request
           // (an assistant through MCP). One line of prose, bounded.
           pictureSubject:

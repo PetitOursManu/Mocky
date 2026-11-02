@@ -26,8 +26,8 @@ Muse needs the back end. In pure `localStorage` mode the toggle is hidden — it
 must never *appear* to work while doing nothing.
 
 The Muse panel asks its questions in labelled rows, each saying what it does:
-`Inspiration` (links you want looked at — optional, since Muse always looks for
-references live), `Your pictures` (chosen in the library, each ticked for what
+`Inspiration` (links you want looked at — a page, or a picture to be inspired
+by; optional, since Muse always looks for references live), `Your pictures` (chosen in the library, each ticked for what
 it is for), `Pictures in the screen` (`Auto` · `1` · `2` · `3` · `4`) and, when your
 account may use one, `Video`. Under them, the stage the run is at and the
 dossier's moodboard.
@@ -63,14 +63,6 @@ references always get a slot in the quota.
 
 Pages are fetched through a **local, free MCP server** — `fetcher-mcp`, which is
 Playwright plus Readability.
-
-It reads **pages**, and keeps their text. A link straight to a picture has no
-text, so it used to come back empty and the dossier was written as if no link had
-been given. The composer now asks the server first
-(`POST /api/muse/linked-image`) and turns a picture into a
-[site screenshot](../interface.md#screenshots-of-an-existing-site), where the
-person chooses to reproduce or redesign it. A picture address that still reaches
-the fetcher is skipped with a notice that says it is a picture.
 
 This stage is **not a choice any more**: it runs whenever Muse runs. It used to
 wait for a "live inspiration" box that was off by default, so a run nobody had
@@ -220,6 +212,21 @@ library's selection note and in the Muse panel's `Your pictures` row:
 Unticking both removes the picture from the selection. On a model without
 vision, a reference is dropped for **that run** and a picture ticked for both
 still goes in the page.
+
+**A picture by link.** A link in the `Inspiration` field that leads straight to
+a picture — a flyer's `.jpg`, a card's `.png` — is read as an inspiration, the
+role of a library picture ticked `Inspiration`. Muse's page reader keeps a
+page's text, and a picture has none: it used to come back empty, and the dossier
+was written as if no link had been given. Now the server fetches the picture
+once (`POST /api/muse/linked-image`) and keeps nothing; the browser measures its
+palette and, when the model can see, sends the picture itself. The dossier gets
+it as a **reference**, not as the hero: its colours (unless your own hero picture
+sets them), its type, composition and mood — and the format and subject of your
+request, so the screen type you chose stays yours. The generation is shown it as
+a mood reference it must not embed. On a model without vision only the palette
+travels, and a sentence says so; a picture over 15 MB or unreadable is reported
+too, as is a second picture link (only the first is used). It is never turned
+into a site screenshot.
 
 What the generation prompt is told follows from that: pictures to embed, a
 reference to look at, both in one picture, or — new — pictures to embed **and a

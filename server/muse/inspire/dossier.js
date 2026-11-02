@@ -260,6 +260,45 @@ function buildMediaSection(media) {
   return lines.join('\n')
 }
 
+/**
+ * The section that appears when the user pointed at a picture to be INSPIRED by
+ * — a link to an image in Muse's `Inspiration` field.
+ *
+ * Not `buildMediaSection`, and the difference is the whole point. That one says
+ * "this IS the hero, design around it"; a flyer someone admires is not going to
+ * be placed in their screen, and told it was the hero the dossier planned a page
+ * around a picture nobody embeds. Before this section existed the link reached
+ * the page fetcher, came back without text, and the dossier was written from the
+ * request alone — the screen followed nothing the person had shown.
+ *
+ * It is a reference for the LOOK — palette, type, composition, ornament, mood —
+ * and never for the format or the words: the screen type the person chose stays
+ * theirs (a business card inspired by a flyer is still a business card).
+ */
+export function buildReferenceSection(reference, { hero = false } = {}) {
+  if (!reference || !Array.isArray(reference.swatches) || reference.swatches.length === 0) return null
+  const lines = [
+    'A VISUAL REFERENCE THE USER CHOSE — THIS IS WHAT THE SCREEN SHOULD LOOK INSPIRED BY. It is NOT part of the screen: it will not be placed in it.',
+    '',
+    'Its palette, sampled from the actual pixels (share of the picture in brackets):',
+    ...reference.swatches.map((s) => `- ${s.hex} (${Math.round((s.weight || 0) * 100)}%)`),
+  ]
+  if (reference.accent) lines.push(`Most saturated colour, the natural accent: ${reference.accent}`)
+  lines.push(
+    '',
+    'RULES:',
+    hero
+      ? "- The user's own hero picture above decides the colours. From this reference take everything else."
+      : '- `tokens.colors` MUST be built FROM the colours above, shifted only as far as contrast requires. Name them for their role.',
+    reference.image
+      ? '- The picture is attached: read its type (serif or sans, weight, case, scale contrast), its composition and hierarchy, its ornaments and textures, its density and its mood, and make the `concept`, `tokens.typography` and the layout notes carry them.'
+      : '- Only its palette could be measured: the model cannot see the picture. Let the `concept` follow the mood these colours suggest.',
+    "- Keep the FORMAT and the SUBJECT of the USER REQUEST. Do not copy the reference's words, brand, logo or layout cell for cell: the screen is inspired by it, not a copy of it.",
+    '- Do not put this reference in the imagery plan: it is not a picture of the screen.',
+  )
+  return lines.join('\n')
+}
+
 function buildUser(ctx) {
   const cardLines = (ctx.cards || []).map((c, i) =>
     `Reference ${i + 1} (${c.sourceUrl || 'n/a'}): style=[${(c.styleAdjectives || []).join(', ')}]; palette=[${(c.palette || []).map((p) => p.hex).join(', ')}]; layout=[${(c.layoutGrammar || []).join('; ')}]; tone="${c.contentTone || ''}"; avoid=[${(c.avoid || []).join('; ')}]`,
@@ -268,6 +307,7 @@ function buildUser(ctx) {
     (p) => `Pattern "${p.name}": ${p.description} | imagery: ${p.imageryStyle} | seed colors: ${(p.tokenSeeds?.colors || []).map((c) => `${c.label} ${c.hex}`).join(', ')}`,
   )
   const media = buildMediaSection(ctx.userMedia)
+  const reference = buildReferenceSection(ctx.reference, { hero: !!media })
   return [
     `USER REQUEST: ${ctx.prompt}`,
     ...(ctx.pictureSubject ? [`MAIN PICTURE: the hero image shows ${ctx.pictureSubject}`] : []),
@@ -275,6 +315,7 @@ function buildUser(ctx) {
     // Placed FIRST among the inputs, before the borrowed vocabulary: it is the
     // only one of them that is already a decision.
     ...(media ? ['', media] : []),
+    ...(reference ? ['', reference] : []),
     '',
     'DISTILLED INSPIRATION (vocabulary + grammar only — do not copy any specific design):',
     cardLines.length ? cardLines.join('\n') : '(none — rely on the patterns below)',
@@ -488,6 +529,12 @@ export function ensureHeroImagery(dossier, ctx) {
   return anchorImageryToRequest(dossier, ctx)
 }
 
+/** The pictures the dossier call looks at, in the order the prompt introduces them. */
+export function dossierImages(ctx) {
+  const images = [ctx.userMedia?.image, ctx.reference?.image].filter((i) => typeof i === 'string' && i)
+  return images.length ? images : undefined
+}
+
 /**
  * Build the dossier. `llm` may be null (offline) → deterministic fallback.
  * @param {((req:object)=>Promise<any>)|null} llm
@@ -509,7 +556,9 @@ export async function buildDossier(llm, ctx, opts = {}) {
           // The picture itself, when the model can see. The measured palette in
           // the prompt covers colour either way; this adds what a histogram
           // cannot report — composition, subject, density, light.
-          images: ctx.userMedia?.image ? [ctx.userMedia.image] : undefined,
+          // A reference picture rides beside it, in the order the sections
+          // name them: the hero first, then the reference.
+          images: dossierImages(ctx),
           options: { num_predict: 4096, num_ctx: 16384, temperature: dossierTemperature(attempt, ctx.creative) },
         })
         const dossier = DossierSchema.parse(normalizeDossierRaw(raw))

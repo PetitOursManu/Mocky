@@ -103,7 +103,6 @@ import {
 } from '../lib/siteReference'
 import { siteSourceKind } from '../lib/siteSource'
 import { SiteSourceError, renderSiteSource } from '../lib/siteSourceRender'
-import { LINK_PROBE_DELAY_MS, probeLinkedImage, withoutLink } from '../lib/linkedImage'
 import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
 import {
   documentImageChoices,
@@ -131,7 +130,6 @@ import {
   loadMuseConfig,
   saveMuseConfig,
   museAvailable,
-  parseUrls,
   checkVision,
   checkVideoAvailability,
   type MuseConfig,
@@ -979,9 +977,9 @@ export default function ProjectView({
    * screenshot first, in frames that keep its scripts away from Mocky
    * (lib/siteSource.ts).
    */
-  async function addSiteFiles(files: File[]): Promise<number> {
+  async function addSiteFiles(files: File[]) {
     const images = files.filter((f) => f.type.startsWith('image/') || siteSourceKind(f))
-    let added = 0
+    if (!images.length) return
     for (const file of images) {
       // Read fresh each time: a thumbnail removed while the previous file was
       // being cut must not come back with the next one.
@@ -999,65 +997,13 @@ export default function ProjectView({
         const next = [...siteShotsRef.current, shot]
         siteShotsRef.current = next
         setSiteShots(next)
-        added++
       } catch (e) {
         setError(t(e instanceof SiteSourceError ? e.key : siteSourceKind(file) ? 'project.siteSourceFailed' : 'project.siteUnreadable'))
       } finally {
         setSiteReading((n) => n - 1)
       }
     }
-    return added
   }
-
-  /**
-   * The links in Muse's inspiration field that are PICTURES (lib/linkedImage.ts).
-   *
-   * Muse reads pages, so a direct link to a picture reached the dossier as an
-   * empty page and the screen followed nothing the person had pointed at. Each
-   * link is asked about once the field holds still; a picture leaves the field
-   * and joins the captures, where its Reproduce / Redesign choice is in view
-   * before anything is generated — the same picture pasted would have landed in
-   * the same place. A page, or a link the server could not read, stays for Muse.
-   * Answers are remembered per address, so editing the field does not re-ask
-   * about the pages already in it.
-   */
-  const linkAnswers = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    const urls = parseUrls(museConfig.urls).filter((u) => !linkAnswers.current.has(u))
-    if (!urls.length) return
-    const ac = new AbortController()
-    const timer = setTimeout(async () => {
-      for (const url of urls) {
-        try {
-          const answer = await probeLinkedImage(url, ac.signal)
-          // Not a picture that moved: the same picture typed again after its
-          // screen was made is a new reference, and must be asked about.
-          if (answer.kind !== 'picture') linkAnswers.current.add(url)
-          if (answer.kind === 'page') continue
-          if (answer.kind === 'refused') {
-            setError(t(answer.reason))
-            continue
-          }
-          const file = new File([answer.blob], answer.name || 'image', { type: answer.blob.type })
-          if (!(await addSiteFiles([file]))) continue
-          setMuseConfig((c) => {
-            const next = { ...c, urls: withoutLink(c.urls, url) }
-            saveMuseConfig(next)
-            return next
-          })
-          setNotice(t('project.siteLinkMoved'))
-        } catch {
-          // Aborted: the field changed, and the next run asks again.
-          return
-        }
-      }
-    }, LINK_PROBE_DELAY_MS)
-    return () => {
-      clearTimeout(timer)
-      ac.abort()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on the field's text; the helpers read refs
-  }, [museConfig.urls])
 
   function removeSiteShot(id: string) {
     setSiteShots((arr) => arr.filter((x) => x.id !== id))
@@ -3409,7 +3355,6 @@ export default function ProjectView({
         onGenerate={generate}
         busy={busy}
         error={error}
-        notice={notice}
         designActive={!!directionMd}
         examples={EXAMPLE_KEYS.map((k) => t(k))}
         presetId={presetId}

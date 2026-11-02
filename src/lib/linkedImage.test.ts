@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { linkName, probeLinkedImage, withoutLink } from './linkedImage'
+import { probeLinkedImage, readLinkedReferences, type LinkedImageAnswer } from './linkedImage'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -22,13 +22,10 @@ describe('a link given to Muse', () => {
     expect(calls[0][0]).toBe('/api/muse/linked-image')
     expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ url: FLYER })
     expect(got.kind).toBe('picture')
-    if (got.kind === 'picture') {
-      expect(got.name).toBe('carte-remerciement-flyer.jpg')
-      expect(got.blob.size).toBe(3)
-    }
+    if (got.kind === 'picture') expect(got.blob.size).toBe(3)
   })
 
-  it('is left to Muse when it is a page or cannot be read', async () => {
+  it('is left to the page fetcher when it is a page or cannot be read', async () => {
     answer(415, JSON.stringify({ code: 'not-image' }), 'application/json')
     expect(await probeLinkedImage('https://site.example/')).toEqual({ kind: 'page' })
     answer(502, JSON.stringify({ code: 'unreachable' }), 'application/json')
@@ -40,7 +37,7 @@ describe('a link given to Muse', () => {
 
   it('says so when it is a picture too large to use', async () => {
     answer(413, JSON.stringify({ code: 'too-large' }), 'application/json')
-    expect(await probeLinkedImage(FLYER)).toEqual({ kind: 'refused', reason: 'project.siteLinkTooLarge' })
+    expect(await probeLinkedImage(FLYER)).toEqual({ kind: 'refused', reason: 'project.museLinkTooLarge' })
   })
 
   it('degrades to a page when the network fails, and stops when aborted', async () => {
@@ -54,14 +51,38 @@ describe('a link given to Muse', () => {
   })
 })
 
-describe('the field once a picture has left it', () => {
-  it('keeps the other links, one per line', () => {
-    expect(withoutLink(`https://a.test\n${FLYER}  https://b.test\n`, FLYER)).toBe('https://a.test\nhttps://b.test')
-    expect(withoutLink(FLYER, FLYER)).toBe('')
+describe('the Inspiration field, sorted', () => {
+  const blob = new Blob([new Uint8Array([1])], { type: 'image/jpeg' })
+  const answers: Record<string, LinkedImageAnswer> = {
+    [FLYER]: { kind: 'picture', blob },
+    'https://img.example/second.png': { kind: 'picture', blob },
+    'https://img.example/huge.jpg': { kind: 'refused', reason: 'project.museLinkTooLarge' },
+  }
+  const probe = async (url: string) => answers[url] ?? ({ kind: 'page' } as const)
+  const toDataUrl = async () => 'data:image/jpeg;base64,AAAA'
+
+  it('makes the first picture the reference and leaves the pages to the fetcher', async () => {
+    const got = await readLinkedReferences(['https://site.example/', FLYER], { probe, toDataUrl })
+    expect(got.picture).toEqual({ url: FLYER, dataUrl: 'data:image/jpeg;base64,AAAA' })
+    expect(got.pages).toEqual(['https://site.example/'])
+    expect(got.notices).toEqual([])
   })
 
-  it('names the thumbnail after the file, decoded', () => {
-    expect(linkName('https://img.example/dir/caf%C3%A9.png?x=1')).toBe('café.png')
-    expect(linkName('https://img.example/')).toBe('')
+  it('says when a second picture is not used, and when one cannot be', async () => {
+    const got = await readLinkedReferences([FLYER, 'https://img.example/second.png', 'https://img.example/huge.jpg'], { probe, toDataUrl })
+    expect(got.picture?.url).toBe(FLYER)
+    expect(got.pages).toEqual([])
+    expect(got.notices).toEqual(['project.museLinkOnlyFirst', 'project.museLinkTooLarge'])
+  })
+
+  it('reports a picture it cannot decode instead of dropping it in silence', async () => {
+    const got = await readLinkedReferences([FLYER], {
+      probe,
+      toDataUrl: async () => {
+        throw new Error('bad bytes')
+      },
+    })
+    expect(got.picture).toBeNull()
+    expect(got.notices).toEqual(['project.museLinkUnreadable'])
   })
 })

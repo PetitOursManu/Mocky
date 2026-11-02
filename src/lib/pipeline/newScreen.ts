@@ -92,6 +92,7 @@ import { themeFromDesign } from '../video/theme'
 import { readPage3D } from '../video/pageScenes'
 import { directionBriefFrom } from '../video/directionBrief'
 import { withAnimations } from '../animations'
+import { readLinkedReferences } from '../linkedImage'
 import { lintSlop } from '../lint'
 import { buildProvidedPicturesSection, type ProvidedPicture } from '../providedPictures'
 import type { TranslationKey } from '../../i18n'
@@ -474,6 +475,8 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     let museImgs: GeneratedSlotImage[] = []
     /** Art-direction reference sent to a vision model ("inspiration" mode). */
     let museVisionRef: string | undefined
+    /** A picture linked in Muse's Inspiration field, as a data URL, when the model can look at it. */
+    let museLinkRef: string | undefined
     /**
      * Thumbnails of the free photos this run FOUND, shown to the model that
      * writes the page so it designs around them (`photoReferenceNote`).
@@ -574,12 +577,34 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           if (userMedia && runPin?.drive === 'pointer') userMedia = { ...userMedia, drive: 'pointer' as const }
         }
 
+        /*
+         * A PICTURE linked in the Inspiration field (lib/linkedImage.ts). The
+         * page fetcher read it as an empty page and the screen followed nothing
+         * the person had shown; it is the look to be inspired by, so the dossier
+         * gets it as its REFERENCE and the generation is shown it as a mood
+         * reference — never placed, and the screen type stays the person's.
+         * Vision is asked for here if nobody has yet: without it the dossier
+         * gets the palette alone, and the person is told so.
+         */
+        const linked = await readLinkedReferences(parseUrls(museConfig.urls), { signal })
+        for (const key of linked.notices) hooks.notice(t(key))
+        let linkReference = null
+        if (linked.picture) {
+          hooks.setMuseStage(t('project.museStageMedia'))
+          const vision = museVision ?? (await checkVision(signal)).vision
+          linkReference = await describeUserMedia(linked.picture.dataUrl, 'image', { vision, signal })
+          if (!linkReference) hooks.notice(t('project.museLinkUnreadable'))
+          else if (vision !== true) hooks.notice(t('project.museLinkNoVision'))
+          else museLinkRef = linked.picture.dataUrl
+        }
+
         hooks.setMuseStage(t('project.museStageDossier'))
         const res = await runMuseDossier(museBrief, {
           language: siteLang,
-          urls: parseUrls(museConfig.urls),
+          urls: linked.pages,
           projectName: project.name,
           userMedia,
+          reference: linkReference,
           // With Muse on, the dossier plans the picture and the document's own
           // search never runs: the requester's subject has to reach it.
           pictureSubject: req.pictureSubject?.trim() || undefined,
@@ -645,7 +670,8 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           museImageSource === 'ai' &&
           imageGenOk !== false &&
           museVision !== false &&
-          inspirePins.length === 0
+          inspirePins.length === 0 &&
+          !museLinkRef
         if (plateWanted) {
           hooks.setMuseStage(t('project.museStageInspiration'))
           const made = await generateSlotImages(
@@ -688,7 +714,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
               onError: (msg) => hooks.setMuseImageError(msg),
             })
             // Shown to the model unless a reference already takes that place.
-            if (!inspirePins.length && !plate) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
+            if (!inspirePins.length && !museLinkRef && !plate) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
           } else if (count > 0) {
             hooks.setMuseStage(t('project.museStageHero'))
             gen = await generateSlotImages(remaining, project.id, {
@@ -712,7 +738,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
          * plate. A picture ticked for BOTH is the old "both": looked at, and
          * the very picture the page embeds.
          */
-        const reference = inspirePins[0] ? absoluteUrl(inspirePins[0].url) : plate ? plate.url : null
+        const reference = inspirePins[0] ? absoluteUrl(inspirePins[0].url) : museLinkRef ?? (plate ? plate.url : null)
         if (reference) {
           const dataUrl = await imageAsDataUrl(reference, signal)
           if (dataUrl) museVisionRef = dataUrl

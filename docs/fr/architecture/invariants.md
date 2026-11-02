@@ -1,5 +1,5 @@
 ---
-source_hash: 4b9abd558a2c
+source_hash: 085047090b46
 ---
 
 # Invariants
@@ -376,14 +376,14 @@ Le navigateur envoie un identifiant, jamais une URL, et chaque adresse que le
 serveur télécharge passe la protection SSRF, redirections comprises.
 
 Un **lien d'image tapé par la personne** dans le champ `Inspiration` de Muse
-n'est pas non plus une exception : c'est sa propre référence pour cet écran, la
-même chose qu'une capture qu'elle aurait collée, et la règle porte sur ce que
-Mocky va chercher de lui-même. `POST /api/muse/linked-image` la récupère une
-fois — la protection SSRF côté navigateur à chaque saut, une taille plafonnée
-comptée pendant la lecture, le type lu sur les octets — et la rend avec
-`no-store`. Rien ne l'écrit : ni la médiathèque, ni `MuseCache`, ni un disque.
-Ensuite elle vit là où vit une capture collée, dans l'onglet, jusqu'à ce que
-l'écran soit fait.
+n'est pas non plus une exception : c'est sa propre référence pour cet écran, et
+la règle porte sur ce que Mocky va chercher de lui-même.
+`POST /api/muse/linked-image` la récupère une fois — la protection SSRF côté
+navigateur à chaque saut, une taille plafonnée comptée pendant la lecture, le
+type lu sur les octets — et la rend avec `no-store`. Rien ne l'écrit : ni la
+médiathèque, ni `MuseCache`, ni un disque. Le navigateur la garde dans la mémoire
+du passage, mesure sa palette et envoie une copie réduite à l'appel du dossier et
+à la génération, et rien ne l'affiche.
 
 ### M3. Tout échec dégrade ; un passage de Muse ne peut jamais faire échouer une génération
 
