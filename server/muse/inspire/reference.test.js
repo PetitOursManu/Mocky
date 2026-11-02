@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildDossier, buildReferenceSection, dossierImages } from './dossier.js'
+import { buildDossier, buildReferenceSection, dossierImages, dossierJsonSchema, dossierToMarkdown, referencePromptLines } from './dossier.js'
 import { runInspiration } from './engine.js'
 import { sanitizeReference } from '../routes.js'
 
@@ -24,6 +24,26 @@ const REFERENCE = {
   accent: '#b8860b',
 }
 const HERO = { kind: 'image', swatches: [{ hex: '#101820', weight: 0.7 }], accent: null }
+const PATTERN = {
+  id: 'p',
+  name: 'Neon Arcade',
+  description: 'loud and saturated',
+  imageryStyle: 'synthwave',
+  tokenSeeds: { colors: [{ label: 'Accent', hex: '#ff00aa' }] },
+}
+const CARD = { sourceUrl: 'https://gallery.example/', styleAdjectives: ['brutal'], palette: [{ hex: '#00ff00' }], layoutGrammar: [], avoid: [] }
+
+/** A dossier the model could return, valid enough for the schema. */
+const RAW = {
+  productName: 'Merci',
+  concept: 'A quiet card of cream paper and gold script.',
+  tokens: { colors: [{ label: 'Paper', hex: '#f6efe6' }, { label: 'Gold', hex: '#b8860b', role: 'accent' }], radius: 'rounded-none' },
+  layoutGrammar: ['centred'],
+  voice: { headline: 'Merci', subheadline: 'x', valueProps: ['a', 'b', 'c'], ctas: ['ok'], footer: 'f' },
+  imageryPlan: [{ id: 'hero', subject: 'peonies', prompt: 'peonies, high quality, no text, no watermark' }],
+  forbidden: [],
+  referenceReading: 'A portrait card, centred, with a gold script headline over cream paper and a thin floral border.',
+}
 
 function captor() {
   const seen = []
@@ -109,3 +129,79 @@ describe('sanitizeReference', () => {
     expect(sanitizeReference(null)).toBeNull()
   })
 })
+
+describe('the reference leads, everything Muse found follows', () => {
+  it('is named in the rules as the primary source, and cited first', () => {
+    const { llm, seen } = captor()
+    return buildDossier(llm, ctx({ reference: REFERENCE })).then(() => {
+      expect(seen[0].system).toMatch(/PRIMARY source of the whole direction/)
+      expect(seen[0].system).toMatch(/"sourceUrl": "user reference"/)
+    })
+  })
+
+  it("labels the cards and the patterns secondary, and drops the patterns' seed colours", async () => {
+    const { llm, seen } = captor()
+    await buildDossier(llm, ctx({ reference: REFERENCE, cards: [CARD], patternHints: [PATTERN] }))
+    const user = seen[0].user
+    expect(user).toMatch(/DISTILLED INSPIRATION .*SECONDARY to the visual reference above/)
+    expect(user).toMatch(/MATCHED ART-DIRECTION PATTERNS — SECONDARY/)
+    expect(user).not.toContain('#ff00aa')
+    expect(user.indexOf('A VISUAL REFERENCE')).toBeLessThan(user.indexOf('DISTILLED INSPIRATION'))
+  })
+
+  it('leaves the prompt exactly as it was without a reference', async () => {
+    const { llm, seen } = captor()
+    await buildDossier(llm, ctx({ cards: [CARD], patternHints: [PATTERN] }))
+    expect(seen[0].system).not.toMatch(/VISUAL REFERENCE/)
+    expect(seen[0].user).not.toMatch(/SECONDARY/)
+    expect(seen[0].user).toContain('#ff00aa')
+    expect(referencePromptLines(null)).toEqual([])
+  })
+})
+
+describe('what the reference shows, in words', () => {
+  it('is asked for — required — only when the picture is attached', async () => {
+    expect(dossierJsonSchema(null, { referenceImage: true }).required).toContain('referenceReading')
+    expect(dossierJsonSchema(null).properties.referenceReading).toBeUndefined()
+    const seeing = captor()
+    await buildDossier(seeing.llm, ctx({ reference: { ...REFERENCE, image: 'data:image/jpeg;base64,REF' } }))
+    expect(seeing.seen[0].schema.required).toContain('referenceReading')
+    expect(seeing.seen[0].system).toMatch(/`referenceReading`/)
+    const blind = captor()
+    await buildDossier(blind.llm, ctx({ reference: REFERENCE }))
+    expect(blind.seen[0].schema.required).not.toContain('referenceReading')
+  })
+
+  it('survives validation and reaches the markdown the generation reads', async () => {
+    const dossier = await buildDossier(async () => RAW, ctx({ reference: { ...REFERENCE, image: 'data:image/jpeg;base64,REF' } }))
+    expect(dossier.__source).toBe('llm')
+    expect(dossier.referenceReading).toBe(RAW.referenceReading)
+    const md = dossierToMarkdown(dossier)
+    expect(md).toMatch(/## Visual Reference/)
+    expect(md).toContain('thin floral border')
+    expect(md.indexOf('## Visual Reference')).toBeLessThan(md.indexOf('## Tokens'))
+  })
+})
+
+describe('the distinctiveness pass', () => {
+  // The critic never sees the picture: a direction faithful to a quiet card
+  // read as generic, and its revision swapped the accent the reference gave.
+  it("does not rewrite a direction derived from the user's reference", async () => {
+    const calls = []
+    const llm = async (req) => {
+      calls.push(req)
+      return calls.length === 1 ? RAW : { score: 2, reason: 'generic' }
+    }
+    const withRef = await runInspiration(
+      { prompt: 'une carte de remerciement', reference: REFERENCE, useFetch: false },
+      { llm, patterns: { match: () => [] }, blacklist: [] },
+    )
+    expect(calls).toHaveLength(1)
+    expect(withRef.dossier.tokens.colors.find((c) => c.role === 'accent').hex).toBe('#b8860b')
+
+    calls.length = 0
+    await runInspiration({ prompt: 'une carte de remerciement', useFetch: false }, { llm, patterns: { match: () => [] }, blacklist: [] })
+    expect(calls.length).toBeGreaterThan(1)
+  })
+})
+

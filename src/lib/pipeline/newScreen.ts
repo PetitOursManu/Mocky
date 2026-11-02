@@ -477,6 +477,10 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     let museVisionRef: string | undefined
     /** A picture linked in Muse's Inspiration field, as a data URL, when the model can look at it. */
     let museLinkRef: string | undefined
+    /** Whether the dossier was written from such a picture — it then outranks the project's direction. */
+    let museLinkUsed = false
+    /** Whether the reference the generation is shown is that picture, rather than a library pick or the plate. */
+    let museRefIsLink = false
     /**
      * Thumbnails of the free photos this run FOUND, shown to the model that
      * writes the page so it designs around them (`photoReferenceNote`).
@@ -614,6 +618,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           signal: signal,
         })
         hooks.setMuseResult(res)
+        museLinkUsed = !!linkReference
         /*
          * As many page slots as the person asked for. The dossier plans the
          * pictures it thinks the page wants — usually a hero and a couple of
@@ -739,6 +744,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
          * the very picture the page embeds.
          */
         const reference = inspirePins[0] ? absoluteUrl(inspirePins[0].url) : museLinkRef ?? (plate ? plate.url : null)
+        museRefIsLink = !inspirePins[0] && !!museLinkRef
         if (reference) {
           const dataUrl = await imageAsDataUrl(reference, signal)
           if (dataUrl) museVisionRef = dataUrl
@@ -852,7 +858,15 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
             fresh: museMarkdown,
             global: globalMd,
             redesign: redesigning,
+            // A dossier written from the user's own reference picture is a
+            // direction they gave, like a redesign: kept, it was thrown away
+            // as soon as the project had one, and the screen came back in the
+            // old look with the reference nowhere in it.
+            reference: museRan && museLinkUsed,
           })
+    if (!pub && museLinkUsed && dir.establish && project.design?.trim() && !redesigning) {
+      hooks.notice(t('project.museLinkDirection'))
+    }
 
     /*
      * Muse's preamble, carrying whichever direction won.
@@ -878,6 +892,8 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         museImageUse,
         museDossier ? { ...museDossier, tokens } : undefined,
         museVideo,
+        null,
+        { userReference: museRefIsLink && !!museVisionRef },
       )
     }
 

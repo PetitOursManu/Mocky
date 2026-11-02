@@ -83,6 +83,31 @@ describe('pure helpers', () => {
     expect(out).not.toContain('/api/images/abc')
     expect(out).not.toMatch(/GENERATED IMAGERY/)
   })
+
+  it('names the reference in "inspiration" mode even with nothing listed — its caller lists none', () => {
+    const out = buildMusePreamble('# Dossier', [], 'inspiration')
+    expect(out).toMatch(/VISUAL REFERENCE — an image is attached/)
+    expect(out).toMatch(/ART-DIRECTION ONLY/)
+  })
+
+  it("puts the user's own reference above every other inspiration, and still never embeds it", () => {
+    const alone = buildMusePreamble('# Dossier', [], 'inspiration', undefined, null, null, { userReference: true })
+    expect(alone).toMatch(/VISUAL REFERENCE CHOSEN BY THE USER — an image is attached/)
+    expect(alone).toMatch(/outranks every other inspiration/)
+    expect(alone).toMatch(/do NOT copy its text, brand or logo/)
+    expect(alone).not.toMatch(/MOOD\/ART-DIRECTION ONLY/)
+    const beside = buildMusePreamble(
+      '# Dossier',
+      [{ slot: 'hero', id: 'hero', url: 'http://localhost:5173/api/images/abc' }],
+      'separate',
+      undefined,
+      null,
+      null,
+      { userReference: true },
+    )
+    expect(beside).toMatch(/NOT one of the images listed above/)
+    expect(beside).toMatch(/CHOSEN BY THE USER/)
+  })
 })
 
 describe('config', () => {

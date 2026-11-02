@@ -84,6 +84,13 @@ export const DossierSchema = z.object({
   film: z
     .object({ wanted: z.boolean(), kind: z.string().optional(), section: z.string().optional(), why: z.string().optional() })
     .optional(),
+  /**
+   * What the user's reference picture SHOWS, in words — asked for only when
+   * one was attached (`referencePromptLines`). It is printed in the markdown so
+   * the generation reads it even on a model that cannot see the picture, and
+   * the project's direction keeps where it came from.
+   */
+  referenceReading: z.string().optional(),
 })
 
 /**
@@ -152,13 +159,20 @@ const DOSSIER_JSON_SCHEMA = {
  * composer asked for a decision. Required for the reason `productName` is: a
  * model satisfies a schema and does not volunteer beyond it.
  */
-export function dossierJsonSchema(motion) {
+export function dossierJsonSchema(motion, opts = {}) {
   const film = filmJsonSchema(motion)
-  if (!film) return DOSSIER_JSON_SCHEMA
+  // `referenceReading` only when there is a picture to read, and then REQUIRED
+  // for `film`'s reason: a model satisfies a schema, it does not volunteer.
+  const reading = opts.referenceImage === true
+  if (!film && !reading) return DOSSIER_JSON_SCHEMA
   return {
     ...DOSSIER_JSON_SCHEMA,
-    properties: { ...DOSSIER_JSON_SCHEMA.properties, film },
-    required: [...DOSSIER_JSON_SCHEMA.required, 'film'],
+    properties: {
+      ...DOSSIER_JSON_SCHEMA.properties,
+      ...(film ? { film } : {}),
+      ...(reading ? { referenceReading: { type: 'string' } } : {}),
+    },
+    required: [...DOSSIER_JSON_SCHEMA.required, ...(film ? ['film'] : []), ...(reading ? ['referenceReading'] : [])],
   }
 }
 
@@ -177,6 +191,30 @@ function creativePromptLines(creative) {
   return [
     '- CREATIVE MODE — the user asked for a bolder project. Push the concept further from the expected look of this category: a stronger point of view, a composition idea in the concept itself (asymmetry, scale contrast, an editorial or poster-like rhythm), a less obvious pairing of typefaces. Bold is not careless: the palette stays coherent, the copy stays true to the request, and nothing the user asked for is dropped.',
   ]
+}
+
+/**
+ * The user's reference picture, in the rules themselves. Empty without one, so
+ * the prompt is byte-identical to what it was.
+ *
+ * The user turn already carried a reference section and the dossier still came
+ * back unrecognisable: the system turn introduced the inputs as cards and
+ * patterns and said nothing of a reference, so the model read it as one more
+ * input among them. It is THE input — the one the user chose — and the rules
+ * say so before the user turn lists anything.
+ */
+export function referencePromptLines(reference) {
+  if (!reference || !Array.isArray(reference.swatches) || reference.swatches.length === 0) return []
+  const lines = [
+    '- VISUAL REFERENCE — the user chose a picture this screen must look inspired by. It is the PRIMARY source of the whole direction: derive the palette, the typography, the composition, the ornaments and the tone from it FIRST. The inspiration cards and patterns are secondary: use them only to refine what the reference leaves open, never to pull away from it. A dossier in which the reference cannot be recognised has failed. The format and the subject still come from the user request.',
+    '- References: cite the user\'s picture FIRST, as { "sourceUrl": "user reference", "note": what you took from it }.',
+  ]
+  if (reference.image) {
+    lines.push(
+      '- Reference reading: `referenceReading` — 3 to 5 sentences describing what the attached reference picture SHOWS, for a designer who will never see it: its format and orientation, how its space is composed (alignment, margins, what is large and what is small), its typefaces (serif, script, sans; weight; case), its ornaments and textures, how its colours are used, and its tone. Describe; do not transcribe its text.',
+    )
+  }
+  return lines
 }
 
 function buildSystem(ctx = {}) {
@@ -203,6 +241,7 @@ function buildSystem(ctx = {}) {
     '  CRITICAL — every image prompt MUST depict the SUBJECT OF THE USER REQUEST. The art-direction pattern only sets the *look* (framing, palette, lighting); it is NEVER the subject. A pattern named "Swiss / International", "Brutalist" or "Scandinavian" describes TYPOGRAPHY AND LAYOUT — do not photograph a Swiss watch, a concrete building or a Nordic forest unless the user asked for one. If the request is a SaaS pricing page, the hero shows something from that product\'s world, rendered in the pattern\'s style.',
     '- References: an ARRAY of objects, each { sourceUrl, note }, citing which reference or pattern inspired which choice.',
     '- Forbidden: restate the key clichés to avoid for THIS project. NEVER forbid something the user explicitly asked for — a request for a 3D mascot, a neon look or a gradient is the brief, not a cliché; the list is for what nobody asked for.',
+    ...referencePromptLines(ctx.reference),
     ...filmPromptLines(ctx.motion),
     ...creativePromptLines(ctx.creative),
     'Respond with ONLY the JSON object. No prose, no code fences.',
@@ -303,11 +342,28 @@ function buildUser(ctx) {
   const cardLines = (ctx.cards || []).map((c, i) =>
     `Reference ${i + 1} (${c.sourceUrl || 'n/a'}): style=[${(c.styleAdjectives || []).join(', ')}]; palette=[${(c.palette || []).map((p) => p.hex).join(', ')}]; layout=[${(c.layoutGrammar || []).join('; ')}]; tone="${c.contentTone || ''}"; avoid=[${(c.avoid || []).join('; ')}]`,
   )
+  // A pattern's seed colours are left out when the reference's measured palette
+  // decides the colours: a hex list in the prompt is a candidate palette, and
+  // the reference is the only one the user chose.
+  const seeds = !ctx.reference
   const patternLines = (ctx.patternHints || []).map(
-    (p) => `Pattern "${p.name}": ${p.description} | imagery: ${p.imageryStyle} | seed colors: ${(p.tokenSeeds?.colors || []).map((c) => `${c.label} ${c.hex}`).join(', ')}`,
+    (p) =>
+      `Pattern "${p.name}": ${p.description} | imagery: ${p.imageryStyle}` +
+      (seeds ? ` | seed colors: ${(p.tokenSeeds?.colors || []).map((c) => `${c.label} ${c.hex}`).join(', ')}` : ''),
   )
   const media = buildMediaSection(ctx.userMedia)
   const reference = buildReferenceSection(ctx.reference, { hero: !!media })
+  /*
+   * With the user's reference, everything Muse found on its own is SECONDARY,
+   * and says so where it is read. Labelled as before, the cards and the
+   * patterns stood beside the reference as equals — six galleries and a
+   * pattern's seed colours against one flyer — and the dossier came back as an
+   * average of them in which the flyer could not be recognised. They still
+   * refine; they no longer compete.
+   */
+  const secondary = reference
+    ? ' — SECONDARY to the visual reference above: borrow only what agrees with it; where they disagree, the reference wins'
+    : ''
   return [
     `USER REQUEST: ${ctx.prompt}`,
     ...(ctx.pictureSubject ? [`MAIN PICTURE: the hero image shows ${ctx.pictureSubject}`] : []),
@@ -317,10 +373,10 @@ function buildUser(ctx) {
     ...(media ? ['', media] : []),
     ...(reference ? ['', reference] : []),
     '',
-    'DISTILLED INSPIRATION (vocabulary + grammar only — do not copy any specific design):',
+    `DISTILLED INSPIRATION (vocabulary + grammar only — do not copy any specific design)${secondary}:`,
     cardLines.length ? cardLines.join('\n') : '(none — rely on the patterns below)',
     '',
-    'MATCHED ART-DIRECTION PATTERNS:',
+    `MATCHED ART-DIRECTION PATTERNS${secondary}:`,
     patternLines.length ? patternLines.join('\n') : '(none)',
     '',
     'CLICHÉS TO AVOID (do not produce any of these):',
@@ -552,7 +608,7 @@ export async function buildDossier(llm, ctx, opts = {}) {
         const raw = await llm({
           system: buildSystem(ctx),
           user: buildUser(ctx),
-          schema: dossierJsonSchema(ctx.motion),
+          schema: dossierJsonSchema(ctx.motion, { referenceImage: !!ctx.reference?.image }),
           // The picture itself, when the model can see. The measured palette in
           // the prompt covers colour either way; this adds what a histogram
           // cannot report — composition, subject, density, light.
@@ -648,6 +704,14 @@ export function dossierToMarkdown(dossier, meta = {}) {
   lines.push('## Concept')
   lines.push(d.concept || '')
   lines.push('')
+  // Right under the concept: it is where the concept came from.
+  if (typeof d.referenceReading === 'string' && d.referenceReading.trim()) {
+    lines.push('## Visual Reference')
+    lines.push("The user's own reference picture — the look this direction is derived from. It is not placed in the screens.")
+    lines.push('')
+    lines.push(d.referenceReading.trim())
+    lines.push('')
+  }
   if (d.references?.length) {
     lines.push('## References')
     for (const r of d.references) lines.push(`- ${[r.sourceUrl, r.note].filter(Boolean).join(' — ')}`)

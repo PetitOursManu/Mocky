@@ -678,6 +678,12 @@ export function buildMusePreamble(
   dossier?: MuseDossier,
   video?: GeneratedVideo | null,
   film?: MotionFilmRef | null,
+  /**
+   * The attached reference is the picture the USER linked in the Inspiration
+   * field (lib/linkedImage.ts), not Muse's plate or a library pick: the screen
+   * is to look inspired by it, which "mood only" undersold.
+   */
+  opts: { userReference?: boolean } = {},
 ): string {
   const lines = [
     'The following DESIGN DOSSIER is AUTHORITATIVE for this screen. Follow its concept, tokens (colors/radius/typography), layout grammar, motion language, and — critically — its VOICE & COPY VERBATIM: use the real headline, subheadline, value props, CTA labels and footer it provides. NEVER invent placeholder/generic copy. Respect the Forbidden list exactly — with ONE exception: when the USER\'s own request explicitly asks for something the list names (a 3D mascot, a glowing hero, a gradient…), the user wins; deliver it, and make it distinctive rather than generic.',
@@ -832,16 +838,24 @@ export function buildMusePreamble(
     )
     for (const im of images) lines.push(`- slot "${im.slot}": <img src="${im.url}" alt="" className="..." />`)
   }
-  // `separate` names its reference whether or not there is anything to embed:
-  // the plate is attached either way, and a model shown an unexplained picture
-  // pastes it in as content.
-  if ((images.length && mode === 'inspiration') || mode === 'separate') {
+  // Both modes name their reference whether or not there is anything to embed:
+  // the picture is attached either way, and a model shown an unexplained picture
+  // pastes it in as content. `inspiration` used to require a listed image — and
+  // its one caller passes none in that mode ("attached, never listed"), so the
+  // reference reached the model with no word about what it was for.
+  if (mode === 'inspiration' || mode === 'separate') {
+    const attached =
+      mode === 'separate'
+        ? 'one more image is attached to this request, and it is NOT one of the images listed above'
+        : 'an image is attached to this request'
     lines.push(
       '',
-      mode === 'separate'
-        ? 'VISUAL REFERENCE — one more image is attached to this request, and it is NOT one of the images listed above. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.'
-        : 'VISUAL REFERENCE — an image is attached to this request. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.',
-      'Do NOT embed it, do NOT reference its URL, and do NOT describe it as the product. It is not content — it is a style reference.',
+      opts.userReference
+        ? `VISUAL REFERENCE CHOSEN BY THE USER — ${attached}. It is the picture the user wants this screen to look inspired by, and the source the dossier above was derived from (its "Visual Reference" section describes it). It outranks every other inspiration: follow its composition (alignment, margins, proportions, what is large and what is small), its typographic character, its ornaments and textures and its use of colour, adapted to THIS request's format and content.`
+        : `VISUAL REFERENCE — ${attached}. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.`,
+      opts.userReference
+        ? 'Do NOT embed it, do NOT reference its URL, and do NOT copy its text, brand or logo: the screen is inspired by it, not a copy of it.'
+        : 'Do NOT embed it, do NOT reference its URL, and do NOT describe it as the product. It is not content — it is a style reference.',
     )
   }
   if (images.length && mode === 'both') {

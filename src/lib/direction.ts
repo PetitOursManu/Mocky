@@ -23,6 +23,14 @@ export interface DirectionInput {
   global?: string
   /** The user ticked "cette génération redéfinit la direction". */
   redesign?: boolean
+  /**
+   * The fresh dossier was written from a picture the user linked in Muse's
+   * Inspiration field (lib/linkedImage.ts). That is the user saying what this
+   * screen must look like, as plainly as a redesign: a project that already had
+   * a direction threw the dossier away and kept only its imagery plan, so the
+   * screen came back in the old look with the reference nowhere in it.
+   */
+  reference?: boolean
 }
 
 export interface Direction {
@@ -47,7 +55,11 @@ export function resolveDirection(input: DirectionInput): Direction {
   // Muse may well have just written a dossier, and it is discarded as an
   // authority. Its imagery plan is still this screen's, which is the one part
   // of a dossier that was ever legitimately per-screen.
-  if (established && !input.redesign) return { markdown: established }
+  //
+  // A reference picture overrides it like a redesign does — but only when it
+  // produced a dossier: with Muse failed, there is nothing better to put there.
+  const override = input.redesign || (input.reference === true && !!fresh)
+  if (established && !override) return { markdown: established }
 
   // Muse ran and there is nothing to protect — the project's first generation,
   // or a redesign the user asked for. Its dossier becomes the direction and is

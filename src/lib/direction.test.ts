@@ -63,4 +63,15 @@ describe('resolveDirection', () => {
     expect(resolveDirection({ global: '  ' }).markdown).toBeUndefined()
     expect(resolveDirection({}).markdown).toBeUndefined()
   })
+
+  it("lets a dossier written from the user's reference picture replace the direction", () => {
+    expect(resolveDirection({ established: 'old', fresh: 'from the flyer', reference: true })).toEqual({
+      markdown: 'from the flyer',
+      establish: 'from the flyer',
+    })
+  })
+
+  it('keeps the established direction when the reference produced no dossier', () => {
+    expect(resolveDirection({ established: 'old', reference: true })).toEqual({ markdown: 'old' })
+  })
 })

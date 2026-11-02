@@ -456,7 +456,10 @@ guarantees at least one pattern**, so Muse is never left with nothing.
 ## Stage 4 — The distinctiveness self-critique
 
 `server/muse/inspire/distinctiveness.js`. Optional — `args.distinctiveness ===
-false` disables it — and silent on failure.
+false` disables it — and silent on failure. **Skipped when the user linked a
+reference picture** (`args.reference`): the critic sees a concept and a palette,
+never the picture, so a direction faithful to a quiet card scored as generic and
+its revision replaced the accent the picture had given.
 
 1. **Score 1 to 5**: how distinguishable is this direction from a generic
    template? 1 means "modern, clean, professional"; 5 means a real point of view.

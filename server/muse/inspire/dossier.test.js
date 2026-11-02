@@ -225,11 +225,15 @@ describe('the two schemas must agree', () => {
     // `film` is the one field that is offered only when the composer asked for a
     // decision, so the comparison is made on the schema of a request that did.
     const zodKeys = Object.keys(DossierSchema.shape)
-    const jsonKeys = Object.keys(dossierJsonSchema({ mode: 'auto', kinds: ['hero'] }).properties)
+    // `referenceReading` likewise, only when a reference picture was attached.
+    const jsonKeys = Object.keys(dossierJsonSchema({ mode: 'auto', kinds: ['hero'] }, { referenceImage: true }).properties)
     expect(jsonKeys.sort()).toEqual(zodKeys.sort())
     // …and a request that did not ask is offered exactly the dossier it always was.
-    expect(Object.keys(dossierJsonSchema(null).properties).sort()).toEqual(zodKeys.filter((k) => k !== 'film').sort())
+    expect(Object.keys(dossierJsonSchema(null).properties).sort()).toEqual(
+      zodKeys.filter((k) => k !== 'film' && k !== 'referenceReading').sort(),
+    )
     expect(dossierJsonSchema({ mode: 'force', kinds: ['hero'] }).required).toContain('film')
+    expect(dossierJsonSchema(null, { referenceImage: true }).required).toContain('referenceReading')
   })
 
   it('asks for the fields a screen cannot be built without', () => {

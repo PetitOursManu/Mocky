@@ -119,6 +119,11 @@ dossier's visual REFERENCE (`lib/linkedImage.ts`, `POST /api/muse/linked-image`,
 inspired by, never placed, never the hero, and the screen type stays the
 person's. Turning it into a site capture was shipped once and refused by the
 user — it switched the composer to Reproduce / Redesign and locked the type.
+And it LEADS, which took a second pass: read as one input among others it was
+drowned. Its dossier replaces the project's direction (`resolveDirection`'s
+`reference`), the cards and patterns are labelled secondary, the distinctiveness
+pass is skipped (it never sees the picture), and the generation is told the
+picture is the user's (`buildMusePreamble`'s `userReference`).
 
 **An .html or .zip of the site becomes a screenshot** (`lib/siteSource.ts`,
 `lib/siteSourceRender.ts`, `lib/zipRead.ts`) and nothing downstream knows it was

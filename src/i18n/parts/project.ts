@@ -144,6 +144,8 @@ export const project = {
     'project.museLinkTooLarge': 'L’image d’inspiration dépasse 15 Mo : Muse ne l’a pas utilisée.',
     'project.museLinkUnreadable': 'L’image d’inspiration n’a pas pu être lue : Muse ne l’a pas utilisée.',
     'project.museLinkOnlyFirst': 'Plusieurs images d’inspiration : Muse s’inspire de la première seulement.',
+    'project.museLinkDirection':
+      'La direction du projet a été refaite d’après l’image d’inspiration : les prochains écrans la suivront.',
     'project.siteSourceFailed': 'Cette page n’a pas pu être affichée : vérifiez qu’elle s’ouvre dans un navigateur, ou joignez-en une capture.',
     'project.siteZipNoPage': 'Ce .zip ne contient aucune page .html.',
     'project.siteZipUnsupported':
@@ -514,6 +516,8 @@ export const project = {
     'project.museLinkTooLarge': 'The inspiration picture is over 15 MB: Muse did not use it.',
     'project.museLinkUnreadable': 'The inspiration picture could not be read: Muse did not use it.',
     'project.museLinkOnlyFirst': 'Several inspiration pictures: Muse draws on the first one only.',
+    'project.museLinkDirection':
+      'The project’s direction was redone from the inspiration picture: the next screens will follow it.',
     'project.siteSourceFailed': 'This page could not be displayed: check that it opens in a browser, or attach a screenshot of it.',
     'project.siteZipNoPage': 'This .zip contains no .html page.',
     'project.siteZipUnsupported':

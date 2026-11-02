@@ -64,7 +64,13 @@ export async function runInspiration(args, deps) {
   )
   // Distinctiveness self-critique (§5.3) — one score + at most one revise.
   // Opt-out via args.distinctiveness === false. Best-effort, never blocks.
-  if (deps.llm && args.distinctiveness !== false) {
+  //
+  // Not with the user's reference picture. The critic sees a concept and a
+  // palette, never the picture, and a direction faithful to a quiet thank-you
+  // card reads "generic" to it — so it rewrote the concept at a high
+  // temperature and swapped the accent for a "bolder" one, undoing the very
+  // fidelity the reference was given for.
+  if (deps.llm && args.distinctiveness !== false && !args.reference) {
     onProgress('refining')
     dossier = await refineDistinctiveness(deps.llm, dossier, { prompt: args.prompt, creative: args.creative === true }, { onNotice })
   }

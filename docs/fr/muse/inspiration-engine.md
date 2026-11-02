@@ -1,5 +1,5 @@
 ---
-source_hash: 607fc7bfbbe7
+source_hash: 8c97f0f6c9e4
 ---
 
 # Le moteur d'inspiration
@@ -485,6 +485,10 @@ sans rien.
 
 `server/muse/inspire/distinctiveness.js`. Facultative —
 `args.distinctiveness === false` la désactive — et silencieuse en cas d'échec.
+**Sautée quand l'utilisateur a lié une image de référence** (`args.reference`) :
+le critique voit un concept et une palette, jamais l'image, si bien qu'une
+direction fidèle à une carte sobre était notée générique et que sa révision
+remplaçait l'accent donné par l'image.
 
 1. **Noter de 1 à 5** : à quel point cette direction se distingue-t-elle d'un
    gabarit générique ? 1 veut dire « moderne, propre, professionnel » ; 5 veut

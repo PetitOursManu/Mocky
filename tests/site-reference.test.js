@@ -127,6 +127,10 @@ describe('site screenshots stay in the browser', () => {
     expect(readFileSync(join(root, 'src/lib/linkedImage.ts'), 'utf8')).not.toMatch(/siteReference|SiteShot|siteShots/)
     expect(pipeline).toContain('reference: linkReference')
     expect(pipeline).toContain('urls: linked.pages')
+    // …and once written from it, the dossier outranks the project's direction
+    // and the generation is told the attached picture is the user's own.
+    expect(pipeline).toContain('reference: museRan && museLinkUsed')
+    expect(pipeline).toContain('{ userReference: museRefIsLink && !!museVisionRef }')
   })
 
   it("render a site file with its scripts and Mocky's origin never in the same frame", () => {

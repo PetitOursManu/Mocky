@@ -228,6 +228,28 @@ travels, and a sentence says so; a picture over 15 MB or unreadable is reported
 too, as is a second picture link (only the first is used). It is never turned
 into a site screenshot.
 
+**And it leads.** A reference read as one input among others was drowned: the
+dossier came back as an average of the galleries Muse found and a pattern's seed
+colours, and the screen looked nothing like the picture. So, when there is one:
+
+- the dossier's rules name it the **primary source** — palette, type,
+  composition, ornaments and tone are derived from it first, and it is cited
+  first among the references;
+- what Muse found on its own (the distilled pages, the matched patterns) is
+  labelled **secondary**: used only where it agrees with the picture, and the
+  patterns' seed colours are left out;
+- when the model can see, the dossier also writes what the picture **shows**
+  (format, composition, type, ornaments, use of colour, tone) in a
+  `## Visual Reference` section, which the generation reads in words even if it
+  cannot see;
+- the distinctiveness pass (stage 4) is **skipped**: it never sees the picture,
+  and it rewrote a faithful direction with a "bolder" accent;
+- the dossier **replaces the project's direction**, like a redesign — a project
+  that already had one used to keep it and throw the new dossier away. A
+  sentence says so, and the next screens follow it;
+- the generation is told the attached picture is the user's own reference, which
+  outranks every other inspiration, rather than a mere mood board.
+
 What the generation prompt is told follows from that: pictures to embed, a
 reference to look at, both in one picture, or — new — pictures to embed **and a
 different picture attached** as a reference (`separate`): the plate beside

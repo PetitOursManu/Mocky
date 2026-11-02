@@ -1,5 +1,5 @@
 ---
-source_hash: b821518daa23
+source_hash: deaa331005ba
 ---
 
 # Vue d'ensemble de Muse
@@ -249,6 +249,29 @@ qu'elle ne doit pas insérer. Sur un modèle sans vision seule la palette passe,
 une phrase le dit ; une image de plus de 15 Mo ou illisible est signalée aussi,
 comme un deuxième lien d'image (seul le premier sert). Elle n'est jamais
 transformée en capture de site.
+
+**Et elle mène.** Lue comme une entrée parmi d'autres, la référence était
+noyée : le dossier revenait comme une moyenne des galeries trouvées par Muse et
+des couleurs de départ d'un pattern, et l'écran ne ressemblait en rien à l'image.
+Donc, quand il y en a une :
+
+- les règles du dossier la nomment **source principale** — palette,
+  typographie, composition, ornements et ton en dérivent d'abord, et elle est
+  citée en premier parmi les références ;
+- ce que Muse a trouvé de lui-même (les pages distillées, les patterns retenus)
+  est étiqueté **secondaire** : utilisé seulement là où il s'accorde avec
+  l'image, et les couleurs de départ des patterns sont retirées ;
+- quand le modèle voit les images, le dossier écrit aussi ce que l'image
+  **montre** (format, composition, typographie, ornements, usage des couleurs,
+  ton) dans une section `## Visual Reference`, que la génération lit en mots même
+  si elle ne voit pas ;
+- la passe de distinction (étape 4) est **sautée** : elle ne voit jamais
+  l'image, et réécrivait une direction fidèle avec un accent « plus affirmé » ;
+- le dossier **remplace la direction du projet**, comme une refonte — un projet
+  qui en avait déjà une la gardait et jetait le nouveau dossier. Une phrase le
+  dit, et les écrans suivants la suivent ;
+- la génération apprend que l'image jointe est la référence de l'utilisateur,
+  au-dessus de toute autre inspiration, et non une simple planche d'ambiance.
 
 Ce que le prompt de génération apprend en découle : des images à insérer, une
 référence à regarder, les deux en une seule image, ou — c'est nouveau — des
