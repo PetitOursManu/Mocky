@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 22870fd48c5f
+source_hash: 57b75c4f5294
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -129,6 +129,14 @@ qu’une imprimante de bureau n’atteint pas ; 16 px sur une carte de visite (4
 la zone de sécurité de l’imprimeur — 40 px en prendraient le cinquième), avec du
 texte jusqu’à 9 px ; 64 px sur un post ; et sur une story,
 les bandes du haut et du bas où l’application dessine ses propres barres.
+
+Sur le canevas, un petit format est dessiné plus grand qu’il ne s’imprime : une
+page dont le grand côté fait moins de 640 px — une carte de visite, un A6 — est
+agrandie à 640 px pour que son plus petit texte se lise à côté des autres
+écrans. Seul le dessin change : la page est mise en page et exportée à sa vraie
+taille. Entre deux pages, le canevas écrit quelle face suit : **Verso** sur une
+pièce recto verso (carte de visite, flyer, menu), **Intérieur** sur un dépliant,
+sinon le numéro de page. Cette mention n’apparaît dans aucun export.
 
 ---
 

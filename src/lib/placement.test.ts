@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { placeScreen, packScreens, DEFAULT_W, DEFAULT_H, type Box } from './project'
+import { placeScreen, packScreens, drawnBox, DEFAULT_W, DEFAULT_H, type Box } from './project'
+import { canvasScale, getPageFormat } from './pageFormats'
+import { contentBox } from './framing'
 
 /**
  * Screens landing on top of each other was the single most reported annoyance:
@@ -98,5 +100,26 @@ describe('packScreens', () => {
     const screens = [{ x: 0, y: 0, w: NaN, h: NaN }, box(0, 0)] as Box[]
     expect(() => packScreens(screens)).not.toThrow()
     expect(packScreens(screens).every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true)
+  })
+})
+
+describe('a small document is drawn magnified, and placed as drawn', () => {
+  const card = getPageFormat('card')
+  it('magnifies a business card to a readable size and leaves the usual formats alone', () => {
+    expect(canvasScale('card')).toBeCloseTo(640 / 321)
+    expect(canvasScale('card-us-portrait')).toBeCloseTo(640 / 336)
+    expect(canvasScale('a4')).toBe(1)
+    expect(canvasScale('social-square')).toBe(1)
+    expect(canvasScale(undefined)).toBe(1)
+  })
+
+  it('places a neighbour beside the card it SEES, not under it', () => {
+    const placed = { x: 0, y: 0, w: card.w, h: card.h, page: 'card' as const }
+    expect(drawnBox(placed).w).toBeCloseTo(640)
+    const next = placeScreen([placed], DEFAULT_W, DEFAULT_H)
+    expect(overlap(box(next.x, next.y), drawnBox(placed))).toBe(false)
+    const packed = packScreens([placed, box(0, 0)])
+    expect(packed[1].x).toBeGreaterThanOrEqual(640)
+    expect(contentBox([placed])!.w).toBeCloseTo(640)
   })
 })

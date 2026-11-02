@@ -13,6 +13,7 @@
 // resizing a browser and squinting.
 
 import type { Box, Screen } from './project'
+import { canvasScale } from './pageFormats'
 
 /** The canvas transform: world coordinates times `scale`, then offset. */
 export interface ViewState {
@@ -109,8 +110,12 @@ export function frameBox(
  * column — the test that matters is "does this screen draw one", and the answer
  * has to stay in step with what Canvas actually renders.
  */
-export function contentBox(screens: Pick<Screen, 'x' | 'y' | 'w' | 'h' | 'imageHash' | 'attachedMedia'>[]): Box | null {
-  if (screens.length === 0) return null
+export function contentBox(
+  given: Pick<Screen, 'x' | 'y' | 'w' | 'h' | 'imageHash' | 'attachedMedia' | 'page'>[],
+): Box | null {
+  if (given.length === 0) return null
+  // A small document is drawn magnified (`canvasScale`): framed as it is drawn.
+  const screens = given.map((s) => ({ ...s, w: s.w * canvasScale(s.page), h: s.h * canvasScale(s.page) }))
   const minX = Math.min(...screens.map((s) => s.x))
   const minY = Math.min(...screens.map((s) => s.y))
   const maxX = Math.max(

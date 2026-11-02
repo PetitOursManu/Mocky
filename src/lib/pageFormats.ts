@@ -174,6 +174,28 @@ export function isFieldType(v: unknown): v is FieldType {
  */
 export const PAGE_GAP_PX = 32
 
+/**
+ * The shortest LONG side a page is drawn with on the canvas. A business card is
+ * 321 px wide at 96 dpi, which is its real size and a stamp beside a 1440-px
+ * desktop screen: its 10-px lines were unreadable at any zoom that showed the
+ * rest of the board.
+ */
+export const CANVAS_MIN_PAGE_PX = 640
+
+/**
+ * How much larger than it prints a document is DRAWN on the canvas — 1 for
+ * everything but the small formats. Drawing only: the frame keeps the format's
+ * size (`Screen.w/h`, which the exports, the demo and `pagesInFrame` read) and
+ * the page is laid out at it, then magnified. Everything that places or frames
+ * screens asks `drawnBox` for the magnified box, or a card would be placed
+ * under its neighbour.
+ */
+export function canvasScale(page: unknown): number {
+  if (!isPageFormat(page)) return 1
+  const f = getPageFormat(page)
+  return Math.max(1, CANVAS_MIN_PAGE_PX / Math.max(f.w, f.h))
+}
+
 /** Height of a document frame on the canvas: its pages stacked with the gap between them. */
 export function docFrameHeight(format: PageFormat, pages: number): number {
   const n = Math.max(1, Math.floor(pages))

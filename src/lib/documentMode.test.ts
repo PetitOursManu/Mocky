@@ -28,6 +28,7 @@ import {
   pageFormatName,
   pageInView,
   pagesInFrame,
+  pageGapLabels,
   pickReference,
   thumbFrame,
 } from './documentMode'
@@ -389,5 +390,21 @@ describe('the document types', () => {
     const docs = SCREEN_THEMES.filter((th) => th.document)
     expect(docs.map((th) => th.id)).toContain('flyer')
     for (const th of docs) expect(PAGE_FORMATS.map((f) => f.id)).toContain(th.document!.page)
+  })
+})
+
+describe('the gap between two pages on the canvas', () => {
+  it('names the back of a two-sided piece, the inside of a fold, and otherwise the page', () => {
+    expect(pageGapLabels({ page: 'card' }, 2)).toEqual([{ key: 'canvas.side.back' }])
+    expect(pageGapLabels({ page: 'a5', theme: 'flyer' }, 2)).toEqual([{ key: 'canvas.side.back' }])
+    expect(pageGapLabels({ page: 'a4', fold: 'roll' }, 2)).toEqual([{ key: 'canvas.side.inside' }])
+    expect(pageGapLabels({ page: 'a4', theme: 'cv' }, 3)).toEqual([
+      { key: 'canvas.side.page', n: 2 },
+      { key: 'canvas.side.page', n: 3 },
+    ])
+    expect(pageGapLabels({ page: 'card' }, 1)).toEqual([])
+    expect(pageGapLabels({}, 2)).toEqual([])
+    for (const k of ['canvas.side.back', 'canvas.side.inside', 'canvas.side.page'])
+      expect(canvas.fr[k as keyof typeof canvas.fr] && canvas.en[k as keyof typeof canvas.en], k).toBeTruthy()
   })
 })

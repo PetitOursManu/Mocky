@@ -11,6 +11,7 @@ import {
 import { hintForDevice, type DeviceKind } from './presets'
 import { themeDocumentFormats, themeDocumentPage } from './screenThemes'
 import { foldHint, foldSheet, isFoldId, portraitOf, type FoldId } from './folds'
+import { documentSequenceKind } from './docSequence'
 
 /**
  * DOCUMENT screens — what changes, and only what changes, when a screen is a
@@ -425,6 +426,32 @@ export function documentPipeline(page: PageFormatId | null | undefined): Documen
 }
 
 // ---- the canvas ------------------------------------------------------------------
+
+/**
+ * What the canvas writes in the gap above each page after the first, as i18n
+ * keys. The gap alone was read as part of the design: a card's grey band
+ * between "Margot Le Gall" and her photograph looked like a bar the model had
+ * drawn, through two generations, before it was understood as the fold between
+ * the front and the back. A two-sided piece names its back, a folded sheet its
+ * inside, anything else its page number.
+ */
+export function pageGapLabels(
+  screen: { page?: PageFormatId; fold?: FoldId; theme?: string },
+  pages: number,
+): { key: string; n?: number }[] {
+  const out: { key: string; n?: number }[] = []
+  if (!screen.page || !isPageFormat(screen.page)) return out
+  const twoSided =
+    pages === 2 &&
+    !screen.fold &&
+    (isCardFormat(screen.page) || documentSequenceKind(screen.theme, screen.page) === 'recto-verso')
+  for (let i = 1; i < pages; i++) {
+    if (twoSided) out.push({ key: 'canvas.side.back' })
+    else if (screen.fold && i === 1) out.push({ key: 'canvas.side.inside' })
+    else out.push({ key: 'canvas.side.page', n: i + 1 })
+  }
+  return out
+}
 
 /** How many pages a frame of this height holds — the inverse of `docFrameHeight`. */
 export function pagesInFrame(format: PageFormat, h: number): number {

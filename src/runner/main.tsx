@@ -50,7 +50,7 @@ import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
 import { auditScreen, type AuditReport } from '../lib/audit'
 import { isScreenThemeId } from '../lib/screenThemes'
-import { isPageFormat } from '../lib/pageFormats'
+import { canvasScale, isPageFormat } from '../lib/pageFormats'
 import { translate, type TranslationKey } from '../i18n'
 import Preview, { previewDocument } from '../components/Preview'
 
@@ -351,8 +351,9 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     setMuseImageError: (m) => m && say(m),
     setImageGenOk: () => {},
     addScreen: (s) => {
-      const w = typeof s.w === 'number' ? s.w : 1440
-      const h = typeof s.h === 'number' ? s.h : 900
+      const k = canvasScale(s.page)
+      const w = (typeof s.w === 'number' ? s.w : 1440) * k
+      const h = (typeof s.h === 'number' ? s.h : 900) * k
       working = { ...working, screens: [...working.screens, { ...s, ...placeScreen(working.screens, w, h) } as Screen], updatedAt: Date.now() }
     },
     updateScreen: (id, patch) => {

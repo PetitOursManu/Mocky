@@ -124,6 +124,14 @@ safe zone — 40 px would be a fifth of the card), with type down to 9 px; 64 px
 on a post; and on a story, the top and bottom
 bands where the app draws its own bars.
 
+On the canvas, a small format is drawn larger than it prints: a page whose long
+side is under 640 px — a business card, an A6 — is magnified to 640 px so its
+smallest type can be read beside the other screens. Only the drawing changes:
+the page is laid out and exported at its real size. Between two pages, the
+canvas writes which side comes next: **Back** on a two-sided piece (a business
+card, a flyer, a menu), **Inside** on a folded leaflet, otherwise the page
+number. That label is never part of an export.
+
 ---
 
 ## Flyers: sizes and folds

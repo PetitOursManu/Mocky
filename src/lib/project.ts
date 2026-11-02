@@ -4,7 +4,7 @@ import { visibleProjects, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
 import { extractProductName } from './design'
 import { normalizeNotes, type ScreenNote } from './screenNotes'
 import type { SiteRefMode } from './siteReference'
-import { normalizePageFormat, type PageFormatId } from './pageFormats'
+import { canvasScale, normalizePageFormat, type PageFormatId } from './pageFormats'
 import { normalizeBranch, restoreProject, MAIN_BRANCH, type VersionFull } from './versions'
 import { normalizeScenarios, slugRoute, type DemoScenario } from './flows'
 import { normalizeFold, type FoldId } from './folds'
@@ -760,6 +760,16 @@ export interface Box {
   h: number
 }
 
+/**
+ * The box a screen OCCUPIES on the canvas: its own, except a small document,
+ * which is drawn magnified (`canvasScale`). Placement, packing and framing all
+ * ask this, never `w`/`h`, or a card is placed under its neighbour.
+ */
+export function drawnBox(s: Box & { page?: unknown }): Box {
+  const k = canvasScale(s.page)
+  return k === 1 ? { x: s.x, y: s.y, w: s.w, h: s.h } : { x: s.x, y: s.y, w: s.w * k, h: s.h * k }
+}
+
 /** Do two boxes touch, once the gutter is counted as part of each? */
 function collides(a: Box, b: Box, gap = GAP): boolean {
   return (
@@ -784,8 +794,8 @@ function collides(a: Box, b: Box, gap = GAP): boolean {
  * position that touches nothing. Same reading order as before — left to right,
  * then down — so where screens land still feels predictable.
  */
-export function placeScreen(existing: Box[], w: number, h: number): { x: number; y: number } {
-  const boxes = existing.filter((b) => Number.isFinite(b.x) && Number.isFinite(b.y))
+export function placeScreen(existing: (Box & { page?: unknown })[], w: number, h: number): { x: number; y: number } {
+  const boxes = existing.filter((b) => Number.isFinite(b.x) && Number.isFinite(b.y)).map(drawnBox)
   if (!boxes.length) return { x: 0, y: 0 }
 
   // Anchor on the existing cluster rather than the origin, so a project whose
@@ -813,8 +823,14 @@ export function placeScreen(existing: Box[], w: number, h: number): { x: number;
  * Right of the anchor first, then below it, each only if that spot touches
  * nothing; otherwise the ordinary rule, which always finds room.
  */
-export function placeBeside(existing: Box[], anchor: Box, w: number, h: number): { x: number; y: number } {
-  const boxes = existing.filter((b) => Number.isFinite(b.x) && Number.isFinite(b.y))
+export function placeBeside(
+  existing: (Box & { page?: unknown })[],
+  at: Box & { page?: unknown },
+  w: number,
+  h: number,
+): { x: number; y: number } {
+  const boxes = existing.filter((b) => Number.isFinite(b.x) && Number.isFinite(b.y)).map(drawnBox)
+  const anchor = drawnBox(at)
   for (const cand of [
     { x: anchor.x + anchor.w + GAP_X, y: anchor.y, w, h },
     { x: anchor.x, y: anchor.y + anchor.h + GAP_Y, w, h },
@@ -832,7 +848,8 @@ export function placeBeside(existing: Box[], anchor: Box, w: number, h: number):
  * desktop one written across it. Order is preserved: arranging must be
  * predictable, not clever.
  */
-export function packScreens(screens: Box[], maxPerRow = COLS): { x: number; y: number }[] {
+export function packScreens(given: (Box & { page?: unknown })[], maxPerRow = COLS): { x: number; y: number }[] {
+  const screens = given.map(drawnBox)
   const out: { x: number; y: number }[] = []
   let rowTop = 0
   for (let i = 0; i < screens.length; i += maxPerRow) {
@@ -1197,8 +1214,9 @@ export function useProjects() {
       prev.map((p) => {
         if (p.id !== projectId) return p
         // Placed against what is actually on the canvas, not against a count.
-        const w = typeof screen.w === 'number' ? screen.w : DEFAULT_W
-        const h = typeof screen.h === 'number' ? screen.h : DEFAULT_H
+        const k = canvasScale(screen.page)
+        const w = (typeof screen.w === 'number' ? screen.w : DEFAULT_W) * k
+        const h = (typeof screen.h === 'number' ? screen.h : DEFAULT_H) * k
         const anchor = opts?.beside ? p.screens.find((s) => s.id === opts.beside) : undefined
         const at = anchor ? placeBeside(p.screens, anchor, w, h) : placeScreen(p.screens, w, h)
         const full: Screen = { ...screen, ...at }

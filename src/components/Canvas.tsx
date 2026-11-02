@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MIN_H, MIN_W, packScreens, type AttachedMedia, type Box, type Screen } from '../lib/project'
+import { drawnBox, MIN_H, MIN_W, packScreens, type AttachedMedia, type Box, type Screen } from '../lib/project'
 import { mediaPoster } from '../lib/screenMedia'
 import {
   CARD_GUTTER,
@@ -26,6 +26,8 @@ import CableConnect from './CableConnect'
 import { cullWindow, linksOf, readShowCables, routeCables, writeShowCables, type Cable } from '../lib/cables'
 import { Icon, IconButton } from '../ui'
 import { useT } from '../i18n'
+import { canvasScale, getPageFormat, isPageFormat, PAGE_GAP_PX } from '../lib/pageFormats'
+import { pageGapLabels, pagesInFrame } from '../lib/documentMode'
 
 /**
  * Below this zoom the reference/design column is not drawn at all.
@@ -470,7 +472,7 @@ export default function Canvas({
       }
       const s = screens.find((x) => x.id === f.id)
       if (!s) return
-      const v = frameBox({ x: s.x, y: s.y, w: s.w, h: s.h }, viewport, FRAME_PAD, FOCUS_MAX_SCALE)
+      const v = frameBox(drawnBox(s), viewport, FRAME_PAD, FOCUS_MAX_SCALE)
       if (!v) return
       if (opts.animate) moveViewTo(v)
       else setView(v)
@@ -741,10 +743,11 @@ export default function Canvas({
       } else {
         const hit = screens
           .filter((s) => {
-            const sx = s.x * view.scale + view.x
-            const sy = s.y * view.scale + view.y
-            const sw = s.w * view.scale
-            const sh = s.h * view.scale
+            const d = drawnBox(s)
+            const sx = d.x * view.scale + view.x
+            const sy = d.y * view.scale + view.y
+            const sw = d.w * view.scale
+            const sh = d.h * view.scale
             return sx < marquee.x + marquee.w && sx + sw > marquee.x && sy < marquee.y + marquee.h && sy + sh > marquee.y
           })
           .map((s) => s.id)
@@ -847,9 +850,11 @@ export default function Canvas({
     }
     if (moveDelta && gesture.current?.type === 'move' && gesture.current.origins[s.id]) {
       const o = gesture.current.origins[s.id]
-      return { x: o.x + moveDelta.dx, y: o.y + moveDelta.dy, w: s.w, h: s.h }
+      return drawnBox({ ...s, x: o.x + moveDelta.dx, y: o.y + moveDelta.dy })
     }
-    return { x: s.x, y: s.y, w: s.w, h: s.h }
+    // A small document is drawn magnified (`canvasScale`), so its box is too:
+    // the label, the handles, the cables and the culling all read this one.
+    return drawnBox(s)
   }
 
   /**
@@ -1034,6 +1039,10 @@ export default function Canvas({
           // A document is sheets of paper: square corners, or the rounding
           // would trim the corners of a page the export prints whole.
           const frameRadius = useFrame ? '13% / 6%' : s.page ? '0' : '1rem'
+          // A small document is laid out at its real size and drawn magnified.
+          const paperScale = canvasScale(s.page)
+          const format = s.page && isPageFormat(s.page) ? getPageFormat(s.page) : null
+          const gapLabels = format ? pageGapLabels(s, pagesInFrame(format, s.h)) : []
           return (
             <div
               key={s.id}
@@ -1340,6 +1349,13 @@ export default function Canvas({
                     />
                   </DeviceChrome>
                 ) : (
+                  <div
+                    style={
+                      paperScale === 1
+                        ? { width: '100%', height: '100%' }
+                        : { width: s.w, height: s.h, transform: `scale(${paperScale})`, transformOrigin: '0 0' }
+                    }
+                  >
                   <Preview
                     code={s.code}
                     pickMode={pickable}
@@ -1363,8 +1379,37 @@ export default function Canvas({
                     animations={s.animations ?? animations}
                     gl={glGranted.has(s.id)}
                   />
+                  </div>
                 )}
               </div>
+
+              {/* The space between two pages, in the canvas's own colour and
+                  named: the frame's grey gap read as a band of the design
+                  (pageGapLabels). Over the ring too, so the pages read as
+                  separate sheets. Drawn here, never in the frame, so no export
+                  can carry it. */}
+              {format &&
+                gapLabels.map((label, i) => (
+                  <div
+                    key={i}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute flex items-center bg-sunken font-medium uppercase text-ink-faint"
+                    style={{
+                      top: ((i + 1) * (format.h + PAGE_GAP_PX) - PAGE_GAP_PX) * paperScale,
+                      height: PAGE_GAP_PX * paperScale,
+                      left: -6 * inv,
+                      right: -6 * inv,
+                      gap: 8 * inv,
+                      fontSize: Math.min(11 * inv, PAGE_GAP_PX * paperScale * 0.45),
+                      letterSpacing: '0.12em',
+                      lineHeight: 1,
+                    }}
+                  >
+                    <span className="h-px flex-1 bg-line" />
+                    {t(label.key, label.n ? { n: label.n } : undefined)}
+                    <span className="h-px flex-1 bg-line" />
+                  </div>
+                ))}
 
               {/* Animated multicolor ring while regenerating/updating this frame */}
               {regeneratingIds?.has(s.id) && (
