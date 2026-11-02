@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `formes` | des compositions en contour et l'option outline | `591f5ab` |
 | `formes` | 377 formes, des fluides en deux couleurs et des signes animés | `2b0445f` |
 | `canevas` | les petits formats agrandis, le verso nommé | `9da6b15` |
 | `design` | la direction suit une modification qui recolore l'écran | `5d5bd22` |
