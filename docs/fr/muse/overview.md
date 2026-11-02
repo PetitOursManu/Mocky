@@ -1,5 +1,5 @@
 ---
-source_hash: deaa331005ba
+source_hash: 7adc9039d3ab
 ---
 
 # Vue d'ensemble de Muse
@@ -272,6 +272,34 @@ Donc, quand il y en a une :
   dit, et les écrans suivants la suivent ;
 - la génération apprend que l'image jointe est la référence de l'utilisateur,
   au-dessus de toute autre inspiration, et non une simple planche d'ambiance.
+
+**Et elle est mesurée pour un design, pas pour une photo.** Le deuxième essai a
+échoué d'une façon qu'aucun des points ci-dessus ne pouvait rattraper : l'appel
+du dossier a échoué, et Muse est retombé sur un pattern choisi d'après les mots
+de la demande — « Monospace Terminal », noir et vert en JetBrains Mono, pour une
+carte de remerciement crème et terracotta, avec au dos le texte de remplissage
+anglais du repli. Reproduit avec un vrai modèle, la cause était un modèle sans
+vision répondant 400 à l'image, et la nouvelle tentative renvoyant la même
+image. Donc :
+
+- un appel de dossier qui échoue **avec** l'image est refait **sans** elle — les
+  couleurs mesurées et la section de référence partent quand même, et une phrase
+  dit que le modèle n'a pas pu regarder l'image. Une erreur de quota ou de clé
+  garde l'image : elle ne dit rien d'elle ;
+- Ollama natif reçoit du base64 nu (chaque image était une URL data, qu'il
+  refusait), et un appel de dossier a 90 s au lieu des 40 habituelles de Muse ;
+- quand aucun modèle ne répond, le repli prend les **couleurs de la référence**,
+  nommées selon leur rôle — aucun pattern, aucune police qu'un modèle n'a pas
+  choisie, aucun texte inventé ;
+- les couleurs sont mesurées comme une référence : le fond uni autour d'une
+  photo de maquette est écarté (il pesait 92 % de la palette de la carte), les
+  teintes claires proches ne sont plus fondues en un seul gris, et l'**encre** du
+  lettrage est trouvée même quand elle ne fait qu'une fraction de pour cent des
+  pixels ;
+- la génération apprend que sur l'**aspect** — couleurs, polices, formes,
+  ornements — l'image l'emporte sur le dossier partout où ils divergent, et
+  qu'elle redessine ses formes avec les `<Ornament>` les plus proches, offerts
+  avec toute image de référence.
 
 Ce que le prompt de génération apprend en découle : des images à insérer, une
 référence à regarder, les deux en une seule image, ou — c'est nouveau — des

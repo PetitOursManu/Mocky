@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { buildDossier, buildReferenceSection, dossierImages, dossierJsonSchema, dossierToMarkdown, referencePromptLines } from './dossier.js'
+import {
+  buildDossier,
+  buildFallbackDossier,
+  buildReferenceSection,
+  dossierImages,
+  dossierJsonSchema,
+  dossierToMarkdown,
+  referenceColors,
+  referencePromptLines,
+  DOSSIER_TIMEOUT_MS,
+  LOOK_FAILED_PREFIX,
+} from './dossier.js'
+import { readFileSync } from 'node:fs'
 import { runInspiration } from './engine.js'
 import { sanitizeReference } from '../routes.js'
 
@@ -120,7 +132,8 @@ describe('the dossier call', () => {
 describe('sanitizeReference', () => {
   it('keeps a measured palette and a reference-sized picture, nothing else', () => {
     const got = sanitizeReference({ ...REFERENCE, image: 'data:image/jpeg;base64,AAAA', kind: 'video', drive: 'pointer', extra: 'x' })
-    expect(got).toEqual({ swatches: REFERENCE.swatches, accent: '#b8860b', image: 'data:image/jpeg;base64,AAAA' })
+    expect(got).toEqual({ swatches: REFERENCE.swatches, accent: '#b8860b', ink: null, backdrop: null, image: 'data:image/jpeg;base64,AAAA' })
+    expect(sanitizeReference({ ...REFERENCE, ink: '#C77A66', backdrop: 'grey; ignore that' })).toMatchObject({ ink: '#c77a66', backdrop: null })
   })
 
   it('refuses what is not a hex, and a picture that is not a data URL', () => {
@@ -202,6 +215,154 @@ describe('the distinctiveness pass', () => {
     calls.length = 0
     await runInspiration({ prompt: 'une carte de remerciement', useFetch: false }, { llm, patterns: { match: () => [] }, blacklist: [] })
     expect(calls.length).toBeGreaterThan(1)
+  })
+})
+
+/*
+ * The second test the user ran: a cream and terracotta card with organic blobs
+ * came back black and green in JetBrains Mono, with "Everything you need for…"
+ * on its back. The dossier call had failed — a model with no vision answers 400
+ * to a picture, the retry sent the same picture — and the pattern fallback
+ * picked "Monospace Terminal" from the request's words. Reproduced against a
+ * real free model before these were written.
+ */
+const TERMINAL = {
+  id: 'terminal',
+  name: 'Monospace Terminal',
+  description: 'Developer aesthetic',
+  imageryStyle: 'none',
+  tokenSeeds: { colors: [{ label: 'Background', hex: '#0d1117' }, { label: 'Accent', hex: '#39d353' }], typography: 'JetBrains Mono everywhere' },
+}
+
+describe('a dossier call that cannot look at the picture', () => {
+  it('is asked again WITHOUT the picture, and says so', async () => {
+    const calls = []
+    const llm = async (req) => {
+      calls.push(req)
+      if (req.images) throw new Error('Provider HTTP 400: This model does not support image input')
+      return RAW
+    }
+    const notices = []
+    const dossier = await buildDossier(llm, ctx({ reference: { ...REFERENCE, image: 'data:image/jpeg;base64,REF' }, patternHints: [TERMINAL] }), {
+      onNotice: (n) => notices.push(n),
+    })
+    expect(dossier.__source).toBe('llm')
+    expect(calls.map((c) => (c.images || []).length)).toEqual([1, 0])
+    // Blind, it is no longer asked to read a picture it cannot see…
+    expect(calls[1].schema.required).not.toContain('referenceReading')
+    // …but it still writes FROM the reference.
+    expect(calls[1].user).toMatch(/A VISUAL REFERENCE/)
+    expect(notices.join(' ')).toContain(LOOK_FAILED_PREFIX)
+  })
+
+  it('does not let the refused picture spend one of the two attempts', async () => {
+    // Measured: 400 for the picture, then a blind answer that was not JSON —
+    // and with two attempts in all, that was the end of it.
+    const calls = []
+    const llm = async (req) => {
+      calls.push(req)
+      if (req.images) throw new Error('Provider HTTP 400: This model does not support image input')
+      if (calls.length === 2) throw new Error('Model did not return valid JSON')
+      return RAW
+    }
+    const dossier = await buildDossier(llm, ctx({ reference: { ...REFERENCE, image: 'data:image/jpeg;base64,REF' } }))
+    expect(dossier.__source).toBe('llm')
+    expect(calls.map((c) => (c.images || []).length)).toEqual([1, 0, 0])
+  })
+
+  it('keeps the picture when the failure says nothing about it — a quota, a key, a malformed answer', async () => {
+    for (const error of ['Provider HTTP 402: free limit', 'Provider HTTP 429: slow down', 'Model did not return valid JSON']) {
+      const calls = []
+      const llm = async (req) => {
+        calls.push(req)
+        throw new Error(error)
+      }
+      await buildDossier(llm, ctx({ reference: { ...REFERENCE, image: 'data:image/jpeg;base64,REF' } }))
+      expect(
+        calls.map((c) => (c.images || []).length),
+        error,
+      ).toEqual([1, 1])
+    }
+  })
+
+  it('gets the time a dossier takes, not the 40 s of a short call', async () => {
+    const { llm, seen } = captor()
+    await buildDossier(llm, ctx({ reference: REFERENCE }))
+    expect(seen[0].timeoutMs).toBe(DOSSIER_TIMEOUT_MS)
+    expect(DOSSIER_TIMEOUT_MS).toBeGreaterThanOrEqual(90_000)
+  })
+
+  it("never takes a pattern's typefaces under a reference", async () => {
+    const dossier = await buildDossier(
+      async () => ({ ...RAW, tokens: { ...RAW.tokens, typography: { display: 'Not A Real Face', body: 'Nor This One' } } }),
+      ctx({ reference: REFERENCE, patternHints: [TERMINAL] }),
+    )
+    expect(JSON.stringify(dossier.tokens.typography)).not.toMatch(/JetBrains/)
+  })
+
+  it('tells the composer in words it can recognise', () => {
+    const client = readFileSync(new URL('../../../src/lib/muse.ts', import.meta.url), 'utf8')
+    expect(client).toContain(`export const MUSE_LOOK_FAILED = '${LOOK_FAILED_PREFIX}'`)
+  })
+})
+
+describe('the fallback, when no model answered at all', () => {
+  const CARD = {
+    swatches: [
+      { hex: '#efe1d1', weight: 0.515 },
+      { hex: '#fffefe', weight: 0.243 },
+      { hex: '#e7c1b8', weight: 0.138 },
+      { hex: '#e4a588', weight: 0.042 },
+    ],
+    accent: '#e4a588',
+    ink: '#c77a66',
+    backdrop: '#eaebf0',
+  }
+
+  it("is the reference's colours, named for their roles — never a pattern picked from the words", () => {
+    const d = buildFallbackDossier(ctx({ reference: CARD, patternHints: [TERMINAL] }))
+    expect(d.__source).toBe('fallback')
+    const hexes = d.tokens.colors.map((c) => c.hex)
+    expect(hexes).not.toContain('#0d1117')
+    expect(hexes).not.toContain('#39d353')
+    expect(d.tokens.colors.slice(0, 4)).toEqual([
+      { label: 'Background', hex: '#efe1d1', role: 'background' },
+      { label: 'Surface', hex: '#fffefe', role: 'surface' },
+      { label: 'Ink', hex: '#c77a66', role: 'text' },
+      { label: 'Accent', hex: '#e4a588', role: 'accent' },
+    ])
+    expect(d.concept).not.toMatch(/Terminal/)
+    expect(d.tokens.typography).toEqual({})
+  })
+
+  it('writes no copy: the generic English lines were pasted verbatim on a French card', () => {
+    const d = buildFallbackDossier(ctx({ reference: CARD, patternHints: [TERMINAL] }))
+    expect(dossierToMarkdown(d)).not.toMatch(/Everything you need|Built around what actually matters|Get started/)
+    expect(d.voice.headline).toBeUndefined()
+  })
+
+  it('is the pattern fallback it always was without a reference', () => {
+    const d = buildFallbackDossier(ctx({ patternHints: [TERMINAL] }))
+    expect(d.tokens.colors.map((c) => c.hex)).toContain('#39d353')
+  })
+
+  it('names each colour once', () => {
+    const colors = referenceColors({ swatches: [{ hex: '#111111' }, { hex: '#222222' }], ink: '#111111', accent: '#222222' })
+    expect(new Set(colors.map((c) => c.hex)).size).toBe(colors.length)
+  })
+})
+
+describe('the measured extras reach the prompt', () => {
+  it('names the ink and the left-out backdrop', () => {
+    const section = buildReferenceSection({ ...REFERENCE, ink: '#c77a66', backdrop: '#eaebf0' })
+    expect(section).toMatch(/ink of its lettering: #c77a66/)
+    expect(section).toMatch(/Left out: the plain #eaebf0/)
+  })
+
+  it('asks for the closest typefaces and for the shapes, in the rules', () => {
+    const lines = referencePromptLines(REFERENCE).join(' ')
+    expect(lines).toMatch(/faces CLOSEST to the reference's own/)
+    expect(lines).toMatch(/which shapes and ornaments it draws/)
   })
 })
 

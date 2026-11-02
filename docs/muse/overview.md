@@ -250,6 +250,32 @@ colours, and the screen looked nothing like the picture. So, when there is one:
 - the generation is told the attached picture is the user's own reference, which
   outranks every other inspiration, rather than a mere mood board.
 
+**And it is measured for a design, not for a photo.** The second test went wrong
+in a way none of the above could catch: the dossier call failed, and Muse fell
+back to a pattern picked from the request's words — "Monospace Terminal", black
+and green in JetBrains Mono, for a cream and terracotta thank-you card, with the
+fallback's English filler on its back. Reproduced with a real model, the cause
+was a model with no vision answering 400 to the picture, and the retry sending
+the same picture again. So:
+
+- a dossier call that fails **with** the picture is asked again **without** it —
+  the measured colours and the reference section still go, and a sentence says
+  the model could not look at the picture. A quota or a key error keeps the
+  picture: it says nothing about it;
+- native Ollama gets bare base64 (every picture was a data URL, which it
+  refused), and a dossier call gets 90 s instead of Muse's usual 40;
+- when no model answers at all, the fallback is the **reference's own colours**,
+  named for their roles — no pattern, no typeface a model did not choose, no
+  invented copy;
+- the colours are measured as a reference: the plain backdrop round a mock-up
+  photo is left out (it weighed 92% of the card's palette), close light shades
+  are no longer merged into one grey, and the **ink** of the lettering is found
+  even when it is a fraction of a percent of the pixels;
+- the generation is told that on the **look** — colours, typefaces, shapes,
+  ornaments — the picture outranks the dossier wherever they disagree, and to
+  redraw its shapes with the closest `<Ornament>` shapes, which are offered with
+  every reference picture.
+
 What the generation prompt is told follows from that: pictures to embed, a
 reference to look at, both in one picture, or — new — pictures to embed **and a
 different picture attached** as a reference (`separate`): the plate beside

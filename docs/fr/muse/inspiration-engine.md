@@ -1,5 +1,5 @@
 ---
-source_hash: 8c97f0f6c9e4
+source_hash: c58bea652a5a
 ---
 
 # Le moteur d'inspiration
@@ -450,9 +450,16 @@ options: { num_predict: 4096, num_ctx: 16384, temperature: attempt === 0 ? 0.7 :
 La première tentative est chaude (0,7) pour l'originalité ; la seconde est plus
 froide (0,4) pour le respect du schéma.
 
+Un appel qui porte une image et échoue pour une autre raison qu'une réponse mal
+formée, un quota ou une clé est refait **sans** l'image (un modèle sans vision
+répond 400 à une image), et chaque appel de dossier a 90 s.
+
 Ensuite, `buildFallbackDossier()` produit un dossier **déterministe** construit
 sur le pattern le mieux assorti, avec de la vraie copie — jamais du lorem —
-dérivée de la demande.
+dérivée de la demande. Pas quand l'utilisateur a lié une image de référence :
+le repli est alors ses couleurs mesurées, nommées selon leur rôle, sans pattern,
+sans police et sans texte — le pattern choisi d'après les mots d'une carte de
+remerciement était « Monospace Terminal ».
 
 `dossier.__source` vaut soit `'llm'`, soit `'fallback'`, et l'interface sait
 lequel.

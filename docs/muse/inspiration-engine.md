@@ -426,9 +426,15 @@ options: { num_predict: 4096, num_ctx: 16384, temperature: attempt === 0 ? 0.7 :
 The first attempt is warm (0.7) for originality; the second is cooler (0.4) for
 schema compliance.
 
+A call that carries a picture and fails for a reason other than a malformed
+answer, a quota or a key is sent again **without** the picture (a model with no
+vision answers 400 to one), and every dossier call gets 90 s.
+
 After that, `buildFallbackDossier()` produces a **deterministic** dossier built on
 the best-matching pattern, with real copy — never lorem — derived from the
-request.
+request. Not when the user linked a reference picture: the fallback is then its
+measured colours, named for their roles, with no pattern, no typeface and no
+copy — the pattern picked from a thank-you card's words was "Monospace Terminal".
 
 `dossier.__source` is either `'llm'` or `'fallback'`, and the UI knows which.
 

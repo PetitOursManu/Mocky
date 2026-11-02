@@ -8,7 +8,7 @@
 // side.
 import { loadSettings } from './settings'
 import { proxyHeaders } from './proxy'
-import { extractPalette } from './palette'
+import { extractPalette, extractReferencePalette } from './palette'
 import { extractProductName } from './design'
 import type { PinnedVideo, VideoDrive } from './videoLibrary'
 
@@ -316,6 +316,10 @@ export interface MuseUserMedia {
   accent: string | null
   /** The picture itself, only when the model can actually look at it. */
   image?: string
+  /** On a REFERENCE (`describeUserMedia(…, { reference: true })`): the ink of its lettering. */
+  ink?: string | null
+  /** On a reference: the plain backdrop round a mock-up photo, left out of the swatches. */
+  backdrop?: string | null
   /**
    * For a clip: what steers it. The dossier writes the page AROUND the clip,
    * and "a hero you scroll through" and "a surface the cursor steers,
@@ -342,12 +346,19 @@ export interface MuseUserMedia {
 export async function describeUserMedia(
   source: string,
   kind: 'image' | 'video',
-  opts: { vision?: boolean | null; signal?: AbortSignal } = {},
+  opts: { vision?: boolean | null; signal?: AbortSignal; reference?: boolean } = {},
 ): Promise<MuseUserMedia | null> {
   try {
-    const { swatches, accent } = await extractPalette(source)
+    // A reference is measured for what a DESIGN reads off it — its ink, without
+    // the mock-up's backdrop (palette.ts, `referencePaletteFromPixels`).
+    const ref = opts.reference ? await extractReferencePalette(source) : null
+    const { swatches, accent } = ref ?? (await extractPalette(source))
     if (!swatches.length) return null
     const media: MuseUserMedia = { kind, swatches, accent }
+    if (ref) {
+      media.ink = ref.ink
+      media.backdrop = ref.backdrop
+    }
     if (opts.vision === true) {
       const dataUrl = await imageAsDataUrl(source, opts.signal)
       // The sanitizer on the server accepts jpeg/png/webp data URLs only, and
@@ -459,6 +470,13 @@ export async function museAvailable(signal?: AbortSignal): Promise<boolean> {
 export function absoluteUrl(path: string): string {
   return /^https?:\/\//.test(path) ? path : `${window.location.origin}${path}`
 }
+
+/**
+ * Words the server's notice starts with when the dossier could not look at the
+ * pictures (`LOOK_FAILED_PREFIX` in server/muse/inspire/dossier.js — the test
+ * holds the two together).
+ */
+export const MUSE_LOOK_FAILED = 'the dossier model could not look at the pictures'
 
 /** Parse the URL textarea into a clean list. */
 export function parseUrls(text: string): string[] {
@@ -854,9 +872,25 @@ export function buildMusePreamble(
         ? `VISUAL REFERENCE CHOSEN BY THE USER — ${attached}. It is the picture the user wants this screen to look inspired by, and the source the dossier above was derived from (its "Visual Reference" section describes it). It outranks every other inspiration: follow its composition (alignment, margins, proportions, what is large and what is small), its typographic character, its ornaments and textures and its use of colour, adapted to THIS request's format and content.`
         : `VISUAL REFERENCE — ${attached}. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.`,
       opts.userReference
-        ? 'Do NOT embed it, do NOT reference its URL, and do NOT copy its text, brand or logo: the screen is inspired by it, not a copy of it.'
+        ? 'Do NOT embed it, do NOT reference its URL, and do NOT copy its brand or logo: the screen is inspired by it, not a copy of it.'
         : 'Do NOT embed it, do NOT reference its URL, and do NOT describe it as the product. It is not content — it is a style reference.',
     )
+    /*
+     * On the LOOK the picture wins, and the sentence has to say so in as many
+     * words. The dossier above is "AUTHORITATIVE", and a dossier that could not
+     * see the picture — a pattern fallback, a model without vision — was obeyed
+     * over it: a cream and terracotta card with organic blobs came back black
+     * and green in a monospace face, its wording copied off the picture and
+     * nothing else. The shapes get their pen too: `<Ornament>` is offered with
+     * every user reference (newScreen), so naming it here is never a component
+     * the screen does not have.
+     */
+    if (opts.userReference) {
+      lines.push(
+        "On the LOOK — colours, typefaces, shapes and ornaments — this picture outranks the DESIGN DOSSIER above wherever the two disagree; the dossier's copy and structure still hold.",
+        'Redraw its shapes with the closest <Ornament> shapes (organic blobs, fluid shapes, drawn lines, textures — see its card), placed, sized and overlapped as in the picture, in its colours; set the type in the listed typefaces closest to its own.',
+      )
+    }
   }
   if (images.length && mode === 'both') {
     lines.push(

@@ -131,6 +131,10 @@ describe('site screenshots stay in the browser', () => {
     // and the generation is told the attached picture is the user's own.
     expect(pipeline).toContain('reference: museRan && museLinkUsed')
     expect(pipeline).toContain('{ userReference: museRefIsLink && !!museVisionRef }')
+    // Measured as a reference (backdrop out, ink kept), and drawn with the
+    // shapes catalogue the generation is told to use.
+    expect(pipeline).toContain("describeUserMedia(linked.picture.dataUrl, 'image', { vision, signal, reference: true })")
+    expect(pipeline).toContain('if (museLinkUsed && !capIds.includes(ORNAMENTS_CAP)) capIds = [...capIds, ORNAMENTS_CAP]')
   })
 
   it("render a site file with its scripts and Mocky's origin never in the same frame", () => {

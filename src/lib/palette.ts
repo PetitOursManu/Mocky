@@ -163,3 +163,176 @@ export function extractPalette(url: string, opts?: { max?: number }): Promise<Me
     img.src = url
   })
 }
+
+/** A reference picture's palette: the swatches, plus what a design reads off them. */
+export interface ReferencePalette extends MediaPalette {
+  /**
+   * The darkest colour that is really drawn — the ink of the headline. Thin
+   * type is a fraction of a percent of the pixels, so a palette sorted by weight
+   * dropped it, and the card's terracotta lettering never reached the dossier.
+   */
+  ink: string | null
+  /**
+   * The plain colour round the picture, left out of the swatches: a product
+   * shot's backdrop is the photographer's, not the design's.
+   */
+  backdrop: string | null
+}
+
+/** Relative luminance, 0..1, for "which colour is darkest" — not for contrast. */
+function lightness(rgb: number[]): number {
+  return (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255
+}
+
+/** The darkest share of a reference's pixels that is read as the core of its lettering. */
+const INK_SHARE = 0.002
+
+/** Within this distance of the border's mean colour, a pixel touching the backdrop IS the backdrop. */
+const BACKDROP_TOLERANCE = 16
+
+/**
+ * The palette of a picture someone wants a design to be INSPIRED by — a flyer,
+ * a card, a poster, often photographed as a mock-up on a plain backdrop.
+ *
+ * `paletteFromPixels` was written for a hero photograph, and on a reference it
+ * failed three ways at once, measured on the thank-you card that prompted this:
+ * the light grey backdrop of the mock-up weighed 92% of the swatches; merging
+ * anything closer than 48 folded cream, beige, blush and white into that grey;
+ * and the terracotta lettering — the one strong colour on the card — was too
+ * thin to survive a sort by weight. The dossier was told to build its colours
+ * FROM a grey and two pale pinks, and it did.
+ *
+ * So: the backdrop is flood-filled from the border and left out (only when it is
+ * plain, near-neutral, and a part of the picture rather than all of it — a
+ * full-bleed design keeps its own background), the merge is finer, and the ink
+ * is kept whatever its weight.
+ */
+export function referencePaletteFromPixels(
+  data: Uint8ClampedArray | number[],
+  width: number,
+  height: number,
+  { max = 8, minDistance = 24 }: { max?: number; minDistance?: number } = {},
+): ReferencePalette {
+  const w = Math.max(1, Math.floor(width))
+  const h = Math.max(1, Math.floor(height))
+  const px = (i: number) => [data[i * 4], data[i * 4 + 1], data[i * 4 + 2]]
+  const opaque = (i: number) => data[i * 4 + 3] >= 128
+
+  // The border's mean colour, and whether the border is plain at all.
+  const border: number[] = []
+  for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x)
+  for (let y = 1; y < h - 1; y++) border.push(y * w, y * w + w - 1)
+  const edge = border.filter(opaque)
+  let backdrop: number[] | null = null
+  if (edge.length) {
+    const mean = [0, 1, 2].map((k) => Math.round(edge.reduce((s, i) => s + px(i)[k], 0) / edge.length))
+    const plain = edge.filter((i) => dist(px(i), mean) < BACKDROP_TOLERANCE).length / edge.length
+    // Chroma, not HSL saturation: HSL inflates every near-white, and the grey
+    // backdrop of the card that prompted this read as 17% saturated.
+    const chroma = (Math.max(...mean) - Math.min(...mean)) / 255
+    if (plain >= 0.85 && chroma < 0.08) backdrop = mean
+  }
+
+  // Flood the backdrop from the border, so the same colour INSIDE the design
+  // (a white card on a white table) is kept.
+  const drop = new Uint8Array(w * h)
+  if (backdrop) {
+    const stack = edge.filter((i) => dist(px(i), backdrop!) < BACKDROP_TOLERANCE)
+    for (const i of stack) drop[i] = 1
+    while (stack.length) {
+      const i = stack.pop()!
+      const x = i % w
+      const y = (i - x) / w
+      for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+        if (j < 0 || drop[j] || !opaque(j) || dist(px(j), backdrop) >= BACKDROP_TOLERANCE) continue
+        drop[j] = 1
+        stack.push(j)
+      }
+    }
+    const share = drop.reduce((s, v) => s + v, 0) / (w * h)
+    // All of it is a full-bleed design's own ground; a sliver is a frame line.
+    if (share < 0.12 || share > 0.85) {
+      backdrop = null
+      drop.fill(0)
+    }
+  }
+
+  const kept: number[] = []
+  for (let i = 0; i < w * h; i++) {
+    if (drop[i]) continue
+    kept.push(data[i * 4], data[i * 4 + 1], data[i * 4 + 2], data[i * 4 + 3])
+  }
+  const base = paletteFromPixels(kept, { max: 64, minDistance })
+  const all = base.swatches
+  // The accent with a 1% floor, not 2%: on a quiet design the strong colour is
+  // small, and it is the one worth pointing with. By CHROMA, for the backdrop's
+  // reason: by HSL saturation the card's white (#fffefe) out-pointed its orange.
+  let accent: string | null = null
+  let best = 0
+  for (const s of all) {
+    if (s.weight < 0.01) continue
+    const [r, g, b] = [1, 3, 5].map((k) => parseInt(s.hex.slice(k, k + 2), 16))
+    const sat = (Math.max(r, g, b) - Math.min(r, g, b)) / 255
+    if (sat > best) {
+      best = sat
+      accent = s.hex
+    }
+  }
+  // The ink: the mean of the darkest pixels, not the darkest SWATCH — lettering
+  // is anti-aliased into lighter shades, and its swatch weighs less than the
+  // rounding of a weight. The darkest INK_SHARE of the picture is the core of
+  // its strokes; it is ink only when clearly darker than the ground.
+  const rgbOf = (hex: string) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16))
+  const ground = all[0]
+  let ink: string | null = null
+  const count = kept.length / 4
+  if (ground && count) {
+    const order: number[] = []
+    for (let i = 0; i < count; i++) if (kept[i * 4 + 3] >= 128) order.push(i)
+    const lum = (i: number) => lightness([kept[i * 4], kept[i * 4 + 1], kept[i * 4 + 2]])
+    order.sort((a, b) => lum(a) - lum(b))
+    const core = order.slice(0, Math.max(3, Math.round(order.length * INK_SHARE)))
+    const mean = [0, 1, 2].map((k) => Math.round(core.reduce((sum, i) => sum + kept[i * 4 + k], 0) / core.length))
+    if (lightness(rgbOf(ground.hex)) - lightness(mean) > 0.25) ink = toHex(mean[0], mean[1], mean[2])
+  }
+  const swatches = all.slice(0, max)
+  if (ink && !swatches.some((s) => dist(rgbOf(s.hex), rgbOf(ink!)) < minDistance)) {
+    swatches[Math.min(swatches.length, max - 1)] = { hex: ink, weight: 0.001 }
+  }
+  return {
+    swatches,
+    accent: accent ?? base.accent,
+    ink,
+    backdrop: backdrop ? toHex(backdrop[0], backdrop[1], backdrop[2]) : null,
+  }
+}
+
+/** The side a reference is sampled at: sixteen times `extractPalette`'s pixels, for type a few pixels thick. */
+const REFERENCE_SAMPLE = 256
+
+/** Measure a reference picture in the browser (`referencePaletteFromPixels`). */
+export function extractReferencePalette(url: string): Promise<ReferencePalette> {
+  const none: ReferencePalette = { swatches: [], accent: null, ink: null, backdrop: null }
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, REFERENCE_SAMPLE / Math.max(img.naturalWidth || 1, img.naturalHeight || 1))
+        const w = Math.max(1, Math.round((img.naturalWidth || 1) * scale))
+        const h = Math.max(1, Math.round((img.naturalHeight || 1) * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) return resolve(none)
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve(referencePaletteFromPixels(ctx.getImageData(0, 0, w, h).data, w, h))
+      } catch {
+        resolve(none)
+      }
+    }
+    img.onerror = () => resolve(none)
+    img.src = url
+  })
+}

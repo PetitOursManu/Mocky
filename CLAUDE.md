@@ -123,7 +123,12 @@ And it LEADS, which took a second pass: read as one input among others it was
 drowned. Its dossier replaces the project's direction (`resolveDirection`'s
 `reference`), the cards and patterns are labelled secondary, the distinctiveness
 pass is skipped (it never sees the picture), and the generation is told the
-picture is the user's (`buildMusePreamble`'s `userReference`).
+picture is the user's (`buildMusePreamble`'s `userReference`). A THIRD pass, from
+a real model: the dossier call failed (no vision → 400, retried with the same
+picture) and the pattern fallback made a cream card black and green. Now a call
+that fails with the picture is retried without it, the fallback under a
+reference is its measured colours, the palette is `extractReferencePalette`
+(backdrop out, ink kept), and on the LOOK the picture outranks the dossier.
 
 **An .html or .zip of the site becomes a screenshot** (`lib/siteSource.ts`,
 `lib/siteSourceRender.ts`, `lib/zipRead.ts`) and nothing downstream knows it was

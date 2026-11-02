@@ -94,7 +94,10 @@ describe('pure helpers', () => {
     const alone = buildMusePreamble('# Dossier', [], 'inspiration', undefined, null, null, { userReference: true })
     expect(alone).toMatch(/VISUAL REFERENCE CHOSEN BY THE USER — an image is attached/)
     expect(alone).toMatch(/outranks every other inspiration/)
-    expect(alone).toMatch(/do NOT copy its text, brand or logo/)
+    expect(alone).toMatch(/do NOT copy its brand or logo/)
+    // On the look the picture wins over the dossier, which may not have seen it.
+    expect(alone).toMatch(/On the LOOK .* this picture outranks the DESIGN DOSSIER above/)
+    expect(alone).toMatch(/closest <Ornament> shapes/)
     expect(alone).not.toMatch(/MOOD\/ART-DIRECTION ONLY/)
     const beside = buildMusePreamble(
       '# Dossier',
@@ -107,6 +110,11 @@ describe('pure helpers', () => {
     )
     expect(beside).toMatch(/NOT one of the images listed above/)
     expect(beside).toMatch(/CHOSEN BY THE USER/)
+  })
+
+  it("says nothing of a user reference when the picture is Muse's own plate", () => {
+    const plate = buildMusePreamble('# Dossier', [], 'inspiration')
+    expect(plate).not.toMatch(/outranks the DESIGN DOSSIER|<Ornament>/)
   })
 })
 

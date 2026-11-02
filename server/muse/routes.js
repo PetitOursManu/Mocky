@@ -87,7 +87,8 @@ export function sanitizeUserMedia(raw) {
 export function sanitizeReference(raw) {
   const media = sanitizeUserMedia(raw && typeof raw === 'object' ? { ...raw, kind: 'image', drive: undefined } : null)
   if (!media) return null
-  return { swatches: media.swatches, accent: media.accent, image: media.image }
+  const hex = (v) => (HEX_RE.test(String(v || '')) ? String(v).toLowerCase() : null)
+  return { swatches: media.swatches, accent: media.accent, ink: hex(raw.ink), backdrop: hex(raw.backdrop), image: media.image }
 }
 
 /**

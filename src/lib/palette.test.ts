@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { paletteFromPixels, saturationOf, toHex } from './palette'
+import { paletteFromPixels, referencePaletteFromPixels, saturationOf, toHex } from './palette'
 
 /** Builds an RGBA buffer from a list of [r,g,b,count] runs. */
 function pixels(runs: [number, number, number, number][], alpha = 255): Uint8ClampedArray {
@@ -121,3 +121,77 @@ describe('helpers', () => {
     expect(saturationOf(200, 150, 150)).toBeLessThan(1)
   })
 })
+
+/**
+ * A picture drawn by a function of (x, y) → [r, g, b], so a test can paint a
+ * mock-up: a card on a backdrop, with a blob and a line of lettering.
+ */
+function paint(w: number, h: number, at: (x: number, y: number) => [number, number, number]): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(w * h * 4)
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const [r, g, b] = at(x, y)
+      out.set([r, g, b, 255], (y * w + x) * 4)
+    }
+  return out
+}
+
+const BACKDROP: [number, number, number] = [234, 235, 240]
+const BEIGE: [number, number, number] = [239, 225, 209]
+const ORANGE: [number, number, number] = [228, 165, 136]
+const TERRACOTTA: [number, number, number] = [194, 108, 87]
+
+/** The thank-you card that prompted `referencePaletteFromPixels`: grey round it, beige, an orange blob, one thin line of type. */
+function card(x: number, y: number): [number, number, number] {
+  if (x < 20 || x >= 180 || y < 40 || y >= 160) return BACKDROP
+  if ((x - 40) ** 2 + (y - 60) ** 2 < 300) return ORANGE
+  if (y === 100 && x > 70 && x < 130) return TERRACOTTA
+  return BEIGE
+}
+
+describe('referencePaletteFromPixels', () => {
+  it("leaves out a mock-up's plain backdrop, and keeps the design's own colours", () => {
+    const p = referencePaletteFromPixels(paint(200, 200, card), 200, 200)
+    expect(p.backdrop).toBe(toHex(...BACKDROP))
+    expect(p.swatches[0].hex).toBe(toHex(...BEIGE))
+    expect(p.swatches.some((s) => s.hex === toHex(...BACKDROP))).toBe(false)
+    expect(p.accent).toBe(toHex(...ORANGE))
+  })
+
+  it('finds the ink of thin lettering, which a sort by weight dropped', () => {
+    const p = referencePaletteFromPixels(paint(200, 200, card), 200, 200)
+    expect(p.ink).toBe(toHex(...TERRACOTTA))
+  })
+
+  it('does not fold the ground into the backdrop, as the hero measure did', () => {
+    // The old measure merged beige and grey into one swatch that is neither.
+    const old = paletteFromPixels(paint(200, 200, card)).swatches[0].hex
+    expect([toHex(...BEIGE), toHex(...BACKDROP)]).not.toContain(old)
+    expect(referencePaletteFromPixels(paint(200, 200, card), 200, 200).swatches[0].hex).toBe(toHex(...BEIGE))
+  })
+
+  it('keeps the ground of a full-bleed design: a plain border is not always a backdrop', () => {
+    const fullBleed = (x: number, y: number): [number, number, number] =>
+      (x - 100) ** 2 + (y - 100) ** 2 < 400 ? ORANGE : y === 150 && x > 60 && x < 140 ? TERRACOTTA : BACKDROP
+    const p = referencePaletteFromPixels(paint(200, 200, fullBleed), 200, 200)
+    expect(p.backdrop).toBeNull()
+    expect(p.swatches[0].hex).toBe(toHex(...BACKDROP))
+  })
+
+  it('keeps a near-white INSIDE the design: the backdrop is flooded from the border only', () => {
+    // A white card on a white table: the table touches the border, the card does not.
+    const white = (x: number, y: number): [number, number, number] =>
+      x < 30 || x >= 170 || y < 30 || y >= 170 ? [250, 250, 250] : x === 30 || x === 169 || y === 30 || y === 169 ? [200, 200, 205] : [252, 247, 240]
+    const p = referencePaletteFromPixels(paint(200, 200, white), 200, 200)
+    expect(p.backdrop).toBe('#fafafa')
+    expect(p.swatches[0].hex).toBe('#fcf7f0')
+  })
+
+  it('names no backdrop for a coloured border, and no ink for a picture with nothing dark', () => {
+    const pale = paint(50, 50, () => BEIGE)
+    const p = referencePaletteFromPixels(pale, 50, 50)
+    expect(p.backdrop).toBeNull()
+    expect(p.ink).toBeNull()
+  })
+})
+

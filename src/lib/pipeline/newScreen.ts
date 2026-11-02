@@ -31,7 +31,7 @@ import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Projec
 import { filmMedia } from '../screenMedia'
 import { resolveDirection } from '../direction'
 import { getPreset } from '../presets'
-import { composerPageFormat, documentHint, documentPipeline, foldedSheet, pickReference } from '../documentMode'
+import { composerPageFormat, documentHint, documentPipeline, foldedSheet, ORNAMENTS_CAP, pickReference } from '../documentMode'
 import { documentSequenceSection } from '../docSequence'
 import type { FoldId } from '../folds'
 import { brandMuseLine, brandSection, type BrandIdentity } from '../brand'
@@ -65,6 +65,7 @@ import {
   generateSlotImages,
   buildMusePreamble,
   parseUrls,
+  MUSE_LOOK_FAILED,
   absoluteUrl,
   checkVision,
   generateScrollVideo,
@@ -596,7 +597,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         if (linked.picture) {
           hooks.setMuseStage(t('project.museStageMedia'))
           const vision = museVision ?? (await checkVision(signal)).vision
-          linkReference = await describeUserMedia(linked.picture.dataUrl, 'image', { vision, signal })
+          linkReference = await describeUserMedia(linked.picture.dataUrl, 'image', { vision, signal, reference: true })
           if (!linkReference) hooks.notice(t('project.museLinkUnreadable'))
           else if (vision !== true) hooks.notice(t('project.museLinkNoVision'))
           else museLinkRef = linked.picture.dataUrl
@@ -619,6 +620,16 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         })
         hooks.setMuseResult(res)
         museLinkUsed = !!linkReference
+        // Only when the generation will see the picture: the sentences say it
+        // follows the picture, and without vision `museLinkNoVision` already
+        // said what is left — the colours.
+        if (linkReference && museLinkRef) {
+          // Said in the composer, not only in the panel's last line: this is the
+          // run where the person will look at the screen and see their picture
+          // nowhere, and the reason was a notice nobody opened.
+          if (res.source === 'fallback') hooks.notice(t('project.museLinkFallback'))
+          else if (res.notices?.some((n) => n.includes(MUSE_LOOK_FAILED))) hooks.notice(t('project.museLinkDossierBlind'))
+        }
         /*
          * As many page slots as the person asked for. The dossier plans the
          * pictures it thinks the page wants — usually a hero and a couple of
@@ -1147,6 +1158,10 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // A working prototype: the kit and its rules, on a screen (never a page of
     // a document — paper has no next page to open).
     if (req.flows && !pipe.document && !capIds.includes('flow')) capIds = [...capIds, 'flow']
+    // The user's reference picture draws shapes — blobs, drawn lines, arches —
+    // and the closed catalogue is the only pen that can redraw them: offered
+    // as it is to every document, and named by the reference's own sentence.
+    if (museLinkUsed && !capIds.includes(ORNAMENTS_CAP)) capIds = [...capIds, ORNAMENTS_CAP]
 
     hooks.setPhase('generating')
     const caps = resolveCapabilities(capIds)

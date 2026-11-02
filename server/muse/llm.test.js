@@ -93,6 +93,22 @@ describe('museChat', () => {
     expect(seen.body.options).toBeUndefined()
   })
 
+  it('hands native Ollama bare base64, and the OpenAI dialect its data URL', async () => {
+    // Every picture Muse attaches is a data URL; Ollama refused it with a 400,
+    // and the dossier went to its pattern fallback.
+    const image = 'data:image/jpeg;base64,/9j/AAAA'
+    let body
+    stubFetch(async (url, init) => {
+      body = JSON.parse(init.body)
+      return { ok: true, status: 200, json: async () => ({ message: { content: 'ok' }, choices: [{ message: { content: 'ok' } }] }) }
+    })
+    await museChat(creds, { system: 's', user: 'u', images: [image] })
+    expect(body.messages[1].images).toEqual(['/9j/AAAA'])
+    await museChat({ kind: 'openai', baseUrl: 'https://openrouter.ai/api', apiKey: 'or', model: 'x/y' }, { system: 's', user: 'u', images: [image] })
+    const parts = body.messages.find((m) => m.role === 'user').content
+    expect(parts.find((p) => p.type === 'image_url').image_url.url).toBe(image)
+  })
+
   it('sends fal.ai’s "Key" auth scheme rather than a Bearer token', async () => {
     let seen
     stubFetch(async (url, init) => {

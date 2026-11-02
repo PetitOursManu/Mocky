@@ -146,6 +146,10 @@ export const project = {
     'project.museLinkOnlyFirst': 'Plusieurs images d’inspiration : Muse s’inspire de la première seulement.',
     'project.museLinkDirection':
       'La direction du projet a été refaite d’après l’image d’inspiration : les prochains écrans la suivront.',
+    'project.museLinkFallback':
+      'Muse n’a pas pu écrire la direction : seules les couleurs de l’image d’inspiration ont été reprises, et l’écran suit l’image pour le reste.',
+    'project.museLinkDossierBlind':
+      'Le modèle de Muse ne voit pas les images : la direction vient des couleurs mesurées sur l’image d’inspiration, et l’écran suit l’image pour le reste.',
     'project.siteSourceFailed': 'Cette page n’a pas pu être affichée : vérifiez qu’elle s’ouvre dans un navigateur, ou joignez-en une capture.',
     'project.siteZipNoPage': 'Ce .zip ne contient aucune page .html.',
     'project.siteZipUnsupported':
@@ -518,6 +522,10 @@ export const project = {
     'project.museLinkOnlyFirst': 'Several inspiration pictures: Muse draws on the first one only.',
     'project.museLinkDirection':
       'The project’s direction was redone from the inspiration picture: the next screens will follow it.',
+    'project.museLinkFallback':
+      'Muse could not write the direction: only the inspiration picture’s colours were taken, and the screen follows the picture for the rest.',
+    'project.museLinkDossierBlind':
+      'Muse’s model cannot see pictures: the direction comes from the colours measured on the inspiration picture, and the screen follows the picture for the rest.',
     'project.siteSourceFailed': 'This page could not be displayed: check that it opens in a browser, or attach a screenshot of it.',
     'project.siteZipNoPage': 'This .zip contains no .html page.',
     'project.siteZipUnsupported':

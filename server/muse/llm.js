@@ -43,7 +43,14 @@ export async function museChat(creds, req) {
   // Vision attachments ride on the user message in the Ollama shape; the
   // dialect translates them to OpenAI's `image_url` parts when needed, so this
   // is one field rather than two code paths.
-  const images = Array.isArray(req.images) ? req.images.filter(Boolean) : []
+  // Native Ollama takes bare base64; every picture Muse attaches is a data URL
+  // (the browser describes it that way, `sanitizeUserMedia` checks it that
+  // way), and Ollama answered such a call with a 400 that sent the dossier to
+  // its pattern fallback. The OpenAI dialect wants the data URL, and keeps it.
+  const native = creds.kind !== KIND_OPENAI
+  const images = (Array.isArray(req.images) ? req.images.filter(Boolean) : []).map((im) =>
+    native ? String(im).replace(/^data:[^;,]+;base64,/, '') : im,
+  )
   const userMessage = images.length
     ? { role: 'user', content: req.user, images }
     : { role: 'user', content: req.user }

@@ -208,10 +208,12 @@ export function referencePromptLines(reference) {
   const lines = [
     '- VISUAL REFERENCE — the user chose a picture this screen must look inspired by. It is the PRIMARY source of the whole direction: derive the palette, the typography, the composition, the ornaments and the tone from it FIRST. The inspiration cards and patterns are secondary: use them only to refine what the reference leaves open, never to pull away from it. A dossier in which the reference cannot be recognised has failed. The format and the subject still come from the user request.',
     '- References: cite the user\'s picture FIRST, as { "sourceUrl": "user reference", "note": what you took from it }.',
+    "- Typography under a reference: choose, from the list below, the faces CLOSEST to the reference's own — a high-contrast display serif for one, a script for a script, a geometric sans for a geometric sans — never a face of another family because a pattern suggests it.",
+    '- Shapes under a reference: say in `layoutGrammar` which shapes and ornaments it draws and where (organic blobs bleeding off the corners, thin drawn lines, arches, frames…), so every screen redraws them.',
   ]
   if (reference.image) {
     lines.push(
-      '- Reference reading: `referenceReading` — 3 to 5 sentences describing what the attached reference picture SHOWS, for a designer who will never see it: its format and orientation, how its space is composed (alignment, margins, what is large and what is small), its typefaces (serif, script, sans; weight; case), its ornaments and textures, how its colours are used, and its tone. Describe; do not transcribe its text.',
+      '- Reference reading: `referenceReading` — 3 to 5 sentences describing what the attached reference picture SHOWS, for a designer who will never see it: its format and orientation, how its space is composed (alignment, margins, what is large and what is small), its typefaces (serif, script, sans; weight; case), its shapes, ornaments and textures (what they are, where they sit, how they overlap), how its colours are used, and its tone. Describe; do not transcribe its text.',
     )
   }
   return lines
@@ -323,6 +325,10 @@ export function buildReferenceSection(reference, { hero = false } = {}) {
     ...reference.swatches.map((s) => `- ${s.hex} (${Math.round((s.weight || 0) * 100)}%)`),
   ]
   if (reference.accent) lines.push(`Most saturated colour, the natural accent: ${reference.accent}`)
+  if (reference.ink) lines.push(`Darkest colour really drawn, the ink of its lettering: ${reference.ink}`)
+  if (reference.backdrop) {
+    lines.push(`Left out: the plain ${reference.backdrop} round the picture — the backdrop of a mock-up photo, not part of the design.`)
+  }
   lines.push(
     '',
     'RULES:',
@@ -585,6 +591,21 @@ export function ensureHeroImagery(dossier, ctx) {
   return anchorImageryToRequest(dossier, ctx)
 }
 
+/** How long one dossier call may take (Muse's other calls: 40 s). */
+export const DOSSIER_TIMEOUT_MS = 90_000
+
+/**
+ * The start of the notice that says the dossier could not look at a picture.
+ * Fixed words, because the composer reads them to tell the person (newScreen).
+ */
+export const LOOK_FAILED_PREFIX = 'the dossier model could not look at the pictures'
+
+/** The same request with every picture taken off — the palettes stay. */
+function withoutPictures(ctx) {
+  const strip = (m) => (m && m.image ? { ...m, image: undefined } : m)
+  return { ...ctx, userMedia: strip(ctx.userMedia), reference: strip(ctx.reference) }
+}
+
 /** The pictures the dossier call looks at, in the order the prompt introduces them. */
 export function dossierImages(ctx) {
   const images = [ctx.userMedia?.image, ctx.reference?.image].filter((i) => typeof i === 'string' && i)
@@ -603,30 +624,69 @@ export async function buildDossier(llm, ctx, opts = {}) {
     // The dossier is a large structured output; give it enough budget to avoid
     // mid-JSON truncation, and retry once (the LLM is non-deterministic) before
     // degrading to the pattern fallback (M3).
-    for (let attempt = 0; attempt < 2; attempt++) {
+    /*
+     * The request this attempt sends. It starts with the pictures, and loses
+     * them if a call carrying them FAILS — a model with no vision answers 400
+     * ("This model does not support image input"), and the retry used to send
+     * the same picture again, fail the same way, and fall back to a pattern.
+     * That is how a thank-you card in cream and terracotta came back as the
+     * "Monospace Terminal" pattern in black and green: the profile Muse runs on
+     * is not the one whose vision the browser probed. Without the picture the
+     * dossier still has its measured palette and the reference section, which
+     * is a direction written FROM the reference rather than one that ignores it.
+     */
+    let run = ctx
+    // A picture refused is a fast 400, not an attempt at the dossier: losing
+    // the picture adds one attempt rather than spending one of the two.
+    let attempts = 2
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const images = dossierImages(run)
       try {
         const raw = await llm({
-          system: buildSystem(ctx),
-          user: buildUser(ctx),
-          schema: dossierJsonSchema(ctx.motion, { referenceImage: !!ctx.reference?.image }),
+          system: buildSystem(run),
+          user: buildUser(run),
+          schema: dossierJsonSchema(run.motion, { referenceImage: !!run.reference?.image }),
           // The picture itself, when the model can see. The measured palette in
           // the prompt covers colour either way; this adds what a histogram
           // cannot report — composition, subject, density, light.
           // A reference picture rides beside it, in the order the sections
           // name them: the hero first, then the reference.
-          images: dossierImages(ctx),
+          images,
+          // The 40 s every other Muse call has was spent before the JSON was
+          // finished: a dossier is four thousand tokens of structure, longer
+          // still under a reference's rules, and a free model writing one was
+          // cut at 40 s every time it was measured.
+          timeoutMs: DOSSIER_TIMEOUT_MS,
           options: { num_predict: 4096, num_ctx: 16384, temperature: dossierTemperature(attempt, ctx.creative) },
         })
         const dossier = DossierSchema.parse(normalizeDossierRaw(raw))
-        dossier.tokens.typography = settleTypography(dossier.tokens.typography, ctx.patternHints?.[0]?.tokenSeeds?.typography)
+        // A pattern's faces are the fallback for a face the catalogue lacks —
+        // except under a reference, where they are exactly the competing
+        // direction: the terminal pattern's JetBrains Mono on a script card.
+        dossier.tokens.typography = settleTypography(
+          dossier.tokens.typography,
+          ctx.reference ? undefined : ctx.patternHints?.[0]?.tokenSeeds?.typography,
+        )
         dossier.film = settleFilm(raw?.film, ctx.motion)
         dossier.forbidden = mergedForbidden(ctx, dossier.forbidden)
         ensureHeroImagery(dossier, ctx)
         dossier.__source = 'llm'
         return dossier
       } catch (err) {
-        if (attempt === 1) {
-          onNotice(`Muse: dossier LLM step failed (${err instanceof Error ? err.message : String(err)}) — using pattern fallback`)
+        const message = err instanceof Error ? err.message : String(err)
+        // A malformed answer is the model's, and worth the same request again;
+        // so is a quota or a key (402, 429, 401, 403), which says nothing about
+        // the picture — the first measured run dropped it for a rate limit.
+        // Anything else — refused, timed out — may be the picture's.
+        const shaped = err?.name === 'ZodError' || /valid JSON/.test(message)
+        const unrelated = /HTTP (401|402|403|429)\b|auth failed/.test(message)
+        if (images && !shaped && !unrelated) {
+          onNotice(`Muse: ${LOOK_FAILED_PREFIX} (${message.slice(0, 160)}) — written from its measured colours instead`)
+          run = withoutPictures(run)
+          attempts = 3
+        }
+        if (attempt === attempts - 1) {
+          onNotice(`Muse: dossier LLM step failed (${message}) — using pattern fallback`)
         }
       }
     }
@@ -639,6 +699,7 @@ export async function buildDossier(llm, ctx, opts = {}) {
  * copy derived from the request. Keeps Muse useful offline / on failure.
  */
 export function buildFallbackDossier(ctx) {
+  if (ctx.reference?.swatches?.length) return referenceFallbackDossier(ctx)
   const pattern = (ctx.patternHints && ctx.patternHints[0]) || null
   const seeds = pattern?.tokenSeeds || {}
   const colors = (seeds.colors || []).map((c) => ({ label: c.label, hex: c.hex }))
@@ -673,6 +734,59 @@ export function buildFallbackDossier(ctx) {
   dossier.forbidden = mergedForbidden(ctx, [])
   // No model, so nothing was judged: a forced film is still a yes, an automatic
   // one a no — the prudent reading of a question nobody could ask.
+  dossier.film = settleFilm(null, ctx.motion)
+  dossier.__source = 'fallback'
+  return dossier
+}
+
+/**
+ * The user's reference colours, named for their roles: the heaviest is the
+ * ground, the next light one the surface, the ink the text, the accent the
+ * accent, the rest kept as they are.
+ */
+export function referenceColors(reference) {
+  const swatches = (reference?.swatches || []).map((s) => s.hex)
+  if (!swatches.length) return []
+  const used = new Set()
+  const take = (label, hex, role) => {
+    if (!hex || used.has(hex)) return null
+    used.add(hex)
+    return { label, hex, ...(role ? { role } : {}) }
+  }
+  const out = [
+    take('Background', swatches[0], 'background'),
+    take('Surface', swatches.find((h) => h !== swatches[0] && h !== reference.ink && h !== reference.accent), 'surface'),
+    take('Ink', reference.ink, 'text'),
+    take('Accent', reference.accent, 'accent'),
+  ]
+  swatches.forEach((h, i) => out.push(take(`Reference ${i + 1}`, h)))
+  return out.filter(Boolean).slice(0, 8)
+}
+
+/**
+ * The fallback when the user gave a reference picture and no model answered.
+ *
+ * The pattern fallback is a direction picked from the REQUEST's words — for "une
+ * carte de remerciement" that was "Monospace Terminal", black and green in
+ * JetBrains Mono — and it became the screen's authority over the very picture
+ * the person had pointed at. With a reference there is something better than
+ * any pattern: its own measured colours. Nothing else is invented — no faces a
+ * model did not choose, and no copy: the generic English lines ("Everything you
+ * need for …") were pasted verbatim onto a French card, because the dossier is
+ * authoritative on copy.
+ */
+function referenceFallbackDossier(ctx) {
+  const dossier = DossierSchema.parse({
+    concept: "Derived from the user's own reference picture: its colours below were measured from its pixels. Follow the picture for the look.",
+    references: [{ sourceUrl: 'user reference', note: 'palette measured from the picture' }],
+    tokens: { colors: referenceColors(ctx.reference), typography: {}, radius: 'rounded-xl' },
+    layoutGrammar: [],
+    motionLanguage: [],
+    voice: { tone: 'As the reference picture suggests', valueProps: [], ctaLabels: [] },
+    imageryPlan: [defaultHeroSlot(ctx, null)],
+    forbidden: [],
+  })
+  dossier.forbidden = mergedForbidden(ctx, [])
   dossier.film = settleFilm(null, ctx.motion)
   dossier.__source = 'fallback'
   return dossier
