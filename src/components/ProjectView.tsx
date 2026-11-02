@@ -4768,6 +4768,11 @@ export default function ProjectView({
                 onStart={startEnhance}
                 disabled={busy || !prompt.trim()}
                 disabledReason={enhanceBlocked}
+                // While a screen is written, Stop and the loader's label join
+                // Generate on this row, and the labelled sparkle no longer fits
+                // the sheet's width: it slid under Stop. Disabled anyway then, so
+                // its icon alone says enough.
+                compact={busy}
               />
             ) : (
               <span />
