@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: af9f51308cb9
+source_hash: 307b5c169f29
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -416,12 +416,14 @@ sortes :
 - **Des formes fluides** (25), en deux couleurs : un blob organique avec un
   ruban, un anneau ou des bulles dans la seconde couleur de la page (`accent`)
   — un ruban liquide, une planète, un blob drapé, une rosette, une bannière.
-- **Des traits** (71) : comme tracés à la main — une vague ou un double
+- **Des traits** (88) : comme tracés à la main — une vague ou un double
   soulignement sous un mot, un cercle griffonné autour d'un prix, des flèches,
   une spirale, une échelle, un infini, un trajet pointillé, un signal — et des
   cadres décoratifs à poser sur une image ou un bloc : coins, coins arrondis ou
   en pétales, une mire, un billet à souche, une double fenêtre, un cadre ondulé
-  ou drapé.
+  ou drapé — et des compositions de nombreuses formes en contour seulement :
+  un groupe de blobs, des galets empilés, un cercle de galets, des bulles, un
+  ensemble Memphis ou Bauhaus, des formes géométriques éparpillées.
 - **Des textures** (46) : points, grilles, rayures, diagonales, damiers, trame,
   vagues, confettis, écailles, briques, nid d'abeille, cubes isométriques,
   chevrons, rayons de soleil, tartan, moulinets, arlequin, éventails Art déco,
@@ -431,6 +433,10 @@ sortes :
   orbite, des barres, un anneau coupé, des ondes, un éventail qui tourne. Ils
   restent immobiles dans un document, avec le mouvement réduit, avec
   `Sans animation` et dans tous les exports.
+
+Toute forme pleine ou fluide peut aussi être tracée en contour seulement
+(`outline`) : un trait qui garde son épaisseur à toute taille, pour une page
+légère, comme dessinée au trait.
 
 Demandez « formes décoratives »,
 « gribouillis », « confettis » ou « un fond à motif » sur un écran ordinaire et

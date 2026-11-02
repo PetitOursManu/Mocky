@@ -303,7 +303,12 @@ var Ornament = function (props) {
   var className = typeof props.className === 'string' ? props.className : '';
   var color = mockyOrnColor(props.color, 'currentColor');
   var accent = mockyOrnColor(props.accent, null);
-  var line = !!s && s.k === 'l';
+  /* "outline" draws a solid or a fluid shape as its contour: the same path,
+     stroked like a line. One switch rather than a "-outline" twin of every
+     solid, which would have doubled the names the model is offered for drawings
+     it already knows by name. */
+  var outline = !!props.outline && !!s && (s.k === 'f' || s.k === 'u');
+  var line = !!s && (s.k === 'l' || outline);
   var weight = mockyOrnNum(props.weight, 0.5, 24, line ? 3 : 1.5);
   var draw = line && !!props.draw;
   var delay = mockyOrnNum(props.delay, 0, 3, 0);
@@ -351,7 +356,9 @@ var Ornament = function (props) {
     var layered = [], moved = [];
     for (var li = 0; li < s.L.length; li++) {
       var L = s.L[li];
-      var paint = L[1] === 1 ? accent || color : L[1] === 2 ? '#ffffff' : color;
+      /* White is a highlight ON a fill; round an empty contour it is a line
+         nobody sees on paper, so an outlined shape draws it in its colour. */
+      var paint = L[1] === 1 ? accent || color : L[1] === 2 && !outline ? '#ffffff' : color;
       var op = L[3] * (L[1] === 1 && !accent ? 0.5 : 1);
       var lp = { key: 'l' + li, d: L[0] };
       if (line && !(L[4] & 1)) Object.assign(lp, { fill: 'none', stroke: paint, strokeWidth: weight, strokeLinecap: 'round', strokeLinejoin: 'round', vectorEffect: 'non-scaling-stroke' });

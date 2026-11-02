@@ -398,11 +398,13 @@ Every document is offered `<Ornament>`, about 300 shapes in five kinds:
 - **Fluid shapes** (25), in two colours: an organic blob with a ribbon, a ring
   or bubbles in the page's second colour (`accent`) — a liquid ribbon, a
   planet, a draped blob, a rosette, a flying banner.
-- **Strokes** (71): drawn as if by hand — a squiggle or a double underline under
+- **Strokes** (88): drawn as if by hand — a squiggle or a double underline under
   a word, a circle scribbled round a price, arrows, a spiral, a ladder, an
   infinity sign, a dotted route, a signal — and decorative frames to lay over a
   picture or a block: corner marks, rounded or petal corners, a crosshair, a
-  ticket stub, a double window, a wavy or a draped frame.
+  ticket stub, a double window, a wavy or a draped frame — and compositions
+  of many shapes drawn as contours only: a cluster of blobs, stacked pebbles, a
+  ring of pebbles, bubbles, a Memphis or a Bauhaus set, scattered geometry.
 - **Textures** (46): dots, grids, stripes, diagonals, checkerboards, halftone,
   waves, confetti, fish scales, bricks, honeycomb, isometric cubes, herringbone,
   a sunburst, tartan, pinwheels, harlequin, art-deco fans, a barcode, a
@@ -410,6 +412,9 @@ Every document is offered `<Ornament>`, about 300 shapes in five kinds:
 - **Moving signs** (17): loaders and beats — dots on an orbit, bars, a cut
   ring, pulses, a turning fan. They hold still in a document, with reduced
   motion, with `Sans animation` and in every export.
+
+Every solid or fluid shape can also be drawn as its contour only (`outline`):
+a stroke that keeps its thickness at any size, for a line-drawn, airy page.
 
 Ask for "formes décoratives", "gribouillis", "confettis", "un fond à motif" on
 an ordinary screen and it is offered there too.

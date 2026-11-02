@@ -592,6 +592,131 @@ const strokes: Ornament[] = [
   { id: 'clipboard', kind: 'line', ratio: 0.85, d: 'M12 18H88V88H12ZM34 18V8H66V18M38 8V20H62V8' },
 ]
 
+/** The same numbers on every build: a composition is a drawing, not a dice roll at render time. */
+function seeded(seed: number): () => number {
+  let s = seed >>> 0 || 1
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0
+    return s / 4294967296
+  }
+}
+
+/**
+ * One blob of several, placed round (cx, cy): `frameShapes`' blob fills its
+ * whole box, and a composition needs five of them at five sizes in one box.
+ * The radius wanders by two seeded harmonics and the outline is a closed
+ * Catmull-Rom curve through the anchors. `sx` widens it — and is how a blob in
+ * a 1.6:1 box stays a blob rather than a sausage, since the box is stretched.
+ * Clamped to the box: a control point outside it is a curve the stroke cuts.
+ */
+function blobAt(cx: number, cy: number, r: number, seed: number, wobble = 0.22, n = 7, sx = 1): string {
+  const rand = seeded(seed)
+  const harm = [2, 3].map((k) => ({ k, amp: (rand() - 0.5) * 2 * wobble, ph: rand() * Math.PI * 2 }))
+  const a: Pt[] = Array.from({ length: n }, (_, i) => {
+    const ang = (i / n) * Math.PI * 2
+    let rad = 1
+    for (const h of harm) rad += (h.amp / h.k) * Math.sin(h.k * ang + h.ph)
+    rad *= r * (1 + (rand() - 0.5) * wobble * 0.5)
+    return [cx + Math.cos(ang) * rad * sx, cy + Math.sin(ang) * rad]
+  })
+  const box = ([x, y]: Pt): Pt => [Math.min(99, Math.max(1, x)), Math.min(99, Math.max(1, y))]
+  let d = `M${pt(box(a[0]))}`
+  for (let i = 0; i < n; i++) {
+    const [p0, p1, p2, p3] = [a[(i - 1 + n) % n], a[i], a[(i + 1) % n], a[(i + 2) % n]]
+    const c1: Pt = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6]
+    const c2: Pt = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6]
+    d += `C${pt(box(c1))} ${pt(box(c2))} ${pt(box(p2))}`
+  }
+  return d + 'Z'
+}
+
+/** A regular polygon round (cx, cy), its x squeezed by `k` so it stays regular in a box wider than tall. */
+const ngon = (cx: number, cy: number, r: number, n: number, deg: number, k = 1) =>
+  poly(Array.from({ length: n }, (_, i) => polar(r, deg + (i * 360) / n, cx, cy)).map(([x, y]): Pt => [cx + (x - cx) * k, y]))
+/** A circle in a box of ratio 1/k: an ellipse in box units. */
+const ring = (cx: number, cy: number, r: number, k = 1) => ellipsePath(cx, cy, r * k, r)
+const plusAt = (cx: number, cy: number, s: number, k = 1) => `M${fmt(cx - s * k)} ${fmt(cy)}H${fmt(cx + s * k)}M${fmt(cx)} ${fmt(cy - s)}V${fmt(cy + s)}`
+/** `wavyCircle`, placed: a scalloped ring round (cx, cy). */
+function wavyAt(cx: number, cy: number, bumps: number, R: number, amp: number, k = 1): string {
+  const n = bumps * 4
+  const at = (rad: number, deg: number): Pt => {
+    const [x, y] = polar(rad, deg, cx, cy)
+    return [cx + (x - cx) * k, y]
+  }
+  const ctl = Array.from({ length: n }, (_, i) => at(R + amp * Math.cos((i / n) * bumps * 2 * Math.PI), (i * 360) / n - 90))
+  const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+  let d = `M${pt(mid(ctl[n - 1], ctl[0]))}`
+  for (let i = 0; i < n; i++) d += `Q${pt(ctl[i])} ${pt(mid(ctl[i], ctl[(i + 1) % n]))}`
+  return d + 'Z'
+}
+
+/**
+ * Compositions of MANY shapes — blobs, pebbles, circles, triangles — drawn as
+ * contours only. Asked for by name: the solids are one shape each, filled, and
+ * a page that wanted the airy, line-drawn cluster of a stationery card had
+ * nothing but a pile of separate `<Ornament>`s to build it from, each placed
+ * by guess. Every one is a `line`, so it takes `weight`, keeps it at any size,
+ * and can be traced with `draw`. (A single solid in contour is `outline`.)
+ */
+const outlines: Ornament[] = [
+  { id: 'blob-cluster', kind: 'line', ratio: 1, d: blobAt(40, 42, 24, 3, 0.4) + blobAt(66, 64, 18, 7, 0.4) + blobAt(26, 76, 11, 13, 0.4) },
+  { id: 'blob-ripples', kind: 'line', ratio: 1, d: [36, 25, 14].map((r) => blobAt(50, 50, r, 17, 0.3, 8)).join('') },
+  {
+    id: 'blob-scatter',
+    kind: 'line',
+    ratio: 1.4,
+    d:
+      [[18, 30, 14, 5], [52, 22, 9, 9], [80, 42, 15, 21], [34, 70, 12, 33], [66, 78, 10, 47]].map(([x, y, r, s]) => blobAt(x, y, r, s, 0.28, 7, 1 / 1.4)).join('') +
+      ring(44, 48, 4, 1 / 1.4) + ring(90, 82, 3, 1 / 1.4) + ring(10, 86, 3, 1 / 1.4),
+  },
+  { id: 'blob-duo', kind: 'line', ratio: 1.6, d: blobAt(36, 50, 27, 61, 0.42, 7, 1 / 1.6) + blobAt(64, 52, 24, 67, 0.42, 7, 1 / 1.6) },
+  { id: 'blob-chain', kind: 'line', ratio: 3, d: [13, 31.5, 50, 68.5, 87].map((x, i) => blobAt(x, 50, i % 2 ? 23 : 28, 71 + i * 6, 0.4, 7, 1 / 3)).join('') },
+  // Balanced stones: flat pebbles, each a little narrower than the one it stands on.
+  {
+    id: 'pebble-stack',
+    kind: 'line',
+    ratio: 0.75,
+    d: [[80, 14, 2.2], [57, 11, 2], [38, 9, 1.8], [22, 7, 1.6]].map(([y, r, w], i) => blobAt(50 + (i % 2 ? -2 : 2), y, r, 91 + i * 4, 0.08, 7, w / 0.75 / 1.4)).join(''),
+  },
+  { id: 'pebble-ring', kind: 'line', ratio: 1, d: Array.from({ length: 8 }, (_, i) => polar(36, i * 45 - 90)).map(([x, y], i) => blobAt(x, y, 8, 111 + i * 3, 0.15, 6, 1.3)).join('') },
+  { id: 'organic-corners', kind: 'line', ratio: 1, d: blobAt(18, 18, 12, 131, 0.28) + blobAt(84, 18, 9, 137, 0.3) + blobAt(82, 82, 13, 139, 0.26) + blobAt(18, 84, 9, 149, 0.3) + ring(32, 30, 3) + ring(70, 72, 3) },
+  { id: 'orbit-blob', kind: 'line', ratio: 1, d: blobAt(50, 50, 22, 151, 0.22) + ellipsePath(50, 50, 44, 16, -20) + ring(91, 35, 4) },
+  {
+    id: 'bubble-cloud',
+    kind: 'line',
+    ratio: 1.3,
+    d: [[22, 60, 16], [44, 40, 20], [68, 52, 17], [86, 34, 9], [56, 80, 10], [28, 28, 7], [82, 78, 6], [12, 34, 5]].map(([x, y, r]) => ring(x, y, r, 1 / 1.3)).join(''),
+  },
+  { id: 'wavy-rings', kind: 'line', ratio: 1.3, d: wavyAt(36, 48, 10, 25, 2.5, 1 / 1.3) + wavyAt(66, 58, 9, 21, 2.5, 1 / 1.3) + wavyAt(86, 24, 6, 9, 1.5, 1 / 1.3) },
+  // The geometric vocabulary, outlined: what `bauhaus`-style solids say, drawn with a pen.
+  { id: 'bauhaus-outline', kind: 'line', ratio: 1, d: ring(40, 42, 30) + ngon(64, 64, 24, 4, 45) + ngon(28, 74, 16, 3, -90) + 'M70 12A18 18 0 0 1 88 30' },
+  {
+    id: 'memphis-outline',
+    kind: 'line',
+    ratio: 1.3,
+    d: ring(26, 32, 16, 1 / 1.3) + ngon(72, 30, 17, 3, -90, 1 / 1.3) + waveLine(52, 92, 74, 4, 6) + 'M12 86A13.85 18 0 0 1 39.69 86Z' + plusAt(54, 50, 5, 1 / 1.3) + ring(88, 54, 3, 1 / 1.3) + ring(44, 12, 3, 1 / 1.3),
+  },
+  { id: 'shape-collage', kind: 'line', ratio: 1, d: rectPath(12, 12, 34, 34) + 'M54 12A34 34 0 0 1 88 46H54Z' + 'M12 88A18 18 0 0 1 48 88Z' + ring(70, 70, 18) },
+  {
+    id: 'geo-scatter',
+    kind: 'line',
+    ratio: 1.4,
+    d:
+      ngon(16, 26, 10, 3, -80, 1 / 1.4) + ngon(46, 20, 8, 4, 20, 1 / 1.4) + ring(78, 26, 9, 1 / 1.4) + ngon(86, 70, 11, 3, -110, 1 / 1.4) +
+      ring(28, 72, 8, 1 / 1.4) + ngon(56, 62, 11, 4, 10, 1 / 1.4) + plusAt(64, 88, 4, 1 / 1.4) + plusAt(36, 44, 3, 1 / 1.4) + plusAt(10, 88, 3, 1 / 1.4),
+  },
+  {
+    id: 'confetti-outline',
+    kind: 'line',
+    ratio: 1.6,
+    d:
+      ring(10, 20, 5, 1 / 1.6) + ngon(30, 70, 8, 3, -90, 1 / 1.6) + ngon(52, 22, 6, 4, 15, 1 / 1.6) + waveLine(64, 84, 70, 3, 4) + plusAt(88, 30, 5, 1 / 1.6) +
+      ring(72, 18, 3, 1 / 1.6) + ngon(92, 82, 6, 3, -30, 1 / 1.6) + 'M8 82A8 8 0 0 1 18 74' + plusAt(42, 46, 4, 1 / 1.6) + ring(56, 86, 4, 1 / 1.6) + waveLine(16, 34, 40, 2.5, 4),
+  },
+  // A small landscape of shapes: a hill, a sun, a cloud of a blob, a leaf.
+  { id: 'abstract-garden', kind: 'line', ratio: 1, d: 'M8 86H92M14 86A24 24 0 0 1 62 86' + ring(74, 26, 12) + blobAt(32, 28, 9, 163, 0.18, 7, 1.7) + 'M70 86C70 64 84 54 92 50C92 68 84 80 70 86Z' },
+]
+
 /**
  * Signs that MOVE: loaders, a turning orbit, a beat. `motion` says how and
  * `moves` which layers; everything holds still where an entrance would — no
@@ -672,7 +797,10 @@ export const ORNAMENT_PATTERN_IDS = [
 
 const patterns: Ornament[] = ORNAMENT_PATTERN_IDS.map((id) => ({ id, kind: 'pattern', ratio: 1, d: '' }))
 
-export const ORNAMENTS: readonly Ornament[] = [...fills, ...abstract, ...solids, ...fluids, ...lines, ...strokes, ...patterns, ...motions]
+export const ORNAMENTS: readonly Ornament[] = [...fills, ...abstract, ...solids, ...fluids, ...lines, ...strokes, ...outlines, ...patterns, ...motions]
+
+/** The outline compositions, which the model's card lists apart from the hand-drawn strokes. */
+export const ORNAMENT_OUTLINE_IDS: readonly string[] = outlines.map((o) => o.id)
 
 export const ORNAMENT_IDS: readonly string[] = ORNAMENTS.map((o) => o.id)
 

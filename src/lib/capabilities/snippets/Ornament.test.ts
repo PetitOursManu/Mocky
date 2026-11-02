@@ -125,6 +125,22 @@ describe('Ornament', () => {
     expect(alone).toMatch(/opacity="0.5"[^>]*stroke="#7c3aed"|stroke="#7c3aed"[^>]*opacity="0.5"/)
   })
 
+  it('draws a solid or a fluid shape as its contour when asked, and nothing else changes', () => {
+    const out = html({ shape: 'blob-3', outline: true, color: '#0f766e', weight: 2 })
+    expect(out).toContain('fill="none"')
+    expect(out).toContain('stroke="#0f766e"')
+    expect(out).toContain('stroke-width="2"')
+    expect(out).toContain('vector-effect="non-scaling-stroke"')
+    expect(out).not.toContain('fill="#0f766e"')
+    // A fluid's ribbon follows, and its white highlight is drawn in the colour.
+    const fluid = html({ shape: 'liquid-ribbon', outline: true, color: '#7c3aed', accent: '#fb7185' })
+    expect(fluid).not.toMatch(/fill="#(7c3aed|fb7185|ffffff)"/)
+    expect(fluid).toContain('stroke="#fb7185"')
+    // A texture and a moving sign have no contour to draw: the switch is ignored.
+    expect(html({ shape: 'dots', outline: true })).toBe(html({ shape: 'dots' }))
+    expect(html({ shape: 'orbit-loader', outline: true })).toBe(html({ shape: 'orbit-loader' }))
+  })
+
   it('moves a moving sign only where something may move', () => {
     const g = globalThis as Record<string, unknown>
     g.window = {}
