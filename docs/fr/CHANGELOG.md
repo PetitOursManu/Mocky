@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `canevas` | les petits formats agrandis, le verso nommé | `9da6b15` |
 | `design` | la direction suit une modification qui recolore l'écran | `5d5bd22` |
 | `versions` | ce qui a changé et un fil d'Ariane ; cartes US portrait | `275394a` |
 | `ornaments` | 41 formes abstraites, traits et textures de plus | `86b6742` |
