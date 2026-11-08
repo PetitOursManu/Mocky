@@ -11,10 +11,9 @@ import {
   mimeOf,
   pickEntry,
   resolveRef,
-  safeDataUrl,
-  scrubCss,
   siteSourceKind,
 } from './siteSource'
+import { SERIALISE_SOURCE, loadHtml2canvas, stillDocument } from './stillCopy'
 import { ZipError, openZip, type ZipArchive } from './zipRead'
 
 /**
@@ -147,19 +146,11 @@ async function bundlePage(html: string, entry: string, zip: ZipArchive | null): 
  * falls back on what it had locally.
  */
 const SNAPSHOT_SCRIPT = `(function(){
+  ${SERIALISE_SOURCE}
   var sent = false, started = false;
   function send(m){ if (sent) return; sent = true; m.__mockySite = 1; try { parent.postMessage(m, '*'); } catch (e) {} }
   function snap(){
     try {
-      var css = [], sheets = document.styleSheets;
-      for (var i = 0; i < sheets.length; i++) {
-        try {
-          var rules = sheets[i].cssRules, text = [];
-          for (var j = 0; j < rules.length; j++) text.push(rules[j].cssText);
-          var media = sheets[i].media && sheets[i].media.mediaText;
-          css.push(media && media !== 'all' ? '@media ' + media + '{' + text.join('\\n') + '}' : text.join('\\n'));
-        } catch (e) {}
-      }
       /* The sweep is not always enough: a frame the browser does not paint (the
          tab in the background) fires no IntersectionObserver at all. So what is
          still transparent under a NAME that says it is waiting for the scroll
@@ -173,9 +164,7 @@ const SNAPSHOT_SCRIPT = `(function(){
           waiting[w].style.setProperty('transform', 'none', 'important');
         }
       }
-      var canvases = document.getElementsByTagName('canvas');
-      for (var k = 0; k < canvases.length; k++) { try { canvases[k].setAttribute('data-mocky-still', canvases[k].toDataURL('image/png')); } catch (e) {} }
-      send({ html: document.documentElement.outerHTML, css: css.join('\\n') });
+      send(mockySerialise());
     } catch (e) { send({ error: String((e && e.message) || e) }); }
   }
   function sweep(){
@@ -200,6 +189,13 @@ const SNAPSHOT_SCRIPT = `(function(){
  * is throttled, and an IntersectionObserver in it never fires — the reveal the
  * sweep exists for would not happen.
  */
+const STILL_POLICY = {
+  csp: STILL_CSP,
+  // The animations run to their end: html2canvas clones the document, and the
+  // clone's animations start again from their FIRST frame — a fade-in at 0.
+  css: STILL_ANIMATIONS_CSS + EXPORT_NO_TRANSITIONS_CSS + '*{scrollbar-width:none}*::-webkit-scrollbar{display:none}',
+}
+
 function hiddenFrame(sandbox: string): HTMLIFrameElement {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('sandbox', sandbox)
@@ -242,81 +238,10 @@ function runLive(html: string, signal?: AbortSignal): Promise<{ html: string; cs
   })
 }
 
-/** Attributes that hold an address. Only a fragment or a picture as data: survives them. */
-const URL_ATTRS = ['src', 'href', 'xlink:href', 'poster', 'background', 'action', 'formaction', 'data', 'lowsrc', 'ping', 'longdesc', 'cite', 'manifest', 'icon', 'srcset', 'srcdoc', 'imagesrcset']
-
-/** Elements that run, embed, navigate or fetch — or, `noscript`, render only once scripts are off. */
-const DROPPED = 'script, noscript, iframe, frame, frameset, object, embed, applet, portal, base, meta, link, style, template'
-
-/**
- * The live frame's DOM made inert: what the still frame shows and html2canvas
- * reads from Mocky's own realm. Every rule here is a channel closed — see
- * siteSource.ts for which ones and why.
- */
-function stillDocument(snapshot: { html: string; css: string }): string {
-  const doc = new DOMParser().parseFromString(snapshot.html, 'text/html')
-  doc.querySelectorAll('canvas[data-mocky-still]').forEach((canvas) => {
-    const url = canvas.getAttribute('data-mocky-still') || ''
-    if (!safeDataUrl(url)) return
-    const img = doc.createElement('img')
-    for (const a of ['class', 'style', 'width', 'height', 'id']) {
-      const v = canvas.getAttribute(a)
-      if (v != null) img.setAttribute(a, v)
-    }
-    img.setAttribute('src', url)
-    canvas.replaceWith(img)
-  })
-  doc.querySelectorAll(DROPPED).forEach((el) => el.remove())
-  doc.querySelectorAll('*').forEach((el) => {
-    for (const { name, value } of Array.from(el.attributes)) {
-      const n = name.toLowerCase()
-      if (n.startsWith('on')) el.removeAttribute(name)
-      else if (n === 'style') el.setAttribute(name, scrubCss(value))
-      else if (URL_ATTRS.includes(n)) {
-        // A picture as data:, or an in-page fragment (an SVG <use href="#icon">).
-        const picture = n === 'src' || n === 'poster' || n.endsWith('href')
-        const keep = picture && (safeDataUrl(value) || (n.endsWith('href') && value.trim().startsWith('#')))
-        if (!keep) el.removeAttribute(name)
-      }
-    }
-  })
-  const head = doc.head
-  const style = (css: string) => {
-    const s = doc.createElement('style')
-    s.textContent = css
-    head.appendChild(s)
-  }
-  const meta = doc.createElement('meta')
-  meta.setAttribute('http-equiv', 'Content-Security-Policy')
-  meta.setAttribute('content', STILL_CSP)
-  head.insertBefore(meta, head.firstChild)
-  style(scrubCss(snapshot.css))
-  // The animations run to their end: html2canvas clones the document, and the
-  // clone's animations start again from their FIRST frame — a fade-in at 0.
-  style(STILL_ANIMATIONS_CSS + EXPORT_NO_TRANSITIONS_CSS + '*{scrollbar-width:none}*::-webkit-scrollbar{display:none}')
-  return '<!doctype html>' + doc.documentElement.outerHTML
-}
-
-let html2canvasLoad: Promise<void> | null = null
-
-/** The vendored, hash-pinned html2canvas (public/vendor), in Mocky's own window. */
-function loadHtml2canvas(): Promise<void> {
-  if ((window as any).html2canvas) return Promise.resolve()
-  html2canvasLoad ??= new Promise<void>((resolve, reject) => {
-    const s = document.createElement('script')
-    s.src = '/vendor/html2canvas.min.js'
-    s.onload = () => resolve()
-    s.onerror = () => {
-      html2canvasLoad = null
-      reject(new SiteSourceError('project.siteSourceFailed'))
-    }
-    document.head.appendChild(s)
-  })
-  return html2canvasLoad
-}
-
 async function shootStill(html: string): Promise<HTMLCanvasElement> {
-  await loadHtml2canvas()
+  const html2canvas = await loadHtml2canvas().catch(() => {
+    throw new SiteSourceError('project.siteSourceFailed')
+  })
   const iframe = hiddenFrame('allow-same-origin')
   try {
     await new Promise<void>((resolve) => {
@@ -332,7 +257,7 @@ async function shootStill(html: string): Promise<HTMLCanvasElement> {
       SITE_RENDER_MAX_HEIGHT,
       Math.max(SITE_RENDER_HEIGHT, doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0),
     )
-    return await (window as any).html2canvas(doc.documentElement, {
+    return await html2canvas(doc.documentElement, {
       windowWidth: SITE_RENDER_WIDTH,
       windowHeight: SITE_RENDER_HEIGHT,
       width: SITE_RENDER_WIDTH,
@@ -374,5 +299,5 @@ export async function renderSiteSource(file: File, signal?: AbortSignal): Promis
   const page = await bundlePage(html, entry, zip)
   const snapshot = await runLive(page, signal)
   signal?.throwIfAborted()
-  return shootStill(stillDocument(snapshot))
+  return shootStill(stillDocument(snapshot, STILL_POLICY))
 }

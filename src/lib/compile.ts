@@ -1,9 +1,9 @@
 /**
  * Compile JSX/TS source (the model's component code) into plain JS in the
  * PARENT page. This is used ONLY by the screenshot-capture pipeline
- * (lib/capture.ts): its offscreen capture iframe is same-origin, so injecting
- * already-compiled JS lets it render without shipping Babel (Babel is only
- * fetched there as a fallback if the parent-compiled path fails).
+ * (lib/capture.ts): injecting already-compiled JS lets its live frame render
+ * without loading Babel (Babel is only fetched there as a fallback if the
+ * parent-compiled path fails).
  *
  * The live PREVIEW iframe does NOT use this. It is sandboxed (null origin) and
  * ships its own Babel (public/vendor/babel.min.js), compiling the JSX inside

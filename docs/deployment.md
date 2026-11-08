@@ -384,6 +384,13 @@ scripts. The strict CSP lives **inside each preview's `srcDoc`**, where the
 generated code actually runs. See the
 [architecture overview](architecture/overview.md).
 
+**Captures need no second origin.** Thumbnails and document exports run the
+generated code in a frame with an opaque origin, like a preview, then read an
+inert copy of the result. One port and one hostname are enough, behind a reverse
+proxy or not, and there is nothing to configure. If a capture cannot be made, a
+thumbnail falls back to its drawn placeholder and an export reports the failure:
+it never falls back to a frame that shares Mocky's origin.
+
 `x-powered-by` is explicitly disabled. Advertising the framework and its version
 hands out a targeted exploit list for free.
 

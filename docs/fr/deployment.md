@@ -1,5 +1,5 @@
 ---
-source_hash: d408cebb3c84
+source_hash: 62d0db9cc591
 ---
 
 # Déploiement
@@ -401,6 +401,14 @@ Il n'y a pas de politique de sécurité du contenu sur l'application elle-même 
 les aperçus isolés ont besoin de scripts en ligne. La politique stricte vit
 **dans le `srcDoc` de chaque aperçu**, là où le code généré s'exécute réellement.
 Voir la [vue d'ensemble de l'architecture](architecture/overview.md).
+
+**Les captures n'ont pas besoin d'une seconde origine.** Les miniatures et les
+exports de documents exécutent le code généré dans une iframe à origine opaque,
+comme un aperçu, puis lisent une copie inerte du résultat. Un seul port et un seul
+nom d'hôte suffisent, derrière un proxy inverse ou non, et il n'y a rien à
+configurer. Si une capture échoue, la miniature revient à son visuel de
+remplacement et l'export signale l'échec : on ne se replie jamais sur une iframe
+qui partage l'origine de Mocky.
 
 `x-powered-by` est explicitement désactivé. Annoncer le framework et sa version
 offre gratuitement une liste d'exploits ciblés.

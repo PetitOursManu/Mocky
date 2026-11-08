@@ -40,28 +40,37 @@ describe('preview iframe sandbox', () => {
     for (const v of values) expect(v).toBe('allow-scripts')
   })
 
-  it('keeps the capture iframe same-origin — a documented, measured exception', () => {
-    // This is NOT an oversight, and the test records why so nobody "fixes" it
-    // blind: html2canvas clones the document into an iframe of its own, and a
-    // sandbox without allow-same-origin gives every descendant a fresh opaque
-    // origin, so the frame cannot read its own clone. Removing the flag was
-    // tried and fails with "Blocked a frame with origin null from accessing a
-    // cross-origin frame" — on the default path and with foreignObjectRendering
-    // alike. The real fix is to serve the capture shell from a separate origin.
-    // Until then the CSP below is what contains the frame.
+  it('splits the capture in two frames, and no frame is both', () => {
+    // html2canvas needs a document it can reach, and it cannot run in an opaque
+    // origin (it clones into an iframe of its own, which would get a fresh opaque
+    // origin of its own). So the model's code runs in `allow-scripts`, and what
+    // html2canvas reads is an inert copy in `allow-same-origin`. A value holding
+    // BOTH flags is the hole this replaced: model code running with Mocky's
+    // origin, on every thumbnail. What the flags really do is
+    // capture-isolation-e2e.test.js, in a browser.
     const values = sandboxValues(capture)
-    expect(values.length).toBeGreaterThan(0)
-    for (const v of values) expect(v).toBe('allow-scripts allow-same-origin')
+    expect(new Set(values)).toEqual(new Set(['allow-scripts', 'allow-same-origin']))
+    expect(values.filter((v) => v === 'allow-scripts').length).toBe(1)
   })
 
-  it('denies the capture frame every outbound channel, since it is privileged', () => {
-    // A same-origin frame can read localStorage; what stops that mattering is
-    // having nowhere to send it. img-src is pinned to the origin here (unlike in
-    // Preview) precisely because a remote <img> doubles as a beacon.
+  it('never loads html2canvas beside the model code', () => {
+    // It lives in Mocky's own window now, over the copy. Back in the live frame
+    // it fails, and the fix someone would reach for is allow-same-origin.
+    expect(capture).not.toContain('html2canvas.min.js')
+  })
+
+  it('leaves the live capture frame no outbound channel', () => {
+    // img-src is pinned to the origin here (unlike in Preview) precisely because
+    // a remote <img> doubles as a beacon.
     for (const directive of ["connect-src 'none'", "form-action 'none'", "base-uri 'none'"]) {
       expect(capture).toContain(directive)
     }
     expect(capture).toMatch(/img-src \$\{location\.origin\} data: blob:/)
+  })
+
+  it('never puts a crossorigin attribute on the capture scripts (I2)', () => {
+    // The origin is null: every such script would be a CORS request nobody answers.
+    expect(capture).not.toMatch(/<script[^>]*crossorigin/)
   })
 
   it('never grants the flags that would break either sandbox', () => {

@@ -1,5 +1,5 @@
 ---
-source_hash: a258a37554cd
+source_hash: 51d612f90a8d
 ---
 
 # Invariants
@@ -97,6 +97,16 @@ référencée par une URL **absolue**, `${window.location.origin}/api/images/…
 Dans un document `srcdoc` sans origine, une URL relative ne renvoie pas vers
 Mocky. Afficher une `<img>` n'est pas soumis à CORS, donc cela fonctionne. La
 relire dans un canvas le serait, mais on ne relit jamais ces images.
+
+**La capture suit la même règle.** `src/lib/capture.ts` exécute le code du modèle
+dans une iframe qui a exactement `allow-scripts`, et transmet ce qu'elle a dessiné
+à une seconde iframe, `allow-same-origin` et sans script (`src/lib/stillCopy.ts`) :
+c'est elle que lisent html2canvas et les exports. **Aucune iframe n'a jamais les
+deux droits** : cette combinaison, c'est du code écrit par le modèle avec l'origine
+de Mocky, à chaque miniature. Les droits sont figés par
+`tests/preview-sandbox.test.js`, et `tests/capture-isolation-e2e.test.js` prouve
+dans un vrai navigateur que ce code n'obtient ni `localStorage`, ni cookies, ni le
+parent.
 
 ---
 

@@ -24,10 +24,9 @@
  *    it has `allow-same-origin`, and why nothing in it may run or fetch:
  *    html2canvas loads pictures from Mocky's realm, where no CSP applies.
  *
- * The capture frame Mocky uses for its own screens (capture.ts) is same-origin
- * WITH scripts, a known limitation written down there. This one does not
- * inherit it: the code that runs never shares the origin, the frame that
- * shares the origin never runs code.
+ * The code that runs never shares the origin, the frame that shares the origin
+ * never runs code. The capture of Mocky's own screens (capture.ts) took the same
+ * shape afterwards; the second frame is lib/stillCopy.ts, for both.
  */
 
 export type SiteSourceKind = 'html' | 'zip'
@@ -202,14 +201,15 @@ export function safeDataUrl(value: string, fonts = false): boolean {
  * A stylesheet for the still frame: no `@import`, and every `url()` that is not
  * a picture or a font as data: becomes `none` — a property that took a picture
  * takes none, an `@font-face` source becomes invalid and the face falls back.
- * Pure, so the rule that keeps html2canvas off the network is tested.
+ * Pure, so the rule that keeps html2canvas off the network is tested. `keep` is
+ * for a copy of one of Mocky's own screens, whose pictures are Mocky's files.
  */
-export function scrubCss(css: string): string {
+export function scrubCss(css: string, keep?: (ref: string) => boolean): string {
   return css
     .replace(/@import\b[^;]*;?/gi, '')
     .replace(CSS_URL, (_whole, dq, sq, bare) => {
       const ref = (dq ?? sq ?? bare ?? '').trim()
-      return safeDataUrl(ref, true) ? `url("${ref.replace(/"/g, '%22')}")` : 'none'
+      return safeDataUrl(ref, true) || keep?.(ref) ? `url("${ref.replace(/"/g, '%22')}")` : 'none'
     })
     // IE's expression() and the old XBL bindings: dead everywhere that matters,
     // and nothing a page's look depends on.

@@ -137,8 +137,10 @@ OPAQUE-origin frame (`allow-scripts`, no `allow-same-origin`, `LIVE_CSP` sends
 nothing) that hands back its DOM and CSSOM; html2canvas runs from Mocky's realm
 over a copy with no script and no address but `data:` (`scrubCss`, `STILL_CSP`)
 in a frame WITHOUT `allow-scripts`. That copy is scrubbed because html2canvas
-loads pictures from Mocky's window, where no CSP applies. The capture shell's
-known same-origin limitation (capture.ts) is exactly what this split avoids.
+loads pictures from Mocky's window, where no CSP applies. `capture.ts` does the
+same for Mocky's own screens, through the same copy (`lib/stillCopy.ts`): the live
+frame is `allow-scripts`, the frame the exports walk is `allow-same-origin`, and
+no frame is ever both.
 
 There are four independent correction passes, and they are not interchangeable:
 

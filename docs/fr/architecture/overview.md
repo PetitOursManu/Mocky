@@ -1,5 +1,5 @@
 ---
-source_hash: c2ba9b778919
+source_hash: 1f10df6ecb2b
 ---
 
 # Vue d'ensemble de l'architecture
@@ -897,42 +897,50 @@ construction. Une erreur dont le code source a changé depuis la construction du
 
 ### La capture : une exception qui n'en est plus une
 
-`src/lib/capture.ts` montait une iframe **de même origine**, et ce document
-expliquait longuement pourquoi c'était inévitable. Ça ne l'est plus.
+`src/lib/capture.ts` exécutait le code du modèle dans une iframe **de même
+origine** pendant toute la durée d'une miniature ou d'un export, et les miniatures
+sont automatiques. Ce code pouvait lire la clé du fournisseur dans `localStorage`
+et atteindre `window.parent`. Il ne le peut plus.
 
 La cause était html2canvas : il doit lire le document qu'il photographie, et il
 le clone dans une iframe à lui — or une isolation sans `allow-same-origin` donne
 à chaque descendant une **nouvelle** origine vide, si bien que l'iframe ne
 pouvait plus lire son propre clone. Elle échouait avec « Blocked a frame with
 origin null from accessing a cross-origin frame », aussi bien sur le chemin par
-défaut qu'avec `foreignObjectRendering`.
+défaut qu'avec `foreignObjectRendering`. snapdom, qui n'a pas besoin de cet accès,
+a été livré puis retiré : son coût croît bien plus vite avec le nombre de nœuds
+(4× html2canvas à 6 400 nœuds, et l'écart se creuse), et une capture bloque le fil
+principal de l'onglet.
 
-Mocky capture désormais avec **snapdom**, qui sérialise le sous-arbre en un SVG
-`<foreignObject>` où le style calculé de chaque nœud est inliné, puis rastérise
-le tout via une URL `data:`. Rien dans ce chemin ne franchit de frontière
-d'origine : l'iframe de capture ne porte plus que `allow-scripts`, exactement
-comme un aperçu. Pendant la seconde que dure une capture, le code du modèle ne
-s'exécute donc plus avec l'origine de Mocky — il ne peut plus lire la clé API
-dans `localStorage`, ni atteindre `window.parent`.
+La capture passe donc par deux iframes, et aucune n'a les deux droits :
 
-Mesuré en origine opaque avant d'engager le changement : la capture aboutit,
-`toDataURL()` ne lève rien (le canvas n'est pas teinté), les utilitaires injectés
-par Tailwind sont respectés, et `rgb(var(--token) / 0.5)` se compose au pixel
-exact. 113 ms par défaut, contre 111 ms pour html2canvas avec l'origine ouverte.
+| Iframe | `sandbox` | Ce qui s'y passe |
+|---|---|---|
+| Vivante | `allow-scripts` | Le code du modèle s'exécute, comme dans un aperçu : origine opaque, ni stockage, ni cookies, ni parent. Une fois stabilisée, elle envoie son DOM et son CSSOM, puis elle est détruite |
+| Inerte | `allow-same-origin` | Cette page sérialisée, nettoyée (`lib/stillCopy.ts`). Rien ne peut s'y exécuter. html2canvas la lit depuis la fenêtre de Mocky, et les exports la parcourent page par page |
 
-Deux conséquences à connaître :
+Trois conséquences à connaître :
 
-- **`connect-src` a dû s'ouvrir à cette origine.** snapdom inline une image en
-  récupérant ses octets ; sous `connect-src 'none'`, chaque requête était bloquée
-  et chaque image devenait un aplat gris. `/api/images/:hash` répond donc aussi
-  avec `Access-Control-Allow-Origin: *` — cette route est déjà publique par
-  conception, un joker n'y expose rien. Toutes les autres directives sortantes
-  restent fermées : il n'y a toujours nulle part où envoyer quoi que ce soit.
-- **Un onglet masqué diffère la capture.** snapdom rastérise en attendant
-  `img.decode()`, qui ne se résout jamais dans un document que le navigateur ne
-  compose pas : en arrière-plan, la même capture prenait 39 s là où html2canvas
-  en prenait 1. La coquille attend maintenant `visibilitychange` au lieu
-  d'épuiser son chien de garde.
+- **Ce qu'envoie l'iframe vivante est traité comme hostile.** Les scripts, les
+  gestionnaires d'événements, les iframes et `<base>` sont retirés, et une adresse
+  ne survit que si c'est une image `data:`, un fragment interne, un lien ou un
+  fichier de Mocky. « Même origine » ne suffit pas, car html2canvas charge les
+  images depuis le royaume de Mocky, avec le cookie de session et sans CSP :
+  `<img src="/api/…">` serait sinon une requête GET authentifiée vers la route de
+  son choix.
+- **Une image d'un autre site reste nommée, et ne se charge pas.** L'export les
+  signale par hôte. La CSP de la copie les refuse, html2canvas est appelé avec
+  `useCORS: false, allowTaint: false` et les ignore, et le rastériseur natif ne les
+  récupère pas (`inlinePolicy`).
+- **Aucune seconde origine n'intervient**, contrairement à ce que prévoyait le
+  commentaire du code. Un second port n'aurait pas séparé les cookies, qui ne
+  dépendent pas du port, et les exports atteignent le DOM de l'iframe depuis le
+  parent, ce que toute iframe d'une autre origine interdit. Un déploiement sur un
+  seul port n'a donc rien à faire.
+
+Les droits sont figés par `tests/preview-sandbox.test.js`. Ce qu'ils font
+réellement, c'est `tests/capture-isolation-e2e.test.js` : un écran qui tente de
+voler, capturé dans un vrai navigateur par le vrai `capture.ts`.
 
 ---
 
@@ -1333,8 +1341,8 @@ les attributs DOM qu’écrit le kit de pages (`data-mocky-doc`, `data-mocky-pag
 pages et tout dépassement ; l’export relit les mêmes attributs, donc un attribut
 renommé d’un côté l’est des deux.
 
-`render.ts` ouvre le document hors écran dans la coquille de capture
-(`openSettledDocument` : images chargées d’emblée, polices et images stabilisées,
+`render.ts` rend le document dans la coquille de capture et garde sa copie inerte
+hors écran (`openSettledDocument` : images chargées d’emblée, polices et images stabilisées,
 mise en page à la hauteur du canevas), puis le parcourt page par page.
 `measure.ts` lit les mots, les champs et les liens de chaque page avec leurs
 boîtes — en sautant ce qui est visuellement caché, et en signalant de combien le
