@@ -400,7 +400,7 @@ console error" proves nothing here.
 
 ---
 
-## The retired pack, and the one path that still reaches it
+## The retired pack
 
 Before `<Animated>` there was a `motion` capability: twelve CSS-only components —
 `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`, `ShimmerButton`,
@@ -410,24 +410,27 @@ It is marked `retired: true`: **injected** for screens carrying it in
 `Screen.caps`, **never documented** to the model. The full mechanism is in the
 [architecture overview](../architecture/overview.md).
 
-One UI action deliberately re-enables it: **"Add animations"**, in a screen's
-menu, which layers motion onto an already-generated screen at three intensities —
-`subtle`, `moderate` and `rich`.
+**"Add animations"**, in a screen's menu, layers motion onto an
+already-generated screen at three intensities — `subtle`, `moderate` and `rich`.
+It used to bring this pack back; it now offers the vocabulary a new screen gets.
 
 ```js
-const capIds = Array.from(new Set([...(screen.caps ?? []), 'motion']))
+const capIds = withAnimations(screen.caps ?? [])
 ```
 
 This is an **edit** path, so `EDIT_RULES` applies: the model may add motion only,
 and content, copy, colours, layout and structure stay byte-for-byte identical.
-The instruction names the pack's components so the model **wraps** the existing
-markup instead of writing its own keyframes.
+The instruction names `<Animated>` presets, `<AnimatedText>`, `<CountUp>` and
+`<Ticker>`, and `animations.test.ts` holds those names to the catalogue. Because
+`<Animated>` passes on only `className` and `style`, an element with an `id`, a
+handler or a link stays as it is, **inside** an `<Animated>`.
 
 One subtlety worth knowing. Retired capabilities are skipped in
-`buildCapabilitiesPrompt()`'s documentation loop, so the per-component lines are
-not emitted. The names reach the model through two other channels: the edit
-instruction itself, and the trailing "ANIMATION: use the components listed above
-(…)" paragraph, which is triggered by the presence of the `motion` id.
+`buildCapabilitiesPrompt()`'s documentation loop, so a retired component has no
+signature in the prompt, which is why this action stopped asking for them. A
+screen that already carries the `motion` id still gets the trailing "ANIMATION:
+use the components listed above (…)" paragraph with their names, and the edit
+leaves those components where they are.
 
 Finally, `applyAnimationMode('off')` removes **only** `animate` and `motion-lib`.
 A screen built on the retired pack keeps its components, and it is the

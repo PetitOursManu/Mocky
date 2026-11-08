@@ -596,38 +596,45 @@ export const ANIMATION_LEVEL_LABELS: Record<AnimationLevel, string> = {
  *
  * This is fed to `editComponent`, so EDIT_RULES still applies: the model must
  * ADD animation/transition only and keep all content, copy, colors, layout and
- * structure byte-for-byte. The Motion capability pack (FadeIn, Stagger, Reveal,
- * Counter, ShimmerButton, …) is made available alongside so the model wraps the
- * existing markup instead of hand-rolling keyframes. All Motion components
- * already respect prefers-reduced-motion.
+ * structure byte-for-byte. The vocabulary is the one every new screen gets
+ * (`withAnimations`): `<Animated>` and its siblings, whose signatures reach the
+ * model through the capability documentation.
+ *
+ * This named the retired pack's components (FadeIn, Stagger, ShimmerButton…) for
+ * a long time, and the retired pack is exactly the one that documentation skips:
+ * the model got the names and no signature, and guessed the props.
+ * `animations.test.ts` holds every name below to the catalogue.
  */
 export function buildAnimationInstruction(level: AnimationLevel): string {
   const common = [
     'Add tasteful animations and transitions to this screen WITHOUT changing any content, copy, colors, layout, sizing, structure, or behaviour. Motion is the ONLY thing you may add.',
-    'Wrap existing elements rather than rewriting them. Prefer the provided motion components (FadeIn, Stagger, Reveal, Counter, ShimmerButton, BorderBeam, Marquee) and plain Tailwind transition/hover utilities (transition, duration-*, ease-*, hover:scale-*, hover:shadow-*). Do NOT add any external library.',
+    'Use only the animation components documented above (<Animated>, <AnimatedText>, <CountUp>, <Ticker>) and plain Tailwind transition/hover utilities (transition, duration-*, ease-*, hover:scale-*, hover:shadow-*). Do NOT add any external library, and do not write @keyframes or <style> blocks.',
+    'Animate existing elements rather than rewriting them. <Animated> and <AnimatedText> pass on className and style and nothing else. An element that carries only those may become the animated one, which keeps the layout exact: <section className="…"> becomes <Animated as="section" preset="fade-up" className="…">, with the same classes. An element with any other attribute (id, onClick, onChange, href, type, aria-*, data-*) stays exactly as it is, INSIDE an <Animated>; around a button or a link, give that <Animated> className="inline-block".',
+    'If the code already uses other animation components, leave them as they are.',
     'Keep it accessible and never block interaction: entrance effects must settle to a fully visible resting state; nothing should hide content if animations are disabled.',
   ]
   const perLevel: Record<AnimationLevel, string[]> = {
     subtle: [
       'Level: SUBTLE. Add only gentle polish:',
       '- Smooth transitions on interactive elements (buttons, cards, links): color, background, shadow and a small hover lift (hover:scale-[1.02] / hover:shadow-lg with transition).',
-      '- One soft entrance (FadeIn) on the main heading or hero block.',
-      '- Nothing looping, no counters, no attention-grabbing effects.',
+      '- One soft entrance (preset="fade-up") on the main heading or hero block.',
+      '- Nothing looping, no counting numbers, no attention-grabbing effects.',
     ],
     moderate: [
       'Level: MODERATE. Add clear but tasteful motion:',
-      '- Entrance animations on the major sections (FadeIn / Reveal) as they scroll into view.',
-      '- Staggered reveals for lists and card grids (Stagger).',
-      '- Animated number counters (Counter) for prominent stats/metrics if any exist.',
+      '- Entrance animations on the major sections (preset="fade-up" or preset="reveal-up") as they scroll into view.',
+      '- Staggered reveals for lists and card grids (preset="stagger-list", on the list itself and not on each item).',
+      '- Numbers that count up (<CountUp>) for prominent stats/metrics if any exist.',
       '- Hover lift + shadow on cards and smooth transitions on all interactive elements.',
     ],
     rich: [
       'Level: RICH. Add expressive, high-end motion (still tasteful, never overwhelming):',
-      '- Everything from the moderate level: section entrances, staggered lists, animated counters, hover states.',
-      '- Use a ShimmerButton for the single primary call-to-action.',
-      '- Add a BorderBeam or subtle glow accent on one hero/feature card where it fits.',
-      '- Use a Marquee for any logo strip / testimonial row if present.',
-      '- Only use Meteors on an already-dark hero background. Do not overload the page — pick a few focal points.',
+      '- Everything from the moderate level: section entrances, staggered lists, numbers that count up, hover states.',
+      '- Bring the hero headline in with <AnimatedText preset="mask"> when it is plain text.',
+      '- Use preset="hover-glow" on the single primary call-to-action.',
+      '- Use preset="tilt-3d" on one hero/feature card or picture where it fits, or preset="parallax" on a hero picture, never on body text.',
+      '- Use a <Ticker> for any logo strip / testimonial row if present.',
+      '- At most one small decorative element may loop (preset="float"), never text to read. Do not overload the page — pick a few focal points.',
     ],
   }
   return [...common, '', ...perLevel[level]].join('\n')

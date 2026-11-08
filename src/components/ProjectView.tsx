@@ -30,6 +30,7 @@ import { captureRegion } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
+import { withAnimations } from '../lib/animations'
 import UltraControl from './UltraControl'
 import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { type QualityFinding } from '../lib/quality'
@@ -2582,7 +2583,7 @@ export default function ProjectView({
   /**
    * Layer animations/transitions into a screen at a chosen intensity (Lot B).
    * Runs an edit pass (EDIT_RULES preserve everything but motion) with the
-   * Motion capability pack unioned in, streams the result live, and saves the
+   * animation vocabulary unioned in, streams the result live, and saves the
    * pre-animation code as previousCode so "Revert to previous" undoes it.
    */
   async function addAnimations(screenId: string, level: AnimationLevel) {
@@ -2608,8 +2609,10 @@ export default function ProjectView({
         return md ? buildDesignPreamble(md) : undefined
       })()
       const extraSystem = joinSystem([designPreamble, hintForScreen(screen)])
-      // Make the Motion pack available on top of whatever the screen already uses.
-      const capIds = Array.from(new Set([...(screen.caps ?? []), 'motion']))
+      // The vocabulary a new screen gets, on top of whatever this one already
+      // uses. Not the retired 'motion' pack: it is injected but never documented,
+      // so asking for it left the model guessing the props of its components.
+      const capIds = withAnimations(screen.caps ?? [])
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
       const res = await editComponent(

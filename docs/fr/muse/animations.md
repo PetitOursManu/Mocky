@@ -1,5 +1,5 @@
 ---
-source_hash: f4baad93172a
+source_hash: f0167c7a95be
 ---
 
 # Animations
@@ -423,7 +423,7 @@ la moindre erreur** : « pas d'erreur dans la console » ne prouve rien ici.
 
 ---
 
-## Le pack retiré, et le seul chemin qui l'atteint encore
+## Le pack retiré
 
 Avant `<Animated>`, il y avait une capacité `motion` : douze composants
 uniquement en CSS — `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`,
@@ -434,26 +434,29 @@ Elle est marquée `retired: true` : **injectée** pour les écrans qui la porten
 dans `Screen.caps`, **jamais documentée** au modèle. Le mécanisme complet est
 dans la [vue d'ensemble de l'architecture](../architecture/overview.md).
 
-Une action de l'interface la réactive volontairement : **« Ajouter des
-animations »**, dans le menu d'un écran, qui superpose du mouvement à un écran
-déjà généré, à trois intensités (`subtle`, `moderate`, `rich`).
+**« Ajouter des animations »**, dans le menu d'un écran, superpose du mouvement à
+un écran déjà généré, à trois intensités (`subtle`, `moderate`, `rich`). Cette
+action réactivait autrefois ce pack ; elle propose désormais le vocabulaire d'un
+nouvel écran.
 
 ```js
-const capIds = Array.from(new Set([...(screen.caps ?? []), 'motion']))
+const capIds = withAnimations(screen.caps ?? [])
 ```
 
 C'est un chemin d'**édition**, donc `EDIT_RULES` s'applique : le modèle ne peut
 ajouter que du mouvement, et le contenu, le texte, les couleurs, la mise en page
-et la structure restent identiques à l'octet près. L'instruction nomme les
-composants du pack pour que le modèle **emballe** le balisage existant au lieu
-d'écrire ses propres keyframes.
+et la structure restent identiques à l'octet près. L'instruction nomme des
+presets d'`<Animated>`, `<AnimatedText>`, `<CountUp>` et `<Ticker>`, et
+`animations.test.ts` tient ces noms au catalogue. Comme `<Animated>` ne transmet
+que `className` et `style`, un élément portant un `id`, un gestionnaire ou un
+lien reste tel quel, **à l'intérieur** d'un `<Animated>`.
 
 Une subtilité vaut d'être connue. Les capacités retirées sont sautées dans la
-boucle de documentation de `buildCapabilitiesPrompt()`, donc les lignes par
-composant ne sont pas produites. Les noms atteignent le modèle par deux autres
-canaux : l'instruction d'édition elle-même, et le paragraphe final « ANIMATION:
-use the components listed above (…) », déclenché par la présence de
-l'identifiant `motion`.
+boucle de documentation de `buildCapabilitiesPrompt()`, donc un composant retiré
+n'a aucune signature dans le prompt, et c'est pourquoi cette action a cessé de
+les demander. Un écran qui porte déjà l'identifiant `motion` reçoit encore le
+paragraphe final « ANIMATION: use the components listed above (…) » avec leurs
+noms, et l'édition laisse ces composants à leur place.
 
 Enfin, `applyAnimationMode('off')` ne retire **que** `animate` et `motion-lib`.
 Un écran construit sur le pack retiré garde donc ses composants, et c'est le CSS
