@@ -24,6 +24,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `capture` | le code généré ne partage plus l'origine de Mocky | `889884a` |
 | `animations` | « Ajouter des animations » n'utilise plus le pack retiré | `b5672cd` |
 | `muse` | la référence liée survit à un modèle sans vision et guide l'aspect | `7048753` |
 | `composeur` | Améliorer ne passe plus sous Arrêter pendant une génération | `c343661` |
