@@ -59,7 +59,7 @@ describe('Animated', () => {
     // document.hidden can flip while a mockup is open. If the early return sat
     // before the hooks, the next render would call fewer of them than the last
     // — "Rendered fewer hooks than expected", which kills the whole frame.
-    const body = prelude.slice(prelude.indexOf('var Animated = function'))
+    const body = prelude.slice(prelude.indexOf('var MockyMotionAnimated = function'))
     const guard = body.indexOf('if (!animating)')
     const lastHook = Math.max(
       body.lastIndexOf('React.useRef', guard),

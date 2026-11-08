@@ -96,7 +96,7 @@ about the shape of the tag.
 | `charts` | snippet-pack | `chart`, `graph`, `dashboard`, `analytics`, `sparkline`… | `BarChart`, `LineChart`, `DonutChart`, `Sparkline`, `ProgressRing` |
 | `motion` | snippet-pack | none — `retired: true` | `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`, `ShimmerButton`, `BentoGrid`, `BentoCard`, `BorderBeam`, `TextReveal`, `Meteors`, `AnimatedBeam` |
 | `motion-lib` | cdn-script | none — pulled in by `requires` | `window.Motion`, from `/vendor/motion.js` |
-| `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Declares `requires: ['motion-lib']` |
+| `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `AnimatedText`, `Ticker`, `CountUp`, `AnimatedWord`, `AnimatedScrollText`, `AnimatedProgress`, `AnimatedCollapse`, `AnimatedFlip`, `AnimatedCursorGlow`. Declares `requires: ['motion-lib']` |
 | `three-lib` | cdn-script | none — pulled in by `requires` | `window.THREE`, from `/vendor/three.js` |
 | `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — ten procedural scenes. Declares `requires: ['three-lib']` |
 | `scrollvideo` | snippet-pack | none — added explicitly | `ScrollSequence`, `PointerSequence` |

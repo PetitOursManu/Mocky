@@ -6,14 +6,17 @@ model never writes a line of it**. It has no access to the library's API: no
 list.
 
 ```jsx
-<Animated preset="fade-up" delay={0.1} as="section">…</Animated>
+<Animated preset="fade-up" trigger="view" delay={0.1} as="section">…</Animated>
+<Animated preset="iris-in" trigger="scroll">…</Animated>
+<Animated preset="squish" trigger="click"><button>Buy</button></Animated>
 <Ticker speed={24} pauseOnHover>{logos}</Ticker>
 <CountUp to={1284} suffix="+" />
 <AnimatedText as="h1" preset="mask">A headline, word by word</AnimatedText>
 ```
 
 Everything else — variants, springs, intersection thresholds, the CSS fallback —
-is written and tested once, in `src/lib/capabilities/snippets/Animate.ts`.
+is written and tested once, in `src/lib/capabilities/snippets/Animate.ts` and
+`AnimateFx.ts`.
 
 ---
 
@@ -44,7 +47,10 @@ model can get wrong, and move the complexity into tested code.
 
 ---
 
-## The twenty-six presets
+## The first twenty-six presets
+
+These are the presets every older screen uses. The full catalogue, about a hundred
+and fifty names, is under [The trigger engine](#the-trigger-engine).
 
 | Category | Preset | Effect |
 |---|---|---|
@@ -109,7 +115,7 @@ name present in one but absent from the other is exactly the divergence
 
 ---
 
-## The four components
+## The components
 
 ### `<Animated>`
 
@@ -157,6 +163,93 @@ not a list of words. A word never breaks across two lines, letters or not.
 had — so a still, a PDF or "no animation" cannot tell it was ever split. It is
 not the retired pack's `TextReveal`, which took a `text` prop: a different name,
 so a model that remembers the old one cannot load the wrong component.
+
+---
+
+### The six that came with the trigger engine
+
+Every name starts with `Animated`: the pack shares one scope with the generated
+code, and a model that writes its own `FlipCard` beside a pack's `FlipCard` gets a
+syntax error instead of a screen.
+
+| Component | What it does | With no animation |
+|---|---|---|
+| `<AnimatedWord words>` | One word of a headline that keeps changing, in a box as wide as the longest | The first word |
+| `<AnimatedScrollText>` | A giant line that slides sideways with the scroll | The line, still |
+| `<AnimatedProgress>` | A reading bar fixed to the edge of the window | Nothing |
+| `<AnimatedCollapse open>` | Opens to its own height, through `grid-template-rows` | Opens at once |
+| `<AnimatedFlip front back>` | A two-faced card turned in 3D, on `hover` or `click` | Turns at once |
+| `<AnimatedCursorGlow>` | A soft light trailing the pointer | Nothing |
+
+`<AnimatedText>` also gained `down`, `scale`, `rotate`, `flip`, `slide-left`,
+`slide-right`, `skew`, `glow`, `elastic`, and three drawn by their own component:
+`scramble`, `typewriter` and `scroll-fill`. It takes `trigger="view"` or `"load"`.
+
+---
+
+## The trigger engine
+
+A preset says **what** moves and `trigger` says **when**. They are separate axes,
+so seventy entrances times six triggers is one table and one function. The table
+is `MOCKY_FX` in `AnimateFx.ts`, and it runs on the Web Animations API.
+
+| `trigger` | When | Available to |
+|---|---|---|
+| `view` | The block scrolls into view, once. `repeat` replays it | Entrances, one-shots |
+| `load` | At page load | Entrances, one-shots, loops |
+| `scroll` | Tied to the scroll position, undone by scrolling back | Entrances, scroll-linked |
+| `hover` | Under the cursor, or on keyboard focus | Entrances, one-shots, states, loops |
+| `click` | On each click. On a state, it is a toggle | Entrances, one-shots, states |
+| `change` | When `on={value}` changes | Entrances, one-shots |
+
+A trigger a family cannot use becomes that family's default, so nothing waits for
+an event that cannot happen. `stagger` applies any entrance to the block's direct
+children, and `speed` is `fast` or `slow`.
+
+| Family | Names | Use |
+|---|---|---|
+| Entrances | 70 in six groups: soft, depth, turn, curtain, spring, styled | How a block arrives |
+| One-shots | 17, such as `shake`, `jelly`, `tada`, `squish` | Feedback on a click |
+| States | 18, such as `hover-float`, `hover-pop`, `hover-nudge-right` | Under the cursor, undone when it leaves |
+| Loops | 18, such as `levitate`, `morph`, `orbit` | One small decoration per section |
+| Scroll-linked | 17, such as `parallax-fast`, `scroll-zoom-in`, `scroll-wipe` | Pictures and bands |
+| Pointer and click | `magnetic`, `spotlight`, `tilt-glare`, `cursor-parallax`, `hover-shine`, `hover-zoom`, `ripple`, `burst` | Drawn by a function |
+
+Why it is not built on Motion, each point found by reading the first engine:
+
+- **"On scroll" has to mean on scroll.** With Motion, `animate: 'visible'` plays at
+  mount, so a section below the fold had finished before anybody reached it. Here
+  the animation is paused at its first frame and released by an observer.
+- **`stagger-list` did nothing.** `staggerChildren` reaches only children that are
+  Motion components, and a generated list's are plain elements. Here the children
+  are the targets.
+- **Tailwind's positioning survives.** Keyframes use the individual `translate`,
+  `scale` and `rotate` properties, which compose with `-translate-x-1/2`. A list
+  that stops at `{}` ends on the element's own style, so `opacity-80` does not
+  jump. Presets needing a perspective or a skew replace `transform` for their
+  length, and the card the model reads says so.
+
+The first engine stays for one case. `mockyFxWanted` sends a screen with **no
+`trigger`** on one of the original names to it, because that screen was approved
+with that behaviour. `tilt-3d` and `exit-slide` stay there too.
+
+Three rules keep content from being lost:
+
+- A block in the first screen is released at once. `drop-in` at the top of a page
+  would otherwise wait for an intersection its own displacement prevents.
+- Positions come from the layout, never from `getBoundingClientRect`. A rect
+  includes the translate the animation just wrote, and a parallax that measures
+  its own displacement shakes.
+- A stretch of scroll that runs past the end of the page is cut to fit, so the last
+  block can finish. A page that does not scroll is at the end.
+
+`MOTION_PLAN` in `generate.ts` gives the model an order of operations: the opening
+on `load`, one entrance family on `view`, at most two scroll-linked effects, click
+answers, and restraint on application screens. It is skipped on documents and is
+worded so a repair pass does not read it as a request.
+
+The prototype player has one transition of its own, between screens: a slide and
+fade in the direction of travel.
 
 ---
 
@@ -421,9 +514,9 @@ const capIds = withAnimations(screen.caps ?? [])
 This is an **edit** path, so `EDIT_RULES` applies: the model may add motion only,
 and content, copy, colours, layout and structure stay byte-for-byte identical.
 The instruction names `<Animated>` presets, `<AnimatedText>`, `<CountUp>` and
-`<Ticker>`, and `animations.test.ts` holds those names to the catalogue. Because
-`<Animated>` passes on only `className` and `style`, an element with an `id`, a
-handler or a link stays as it is, **inside** an `<Animated>`.
+`<Ticker>`, and `animations.test.ts` holds those names to the catalogue. It always
+gives a `trigger`: with one, `<Animated>` keeps every attribute of the element it
+replaces.
 
 One subtlety worth knowing. Retired capabilities are skipped in
 `buildCapabilitiesPrompt()`'s documentation loop, so a retired component has no

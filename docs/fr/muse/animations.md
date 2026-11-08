@@ -1,5 +1,5 @@
 ---
-source_hash: f0167c7a95be
+source_hash: f9983c98173e
 ---
 
 # Animations
@@ -10,7 +10,9 @@ bibliothèque : pas de `motion.div`, pas de transition, pas d'objet de variantes
 Il choisit un nom dans une liste fermée.
 
 ```jsx
-<Animated preset="fade-up" delay={0.1} as="section">…</Animated>
+<Animated preset="fade-up" trigger="view" delay={0.1} as="section">…</Animated>
+<Animated preset="iris-in" trigger="scroll">…</Animated>
+<Animated preset="squish" trigger="click"><button>Acheter</button></Animated>
 <Ticker speed={24} pauseOnHover>{logos}</Ticker>
 <CountUp to={1284} suffix="+" />
 <AnimatedText as="h1" preset="mask">Un titre, mot après mot</AnimatedText>
@@ -18,7 +20,7 @@ Il choisit un nom dans une liste fermée.
 
 Tout le reste — les variantes, les ressorts, les seuils de détection, le repli en
 CSS — est écrit et testé une fois, dans
-`src/lib/capabilities/snippets/Animate.ts`.
+`src/lib/capabilities/snippets/Animate.ts` et `AnimateFx.ts`.
 
 ---
 
@@ -52,7 +54,10 @@ testé.
 
 ---
 
-## Les vingt-six presets
+## Les vingt-six premiers presets
+
+Ce sont ceux qu'utilisent tous les anciens écrans. Le catalogue complet, environ
+cent cinquante noms, est sous [Le moteur à déclencheurs](#le-moteur-à-déclencheurs).
 
 | Catégorie | Preset | Effet |
 |---|---|---|
@@ -118,7 +123,7 @@ que `validatePack` existe pour attraper.
 
 ---
 
-## Les quatre composants
+## Les composants
 
 ### `<Animated>`
 
@@ -170,6 +175,100 @@ un titre — si bien qu'une capture, un PDF ou « Sans animation » ne peuvent p
 deviner qu'il a été découpé. Ce n'est pas le `TextReveal` du pack retiré, qui
 prenait une prop `text` : un autre nom, pour qu'un modèle qui se souvient de
 l'ancien ne puisse pas charger le mauvais composant.
+
+---
+
+### Les six arrivés avec le moteur à déclencheurs
+
+Tous les noms commencent par `Animated` : le pack partage une seule portée avec le
+code généré, et un modèle qui écrit son propre `FlipCard` à côté d'un `FlipCard`
+du pack obtient une erreur de syntaxe au lieu d'un écran.
+
+| Composant | Ce qu'il fait | Sans animation |
+|---|---|---|
+| `<AnimatedWord words>` | Un mot de titre qui change sans cesse, dans une boîte aussi large que le plus long | Le premier mot |
+| `<AnimatedScrollText>` | Une ligne géante qui glisse de côté avec le défilement | La ligne, immobile |
+| `<AnimatedProgress>` | Une barre de lecture fixée au bord de la fenêtre | Rien |
+| `<AnimatedCollapse open>` | S'ouvre à sa propre hauteur, via `grid-template-rows` | S'ouvre d'un coup |
+| `<AnimatedFlip front back>` | Une carte à deux faces qui tourne en 3D, au `hover` ou au `click` | Tourne d'un coup |
+| `<AnimatedCursorGlow>` | Une lumière douce qui suit le pointeur | Rien |
+
+`<AnimatedText>` gagne aussi `down`, `scale`, `rotate`, `flip`, `slide-left`,
+`slide-right`, `skew`, `glow`, `elastic`, et trois presets dessinés par leur propre
+composant : `scramble`, `typewriter` et `scroll-fill`. Il accepte `trigger="view"`
+ou `"load"`.
+
+---
+
+## Le moteur à déclencheurs
+
+Un preset dit **ce qui** bouge et `trigger` dit **quand**. Ce sont deux axes
+séparés : soixante-dix entrées fois six déclencheurs tiennent dans une table et une
+fonction. La table est `MOCKY_FX` dans `AnimateFx.ts`, et elle tourne sur la Web
+Animations API.
+
+| `trigger` | Quand | Disponible pour |
+|---|---|---|
+| `view` | Le bloc arrive à l'écran, une fois. `repeat` le rejoue | Entrées, ponctuelles |
+| `load` | Au chargement de la page | Entrées, ponctuelles, boucles |
+| `scroll` | Lié à la position de défilement, annulé en remontant | Entrées, liées au scroll |
+| `hover` | Sous le curseur, ou au focus clavier | Entrées, ponctuelles, états, boucles |
+| `click` | À chaque clic. Sur un état, c'est une bascule | Entrées, ponctuelles, états |
+| `change` | Quand `on={valeur}` change | Entrées, ponctuelles |
+
+Un déclencheur inutilisable par une famille devient le défaut de cette famille :
+rien n'attend un événement qui ne peut pas arriver. `stagger` applique n'importe
+quelle entrée aux enfants directs du bloc, et `speed` vaut `fast` ou `slow`.
+
+| Famille | Noms | Usage |
+|---|---|---|
+| Entrées | 70 en six groupes : soft, depth, turn, curtain, spring, styled | Comment un bloc arrive |
+| Ponctuelles | 17, comme `shake`, `jelly`, `tada`, `squish` | Réponse à un clic |
+| États | 18, comme `hover-float`, `hover-pop`, `hover-nudge-right` | Sous le curseur, annulés quand il part |
+| Boucles | 18, comme `levitate`, `morph`, `orbit` | Une petite décoration par section |
+| Liées au scroll | 17, comme `parallax-fast`, `scroll-zoom-in`, `scroll-wipe` | Images et bandeaux |
+| Pointeur et clic | `magnetic`, `spotlight`, `tilt-glare`, `cursor-parallax`, `hover-shine`, `hover-zoom`, `ripple`, `burst` | Dessinés par une fonction |
+
+Pourquoi ce n'est pas construit sur Motion, chaque point ayant été trouvé en lisant
+le premier moteur :
+
+- **« Au scroll » doit vouloir dire au scroll.** Avec Motion, `animate: 'visible'`
+  joue au montage : une section sous la ligne de flottaison avait fini avant que
+  quiconque l'atteigne. Ici, l'animation est mise en pause sur sa première image et
+  libérée par un observateur.
+- **`stagger-list` ne faisait rien.** `staggerChildren` n'atteint que les enfants
+  qui sont des composants Motion, et ceux d'une liste générée sont des éléments
+  simples. Ici, les enfants sont les cibles.
+- **Le positionnement Tailwind survit.** Les keyframes utilisent les propriétés
+  individuelles `translate`, `scale` et `rotate`, qui se composent avec
+  `-translate-x-1/2`. Une liste qui s'arrête sur `{}` finit sur le style propre de
+  l'élément, donc `opacity-80` ne saute pas. Les presets qui ont besoin d'une
+  perspective ou d'un skew remplacent `transform` le temps de leur durée, et la
+  fiche lue par le modèle le dit.
+
+Le premier moteur reste pour un cas. `mockyFxWanted` lui envoie un écran **sans
+`trigger`** sur un des noms d'origine, parce que cet écran a été validé avec ce
+comportement. `tilt-3d` et `exit-slide` y restent aussi.
+
+Trois règles empêchent de perdre du contenu :
+
+- Un bloc du premier écran est libéré tout de suite. `drop-in` en haut de page
+  attendrait sinon une intersection que son propre déplacement empêche.
+- Les positions viennent de la mise en page, jamais de `getBoundingClientRect`. Un
+  rect inclut le translate que l'animation vient d'écrire, et un parallaxe qui
+  mesure son propre déplacement tremble.
+- Une portion de défilement qui dépasse la fin de la page est coupée à la bonne
+  longueur, pour que le dernier bloc puisse finir. Une page qui ne défile pas est
+  à la fin.
+
+`MOTION_PLAN`, dans `generate.ts`, donne au modèle un ordre de travail : l'ouverture
+sur `load`, une seule famille d'entrées sur `view`, deux effets liés au scroll au
+plus, des réponses au clic, et de la retenue sur les écrans d'application. Il est
+omis sur les documents, et rédigé pour qu'une réparation ne le prenne pas pour une
+demande.
+
+Le lecteur de prototype a une transition à lui, entre les écrans : un glissé-fondu
+dans le sens du déplacement.
 
 ---
 
@@ -447,9 +546,9 @@ C'est un chemin d'**édition**, donc `EDIT_RULES` s'applique : le modèle ne peu
 ajouter que du mouvement, et le contenu, le texte, les couleurs, la mise en page
 et la structure restent identiques à l'octet près. L'instruction nomme des
 presets d'`<Animated>`, `<AnimatedText>`, `<CountUp>` et `<Ticker>`, et
-`animations.test.ts` tient ces noms au catalogue. Comme `<Animated>` ne transmet
-que `className` et `style`, un élément portant un `id`, un gestionnaire ou un
-lien reste tel quel, **à l'intérieur** d'un `<Animated>`.
+`animations.test.ts` tient ces noms au catalogue. Elle donne toujours un
+`trigger` : avec lui, `<Animated>` garde tous les attributs de l'élément qu'il
+remplace.
 
 Une subtilité vaut d'être connue. Les capacités retirées sont sautées dans la
 boucle de documentation de `buildCapabilitiesPrompt()`, donc un composant retiré

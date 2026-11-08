@@ -369,9 +369,28 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
   if (caps.some((c) => c.id === DOCUMENT_CAP)) {
     lines.push('')
     lines.push(DOCUMENT_RULES)
+  } else if (caps.some((c) => c.id === 'animate')) {
+    lines.push('')
+    lines.push(MOTION_PLAN)
   }
   return lines.join('\n')
 }
+
+/**
+ * The order of operations for motion. The catalogue says what exists and this
+ * says what goes where: without it a page got whichever names came to the model
+ * first, and a hundred and fifty names is the case where that matters. Worded for
+ * the paths that ADD motion, because every correction path prints this section
+ * too and a repair must not take it as a request.
+ */
+const MOTION_PLAN = `MOTION PLAN — only when you are adding motion (a new screen, or a request for animation), never while repairing or correcting something else. Decide it before writing:
+1. The opening: what the first screen shows arrives once, with trigger="load": the headline first, then what surrounds it, on rising delays.
+2. The sections: one entrance from one family for the whole screen, with trigger="view", so the page has one way of arriving. Spend something stronger (a curtain on a picture, a stagger on a grid) on one or two moments, and leave quiet sections quiet.
+3. The scroll: at most two scroll-linked effects on a page, on pictures or bands.
+4. The answers: what can be pressed answers. A state on cards and links, a one-shot or "ripple" on a main button.
+5. Changes of state use the kit: trigger="change" for the content of a tab, AnimatedCollapse for anything that opens.
+6. An application screen (a dashboard, a table, a form) stays out of the way: quick states and click answers, no scroll effects, no loops.
+Body text never moves on its own, and motion never hides what the screen is for.`
 
 /**
  * Calls the configured provider's chat endpoint asking for a single
@@ -609,7 +628,7 @@ export function buildAnimationInstruction(level: AnimationLevel): string {
   const common = [
     'Add tasteful animations and transitions to this screen WITHOUT changing any content, copy, colors, layout, sizing, structure, or behaviour. Motion is the ONLY thing you may add.',
     'Use only the animation components documented above (<Animated>, <AnimatedText>, <CountUp>, <Ticker>) and plain Tailwind transition/hover utilities (transition, duration-*, ease-*, hover:scale-*, hover:shadow-*). Do NOT add any external library, and do not write @keyframes or <style> blocks.',
-    'Animate existing elements rather than rewriting them. <Animated> and <AnimatedText> pass on className and style and nothing else. An element that carries only those may become the animated one, which keeps the layout exact: <section className="…"> becomes <Animated as="section" preset="fade-up" className="…">, with the same classes. An element with any other attribute (id, onClick, onChange, href, type, aria-*, data-*) stays exactly as it is, INSIDE an <Animated>; around a button or a link, give that <Animated> className="inline-block".',
+    'Animate existing elements rather than rewriting them, and always give <Animated> a trigger. With a trigger it keeps every attribute, so the element itself can become the animated one, which keeps the layout exact: <section id="x" className="…"> becomes <Animated as="section" id="x" preset="fade-up" trigger="view" className="…">, with the same attributes. <AnimatedText> takes only className and style: a heading with any other attribute (id, data-*, aria-*) stays exactly as it is.',
     'If the code already uses other animation components, leave them as they are.',
     'Keep it accessible and never block interaction: entrance effects must settle to a fully visible resting state; nothing should hide content if animations are disabled.',
   ]
@@ -617,22 +636,25 @@ export function buildAnimationInstruction(level: AnimationLevel): string {
     subtle: [
       'Level: SUBTLE. Add only gentle polish:',
       '- Smooth transitions on interactive elements (buttons, cards, links): color, background, shadow and a small hover lift (hover:scale-[1.02] / hover:shadow-lg with transition).',
-      '- One soft entrance (preset="fade-up") on the main heading or hero block.',
+      '- One soft entrance (preset="fade-up" trigger="load") on the main heading or hero block.',
       '- Nothing looping, no counting numbers, no attention-grabbing effects.',
     ],
     moderate: [
       'Level: MODERATE. Add clear but tasteful motion:',
-      '- Entrance animations on the major sections (preset="fade-up" or preset="reveal-up") as they scroll into view.',
+      '- The first screen arrives with trigger="load" (preset="rise" on the headline, then preset="fade-up" with rising delays).',
+      '- Entrance animations on the major sections with trigger="view" (preset="fade-up" or preset="reveal-up").',
       '- Staggered reveals for lists and card grids (preset="stagger-list", on the list itself and not on each item).',
       '- Numbers that count up (<CountUp>) for prominent stats/metrics if any exist.',
-      '- Hover lift + shadow on cards and smooth transitions on all interactive elements.',
+      '- A state on cards (preset="hover-lift" trigger="hover") and smooth transitions on all interactive elements.',
+      '- A click answer on the main button (preset="squish" trigger="click").',
     ],
     rich: [
       'Level: RICH. Add expressive, high-end motion (still tasteful, never overwhelming):',
       '- Everything from the moderate level: section entrances, staggered lists, numbers that count up, hover states.',
-      '- Bring the hero headline in with <AnimatedText preset="mask"> when it is plain text.',
-      '- Use preset="hover-glow" on the single primary call-to-action.',
-      '- Use preset="tilt-3d" on one hero/feature card or picture where it fits, or preset="parallax" on a hero picture, never on body text.',
+      '- Bring the hero headline in with <AnimatedText preset="mask" trigger="load"> when it is plain text.',
+      '- Use preset="magnetic" and preset="ripple"-style answers on the single primary call-to-action.',
+      '- Use preset="round-reveal" trigger="view" on the largest pictures.',
+      '- Use preset="tilt-glare" on one hero/feature card or picture where it fits, and preset="parallax" trigger="scroll" on a hero picture, never on body text.',
       '- Use a <Ticker> for any logo strip / testimonial row if present.',
       '- At most one small decorative element may loop (preset="float"), never text to read. Do not overload the page — pick a few focal points.',
     ],
