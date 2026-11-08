@@ -3966,6 +3966,7 @@ export default function ProjectView({
             <Button
               variant="quiet"
               size="sm"
+              className="!border-accent"
               aria-label={t('mode.demo')}
               title={t('project.demoTitle')}
               onClick={() => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null)}
