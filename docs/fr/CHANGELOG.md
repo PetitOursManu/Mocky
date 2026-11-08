@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | dossiers imbriqués, miniatures synchronisées, suppression directe et créations du LLM | `b3d70a9` |
 | `animations` | 151 presets, des déclencheurs et un plan de mouvement | `b48dc37` |
 | `formes` | des compositions en contour et l'option outline | `591f5ab` |
 | `formes` | 377 formes, des fluides en deux couleurs et des signes animés | `2b0445f` |
@@ -40,6 +41,12 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 | Portée | Modification | Commit |
 | --- | --- | --- |
 | `fr` | interface marquée à jour après le rebase sur main | `ae9dbdb` |
+
+**Maintenance**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `projet` | un liseré d'accent sur le bouton Démo | `2fd5c17` |
 
 ## octobre 2026
 
