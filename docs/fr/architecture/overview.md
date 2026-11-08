@@ -1,5 +1,5 @@
 ---
-source_hash: 135222c3b890
+source_hash: c2ba9b778919
 ---
 
 # Vue d'ensemble de l'architecture
@@ -103,7 +103,7 @@ C'est [l'invariant I3](invariants.md), et il porte sur la
 | `charts` | snippet-pack | `chart`, `graph`, `dashboard`, `analytics`, `sparkline`… | `BarChart`, `LineChart`, `DonutChart`, `Sparkline`, `ProgressRing` |
 | `motion` | snippet-pack | aucun — `retired: true` | `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`, `ShimmerButton`, `BentoGrid`, `BentoCard`, `BorderBeam`, `TextReveal`, `Meteors`, `AnimatedBeam` |
 | `motion-lib` | cdn-script | aucun — tirée par `requires` | `window.Motion`, depuis `/vendor/motion.js` |
-| `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Déclare `requires: ['motion-lib']` |
+| `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `AnimatedText`, `Ticker`, `CountUp`, `AnimatedWord`, `AnimatedScrollText`, `AnimatedProgress`, `AnimatedCollapse`, `AnimatedFlip`, `AnimatedCursorGlow`. Déclare `requires: ['motion-lib']` |
 | `three-lib` | cdn-script | aucun — tirée par `requires` | `window.THREE`, depuis `/vendor/three.js` |
 | `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — dix scènes procédurales. Déclare `requires: ['three-lib']` |
 | `scrollvideo` | snippet-pack | aucun — ajoutée explicitement | `ScrollSequence`, `PointerSequence` |

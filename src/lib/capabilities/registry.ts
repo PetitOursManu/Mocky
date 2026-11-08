@@ -5,6 +5,7 @@ import { MotionSource, MOTION_EXPORTS } from './snippets/Motion'
 import { ScrollVideoSource, SCROLLVIDEO_EXPORTS } from './snippets/ScrollVideo'
 import { MotionFilmSource, MOTIONFILM_EXPORTS } from './snippets/MotionFilm'
 import { AnimateSource, ANIMATE_EXPORTS } from './snippets/Animate'
+import { FX_ATTENTION, FX_ENTRANCES, FX_HOVER, FX_LOOPS, FX_SCROLL } from './snippets/AnimateFx'
 import { Scene3DSource, SCENE3D_EXPORTS, SCENE3D_PRESETS } from './snippets/Scene3D'
 import { UltraSource, ULTRA_EXPORTS, ULTRA_CLASSES, BACKDROP_PRESETS } from './snippets/Ultra'
 import { DocumentSource, DOCUMENT_EXPORTS } from './snippets/Document'
@@ -15,6 +16,8 @@ import { FRAME_FAMILIES, FRAME_SHAPES } from '../frameShapes'
 import { OrnamentSource, ORNAMENT_EXPORTS } from './snippets/Ornament'
 import { ORNAMENTS, ORNAMENT_OUTLINE_IDS } from '../ornaments'
 import { FIELD_TYPES, PAGE_FORMAT_IDS } from '../pageFormats'
+
+const quoted = (names: readonly string[]) => names.map((n) => `"${n}"`).join(', ')
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
 function validatePack(id: string, components: { name: string }[], snippets: { exports: string[] }[]) {
@@ -122,8 +125,12 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     /**
-     * The closed animation vocabulary. Six presets, one component, and no way
-     * for the model to reach Motion's own API — see snippets/Animate.ts.
+     * The closed animation vocabulary: names and triggers, and no way for the
+     * model to reach Motion's own API — see snippets/Animate.ts and AnimateFx.ts.
+     *
+     * The card is printed from the same lists the engine is tested against, and
+     * it is grouped by what a family is FOR, because a catalogue of a hundred and
+     * fifty names with only the upsides is how a page ends up using all of them.
      */
     id: 'animate',
     kind: 'snippet-pack',
@@ -136,10 +143,19 @@ export const CAPABILITIES: Capability[] = [
     components: [
       {
         name: 'Animated',
-        signature: '<Animated preset="fade-up" delay={0.1} as="section" className="…">{children}</Animated>',
+        signature: '<Animated preset="fade-up" trigger="view" delay={0.1} stagger={0.08} speed="slow" repeat on={value} as="section" className="…">{children}</Animated>',
         description:
-          'Wraps any block to animate it. `preset` is REQUIRED and must be EXACTLY one of these twenty-six: "fade-in" (opacity), "fade-up" (opacity + rise), "scale-in" (spring pop), "slide-left" (enters from the left), "slide-right" (enters from the right), "blur-in" (blur lifts as it appears), "stagger-list" (children appear one after another — put it on the LIST, not on each item), "hover-lift" (lifts under the cursor, no entrance), "hover-glow" (brightens and grows slightly under the cursor, no entrance), "parallax" (drifts slower than the page as it scrolls — for a hero or a background block, never for body text), "tilt-3d" (turns towards the cursor inside its own perspective, for a card or a picture — depth with no 3D renderer, so it costs nothing and may be used on many elements), "exit-slide" (slides in, and out when removed), "rise" (a long, slow rise — for a hero headline or a large picture), "slide-down" (enters from above), "zoom-out" (a picture that arrives slightly too close and settles), "flip-up" (turns up from its bottom edge, like a card flipped), "rotate-in" (turns and grows into place), "bounce-in" (pops and overshoots — a badge, a sticker, a price, never a paragraph), "reveal-up" (uncovered from the bottom like a curtain — nothing moves, the block appears), "wipe-right" (uncovered from left to right — a picture, a coloured band, a rule), "hover-scale" (grows a little under the cursor, no entrance), "hover-rotate" (tilts like a picked-up sticker under the cursor, no entrance), and four that LOOP forever and so belong on ONE small decorative thing per section, never on text to read: "float" (drifts gently up and down), "pulse" (breathes, slightly larger and back), "spin-slow" (one turn every 24 s — a round badge or a starburst), "wobble" (rocks a few degrees either way). `delay` is in seconds, 0–2. `as` picks the tag, default "div". Any other preset name renders a plain, unanimated element — never invent one.',
-        tags: ['animation', 'motion', 'entrance', 'hover', 'stagger', 'reveal', 'parallax', 'blur'],
+          'Animates any block. With a `trigger`, every other prop (id, onClick, href, aria-*) reaches the element. `preset` is REQUIRED and must be EXACTLY one of the names below; any other name renders a plain, unanimated element, so never invent one. ' +
+          '`trigger` says WHEN, and you should always write it: "view" (when it scrolls into view, once; add `repeat` to replay each time), "load" (at page load, for what the first screen shows), "scroll" (an entrance tied to the scroll position, undone by scrolling back), "hover", "click" (replays on each click; a button inside keeps its own onClick), "change" with on={value} (replays when value changes: the content of a tab, a filtered list). ' +
+          '`delay` is seconds, 0–2. `speed` is "fast" or "slow". `stagger` is seconds between the block\'s direct CHILDREN (0.04–0.2), with any entrance: they animate instead of the block, so put it on the list and not on each item. `as` picks the tag, default "div". ' +
+          `ENTRANCES take any trigger. Soft, the everyday ones: ${quoted(FX_ENTRANCES.soft)}. Depth and focus: ${quoted(FX_ENTRANCES.depth)}. Turning in 3D, which replaces the CSS transform for its length, so never on an element placed with a translate class: ${quoted(FX_ENTRANCES.turn)}. Curtains, where the block is uncovered and nothing moves, for pictures and coloured bands: ${quoted(FX_ENTRANCES.curtain)}. Springy, for a badge, a price, a button and never a paragraph: ${quoted(FX_ENTRANCES.spring)}. Stylised, at most one on a screen: ${quoted(FX_ENTRANCES.styled)}. Also "stagger-list" (the children of a list, one after another, on the LIST) and "exit-slide" (slides in, and out when removed). ` +
+          `ONE-SHOTS, click by default, feedback and never decoration: ${quoted(FX_ATTENTION)}. ` +
+          `STATES, under the cursor and undone when it leaves; trigger="click" makes a toggle: ${quoted(FX_HOVER)}. ` +
+          `LOOPS forever, so ONE small decorative thing per section and never text to read; trigger="hover" runs one only under the cursor: ${quoted(FX_LOOPS)}. ` +
+          `SCROLL-LINKED, driven by the block's whole passage across the screen, for pictures, bands and backgrounds and never body text: ${quoted(FX_SCROLL)}. ` +
+          '"tilt-3d" (turns towards the cursor inside its own perspective, for a card or a picture; depth with no 3D renderer, so it may be used on many elements), "tilt-glare" (the same with a sheen), "magnetic" (a button that leans towards the cursor), "spotlight" (a light follows the cursor over a card), "cursor-parallax" (a decoration that drifts against the cursor), "hover-shine" (a sweep of light), "hover-zoom" (the picture inside a frame grows). ' +
+          '"ripple" (a ring from the point clicked, for a button), "burst" (confetti from the point clicked, for a real success such as a like or a purchase; colors={["#…"]} optional).',
+        tags: ['animation', 'motion', 'entrance', 'hover', 'stagger', 'reveal', 'parallax', 'blur', 'scroll', 'click', 'trigger'],
       },
       {
         name: 'Ticker',
@@ -157,10 +173,52 @@ export const CAPABILITIES: Capability[] = [
       },
       {
         name: 'AnimatedText',
-        signature: '<AnimatedText as="h1" preset="up" by="word" stagger={0.06} delay={0} className="…">The words of the headline</AnimatedText>',
+        signature: '<AnimatedText as="h1" preset="up" trigger="view" by="word" stagger={0.06} delay={0} className="…">The words of the headline</AnimatedText>',
         description:
-          'A line of text whose words (or letters) arrive one after another when it scrolls into view — for a hero headline or one key sentence, at most two per screen. Its children must be PLAIN TEXT (a string, no tags inside). `as` is the tag, usually a heading ("h1", "h2", "p"; default "span"), and it takes your classes like that tag would. `preset` is "up" (each word rises — the default), "fade", "blur" (each word comes into focus) or "mask" (each word slides up from behind a line, the editorial reveal). `by` is "word" (default) or "letter" (only for a few large words). `stagger` is the seconds between two pieces (default 0.06 by word, 0.025 by letter), `delay` the seconds before the first. Screen readers hear the whole sentence, and with animations off it is the plain text.',
-        tags: ['text', 'headline', 'reveal', 'typography', 'animation', 'split', 'words', 'letters'],
+          'A line of text whose words (or letters) arrive one after another — for a hero headline or one key sentence, at most two per screen. Its children must be PLAIN TEXT (a string, no tags inside). `as` is the tag, usually a heading ("h1", "h2", "p"; default "span"), and it takes your classes like that tag would. `preset` is "up" (each word rises — the default), "down", "fade", "blur" (each word comes into focus), "mask" (each word slides up from behind a line, the editorial reveal), "scale", "rotate", "flip", "slide-left", "slide-right", "skew", "glow", "elastic" (overshoots), "scramble" (random characters resolve into the text, for a short technical line), "typewriter" (typed out with a caret) or "scroll-fill" (the words go from faint to full ink as the page scrolls, for one large paragraph or manifesto line). `trigger` is "view" (when it scrolls into view, the default) or "load" (at page load, for a hero). `by` is "word" (default) or "letter" (only for a few large words). `stagger` is the seconds between two pieces (default 0.06 by word, 0.025 by letter), `delay` the seconds before the first. Screen readers hear the whole sentence, and with animations off it is the plain text.',
+        tags: ['text', 'headline', 'reveal', 'typography', 'animation', 'split', 'words', 'letters', 'scramble', 'typewriter'],
+      },
+      {
+        name: 'AnimatedWord',
+        signature: '<AnimatedWord words={["designers", "founders", "teams"]} preset="up" interval={2.4} className="…" />',
+        description:
+          'One word of a headline that keeps changing, inside a sentence: <h1>Built for <AnimatedWord words={[…]} /></h1>. Its box is as wide as the longest word, so the sentence never jumps. `preset` is "up", "fade", "blur" or "flip". `interval` is the seconds per word (1–10). With animations off it is the first word.',
+        tags: ['text', 'rotate', 'word', 'headline', 'loop'],
+      },
+      {
+        name: 'AnimatedScrollText',
+        signature: '<AnimatedScrollText speed={0.6} reverse className="text-8xl font-bold">Words in a giant band</AnimatedScrollText>',
+        description:
+          'A giant line of text that slides sideways as the page scrolls, for a band between two sections; at most one or two per screen. Children are PLAIN TEXT, written once. `speed` is 0.1–3, `reverse` slides the other way. Give it the type size through className.',
+        tags: ['text', 'scroll', 'band', 'marquee', 'giant'],
+      },
+      {
+        name: 'AnimatedProgress',
+        signature: '<AnimatedProgress color="#6366f1" height={3} position="top" />',
+        description:
+          'A thin bar fixed to the edge of the window that fills as the reader moves down the page, for articles and long landing pages. Render it once, anywhere. `color` defaults to the text colour, `height` is in pixels, `position` is "top" or "bottom".',
+        tags: ['scroll', 'progress', 'reading', 'bar'],
+      },
+      {
+        name: 'AnimatedCollapse',
+        signature: '<AnimatedCollapse open={isOpen}>{children}</AnimatedCollapse>',
+        description:
+          'A block that opens and closes smoothly to its own height, driven by your state: accordions, FAQ answers, "show more". `open` is a boolean you hold with useState; the button that changes it is yours. Never animate a height any other way.',
+        tags: ['accordion', 'collapse', 'faq', 'expand', 'click', 'height'],
+      },
+      {
+        name: 'AnimatedFlip',
+        signature: '<AnimatedFlip trigger="hover" front={<div>…</div>} back={<div>…</div>} className="h-72" />',
+        description:
+          'A card with two faces that turns over in 3D, sized by its taller face or by your className: team members, pricing details, a question and its answer. `trigger` is "hover" (default; a tap also turns it on a phone) or "click". Each face is complete: give both their own background and padding.',
+        tags: ['card', 'flip', 'click', 'hover', '3d', 'two sides'],
+      },
+      {
+        name: 'AnimatedCursorGlow',
+        signature: '<AnimatedCursorGlow color="#7c5cff" size={420} opacity={0.28} />',
+        description:
+          'A soft light that trails the pointer across the whole page, behind the content, for a dark, expressive page; render it once, and give the content above it a positive z-index. `color` defaults to the text colour. Nothing is drawn on a touch screen.',
+        tags: ['cursor', 'pointer', 'glow', 'background', 'light'],
       },
     ],
   },

@@ -1,3 +1,5 @@
+import { AnimateFxSource, FX_EXPORTS, FX_PRESETS } from './AnimateFx'
+
 /**
  * `<Animated preset="…">` — the only motion surface the generating model sees.
  *
@@ -29,7 +31,7 @@
  * shows its content without animating is a small loss; a mockup that shows
  * nothing is a bug.
  */
-export const AnimateSource = `var MOCKY_PRESETS = {
+export const AnimateSource: string = `var MOCKY_PRESETS = {
   'fade-in': {
     variants: { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.4 } } },
     css: { from: 'opacity:0', to: 'opacity:1', ms: 400 }
@@ -184,7 +186,7 @@ var mockyMayAnimate = function () {
   return true;
 };
 
-var Animated = function (props) {
+var MockyMotionAnimated = function (props) {
   var name = props && props.preset;
   var config = MOCKY_PRESETS[name];
   var Tag = (props && props.as) || 'div';
@@ -492,14 +494,27 @@ var MOCKY_ANIMATED_TEXT = {
   up: { from: { opacity: 0, transform: 'translateY(0.45em)' } },
   fade: { from: { opacity: 0 } },
   blur: { from: { opacity: 0, filter: 'blur(8px)' } },
-  mask: { from: { transform: 'translateY(105%)' }, mask: true }
+  mask: { from: { transform: 'translateY(105%)' }, mask: true },
+  down: { from: { opacity: 0, transform: 'translateY(-0.45em)' } },
+  scale: { from: { opacity: 0, transform: 'scale(0.6)' } },
+  rotate: { from: { opacity: 0, transform: 'translateY(0.2em) rotate(-12deg)' } },
+  flip: { from: { opacity: 0, transform: 'perspective(500px) rotateX(-80deg)' } },
+  'slide-left': { from: { opacity: 0, transform: 'translateX(-0.4em)' } },
+  'slide-right': { from: { opacity: 0, transform: 'translateX(0.4em)' } },
+  skew: { from: { opacity: 0, transform: 'skewX(-14deg) translateY(0.3em)' } },
+  glow: { from: { opacity: 0, filter: 'brightness(2.4) blur(4px)' } },
+  elastic: { from: { opacity: 0, transform: 'translateY(0.7em)' }, ease: 'spring' },
+  /* Drawn by their own components, at the end of this pack. */
+  scramble: {},
+  typewriter: {},
+  'scroll-fill': {}
 };
 var mockyTextOf = function (children) {
   if (typeof children === 'string' || typeof children === 'number') return String(children);
   if (Array.isArray(children) && children.every(function (c) { return typeof c === 'string' || typeof c === 'number'; })) return children.join('');
   return null;
 };
-var AnimatedText = function (props) {
+var MockyAnimatedTextPlain = function (props) {
   var Tag = (props && props.as) || 'span';
   var className = (props && props.className) || undefined;
   var text = mockyTextOf(props ? props.children : null);
@@ -518,6 +533,9 @@ var AnimatedText = function (props) {
     if (!on) return;
     var node = ref.current;
     if (!node || typeof IntersectionObserver === 'undefined') { setShown(true); return; }
+    /* A frame later, so the first state is painted and there is something to
+       transition from. */
+    if (props && props.trigger === 'load') { var f = window.requestAnimationFrame(function () { setShown(true); }); return function () { window.cancelAnimationFrame(f); }; }
     var io = new IntersectionObserver(function (entries) {
       for (var i = 0; i < entries.length; i++) if (entries[i].isIntersecting) { setShown(true); io.disconnect(); return; }
     }, { rootMargin: '0px 0px -10% 0px' });
@@ -530,7 +548,8 @@ var AnimatedText = function (props) {
   var n = 0;
   var piece = function (str, key) {
     var i = n++;
-    var s = { display: 'inline-block', transition: 'opacity 600ms cubic-bezier(0.22,1,0.36,1), transform 600ms cubic-bezier(0.22,1,0.36,1), filter 600ms cubic-bezier(0.22,1,0.36,1)', transitionDelay: (delay + i * stagger).toFixed(3) + 's', willChange: 'transform' };
+    var curve = (style.ease && typeof mockyEase !== 'undefined' && mockyEase[style.ease]) || 'cubic-bezier(0.22,1,0.36,1)';
+    var s = { display: 'inline-block', transition: 'opacity 600ms ' + curve + ', transform ' + (style.ease ? '850ms ' : '600ms ') + curve + ', filter 600ms ' + curve, transitionDelay: (delay + i * stagger).toFixed(3) + 's', willChange: 'transform' };
     if (!shown) Object.assign(s, style.from);
     return React.createElement('span', { key: key, style: s }, str);
   };
@@ -550,9 +569,10 @@ var AnimatedText = function (props) {
     { ref: ref, className: className, style: props && props.style, 'aria-label': text },
     React.createElement('span', { 'aria-hidden': true }, out)
   );
-}`
+};
+` + AnimateFxSource
 
-export const ANIMATE_EXPORTS = ['Animated', 'Ticker', 'CountUp', 'AnimatedText'] as const
+export const ANIMATE_EXPORTS = ['Animated', 'Ticker', 'CountUp', 'AnimatedText', ...FX_EXPORTS] as const
 
 /**
  * The closed vocabulary, restated for the prompt and for tests.
@@ -561,36 +581,9 @@ export const ANIMATE_EXPORTS = ['Animated', 'Ticker', 'CountUp', 'AnimatedText']
  * `components` metadata is what reaches the model, and a name that exists in
  * one and not the other is the failure `validatePack` exists to catch.
  */
-export const ANIMATE_PRESETS = [
-  'fade-in',
-  'fade-up',
-  'scale-in',
-  'stagger-list',
-  'slide-left',
-  'slide-right',
-  'blur-in',
-  'hover-lift',
-  'hover-glow',
-  'parallax',
-  'tilt-3d',
-  'exit-slide',
-  'rise',
-  'slide-down',
-  'zoom-out',
-  'flip-up',
-  'rotate-in',
-  'bounce-in',
-  'reveal-up',
-  'wipe-right',
-  'hover-scale',
-  'hover-rotate',
-  'float',
-  'pulse',
-  'spin-slow',
-  'wobble',
-] as const
+export const ANIMATE_PRESETS: readonly string[] = [...FX_PRESETS, 'tilt-3d', 'exit-slide']
 
 /** The ways `<AnimatedText>` brings its words in — the snippet's `MOCKY_ANIMATED_TEXT`, restated for the same reason. */
-export const ANIMATED_TEXT_PRESETS = ['up', 'fade', 'blur', 'mask'] as const
+export const ANIMATED_TEXT_PRESETS = ['up', 'fade', 'blur', 'mask', 'down', 'scale', 'rotate', 'flip', 'slide-left', 'slide-right', 'skew', 'glow', 'elastic', 'scramble', 'typewriter', 'scroll-fill'] as const
 
-export type AnimatePreset = (typeof ANIMATE_PRESETS)[number]
+export type AnimatePreset = string

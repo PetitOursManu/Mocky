@@ -114,6 +114,29 @@ export default function DemoPlayer({
   const currentId = stack[stack.length - 1]
   const current = screens.find((s) => s.id === currentId) ?? screens.find((s) => s.id === startId) ?? screens[0]
 
+  /*
+   * Going from one screen to the next, in the direction of travel: forward comes
+   * in from the right, "Back" from the left. Each screen is a new document, so
+   * without this the frame blinked white and swapped; the fade is what covers
+   * the time the next one takes to draw. On the box and not in the frame, because
+   * a frame is rebuilt at that very moment.
+   */
+  const screenBoxRef = useRef<HTMLDivElement>(null)
+  const depthRef = useRef(stack.length)
+  const shownRef = useRef(currentId)
+  useEffect(() => {
+    const back = stack.length < depthRef.current
+    depthRef.current = stack.length
+    if (shownRef.current === currentId) return
+    shownRef.current = currentId
+    const box = screenBoxRef.current
+    if (!box?.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    box.animate(
+      [{ opacity: 0, translate: back ? '-28px 0' : '28px 0', scale: 0.985 }, {}],
+      { duration: 420, easing: 'cubic-bezier(0.22,1,0.36,1)' },
+    )
+  }, [currentId, stack.length])
+
   const areaRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [framed, setFramed] = useState(() => readFramePref(browserStorage()))
@@ -373,7 +396,7 @@ export default function DemoPlayer({
           >
             {({ radius, hideScrollbars }) => (
               <>
-                <div className="absolute inset-0">
+                <div ref={screenBoxRef} className="absolute inset-0">
                   <Preview
                     key={frameNonce}
                     code={current.code}
@@ -401,7 +424,7 @@ export default function DemoPlayer({
         )}
         {!isDoc && !framed && scale > 0 && (
           <div className="relative" style={{ width: boxW, height: boxH }}>
-            <div className="absolute inset-0">
+            <div ref={screenBoxRef} className="absolute inset-0">
               {current.device === 'iphone' ? (
                 <DeviceChrome>
                   <Preview key={frameNonce} code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} hideScrollbars radius={SCREEN_RADIUS} flow={flow} />
