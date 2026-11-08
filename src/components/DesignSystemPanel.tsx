@@ -16,6 +16,11 @@ export interface StyleScreen {
   onInspect: () => void
   onApply: () => void
   onDerive: () => void
+  /** The direction already says what this screen shows, as of the last refresh. */
+  fresh: boolean
+  onRefresh: () => void
+  /** Set right after a refresh of this screen, to take it back. */
+  onUndoRefresh?: () => void
 }
 
 /**
@@ -108,6 +113,23 @@ export default function DesignSystemPanel({
               {t('design.selectedScreen', { name: screen.name })}
             </div>
             <div className="flex flex-wrap gap-1.5">
+              {/* First, and whatever else the screen records: this is the one
+                  action that is always meaningful on a selected screen. */}
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={screen.deriving || screen.fresh}
+                onClick={screen.onRefresh}
+                title={t('design.refreshTitle')}
+              >
+                <Icon name={screen.fresh ? 'check' : 'refresh'} size={14} />
+                {t(screen.deriving ? 'canvas.deriveDesignBusy' : screen.fresh ? 'design.refreshFresh' : 'design.refresh')}
+              </Button>
+              {screen.onUndoRefresh && (
+                <Button variant="quiet" size="sm" onClick={screen.onUndoRefresh}>
+                  {t('common.cancel')}
+                </Button>
+              )}
               {screen.recorded ? (
                 <>
                   <Button variant="ghost" size="sm" onClick={screen.onInspect}>

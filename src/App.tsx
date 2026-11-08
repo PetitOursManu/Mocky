@@ -136,7 +136,11 @@ function MockyApp() {
     createProject,
     deleteProject,
     renameProject,
-    setProjectsFolder,
+    folders,
+    createFolder,
+    moveFolder,
+    moveProjects,
+    deleteFolder,
     setProjectDesign,
     setProjectUltra,
     renameFolder,
@@ -151,6 +155,7 @@ function MockyApp() {
     setProjectPublication,
     setProjectUseBrand,
     setProjectCreative,
+    setProjectCreations,
   } = useProjects()
   const [route, setRoute] = useState<Route>('home')
   /** DESIGN.md shown over the current project, without leaving it. */
@@ -321,8 +326,8 @@ function MockyApp() {
     setRoute('project')
   }
 
-  function newProject() {
-    const id = createProject()
+  function newProject(folderId?: string | null) {
+    const id = createProject(undefined, folderId)
     openProject(id)
   }
 
@@ -783,13 +788,17 @@ function MockyApp() {
         <ProjectsHome
           projects={projects}
           onOpen={openProject}
+          folders={folders}
           onCreate={newProject}
           onDelete={(id) => {
             deleteProject(id)
             if (id === activeId) setActiveId(null)
           }}
-          onSetFolder={setProjectsFolder}
+          onMoveProjects={moveProjects}
+          onCreateFolder={createFolder}
           onRenameFolder={renameFolder}
+          onMoveFolder={moveFolder}
+          onDeleteFolder={deleteFolder}
           reviewStates={reviewStates.states}
         />
       )}
@@ -820,7 +829,7 @@ function MockyApp() {
             onBack={goHome}
             onSetReference={(sid) => setReferenceScreen(activeProject.id, sid)}
             onRenameProject={(name) => renameProject(activeProject.id, name)}
-            onSetDesign={(markdown) => setProjectDesign(activeProject.id, markdown)}
+            onSetDesign={(markdown, sync) => setProjectDesign(activeProject.id, markdown, sync)}
             onSetUltra={(ultra) => setProjectUltra(activeProject.id, ultra)}
             onRestoreVersion={(version) => restoreProjectVersion(activeProject.id, version)}
             onSetBranch={(branch) => setProjectBranch(activeProject.id, branch)}
@@ -831,6 +840,7 @@ function MockyApp() {
             onSetPublication={(publication) => setProjectPublication(activeProject.id, publication)}
             onSetUseBrand={(on) => setProjectUseBrand(activeProject.id, on)}
             onSetCreative={(on) => setProjectCreative(activeProject.id, on)}
+            onSetCreations={(on) => setProjectCreations(activeProject.id, on)}
             initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}
           />
           </ErrorBoundary>

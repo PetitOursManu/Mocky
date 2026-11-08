@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: 5352a559dd83
+source_hash: a91f02946c1d
 ---
 
 # Démarrage
@@ -156,7 +156,7 @@ L’accueil après une première génération :
 - 91.2,2.9 **Thème**: Encre (sombre, le défaut) ou Papier, retenu par le navigateur.
 - 95.6,2.9 **Compte**: Connecté : vos projets vous suivent d’un appareil à l’autre.
 - 93,15.8 **Nouveau projet**: Une toile vide, nommée d’après sa première demande.
-- 71.7,15.8 **Nouveau dossier**: Les dossiers sont des noms posés sur les projets ; classez un projet pour en remplir un.
+- 71.7,15.8 **Nouveau dossier**: Les dossiers s’imbriquent et peuvent être vides ; glissez-y un projet pour le classer.
 - 8.5,31.4 **Le dernier projet**: Le dernier touché, en grande carte avec son image et sa demande. `Ouvrir` y entre.
 - 13.3,82.5 **Une carte de projet**: Chacun des autres projets, avec son image, sa demande, ses écrans et son âge ; classez-le ou supprimez-le d’ici.
 :::

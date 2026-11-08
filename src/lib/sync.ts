@@ -1,5 +1,6 @@
 import { api } from './api'
-import { mergeProjects, parseProjects } from './merge'
+import { mergeFolders, mergeProjects, parseProjects } from './merge'
+import { FOLDERS_KEY, parseFolders } from './folderTree'
 import { isMaintenanceError, onMaintenance } from './maintenance'
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -154,8 +155,9 @@ async function doPushWithRetry(): Promise<void> {
     dirty = false
     const projects = localStorage.getItem(PROJECTS_KEY)
     const design = localStorage.getItem(DESIGN_KEY)
+    const folders = localStorage.getItem(FOLDERS_KEY)
     try {
-      const answer = await api.putData(projects, design, TAB_ID)
+      const answer = await api.putData(projects, design, TAB_ID, folders)
       // The server kept something this copy did not have — a project another
       // device or the MCP runner wrote. Read it back so it appears here.
       if (answer?.merged) void pullNow()
@@ -230,16 +232,21 @@ export async function reconcileOnLogin(): Promise<boolean> {
   const projectsChanged = mergedRaw !== (localRaw ?? '')
   const designChanged = (nextDesign ?? '') !== (localDesign ?? '')
 
+  const localFolders = localStorage.getItem(FOLDERS_KEY)
+  const foldersRaw = JSON.stringify(mergeFolders(parseFolders(localFolders), parseFolders(server.folders)))
+  const foldersChanged = foldersRaw !== (localFolders ?? '[]')
+  if (foldersChanged) localStorage.setItem(FOLDERS_KEY, foldersRaw)
+
   if (projectsChanged) localStorage.setItem(PROJECTS_KEY, mergedRaw)
   if (designChanged && nextDesign != null) localStorage.setItem(DESIGN_KEY, nextDesign)
 
   // Push whenever the merge produced something the server does not have yet —
   // typically because the local side contributed the newer copy.
   const serverIsStale =
-    mergedRaw !== (server.projects ?? '') || (nextDesign ?? '') !== (server.design ?? '')
+    mergedRaw !== (server.projects ?? '') || (nextDesign ?? '') !== (server.design ?? '') || foldersRaw !== (server.folders ?? '[]')
   if (serverIsStale) {
     try {
-      await api.putData(mergedRaw, nextDesign ?? null, TAB_ID)
+      await api.putData(mergedRaw, nextDesign ?? null, TAB_ID, foldersRaw)
     } catch (err) {
       // During maintenance the merge still stands locally — throwing here would
       // read as "not signed in" to the caller — and it goes up on resume.
@@ -249,7 +256,7 @@ export async function reconcileOnLogin(): Promise<boolean> {
     }
   }
 
-  return projectsChanged || designChanged
+  return projectsChanged || designChanged || foldersChanged
 }
 
 // ---- reading back what another writer did --------------------------------
@@ -261,6 +268,8 @@ export async function reconcileOnLogin(): Promise<boolean> {
  * being generated here survives a read-back that does not have it yet.
  */
 export const SERVER_PROJECTS_EVENT = 'mocky:server-projects'
+/** The same, with the server's folders as `detail`. */
+export const SERVER_FOLDERS_EVENT = 'mocky:server-folders'
 
 let pulling: Promise<void> | null = null
 let pullAgain = false
@@ -285,6 +294,7 @@ export async function pullNow(): Promise<void> {
     try {
       const server = await api.getData()
       window.dispatchEvent(new CustomEvent(SERVER_PROJECTS_EVENT, { detail: parseProjects(server.projects) }))
+      window.dispatchEvent(new CustomEvent(SERVER_FOLDERS_EVENT, { detail: parseFolders(server.folders) }))
     } catch {
       // The next event or the next push asks again; a failed read loses nothing.
     }

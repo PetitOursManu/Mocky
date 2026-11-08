@@ -40,6 +40,9 @@ import VideoPlayer from './VideoPlayer'
 import FilmLightbox from './FilmLightbox'
 import { Banner, Button, Checkbox, Icon, IconButton, Spinner } from '../ui'
 import StockVideoSearch from './StockVideoSearch'
+import CreationsGrid from './CreationsGrid'
+import { listCreations } from '../lib/creations/browser'
+import type { Creation } from '../lib/creations/stage'
 import { useLang, useT, type TranslationKey } from '../i18n'
 
 /**
@@ -64,7 +67,7 @@ import { useLang, useT, type TranslationKey } from '../i18n'
  * like `video.*` stays `video`: renaming it would touch every call site to
  * change a string no interface prints.
  */
-export type MediaTab = 'images' | 'videos' | 'films'
+export type MediaTab = 'images' | 'videos' | 'films' | 'creations'
 
 /** Bytes, rounded to something a person reads. MB is the useful unit for a film. */
 function formatBytes(bytes: number): string {
@@ -168,6 +171,13 @@ export default function Bibliotheque({
   /** The clip whose player is open, if any. */
   const [playing, setPlaying] = useState<LibraryVideo | null>(null)
   const [films, setFilms] = useState<VideoExport[]>([])
+  const [creations, setCreations] = useState<Creation[]>([])
+  const refreshCreations = useCallback(() => {
+    void listCreations().then(setCreations, () => setCreations([]))
+  }, [])
+  useEffect(() => {
+    refreshCreations()
+  }, [refreshCreations])
   /**
    * Has the film listing answered yet?
    *
@@ -495,8 +505,9 @@ export default function Bibliotheque({
     images: 'library.tabImages',
     videos: 'library.tabVideos',
     films: 'library.tabFilms',
+    creations: 'library.tabCreations',
   }
-  const tabCount = (id: MediaTab) => (id === 'images' ? images.length : id === 'videos' ? videos.length : films.length)
+  const tabCount = (id: MediaTab) => (id === 'images' ? images.length : id === 'videos' ? videos.length : id === 'films' ? films.length : creations.length)
 
   /**
    * The films tab appears only when there is something to say.
@@ -508,7 +519,8 @@ export default function Bibliotheque({
    * sent there — which is what `initialTab` is for.
    */
   const showFilms = films.length > 0 || filmError !== null || tab === 'films'
-  const visibleTabs = (['images', 'videos', ...(showFilms ? (['films'] as const) : [])] as MediaTab[])
+  // Like the films: a tab that would read a permanent zero appears once there is something in it.
+  const visibleTabs = (['images', 'videos', ...(showFilms ? (['films'] as const) : []), ...(creations.length > 0 || tab === 'creations' ? (['creations'] as const) : [])] as MediaTab[])
 
   const tabs = (
     // The reference's tool tray: segments in one raised box, the active one in
@@ -548,8 +560,9 @@ export default function Bibliotheque({
   const refreshCurrent = useCallback(() => {
     if (tab === 'images') void refresh()
     else if (tab === 'videos') void refreshVideos()
+    else if (tab === 'creations') refreshCreations()
     else void refreshFilms()
-  }, [tab, refresh, refreshVideos, refreshFilms])
+  }, [tab, refresh, refreshVideos, refreshFilms, refreshCreations])
 
   const refreshing = tab === 'images' ? loading : tab === 'films' ? filmsLoading : false
 
@@ -1059,7 +1072,9 @@ export default function Bibliotheque({
     <FilmLightbox hash={playingFilm.hash} onClose={() => setPlayingFilm(null)} />
   ) : null
 
-  const activeGrid = tab === 'images' ? grid : tab === 'videos' ? videoGrid : filmGrid
+  const activeGrid = tab === 'images' ? grid : tab === 'videos' ? videoGrid : tab === 'creations' ? (
+    <CreationsGrid creations={creations} onRemoved={(id) => setCreations((list) => list.filter((c) => c.id !== id))} />
+  ) : filmGrid
   // Above the clips, on their tab only: what it imports lands in that grid.
   const stockSearch =
     tab === 'videos' ? (

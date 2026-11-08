@@ -243,6 +243,8 @@ export default function Canvas({
   showFrame,
   chromeTop = 0,
   onPickElement,
+  onPickKey,
+  pickMarks,
   onRemoveHotspot,
   highlightedHotspotId,
   focusScreenId,
@@ -295,6 +297,10 @@ export default function Canvas({
    */
   chromeTop?: number
   onPickElement: (screenId: string, info: PickInfo) => void
+  /** Delete, Backspace or Escape pressed inside a frame while picking. */
+  onPickKey?: (key: string) => void
+  /** The elements currently selected, and on which screen. */
+  pickMarks?: { screenId: string; selectors: string[] } | null
   onRemoveHotspot: (screenId: string, hotspotId: string) => void
   highlightedHotspotId?: string | null
   focusScreenId?: string | null
@@ -1333,6 +1339,8 @@ export default function Canvas({
                       pickOutlineOnly={modifyMode}
                       pickPrecise={modifyMode}
                       onPick={(info) => onPickElement(s.id, info)}
+                      onPickKey={onPickKey}
+                      pickMarks={pickMarks?.screenId === s.id ? pickMarks.selectors : undefined}
                       hideScrollbars={s.device === 'iphone'}
                       radius={SCREEN_RADIUS}
                       captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
@@ -1362,6 +1370,8 @@ export default function Canvas({
                     pickOutlineOnly={modifyMode}
                     pickPrecise={modifyMode}
                     onPick={(info) => onPickElement(s.id, info)}
+                    onPickKey={onPickKey}
+                    pickMarks={pickMarks?.screenId === s.id ? pickMarks.selectors : undefined}
                     // A document's frame is sized to its pages, so a scrollbar
                     // could only appear in the moment before the kit reports
                     // them — and would narrow the page it is measuring.

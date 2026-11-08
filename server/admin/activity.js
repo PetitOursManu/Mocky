@@ -41,6 +41,8 @@ export const PURPOSES = new Set([
   'enhance',
   'campaign-facts',
   'publication-plan',
+  'creation-propose',
+  'creation-review',
 ])
 
 /** POST routes that are work, mapped to what they are. Everything else is not tracked. */

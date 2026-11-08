@@ -151,7 +151,7 @@ The home page after a first generation:
 - 91.2,2.9 **Theme**: Ink (dark, the default) or Paper, remembered by the browser.
 - 95.6,2.9 **Account**: Signed in: your projects follow you from one device to another.
 - 93.8,15.8 **New project**: An empty canvas, named after its first prompt.
-- 77.2,15.8 **New folder**: Folders are names on projects; file a project to fill one.
+- 77.2,15.8 **New folder**: Folders can nest and can be empty; drag a project onto one to file it.
 - 8.5,31.4 **The last project**: The one touched last, as a wide card with its picture and its request. `Open` goes in.
 - 13.3,82.5 **A project card**: Every other project, with its picture, its request, its screens and its age; file it or delete it from here.
 :::

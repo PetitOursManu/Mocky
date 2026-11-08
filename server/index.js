@@ -38,8 +38,10 @@ import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
 import { createVersionStore } from './versions.js'
+import { createThumbStore } from './thumbs.js'
+import { createCreationStore } from './creations.js'
 import { createReviewStore, publicScreen } from './reviews.js'
-import { mergeStoredProjects } from './merge.js'
+import { mergeStoredFolders, mergeStoredProjects } from './merge.js'
 import { createDataEvents } from './data-events.js'
 import { createMcpServerRoutes } from './mcp/routes.js'
 import { createRunnerAuth } from './mcp/runner-auth.js'
@@ -136,6 +138,8 @@ const diskBudget = createDiskBudget({
     // Saved versions of projects (server/versions.js): each one is a copy of
     // screens' code, so a person saving versions in a loop fills the same disk.
     path.join(DATA_DIR, 'versions'),
+    path.join(DATA_DIR, 'thumbs'),
+    path.join(DATA_DIR, 'creations'),
   ],
 })
 
@@ -244,6 +248,8 @@ function instanceTextTarget(user, profile = 'generation') {
 // Kept next to the other stores: same directory, same atomic-write discipline.
 const shares = createShareStore(DATA_DIR)
 const versions = createVersionStore(DATA_DIR, { budget: diskBudget })
+const thumbs = createThumbStore(DATA_DIR, { budget: diskBudget })
+const creations = createCreationStore(DATA_DIR, { budget: diskBudget })
 const reviews = createReviewStore(DATA_DIR)
 const dataEvents = createDataEvents()
 const runnerAuth = createRunnerAuth()
@@ -1993,6 +1999,8 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   shares.revokeAllFor(id)
   // And their saved versions: a copy of every project they versioned.
   versions.removeAllFor(id)
+  thumbs.removeAllFor(id)
+  creations.removeAllFor(id)
   // And their review links: a client's page must not outlive the account either.
   reviews.revokeAllFor(id)
   // And the assistants it let in: a token must not outlive its account.
@@ -2084,6 +2092,60 @@ app.delete('/api/versions', requireUser, (req, res) => {
   const projectId = String(req.query.projectId || '')
   const keep = reviews.lockedVersions(req.user.id)
   res.json({ removed: versions.removeBranch(req.user.id, projectId, String(req.query.branch || ''), keep) })
+})
+
+// ---- what a model made for this account (server/creations.js) ----
+app.get('/api/creations', requireUser, (req, res) => {
+  res.json({ creations: creations.list(req.user.id) })
+})
+
+app.post('/api/creations', requireUser, authRateLimit(30, 60_000, 'creations'), (req, res) => {
+  try {
+    res.json({ creation: creations.add(req.user.id, req.body || {}) })
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+app.delete('/api/creations/:id', requireUser, (req, res) => {
+  const removed = creations.remove(req.user.id, req.params.id)
+  if (!removed) return res.status(404).json({ error: 'Creation not found.' })
+  res.json({ removed })
+})
+
+// ---- thumbnails, between devices (server/thumbs.js) ----
+//
+// `sessionUser` for the two reads: a home page filling in its pictures is not
+// somebody working (D5). The write is the end of a capture the person's own
+// session just ran.
+app.post('/api/thumbs/known', (req, res) => {
+  const user = sessionUser(req)
+  if (!user) return res.status(401).json({ error: 'Not signed in.' })
+  res.json({ known: thumbs.known(user.id, req.body?.items) })
+})
+
+app.get('/api/thumbs/:screenId', (req, res) => {
+  const user = sessionUser(req)
+  if (!user) return res.status(401).json({ error: 'Not signed in.' })
+  const hash = String(req.query.h || '')
+  const bytes = thumbs.read(user.id, req.params.screenId, hash)
+  if (!bytes) return res.status(404).end()
+  res.setHeader('Content-Type', 'image/jpeg')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  // The checksum is in the address, so these bytes can never go stale; and
+  // `private` because the picture is one person's work.
+  res.setHeader('Cache-Control', 'private, max-age=604800, immutable')
+  res.end(bytes)
+})
+
+app.put('/api/thumbs/:screenId', requireUser, authRateLimit(240, 60_000, 'thumbs'), (req, res) => {
+  try {
+    const bytes = Buffer.from(String(req.body?.data || ''), 'base64')
+    thumbs.put(req.user.id, req.params.screenId, String(req.body?.hash || ''), bytes)
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
 })
 
 // ---- review links: a project sent for approval (server/reviews.js) ----
@@ -2234,18 +2296,20 @@ app.put('/api/data', (req, res) => {
   const file = userDataFile(user.id)
   const stored = readJson(file, { projects: null, design: null })
   const next = mergeStoredProjects(typeof body.projects === 'string' ? body.projects : null, stored.projects ?? null)
+  const folderMerge = mergeStoredFolders(typeof body.folders === 'string' ? body.folders : null, stored.folders ?? null)
+  const folders = folderMerge.folders
   // A writer that does not SEND the global DESIGN.md leaves it alone: the MCP
   // runner writes one project and has never seen the person's DESIGN.md, and
   // "absent" meaning "clear it" would wipe it on every generation. A browser
   // always sends the field — null included, which still clears.
   const design = 'design' in body ? (body.design ?? null) : (stored.design ?? null)
-  writeJson(file, { projects: next.projects, design, updatedAt: Date.now() })
+  writeJson(file, { projects: next.projects, design, folders, updatedAt: Date.now() })
   // Only a write that changed something is news: a tab re-pushing what the
   // server already holds would otherwise send every other tab to read it again.
-  if (next.projects !== (stored.projects ?? null) || design !== (stored.design ?? null)) {
+  if (next.projects !== (stored.projects ?? null) || design !== (stored.design ?? null) || folders !== (stored.folders ?? null)) {
     dataEvents.notify(user.id, req.get('x-mocky-tab'))
   }
-  res.json({ ok: true, merged: next.merged })
+  res.json({ ok: true, merged: next.merged || (typeof body.folders === 'string' && folderMerge.merged) })
 })
 
 /*

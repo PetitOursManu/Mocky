@@ -89,6 +89,38 @@ export function mergeProjects(local, server) {
     .sort((a, b) => stamp(b) - stamp(a))
 }
 
+/** Mirror of `mergeFolders` in src/lib/merge.ts; merge.test.js holds the two together. */
+export function mergeFolders(local, server) {
+  const byId = new Map()
+  const now = Date.now()
+  for (const f of server) {
+    if (f && typeof f.id === 'string') byId.set(f.id, f)
+  }
+  for (const f of local) {
+    if (!f || typeof f.id !== 'string') continue
+    const other = byId.get(f.id)
+    if (!other || (f.updatedAt || 0) >= (other.updatedAt || 0)) byId.set(f.id, f)
+  }
+  return [...byId.values()]
+    .filter((f) => !(f.deletedAt && now - f.deletedAt > TOMBSTONE_TTL_MS))
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || a.id.localeCompare(b.id))
+}
+
+/** How many folder records a request may leave here. */
+const FOLDERS_MAX = 3000
+
+/**
+ * The folders string to store. Same contract as `mergeStoredProjects`: a
+ * writer that sends none (the MCP runner) leaves what is there alone.
+ */
+export function mergeStoredFolders(incomingRaw, storedRaw) {
+  if (incomingRaw == null) return { folders: storedRaw ?? null, merged: storedRaw != null }
+  const incoming = parseProjects(incomingRaw).slice(0, FOLDERS_MAX)
+  const result = mergeFolders(incoming, parseProjects(storedRaw)).slice(0, FOLDERS_MAX)
+  const sent = new Set(incoming)
+  return { folders: JSON.stringify(result), merged: result.some((f) => !sent.has(f)) }
+}
+
 /**
  * The projects string to store, given what the request sent and what is on
  * disk, and whether the sender is missing something it should read back

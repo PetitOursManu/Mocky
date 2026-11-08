@@ -2,7 +2,9 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadBrand, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
 import { brandSection, hasBrand, type BrandIdentity } from '../lib/brand'
-import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, buildElementsEditInstruction, tryDirectTextReplace, deriveDesignSystem, refreshDesignSystem, type AnimationLevel } from '../lib/generate'
+import { designSyncOf, isDesignFresh, type DesignSync } from '../lib/designRefresh'
+import { applyCuts, planRemovals, type Cut } from '../lib/screenElements'
 import { deriveName, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import type { Plan } from '../lib/api'
@@ -272,6 +274,7 @@ export default function ProjectView({
   onSetPublication,
   onSetUseBrand,
   onSetCreative,
+  onSetCreations,
   initialFocusScreenId,
   plan = 'standard',
 }: {
@@ -287,7 +290,7 @@ export default function ProjectView({
   onSetReference: (screenId: string | null) => void
   onRenameProject: (name: string) => void
   /** Set this project's own design direction, or null to fall back to DESIGN.md. */
-  onSetDesign: (markdown: string | null) => void
+  onSetDesign: (markdown: string | null, sync?: DesignSync) => void
   /** Switch Motion Ultra on for this project (with its picture count), or off with null. */
   onSetUltra: (ultra: ProjectUltra | null) => void
   /** Replace the working copy with a saved version (lib/versions.ts — it was saved first). */
@@ -308,6 +311,8 @@ export default function ProjectView({
   onSetUseBrand?: (on: boolean) => void
   /** Créatif or Normal for this project (lib/creative.ts). */
   onSetCreative?: (on: boolean) => void
+  /** The project may make what the kit lacks (lib/creations). */
+  onSetCreations?: (on: boolean) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -635,7 +640,13 @@ export default function ProjectView({
   onSetCampaignRef.current = onSetCampaign
   const saveCampaign = useCallback((c: Campaign) => onSetCampaignRef.current?.(c), [])
   const [modifyMode, setModifyMode] = useState(false)
-  const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
+  const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo; group?: PickInfo[] } | null>(null)
+  /** Elements gathered with Shift or Ctrl in Modify mode, all on one screen. */
+  const [pickedElements, setPickedElements] = useState<{ screenId: string; items: PickInfo[] } | null>(null)
+  /** A removal that needs an answer first: the element is drawn several times. */
+  const [pendingRemoval, setPendingRemoval] = useState<{ screenId: string; code: string; count: number | null; cuts: Cut[]; item?: Cut[] } | null>(null)
+  /** What the last refresh replaced, for the panel's Undo. Null: the project followed the global DESIGN.md. */
+  const [designUndo, setDesignUndo] = useState<{ screenId: string; markdown: string | null } | null>(null)
   const [modifyText, setModifyText] = useState('')
   const [modifyLabelDraft, setModifyLabelDraft] = useState('')
   const [modifyHex, setModifyHex] = useState('')
@@ -1408,6 +1419,58 @@ export default function ProjectView({
   }
 
   /**
+   * Bring the direction up to date from a screen, and remember having done it.
+   *
+   * Not `deriveDesignFrom`: that one replaces the document, and a dossier's
+   * concept and forbidden list are not in any screen. No confirmation either,
+   * since nothing is lost and the panel offers to undo it. The same screen
+   * against the same document costs no second call (`isDesignFresh`); the
+   * result lives on the project, so every later screen reads it without anyone
+   * pressing this again.
+   */
+  async function refreshDesignFrom(screen: Screen) {
+    if (derivingDesignId) return
+    if (!screen.code.trim()) {
+      setError(t('project.deriveDesignEmpty'))
+      return
+    }
+    if (isDesignFresh(project.designSync, screen, directionMd)) {
+      setNotice(t('project.designAlreadyFresh', { name: screen.name }))
+      return
+    }
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const current = directionMd?.trim() ? directionMd : null
+    const restore = project.design ?? null
+    setDerivingDesignId(screen.id)
+    setError(null)
+    const ac = new AbortController()
+    retryAborts.current.set(`design:${screen.id}`, ac)
+    try {
+      const markdown = current
+        ? await refreshDesignSystem(settings, current, screen.code, ac.signal)
+        : await deriveDesignSystem(settings, screen.code, ac.signal)
+      if (!markdown.trim()) {
+        setError(t('project.deriveDesignEmptyResult'))
+        return
+      }
+      onSetDesign(markdown, designSyncOf(screen, markdown))
+      onUpdateScreen(screen.id, { design: markdown })
+      setDesignUndo({ screenId: screen.id, markdown: restore })
+      setNotice(t('project.designRefreshed', { name: screen.name }))
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      retryAborts.current.delete(`design:${screen.id}`)
+      setDerivingDesignId(null)
+    }
+  }
+
+  /**
    * Write DESIGN.md from a screen the user points at.
    *
    * The document had to exist BEFORE there was anything to describe, which is
@@ -1455,6 +1518,33 @@ export default function ProjectView({
     }
   }
   const screens = project.screens
+
+  const removeSelectionRef = useRef<() => void>(() => {})
+  removeSelectionRef.current = () => {
+    if (pickedElements) void removeElements(pickedElements.screenId, pickedElements.items)
+  }
+  const onPickKey = useCallback((key: string) => {
+    if (key === 'Escape') setPickedElements(null)
+    else removeSelectionRef.current()
+  }, [])
+  // A selection belongs to the tool that made it. Its keys also work when the
+  // focus is outside the frame, which it is as soon as the bar has been used.
+  useEffect(() => {
+    if (!modifyMode) setPickedElements(null)
+  }, [modifyMode])
+  useEffect(() => {
+    if (!pickedElements) return
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      if (e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        onPickKey(e.key)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pickedElements, onPickKey])
 
   /**
    * Photograph screens for the home page — here, not there.
@@ -1859,6 +1949,7 @@ export default function ProjectView({
             ...(composerFold ? { foldId: composerFold } : {}),
             ...(projectBrand() ? { brand: projectBrand() } : {}),
             ...(project.creative ? { creative: true } : {}),
+            ...(project.creations ? { creations: true } : {}),
           }
         const hooks: NewScreenHooks = {
             signal: ac.signal,
@@ -2795,6 +2886,55 @@ export default function ProjectView({
 
 
   /**
+   * Take elements out of a screen by writing the source, with no model call
+   * (lib/screenElements.ts). Same write-back as any edit: `previousCode` for
+   * Revert, and nothing is written over code that moved in the meantime.
+   */
+  async function commitCuts(screenId: string, code: string, cuts: Cut[]) {
+    const out = await applyCuts(code, cuts)
+    const live = screensRef.current.find((s) => s.id === screenId)
+    if (!out || !live || live.code !== code) {
+      setNotice(t('project.removeFailed'))
+      return false
+    }
+    noteChange(screenId, t('project.removeNote'))
+    onUpdateScreen(screenId, { code: out, componentName: detectComponentName(out), previousCode: code })
+    setPickedElements(null)
+    setPendingModify(null)
+    setPendingRemoval(null)
+    return true
+  }
+
+  async function removeElements(screenId: string, items: PickInfo[]) {
+    if (busy) return
+    const code = screensRef.current.find((s) => s.id === screenId)?.code
+    if (!code?.trim() || items.length === 0) return
+    const plans = await planRemovals(code, items.map((i) => i.source))
+    if (plans.length === 1) {
+      const plan = plans[0]
+      if (plan.kind === 'refused') {
+        setNotice(t(plan.reason === 'root' ? 'project.removeRoot' : 'project.removeUnknown'))
+        return
+      }
+      if (plan.kind === 'repeated') {
+        setPendingModify(null)
+        setPendingRemoval({ screenId, code, count: plan.count, cuts: plan.cuts, item: plan.item })
+        return
+      }
+    }
+    const repeated = plans.filter((p) => p.kind === 'repeated').length
+    if (repeated > 0 && !confirm(t('project.removeRepeatedConfirm', { n: repeated }))) return
+    const cuts = plans.flatMap((p) => (p.kind === 'refused' ? [] : p.cuts))
+    const refused = plans.filter((p) => p.kind === 'refused').length
+    if (cuts.length === 0) {
+      setNotice(t('project.removeUnknown'))
+      return
+    }
+    const done = await commitCuts(screenId, code, cuts)
+    if (done && refused > 0) setNotice(t('project.removeSome', { n: refused }))
+  }
+
+  /**
    * Apply a no-code, targeted change to a single clicked element (Lot C).
    * Runs an edit pass anchored on the picked element's text/selector, keeping
    * everything else intact, streaming live, and saving previousCode for revert.
@@ -2808,6 +2948,7 @@ export default function ProjectView({
       setError(t('project.noModel'))
       return
     }
+    const group = pendingModify?.group
     const ac = new AbortController()
     abortRef.current = ac
     setBusy(true)
@@ -2829,10 +2970,12 @@ export default function ProjectView({
       )
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
-      const instruction = buildElementEditInstruction(
-        { label: info.label, selector: info.selector, tag: info.tag, className: info.className },
-        change,
-      )
+      const instruction = group && group.length > 1
+        ? buildElementsEditInstruction(group, change)
+        : buildElementEditInstruction(
+            { label: info.label, selector: info.selector, tag: info.tag, className: info.className },
+            change,
+          )
       const res = await editComponent(
         settings, instruction, screen.code, extraSystem, undefined, ac.signal,
         undefined,
@@ -3823,6 +3966,7 @@ export default function ProjectView({
             <Button
               variant="quiet"
               size="sm"
+              className="!border-accent"
               aria-label={t('mode.demo')}
               title={t('project.demoTitle')}
               onClick={() => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null)}
@@ -3957,7 +4101,16 @@ export default function ProjectView({
         interactAll={interactAll}
         showFrame={showFrame}
         onPickElement={(screenId, info) => {
-          if (modifyMode) {
+          if (modifyMode && info.additive) {
+            setPickedElements((prev) => {
+              const items = prev?.screenId === screenId ? prev.items : []
+              const next = items.some((i) => i.selector === info.selector)
+                ? items.filter((i) => i.selector !== info.selector)
+                : [...items, info]
+              return next.length ? { screenId, items: next } : null
+            })
+          } else if (modifyMode) {
+            setPickedElements(null)
             setPendingModify({ screenId, info })
             setModifyText('')
             setModifyLabelDraft(info.label)
@@ -3966,6 +4119,8 @@ export default function ProjectView({
             setPendingLink({ screenId, info })
           }
         }}
+        onPickKey={onPickKey}
+        pickMarks={pickedElements && { screenId: pickedElements.screenId, selectors: pickedElements.items.map((i) => i.selector) }}
         onRemoveHotspot={removeHotspot}
         highlightedHotspotId={highlightHotspot}
         pendingLink={
@@ -4110,6 +4265,15 @@ export default function ProjectView({
                   onInspect: () => setInspectDesignId(styleScreen.id),
                   onApply: () => applyScreenDesign(styleScreen.id),
                   onDerive: () => deriveDesignFrom(styleScreen),
+                  fresh: isDesignFresh(project.designSync, styleScreen, directionMd),
+                  onRefresh: () => refreshDesignFrom(styleScreen),
+                  onUndoRefresh:
+                    designUndo?.screenId === styleScreen.id
+                      ? () => {
+                          onSetDesign(designUndo.markdown)
+                          setDesignUndo(null)
+                        }
+                      : undefined,
                 }
               }
               onRecolor={(token, hex) =>
@@ -4870,6 +5034,16 @@ export default function ProjectView({
                   title={t(project.creative ? 'workspace.creative.onTitle' : 'workspace.creative.offTitle')}
                 />
               )}
+              {!editing && onSetCreations && (
+                <OptionToggle
+                  icon="wand"
+                  label={t('workspace.creations.toggle')}
+                  hint={t('workspace.creations.hint')}
+                  on={!!project.creations}
+                  onClick={() => onSetCreations(!project.creations)}
+                  title={t(project.creations ? 'workspace.creations.onTitle' : 'workspace.creations.offTitle')}
+                />
+              )}
               <OptionToggle
                 icon="muse"
                 label={t('muse.title')}
@@ -5057,6 +5231,80 @@ export default function ProjectView({
         </div>
       )}
 
+      {/* What Shift or Ctrl has gathered in Modify mode. */}
+      {pickedElements && !pendingModify && (
+        <div className="absolute left-1/2 top-16 z-30 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-line bg-raised px-3 py-2 shadow-2xl">
+          <span className="whitespace-nowrap text-body-sm text-ink">
+            {t('project.selectionCount', { n: pickedElements.items.length })}
+          </span>
+          <button
+            type="button"
+            className="btn-ghost text-body-sm"
+            disabled={busy}
+            onClick={() => {
+              setPendingModify({
+                screenId: pickedElements.screenId,
+                info: { ...pickedElements.items[0], label: '' },
+                group: pickedElements.items,
+              })
+              setModifyText('')
+              setModifyLabelDraft('')
+              setModifyHex('')
+            }}
+          >
+            {t('project.selectionModify')}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost text-body-sm text-danger"
+            disabled={busy}
+            onClick={() => removeElements(pickedElements.screenId, pickedElements.items)}
+          >
+            {t('project.removeElement')}
+          </button>
+          <button type="button" className="btn-ghost text-body-sm" onClick={() => setPickedElements(null)}>
+            {t('common.cancel')}
+          </button>
+        </div>
+      )}
+
+      {pendingRemoval && (
+        <div
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPendingRemoval(null)}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-line bg-raised p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-1 text-lead text-ink">{t('project.removeRepeatedTitle')}</h3>
+            <p className="measure mb-3 text-body-sm text-ink-muted">
+              {pendingRemoval.count
+                ? t('project.removeRepeatedCount', { n: pendingRemoval.count })
+                : t('project.removeRepeatedUnknown')}
+            </p>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button type="button" className="btn-ghost text-body-sm" onClick={() => setPendingRemoval(null)}>
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost text-body-sm text-danger"
+                onClick={() => commitCuts(pendingRemoval.screenId, pendingRemoval.code, pendingRemoval.cuts)}
+              >
+                {t('project.removeEverywhere')}
+              </button>
+              {pendingRemoval.item && (
+                <button
+                  type="button"
+                  className="btn-primary text-body-sm"
+                  onClick={() => commitCuts(pendingRemoval.screenId, pendingRemoval.code, pendingRemoval.item!)}
+                >
+                  {t('project.removeThisOne')}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* No-code element editor (Modify mode) */}
       {pendingModify && (
         <div
@@ -5075,14 +5323,18 @@ export default function ProjectView({
             <div className="mb-3 text-body-sm text-ink-muted">
               <span>{t('project.selectedWord')} </span>
               <span className="rounded bg-accent/10 px-1.5 py-0.5 font-mono text-caption text-accent-ink">
-                {pendingModify.info.tag ? `<${pendingModify.info.tag}>` : t('project.elementWord')}
+                {pendingModify.group
+                  ? t('project.selectionCount', { n: pendingModify.group.length })
+                  : pendingModify.info.tag
+                    ? `<${pendingModify.info.tag}>`
+                    : t('project.elementWord')}
               </span>
               {pendingModify.info.label && (
                 <span className="ml-1">
                   “<span className="text-ink">{pendingModify.info.label}</span>”
                 </span>
               )}
-              {pendingModify.info.className && (
+              {pendingModify.info.className && !pendingModify.group && (
                 <div
                   className="mt-1 truncate font-mono text-caption text-ink-faint"
                   title={pendingModify.info.className}
@@ -5205,6 +5457,15 @@ export default function ProjectView({
               }}
             />
             <div className="mt-3 flex items-center justify-end gap-2">
+              {/* The one change here that needs no model at all. */}
+              <button
+                type="button"
+                className="btn-ghost mr-auto text-body-sm text-danger"
+                disabled={busy}
+                onClick={() => removeElements(pendingModify.screenId, pendingModify.group ?? [pendingModify.info])}
+              >
+                {t('project.removeElement')}
+              </button>
               <button type="button" className="btn-ghost text-body-sm" onClick={() => setPendingModify(null)}>
                 {t('common.cancel')}
               </button>
@@ -5441,6 +5702,11 @@ export default function ProjectView({
                         </SubMenu>
                       )}
                       <SubMenu icon="wand" label={t('project.menuDesign')}>
+                        <MenuItem
+                          icon="refresh"
+                          label={t(derivingDesignId === s.id ? 'project.deriveDesignBusy' : 'project.refreshDesign')}
+                          onClick={() => { close(); refreshDesignFrom(s) }}
+                        />
                         <MenuItem
                           icon="wand"
                           label={t(derivingDesignId === s.id ? 'project.deriveDesignBusy' : 'project.deriveDesign')}

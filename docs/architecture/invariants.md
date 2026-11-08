@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are ten series:
+There are eleven series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
@@ -21,6 +21,7 @@ There are ten series:
 - **V1 to V8**, introduced by versions, branches, approval links and working prototypes.
 - **C1 to C3**, introduced by Campaign Studio.
 - **P1 to P3**, introduced by folded leaflets and publications.
+- **A1 to A4**, introduced by what a model makes for itself.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1382,6 +1383,47 @@ someone who switched Parcours off, and paper from a kit that opens "pages" it
 does not have.
 
 **How it is checked.** `src/lib/docSequence.test.ts`, `tests/flows-off.test.js`.
+
+---
+
+## Series A — what a model makes for itself
+
+Everything else in Mocky's kit is a closed catalogue. These rules exist because
+`lib/creations` is the one place a model may add to it.
+
+### A1. A creation fails closed
+
+**The rule.** A review that errors, times out or answers something unreadable is
+a refusal. The creation is not kept, and the screen is generated without it.
+
+**What it protects.** "Degrade, never fail" is right for a check on a screen the
+person is looking at. Here the failure would be keeping model code for reuse on
+nobody's word. The two policies meet in `runCreationStage`: the creation fails
+closed, the generation degrades (M3, Q1).
+
+### A2. The reviewer is told nothing
+
+**The rule.** The review is its own model call: a fixed system prompt, and the
+code with its comments removed. Nothing of the request or the conversation.
+
+**What it protects.** A reviewer that knows what the code is for is inclined to
+find it reasonable, and the request can carry instructions scraped from a site
+(M4). Comments are stripped because they are where a message to the reviewer
+would live. `creations.test.ts` holds the brief out of the review.
+
+### A3. Data where data will do
+
+**The rule.** A frame, an animation and a transition are data: a path, or
+declarations from a closed grammar with no quote, brace or semicolon. Only an
+`element` is code. The code around the data is hand-written in `templates.ts`,
+and it holds still in the three places U2 names.
+
+### A4. Rules are a net, the sandbox is the wall
+
+**The rule.** `check.ts` is deny-by-default and it can still be beaten by code
+built at runtime. Nothing may start trusting a creation for having passed: it
+runs where any generated screen runs, under I2, and it never reaches the server,
+another account, or a Motion Ultra film.
 
 ---
 
