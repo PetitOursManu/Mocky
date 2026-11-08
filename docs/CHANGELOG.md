@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `animations` | 151 presets, des déclencheurs et un plan de mouvement | `b48dc37` |
 | `formes` | des compositions en contour et l'option outline | `591f5ab` |
 | `formes` | 377 formes, des fluides en deux couleurs et des signes animés | `2b0445f` |
 | `canevas` | les petits formats agrandis, le verso nommé | `9da6b15` |
@@ -22,6 +23,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `animations` | « Ajouter des animations » n'utilise plus le pack retiré | `b5672cd` |
 | `muse` | la référence liée survit à un modèle sans vision et guide l'aspect | `7048753` |
 | `composeur` | Améliorer ne passe plus sous Arrêter pendant une génération | `c343661` |
 | `muse` | l'image d'inspiration liée mène la direction | `d0e64be` |
