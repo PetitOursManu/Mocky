@@ -174,6 +174,8 @@ async function req(path: string, options?: RequestInit): Promise<any> {
 export interface ServerData {
   projects: string | null
   design: string | null
+  /** The account's folders (lib/folderTree.ts). */
+  folders?: string | null
   /**
    * When the server last accepted a write. The server has always stamped it
    * (PUT /api/data); the client simply never declared it, so every reconcile
@@ -615,10 +617,10 @@ export const api = {
    * reads the data back (sync.ts). `tab` keeps the write's own tab from being
    * told about it.
    */
-  putData: (projects: string | null, design: string | null, tab?: string) =>
+  putData: (projects: string | null, design: string | null, tab?: string, folders?: string | null) =>
     req('/api/data', {
       method: 'PUT',
-      body: JSON.stringify({ projects, design }),
+      body: JSON.stringify({ projects, design, folders: folders ?? undefined }),
       headers: tab ? { 'x-mocky-tab': tab } : undefined,
     }) as Promise<{ ok: boolean; merged?: boolean }>,
 

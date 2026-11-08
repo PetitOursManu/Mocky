@@ -25,6 +25,8 @@
  * scenarios before and after the move: identical.
  */
 import { CREATIVE_SECTION, CREATIVE_TEMPERATURE } from '../creative'
+import { askModel, creationsSection, inlineCreations, runCreationStage, type Creation } from '../creations/stage'
+import { listCreations, renderInSandbox, saveCreation } from '../creations/browser'
 import type { Settings } from '../settings'
 import { buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Project, type Screen, type ScreenUltra } from '../project'
@@ -228,6 +230,8 @@ export interface NewScreenRequest {
    * Absent — every project left on Normal — builds the request it always built.
    */
   creative?: boolean
+  /** The project may make what the kit lacks (`Project.creations`, lib/creations). */
+  creations?: boolean
 }
 
 /** Everything `generateComponent` would have been given, for a writer that is not Mocky's model. */
@@ -1165,6 +1169,31 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
 
     hooks.setPhase('generating')
     const caps = resolveCapabilities(capIds)
+
+    // What the kit lacks, made and checked before the page is written, so the
+    // page only ever names things that exist. Not for a reproduction (the
+    // screenshot is the brief), a document (paper holds no motion) or an
+    // assistant's own writer, whose model is not ours to ask.
+    let creations: Creation[] = []
+    if (req.creations && !reproducing && !pipe.document && !req.writer) {
+      hooks.setMuseStage(t('library.creations.stage'))
+      try {
+        const stage = await runCreationStage(text, {
+          list: listCreations,
+          save: saveCreation,
+          render: renderInSandbox,
+          ask: askModel(settings, signal),
+        })
+        creations = stage.offered
+        if (stage.made.length) hooks.notice(t('library.creations.made', { names: stage.made.join(', ') }))
+        if (stage.refused.length) hooks.notice(t('library.creations.refused', { names: stage.refused.map((r) => r.name).join(', ') }))
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err
+        hooks.notice(t('library.creations.failed'))
+      } finally {
+        hooks.setMuseStage(null)
+      }
+    }
     const screenId = newId()
     newScreenId = screenId
     hooks.addScreen({
@@ -1233,7 +1262,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           frame: { w: frameW, h: frameH },
         })
       : await generateComponent(
-          settings, text, extraSystem,
+          settings, text, joinSystem([extraSystem, creationsSection(creations)]),
           [...images, ...(museVisionRef ? [museVisionRef] : []), ...photoRefs],
           signal,
           (partial) => hooks.updateScreen(screenId, { code: partial }),
@@ -1241,6 +1270,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           [planSection, photoReferenceNote(photoRefs.length)].filter(Boolean).join('\n\n') || undefined,
           creative ? CREATIVE_TEMPERATURE : undefined,
         )
+    if (creations.length) result.code = await inlineCreations(result.code, creations)
     hooks.updateScreen(screenId, {
       code: result.code,
       componentName: result.componentName,

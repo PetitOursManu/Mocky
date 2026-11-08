@@ -1,5 +1,5 @@
 ---
-source_hash: 085047090b46
+source_hash: a258a37554cd
 ---
 
 # Invariants
@@ -12,7 +12,7 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a dix séries :
+Il y a onze séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
@@ -25,6 +25,7 @@ Il y a dix séries :
 - **V1 à V8**, apportés par les versions, les branches, les liens de validation et les prototypes qui fonctionnent.
 - **C1 à C3**, apportés par la Campagne.
 - **P1 à P3**, apportés par les dépliants et les publications.
+- **A1 à A4**, introduites par ce qu’un modèle fabrique lui-même.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1485,6 +1486,50 @@ pour qui a éteint le Parcours, et le papier d’un kit qui ouvrirait des « pag
 qu’il n’a pas.
 
 **Comment c’est vérifié.** `src/lib/docSequence.test.ts`, `tests/flows-off.test.js`.
+
+---
+
+## Série A — ce qu’un modèle fabrique lui-même
+
+Tout le reste du kit de Mocky est un catalogue fermé. Ces règles existent parce
+que `lib/creations` est le seul endroit où un modèle peut y ajouter quelque chose.
+
+### A1. Une création échoue fermée
+
+**La règle.** Une relecture en erreur, expirée ou illisible vaut refus. La création
+n’est pas gardée, et l’écran est généré sans elle.
+
+**Ce que cela protège.** « Dégrader, ne jamais échouer » convient à un contrôle sur
+un écran que la personne regarde. Ici, l’échec reviendrait à garder du code de
+modèle pour le réutiliser sur la parole de personne. Les deux politiques se
+rencontrent dans `runCreationStage` : la création échoue fermée, la génération
+se dégrade (M3, Q1).
+
+### A2. Le relecteur ne sait rien
+
+**La règle.** La relecture est un appel au modèle à part : une consigne fixe, et le
+code sans ses commentaires. Rien de la demande ni de la conversation.
+
+**Ce que cela protège.** Un relecteur qui sait à quoi sert le code a tendance à le
+trouver raisonnable, et la demande peut porter des instructions récupérées sur un
+site (M4). Les commentaires sont retirés parce que c’est là que se logerait un
+message au relecteur. `creations.test.ts` vérifie que le brief n’entre pas dans
+la relecture.
+
+### A3. Des données quand des données suffisent
+
+**La règle.** Un cadre, une animation et une transition sont des données : un
+tracé, ou des déclarations d’une grammaire fermée, sans guillemet, accolade ni
+point-virgule. Seul un `element` est du code. Le code autour des données est écrit
+à la main dans `templates.ts`, et il se fige aux trois endroits que nomme U2.
+
+### A4. Les règles sont un filet, le bac à sable est le mur
+
+**La règle.** `check.ts` refuse par défaut, et il peut quand même être contourné
+par du code construit à l’exécution. Rien ne doit se mettre à faire confiance à une
+création parce qu’elle a passé ces règles : elle s’exécute là où s’exécute tout
+écran généré, sous I2, et n’atteint jamais le serveur, un autre compte ni un film
+Motion Ultra.
 
 ---
 

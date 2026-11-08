@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Ten series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Eleven series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications), A1–A4 (what a model makes for itself). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1136,6 +1136,40 @@ Three things that will bite you:
 3. **A publication's direction is its own** (P2): `NewScreenRequest.publication`
    replaces the project's direction for a sheet, and the outcome carries the
    first sheet's direction back. Never route a sheet through `setDesign`.
+
+## What a model makes for itself
+
+The one exception to "closed catalogues": with `Project.creations` on, a new
+screen may first make a missing frame, animation, transition or element. User
+doc `docs/creations.md`; invariants A1–A4.
+
+```
+src/lib/creations/check.ts      the rules, no model: deny-by-default, on the AST (I1)
+src/lib/creations/templates.ts  the code around the three kinds that are only data
+src/lib/creations/stage.ts      propose → build → render → review → keep; inlineCreations
+src/lib/creations/browser.ts    the store's calls, and the hidden sandbox render
+server/creations.js             per account, and only ever offered back to that account
+```
+
+Three things that will bite you:
+
+1. **The review fails closed, the generation does not** (A1). Do not "degrade" a
+   review that errored into keeping the creation.
+2. **The review call is alone on purpose** (A2): fixed prompt, comments stripped,
+   none of the request. Do not pass it context to make it smarter.
+3. **A creation is copied INTO each screen, after its code.** That is what keeps
+   previews, exports, versions and review links unaware of all this, and why
+   `element` must be a hoisted function declaration: the root of a screen is found
+   by looking for its first component.
+
+## Removing an element without a model
+
+`lib/screenElements.ts`. The preview tags each JSX element with its RANK in the
+source (a Babel plugin run in the frame, `PICK_SOURCE_PLUGIN`) and a pick reads
+those up React's fibers, so one click can tell "the third card" from "the Card
+component". A rank and not an offset: the frame compiles `toPreviewModule(code)`
+behind the prelude. The two walks must count alike, and the test runs the plugin's
+own text against the resolver.
 
 ## Maintenance mode and server migration
 

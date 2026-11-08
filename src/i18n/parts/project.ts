@@ -304,7 +304,7 @@ export const project = {
       'ex. « agrandis-le et mets-le en gras », « ajoute une ombre », « arrondis les coins »…',
     'project.applyChange': 'Appliquer',
     'project.modifyNote':
-      'Les changements de texte s’appliquent aussitôt quand ils sont uniques · les autres passent par le modèle · tout est réversible depuis le menu de l’écran',
+      'Maj ou Ctrl + clic pour sélectionner plusieurs éléments · les changements de texte s’appliquent aussitôt quand ils sont uniques · les autres passent par le modèle · tout est réversible depuis le menu de l’écran',
 
     // ---- recolor swatches ----
     'project.colorInk': 'Encre',
@@ -336,6 +336,23 @@ export const project = {
     // renommer une clé ne change rien à ce qui se lit.
     'project.changeImages': 'Changer les médias…',
     'project.deriveDesign': 'Faire de cet écran mon DESIGN.md',
+    'project.refreshDesign': 'Mettre à jour le dossier depuis cet écran',
+    'project.designAlreadyFresh': 'Le dossier est déjà à jour avec « {name} ».',
+    'project.designRefreshed': 'Dossier mis à jour depuis « {name} ». Les prochains écrans le suivront.',
+    'project.removeElement': 'Supprimer',
+    'project.removeNote': 'Élément supprimé',
+    'project.removeFailed': 'Suppression impossible : l’écran a changé entre-temps ou le résultat ne serait plus valide.',
+    'project.removeRoot': 'C’est l’écran entier : supprimez-le depuis son menu.',
+    'project.removeUnknown': 'Mocky ne sait pas retirer cet élément directement. Décrivez le retrait au modèle dans la fenêtre de l’élément.',
+    'project.removeSome': 'Sélection supprimée, sauf {n} élément(s) que Mocky ne sait pas retirer directement.',
+    'project.removeRepeatedTitle': 'Cet élément se répète',
+    'project.removeRepeatedCount': 'Il est dessiné {n} fois par le même code.',
+    'project.removeRepeatedUnknown': 'Il est dessiné plusieurs fois par le même code.',
+    'project.removeRepeatedConfirm': '{n} élément(s) de la sélection se répètent : ils disparaîtront partout. Continuer ?',
+    'project.removeEverywhere': 'Retirer partout',
+    'project.removeThisOne': 'Retirer celui-ci',
+    'project.selectionCount': '{n} sélectionné(s)',
+    'project.selectionModify': 'Modifier ensemble',
     'project.applyDesignConfirm':
       'Faire du DESIGN.md enregistré avec « {name} » la direction de ce projet ? Les écrans suivants la suivront ; la direction actuelle reste accessible depuis les écrans qui l’ont utilisée.',
     'project.deriveDesignBusy': 'Lecture de l’écran…',
@@ -674,7 +691,7 @@ export const project = {
     'project.modifyPlaceholder': 'e.g. “make it bigger and bold”, “add a shadow”, “round the corners”…',
     'project.applyChange': 'Apply change',
     'project.modifyNote':
-      'Text changes apply instantly when they are unique · other changes go through the model · everything is revertable from the screen menu',
+      'Shift or Ctrl + click to select several elements · text changes apply instantly when they are unique · other changes go through the model · everything is revertable from the screen menu',
 
     // ---- recolor swatches ----
     'project.colorInk': 'Ink',
@@ -706,6 +723,23 @@ export const project = {
     // nothing anybody reads.
     'project.changeImages': 'Change the media…',
     'project.deriveDesign': 'Make this screen my DESIGN.md',
+    'project.refreshDesign': 'Update the dossier from this screen',
+    'project.designAlreadyFresh': 'The dossier is already up to date with “{name}”.',
+    'project.designRefreshed': 'Dossier updated from “{name}”. The next screens will follow it.',
+    'project.removeElement': 'Delete',
+    'project.removeNote': 'Element deleted',
+    'project.removeFailed': 'Could not delete: the screen changed in the meantime or the result would no longer be valid.',
+    'project.removeRoot': 'That is the whole screen: delete it from its menu.',
+    'project.removeUnknown': 'Mocky cannot remove this element directly. Ask the model for it in the element’s window.',
+    'project.removeSome': 'Selection deleted, except {n} element(s) Mocky cannot remove directly.',
+    'project.removeRepeatedTitle': 'This element repeats',
+    'project.removeRepeatedCount': 'The same code draws it {n} times.',
+    'project.removeRepeatedUnknown': 'The same code draws it several times.',
+    'project.removeRepeatedConfirm': '{n} element(s) in the selection repeat: they will disappear everywhere. Continue?',
+    'project.removeEverywhere': 'Remove everywhere',
+    'project.removeThisOne': 'Remove this one',
+    'project.selectionCount': '{n} selected',
+    'project.selectionModify': 'Change together',
     'project.applyDesignConfirm':
       'Make the DESIGN.md recorded with “{name}” this project’s direction? Later screens will follow it; the current direction stays reachable from the screens that used it.',
     'project.deriveDesignBusy': 'Reading the screen…',

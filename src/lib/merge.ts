@@ -1,4 +1,5 @@
 import type { Project } from './project'
+import type { Folder } from './folderTree'
 
 /**
  * Reconciling the browser's copy of the projects with the server's.
@@ -107,6 +108,27 @@ export function mergeProjects(local: Project[], server: Project[]): Project[] {
     // forever would grow the blob without bound.
     .filter((p) => !(p.deletedAt && now - p.deletedAt > TOMBSTONE_TTL_MS))
     .sort((a, b) => stamp(b) - stamp(a))
+}
+
+/**
+ * Merge two sets of folders, by the rule projects follow: per record, newest
+ * wins, `local` takes ties, tombstones travel and are forgotten after the TTL.
+ * Mirrored in server/merge.js.
+ */
+export function mergeFolders(local: Folder[], server: Folder[]): Folder[] {
+  const byId = new Map<string, Folder>()
+  const now = Date.now()
+  for (const f of server) {
+    if (f && typeof f.id === 'string') byId.set(f.id, f)
+  }
+  for (const f of local) {
+    if (!f || typeof f.id !== 'string') continue
+    const other = byId.get(f.id)
+    if (!other || (f.updatedAt || 0) >= (other.updatedAt || 0)) byId.set(f.id, f)
+  }
+  return [...byId.values()]
+    .filter((f) => !(f.deletedAt && now - f.deletedAt > TOMBSTONE_TTL_MS))
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || a.id.localeCompare(b.id))
 }
 
 /** The projects a user should actually see: everything that is not deleted. */

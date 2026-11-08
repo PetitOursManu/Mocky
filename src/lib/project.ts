@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { scheduleSync, reportStorageFailure, SERVER_PROJECTS_EVENT } from './sync'
-import { visibleProjects, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
+import { scheduleSync, reportStorageFailure, SERVER_FOLDERS_EVENT, SERVER_PROJECTS_EVENT } from './sync'
+import { visibleProjects, mergeFolders, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
+import {
+  buildFolderTree,
+  canMoveFolder,
+  cleanFolderName,
+  folderIdOf,
+  FOLDERS_KEY,
+  parseFolders,
+  withLegacyFolders,
+  type Folder,
+} from './folderTree'
 import { extractProductName } from './design'
+import type { DesignSync } from './designRefresh'
 import { normalizeNotes, type ScreenNote } from './screenNotes'
 import type { SiteRefMode } from './siteReference'
 import { canvasScale, normalizePageFormat, type PageFormatId } from './pageFormats'
@@ -313,8 +324,14 @@ export interface Project {
    * The cost of naming rather than pointing: renaming a folder rewrites every
    * project in it. That is a loop over a handful of records, and each one bumps
    * `updatedAt`, so it merges like any other edit.
+   *
+   * Since folders nest (lib/folderTree.ts) this is the label only: it is what a
+   * project filed before then still says, and what an assistant is shown. The
+   * place is `folderId`.
    */
   folder?: string
+  /** The folder this project is in. Absent: the top, or an older name in `folder`. */
+  folderId?: string
   /**
    * The design direction THIS project works under.
    *
@@ -335,6 +352,12 @@ export interface Project {
    * every screen from a fixed whitelist and would drop it.
    */
   design?: string
+  /**
+   * The last time `design` was brought up to date from a screen, by hash
+   * (lib/designRefresh.ts) — so the same screen against the same document is
+   * not sent to the model again. On Project for the reason `folder` is.
+   */
+  designSync?: DesignSync
   /**
    * What the thing being designed is CALLED — "Softly", not "a page de contact".
    *
@@ -424,6 +447,13 @@ export interface Project {
    * behaviour every project had before. On Project for the reason `folder` is.
    */
   creative?: boolean
+  /**
+   * New screens of this project may make what the kit lacks (lib/creations):
+   * one more model call per screen, plus a review for each thing it makes, so
+   * it is asked for. Absent is the pipeline every project had before. On
+   * Project for the reason `folder` is.
+   */
+  creations?: boolean
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -620,6 +650,8 @@ export function autoFlow(screens: Screen[], from?: string): string[] {
  * Returns undefined when neither exists, which every caller already handles as
  * "generate without a design preamble".
  */
+export { FOLDER_MAX_LEN, normalizeFolder } from './folderTree'
+
 export function designForProject(
   project: Pick<Project, 'design'> | null | undefined,
   globalMarkdown?: string,
@@ -627,102 +659,6 @@ export function designForProject(
   const own = project?.design
   if (own && own.trim()) return own
   return globalMarkdown && globalMarkdown.trim() ? globalMarkdown : undefined
-}
-
-/**
- * Longest a folder name may be.
- *
- * Folders are chips on one line above the index; past this they wrap and the
- * filter bar stops reading as a bar. It is also a guard on the store, since the
- * name is repeated on every project filed under it.
- */
-export const FOLDER_MAX_LEN = 32
-
-/**
- * Tidies a folder name, or returns null if there is nothing left.
- *
- * Trimming matters more than it looks: " Client " and "Client" would otherwise
- * be two folders that render identically, and no one would ever work out why
- * their projects had split in two.
- */
-export function normalizeFolder(name: string | undefined | null): string | null {
-  const clean = (name ?? '').replace(/\s+/g, ' ').trim().slice(0, FOLDER_MAX_LEN)
-  return clean.length > 0 ? clean : null
-}
-
-/**
- * Every folder in use, with how many live projects each holds.
- *
- * Derived, never stored — see the note on `Project.folder`. Sorted by name
- * rather than by count so the bar does not reshuffle itself as projects move
- * between folders; a filter whose entries jump around is unusable.
- *
- * Comparison is locale-aware and case-insensitive so "Études" files next to
- * "essais" rather than after "Zoo", which is what a plain `<` would do.
- */
-export function listFolders(projects: Project[]): { name: string; count: number }[] {
-  const counts = new Map<string, number>()
-  for (const p of projects) {
-    if (p.deletedAt) continue
-    const f = normalizeFolder(p.folder)
-    if (f) counts.set(f, (counts.get(f) ?? 0) + 1)
-  }
-  return [...counts.entries()]
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-}
-
-/**
- * The index, cut into sections — one per folder, then everything unfiled.
- *
- * Folders are sections of the page rather than a filter above it. A filter shows
- * one folder and hides the others, so the shape of the whole is never visible;
- * an index shows every section at once, which is what makes the folders worth
- * having. It is also the page's existing vocabulary: "Les autres projets" and
- * "Brouillons vides" are already section heads, so a folder becomes one more.
- *
- * Unfiled projects come last and are not a folder — they are what is left, which
- * is why the caller titles them differently.
- */
-export function groupByFolder(projects: Project[]): {
-  folder: string | null
-  projects: Project[]
-}[] {
-  const named = new Map<string, Project[]>()
-  const loose: Project[] = []
-  for (const p of projects) {
-    const f = normalizeFolder(p.folder)
-    if (!f) {
-      loose.push(p)
-      continue
-    }
-    const bucket = named.get(f)
-    if (bucket) bucket.push(p)
-    else named.set(f, [p])
-  }
-  const out = [...named.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: 'base' }))
-    .map(([folder, ps]) => ({ folder: folder as string | null, projects: ps }))
-  if (loose.length > 0) out.push({ folder: null, projects: loose })
-  return out
-}
-
-/**
- * Entry numbers for the index, running across every section.
- *
- * The numbers are what make the page read as an index rather than as a list of
- * cards, so they must not restart at each folder — a second "02" halfway down
- * says the sections are separate documents. `first` is the number after the
- * lead, which is printed as 01.
- */
-export function indexNumbers(
-  sections: { projects: Project[] }[],
-  first = 2,
-): Map<string, number> {
-  const out = new Map<string, number>()
-  let n = first
-  for (const s of sections) for (const p of s.projects) out.set(p.id, n++)
-  return out
 }
 
 /**
@@ -1104,7 +1040,141 @@ export function useProjects() {
     return () => window.removeEventListener(SERVER_PROJECTS_EVENT, onServer)
   }, [])
 
-  const createProject = useCallback((name?: string): string => {
+  // The folders, beside the projects and synced with them. A separate state
+  // because they are a separate list; the same three-way merge because they
+  // have the same three writers (this tab, another tab, the server).
+  const [allFolders, setAllFolders] = useState<Folder[]>(() => {
+    try {
+      return parseFolders(localStorage.getItem(FOLDERS_KEY))
+    } catch {
+      return []
+    }
+  })
+  const foldersMounted = useRef(false)
+  useEffect(() => {
+    if (!foldersMounted.current) {
+      foldersMounted.current = true
+      return
+    }
+    try {
+      localStorage.setItem(FOLDERS_KEY, JSON.stringify(allFolders))
+      scheduleSync()
+    } catch (err) {
+      reportStorageFailure(err)
+    }
+  }, [allFolders])
+  useEffect(() => {
+    setAllFolders((prev) => withLegacyFolders(prev, projects))
+  }, [projects])
+  useEffect(() => {
+    const absorb = (incoming: Folder[]) =>
+      setAllFolders((prev) => {
+        const merged = mergeFolders(prev, incoming)
+        const had = new Set(prev)
+        return merged.length === prev.length && merged.every((f) => had.has(f)) ? prev : merged
+      })
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === FOLDERS_KEY && e.newValue != null) absorb(parseFolders(e.newValue))
+    }
+    const onServer = (e: Event) => {
+      const incoming = (e as CustomEvent<unknown>).detail
+      if (Array.isArray(incoming)) absorb(incoming as Folder[])
+    }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener(SERVER_FOLDERS_EVENT, onServer)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(SERVER_FOLDERS_EVENT, onServer)
+    }
+  }, [])
+  const folders = useMemo(() => allFolders.filter((f) => !f.deletedAt), [allFolders])
+
+  const createFolder = useCallback((name: string, parentId: string | null): string | null => {
+    const clean = cleanFolderName(name)
+    if (!clean) return null
+    const id = newId()
+    setAllFolders((prev) => [...prev, { id, name: clean, parentId, updatedAt: Date.now() }])
+    return id
+  }, [])
+
+  const renameFolder = useCallback((id: string, name: string) => {
+    const clean = cleanFolderName(name)
+    if (!clean) return
+    const now = Date.now()
+    setAllFolders((prev) => prev.map((f) => (f.id === id && f.name !== clean ? { ...f, name: clean, updatedAt: now } : f)))
+    // The label an assistant reads (`Project.folder`) follows.
+    setProjects((prev) =>
+      prev.map((p) => (folderIdOf(p) === id && p.folder !== clean ? { ...p, folder: clean, updatedAt: now } : p)),
+    )
+  }, [])
+
+  const moveFolder = useCallback((id: string, parentId: string | null) => {
+    setAllFolders((prev) => {
+      if (!canMoveFolder(buildFolderTree(prev), id, parentId)) return prev
+      const now = Date.now()
+      return prev.map((f) => (f.id === id && f.parentId !== parentId ? { ...f, parentId, updatedAt: now } : f))
+    })
+  }, [])
+
+  const moveProjects = useCallback(
+    (ids: string[], folderId: string | null) => {
+      const set = new Set(ids)
+      const now = Date.now()
+      const label = folderId ? allFolders.find((f) => f.id === folderId)?.name : undefined
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (!set.has(p.id) || folderIdOf(p) === folderId) return p
+          const next = { ...p, updatedAt: now }
+          delete next.folder
+          delete next.folderId
+          if (folderId) {
+            next.folderId = folderId
+            if (label) next.folder = label
+          }
+          return next
+        }),
+      )
+    },
+    [allFolders],
+  )
+
+  /**
+   * Deleting a folder deletes no work: what it held moves up one level. A
+   * project is deleted on purpose, one confirmation at a time, never as the
+   * side effect of tidying a shelf.
+   */
+  const deleteFolder = useCallback(
+    (id: string) => {
+      const tree = buildFolderTree(allFolders)
+      if (!tree.has(id)) return
+      const parent = tree.parentOf(id)
+      const now = Date.now()
+      setAllFolders((prev) =>
+        prev.map((f) => {
+          if (f.id === id) return { ...f, deletedAt: now, updatedAt: now }
+          if (f.parentId === id) return { ...f, parentId: parent, updatedAt: now }
+          return f
+        }),
+      )
+      const label = parent ? tree.get(parent)?.name : undefined
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (folderIdOf(p) !== id) return p
+          const next = { ...p, updatedAt: now }
+          delete next.folder
+          delete next.folderId
+          if (parent) {
+            next.folderId = parent
+            if (label) next.folder = label
+          }
+          return next
+        }),
+      )
+    },
+    [allFolders],
+  )
+
+  const createProject = useCallback((name?: string, folderId?: string | null): string => {
     const now = Date.now()
     const project: Project = {
       id: newId(),
@@ -1112,6 +1182,7 @@ export function useProjects() {
       createdAt: now,
       updatedAt: now,
       screens: [],
+      ...(folderId ? { folderId } : {}),
     }
     setProjects((prev) => [project, ...prev])
     return project.id
@@ -1132,40 +1203,6 @@ export function useProjects() {
   }, [])
 
   /**
-   * Files a set of projects under a folder, or takes them out of one with null.
-   *
-   * A set rather than a single id because that is how it is always used — the
-   * home page moves a selection. Doing it in one pass also means one state
-   * update and therefore one 300 ms save, where a loop would queue one per
-   * project.
-   */
-  const setProjectsFolder = useCallback((ids: string[], folder: string | null) => {
-    const wanted = normalizeFolder(folder)
-    const set = new Set(ids)
-    const now = Date.now()
-    setProjects((prev) =>
-      prev.map((p) => {
-        if (!set.has(p.id)) return p
-        // Writing the same value would bump updatedAt for nothing and make this
-        // project win a merge it has no business winning.
-        if ((normalizeFolder(p.folder) ?? null) === wanted) return p
-        const next = { ...p, updatedAt: now }
-        if (wanted) next.folder = wanted
-        else delete next.folder
-        return next
-      }),
-    )
-  }, [])
-
-  /**
-   * Renames a folder by rewriting every project filed under it.
-   *
-   * That is the price of storing the name rather than an id, and it is the right
-   * price: there is no registry to fall out of step, and nothing to clean up
-   * when the last project leaves. Merging into an existing folder is allowed and
-   * is simply what happens when the new name is already in use.
-   */
-  /**
    * Fix this project's design direction, or clear it back to the global one.
    *
    * The only writer. Every path that changes a direction — "make this screen my
@@ -1173,13 +1210,16 @@ export function useProjects() {
    * so there is one place to look when a project's look changes and nobody
    * remembers asking.
    */
-  const setProjectDesign = useCallback((id: string, markdown: string | null) => {
+  const setProjectDesign = useCallback((id: string, markdown: string | null, sync?: DesignSync) => {
     const clean = markdown && markdown.trim() ? markdown : null
     setProjects((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p
-        if ((p.design ?? null) === clean) return p
+        // A refresh that found nothing to change still has something to
+        // remember: that this screen has been read.
+        if ((p.design ?? null) === clean && !sync) return p
         const next = { ...p, updatedAt: Date.now() }
+        if (sync) next.designSync = sync
         if (clean) next.design = clean
         else delete next.design
         // The product's name rides along with the document that carries it.
@@ -1196,16 +1236,6 @@ export function useProjects() {
         else if (!clean) delete next.productName
         return next
       }),
-    )
-  }, [])
-
-  const renameFolder = useCallback((from: string, to: string) => {
-    const before = normalizeFolder(from)
-    const after = normalizeFolder(to)
-    if (!before || !after || before === after) return
-    const now = Date.now()
-    setProjects((prev) =>
-      prev.map((p) => (normalizeFolder(p.folder) === before ? { ...p, folder: after, updatedAt: now } : p)),
     )
   }, [])
 
@@ -1349,6 +1379,18 @@ export function useProjects() {
     )
   }, [])
 
+  const setProjectCreations = useCallback((projectId: string, on: boolean) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId || !!p.creations === on) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (on) next.creations = true
+        else delete next.creations
+        return next
+      }),
+    )
+  }, [])
+
   /** Add or replace one publication of a project, by id. */
   const setProjectPublication = useCallback((projectId: string, pub: Publication) => {
     setProjects((prev) =>
@@ -1382,7 +1424,11 @@ export function useProjects() {
     createProject,
     deleteProject,
     renameProject,
-    setProjectsFolder,
+    folders,
+    createFolder,
+    moveFolder,
+    moveProjects,
+    deleteFolder,
     setProjectDesign,
     setProjectUltra,
     renameFolder,
@@ -1397,5 +1443,6 @@ export function useProjects() {
     setProjectPublication,
     setProjectUseBrand,
     setProjectCreative,
+    setProjectCreations,
   }
 }

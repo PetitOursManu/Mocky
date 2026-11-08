@@ -8,6 +8,7 @@ import type { Capability } from '../lib/capabilities/types'
 import { DOC_PAGES_MESSAGE } from '../lib/pageFormats'
 import { flowStateScript } from '../lib/flows'
 import { fontFaceCssFor } from '../lib/fonts'
+import { PICK_SOURCE_PLUGIN, readPickedSource, type PickedSource } from '../lib/screenElements'
 
 export interface PickInfo {
   selector: string
@@ -17,6 +18,10 @@ export interface PickInfo {
   tag?: string
   /** The element's literal class attribute — Tailwind classes here match the JSX verbatim, so it's the strongest anchor for a targeted edit. */
   className?: string
+  /** Which JSX this is, from the element up (lib/screenElements.ts). */
+  source?: PickedSource[]
+  /** Shift, Ctrl or Cmd was held: add to the selection rather than open the element. */
+  additive?: boolean
 }
 export interface DemoLink {
   selector: string
@@ -338,7 +343,12 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       var preEl = document.getElementById('mocky-prelude');
       if (preEl) preludeSrc = decodeB64('mocky-prelude');
       var combined = preludeSrc ? (preludeSrc + '\\n' + src) : src;
-      var out = Babel.transform(combined, { presets: [['react', { runtime: 'classic' }]] }).code;
+      // Tagged with each element's rank in the source, so a click can say which
+      // JSX it was (lib/screenElements.ts). A helper, never a reason to lose the
+      // screen: if it fails, the page compiles as it always did.
+      var out;
+      try { out = Babel.transform(combined, { presets: [['react', { runtime: 'classic' }]], plugins: [(${PICK_SOURCE_PLUGIN})(preludeSrc ? preludeSrc.length + 1 : 0)] }).code; }
+      catch (_) { out = Babel.transform(combined, { presets: [['react', { runtime: 'classic' }]] }).code; }
       // Execute the compiled JS via a Blob URL. This avoids DOM-insertion
       // quirks (textContent) and gives real error locations. Blob URLs are
       // same-origin to the iframe's null origin — no CORS needed (invariant 2).
@@ -454,6 +464,37 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       hl.style.display = 'block'; hl.style.left = r.left + 'px'; hl.style.top = r.top + 'px'; hl.style.width = r.width + 'px'; hl.style.height = r.height + 'px';
     }
     function hideHl() { if (hl) hl.style.display = 'none'; }
+    /*
+     * Which JSX this element is, read up React's own tree: every fiber keeps the
+     * props it was made with, so a component's use is found even though it never
+     * reaches the DOM. Works on the production build, and reads nothing else.
+     */
+    function sourceChain(el) {
+      var key = null;
+      for (var k in el) { if (k.indexOf('__reactFiber$') === 0) { key = k; break; } }
+      if (!key) return [];
+      var out = [], f = el[key];
+      while (f && out.length < 32) {
+        var s = f.memoizedProps && f.memoizedProps['data-mocky-src'];
+        if (s != null) out.push({ rank: Number(s), index: f.index || 0 });
+        f = f.return;
+      }
+      return out;
+    }
+    // On the elements themselves, so a mark follows the page when it scrolls.
+    var marked = [];
+    function setMarks(selectors) {
+      for (var i = 0; i < marked.length; i++) { marked[i].style.outline = ''; marked[i].style.outlineOffset = ''; }
+      marked = [];
+      for (var j = 0; j < selectors.length; j++) {
+        var el = null; try { el = document.querySelector(selectors[j]); } catch (_) {}
+        if (el) { el.style.outline = '2px solid #d946ef'; el.style.outlineOffset = '1px'; marked.push(el); }
+      }
+    }
+    document.addEventListener('keydown', function (e) {
+      if (mode !== 'pick' || (e.key !== 'Delete' && e.key !== 'Backspace' && e.key !== 'Escape')) return;
+      e.preventDefault(); post('pick-key', { key: e.key });
+    }, true);
     document.addEventListener('mousemove', function (e) { if (mode === 'pick') moveHl(pickTarget(e.target)); }, true);
     document.addEventListener('click', function (e) {
       if (mode === 'pick') {
@@ -461,7 +502,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
         var el = pickTarget(e.target), r = el.getBoundingClientRect(), vw = window.innerWidth || 1, vh = window.innerHeight || 1;
         var label = ((el.innerText || (el.getAttribute && el.getAttribute('aria-label')) || el.tagName || '') + '').replace(/\\s+/g, ' ').trim().slice(0, 40);
         var cls = ((el.getAttribute && el.getAttribute('class')) || '').replace(/\\s+/g, ' ').trim().slice(0, 160);
-        post('picked', { selector: cssPath(el), label: label, tag: (el.tagName || '').toLowerCase(), className: cls, rect: { x: r.left / vw, y: r.top / vh, w: r.width / vw, h: r.height / vh } });
+        post('picked', { selector: cssPath(el), label: label, tag: (el.tagName || '').toLowerCase(), className: cls, rect: { x: r.left / vw, y: r.top / vh, w: r.width / vw, h: r.height / vh }, source: sourceChain(el), additive: !!(e.shiftKey || e.ctrlKey || e.metaKey) });
         return false;
       }
       if (mode === 'demo') {
@@ -563,6 +604,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       if (e.source !== window.parent) return;
       var d = e.data || {};
       if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; pickFill = d.fill !== false; pickPrecise = !!d.precise; } else if (mode === 'pick') { mode = null; hideHl(); } }
+      if (d.__mockyCmd === 'pick-marks') { setMarks(Array.isArray(d.selectors) ? d.selectors : []); }
       if (d.__mockyCmd === 'demo') { mode = 'demo'; links = d.links || []; markLinks(); }
       // The WebGL budget, granted by the canvas. A browser keeps about sixteen
       // live contexts per renderer process and silently kills the OLDEST when a
@@ -597,6 +639,8 @@ export default function Preview({
   gl,
   retrying,
   onPick,
+  onPickKey,
+  pickMarks,
   demoLinks,
   onNavigate,
   hideScrollbars,
@@ -633,6 +677,10 @@ export default function Preview({
   /** Auto-fix is repairing a render error on this screen — show a calm "Repairing…" state instead of the red error banner. */
   retrying?: boolean
   onPick?: (info: PickInfo) => void
+  /** Delete, Backspace or Escape pressed inside the frame while picking. */
+  onPickKey?: (key: string) => void
+  /** The elements currently selected, outlined in the frame. */
+  pickMarks?: string[]
   demoLinks?: DemoLink[]
   onNavigate?: (target: string) => void
   hideScrollbars?: boolean
@@ -685,6 +733,8 @@ export default function Preview({
   // Keep the latest callbacks in refs so the message listener doesn't need to
   // re-subscribe (and reset `ready`) every time the parent re-renders.
   const onPickRef = useRef(onPick)
+  const onPickKeyRef = useRef(onPickKey)
+  onPickKeyRef.current = onPickKey
   const onNavRef = useRef(onNavigate)
   const onCaptureRectRef = useRef(onCaptureRect)
   const onErrorRef = useRef(onError)
@@ -865,7 +915,9 @@ export default function Preview({
       // only ask to navigate while it has demo links. Without these, a rendered
       // component could drive the parent's UI at will.
       if (d.type === 'picked' && pickModeRef.current)
-        onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
+        onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className, source: readPickedSource(d.source), additive: d.additive === true })
+      if (d.type === 'pick-key' && pickModeRef.current && (d.key === 'Delete' || d.key === 'Backspace' || d.key === 'Escape'))
+        onPickKeyRef.current?.(d.key)
       if (d.type === 'navigate' && demoLinksRef.current && demoLinksRef.current.length > 0) onNavRef.current?.(d.target)
       if (d.type === 'swept' && Array.isArray(d.elements)) onSweptRef.current?.(d.elements)
       // A working prototype's requests, honoured only by a holder that asked
@@ -968,6 +1020,13 @@ export default function Preview({
     // `window.__mockyGL` and `<Scene3D>` starts or stops on the event.
     win.postMessage({ __mockyCmd: 'gl', on: gl !== false }, '*')
   }, [ready, pickMode, pickOutlineOnly, pickPrecise, gl, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const marksKey = (pickMarks ?? []).join('\u0000')
+  useEffect(() => {
+    const win = iframeRef.current?.contentWindow
+    if (!win || !ready) return
+    win.postMessage({ __mockyCmd: 'pick-marks', selectors: pickMarks ?? [] }, '*')
+  }, [ready, marksKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative h-full w-full bg-white" style={{ borderRadius: radius }}>

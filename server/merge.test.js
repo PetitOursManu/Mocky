@@ -16,6 +16,38 @@ const DAY = 24 * 60 * 60 * 1000
 const p = (id, updatedAt, extra = {}) => ({ id, name: id, createdAt: 0, updatedAt, screens: [], ...extra })
 const s = (id, code = '') => ({ id, name: id, code })
 
+const f = (id, updatedAt, extra = {}) => ({ id, name: id, parentId: null, updatedAt, ...extra })
+
+const folderCorpus = [
+  ['both empty', [], []],
+  ['only local', [f('a', 1)], []],
+  ['only server', [], [f('a', 1)]],
+  ['local newer', [f('a', 2, { name: 'L' })], [f('a', 1, { name: 'S' })]],
+  ['server newer', [f('a', 1, { name: 'L' })], [f('a', 2, { name: 'S' })]],
+  ['a tie goes to local', [f('a', 1, { name: 'L' })], [f('a', 1, { name: 'S' })]],
+  ['a legacy record loses to any edit', [f('a', 0, { name: 'Old' })], [f('a', 5, { name: 'New' })]],
+  ['a move travels', [f('a', 9, { parentId: 'b' })], [f('a', 3), f('b', 3)]],
+  ['a fresh tombstone travels', [f('a', NOW - DAY, { deletedAt: NOW - DAY })], [f('a', NOW - 2 * DAY)]],
+  ['an old tombstone is forgotten', [f('a', NOW - 40 * DAY, { deletedAt: NOW - 40 * DAY })], []],
+  ['records without an id are dropped', [{ name: 'x' }, null, f('a', 1)], [{ id: 7 }, f('b', 2)]],
+  ['equal stamps sort by id', [f('z', 5), f('y', 5)], [f('x', 5)]],
+]
+
+describe('the folder merge mirror', () => {
+  afterEach(() => vi.useRealTimers())
+  for (const [label, local, srv] of folderCorpus) {
+    it(label, () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(NOW)
+      expect(server.mergeFolders(local, srv)).toEqual(browser.mergeFolders(local, srv))
+    })
+  }
+
+  it('leaves the stored folders alone for a writer that sends none', () => {
+    expect(server.mergeStoredFolders(null, '[{"id":"a"}]').folders).toBe('[{"id":"a"}]')
+  })
+})
+
 /** [label, local, server] */
 const corpus = [
   ['both empty', [], []],

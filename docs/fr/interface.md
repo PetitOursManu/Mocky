@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 9933b9f82bd4
+source_hash: 34f6c55bee3e
 ---
 
 # L’interface
@@ -95,7 +95,7 @@ déplie les onze avec leurs icônes et leurs badges.
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3"/></svg> | `Rechercher un projet…` | Filtre sur le nom du projet **et sur le nom et la demande de chacun de ses écrans**. Un projet dont vous ne vous rappelez pas le nom se retrouve par ce que vous aviez demandé dedans. Pas rendu du tout à cinq projets ou moins. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Nouveau dossier` | Ouvre le dialogue de dossier. Caché tant qu’aucun projet n’a d’écran. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Nouveau dossier` | Crée un dossier dans celui que vous regardez. Il peut rester vide. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5 5 19"/></svg> | `Sélectionner` / `Terminer` | Entre et sort du mode coche. En sortir vide la sélection. Caché s’il n’y a qu’un projet. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/></svg> | `Nouveau projet` | Crée le projet et l’ouvre aussitôt. | libre |
 
@@ -119,32 +119,23 @@ Le dernier projet touché ouvre la page en grande carte — son image, son nom, 
 demande qui a fait son premier écran, `Ouvrir`. Les autres suivent en grille de
 cartes (d’une à quatre colonnes selon la fenêtre), chacune avec son image, son
 nom, cette demande, son nombre d’écrans et son âge, et deux boutons : le classer,
-le supprimer. Les dossiers sont les sections de cette grille ; les brouillons
-vides viennent en dernier, en petites étiquettes.
+le supprimer. Les dossiers s’imbriquent comme sur un ordinateur. L’arborescence à gauche et le chemin au-dessus de la grille montrent toujours où vous êtes, et acceptent tous deux un dépôt. Les dossiers du niveau courant passent avant les projets ; les brouillons vides viennent en dernier, en petites étiquettes. Supprimer un dossier ne supprime aucun projet : son contenu remonte d’un niveau.
 
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg> | `Ouvrir` | Ouvre le projet. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Supprimer le projet` | Une confirmation, qui nomme le projet. | libre |
 | | Vignette de la une | Cliquable, mais délibérément **pas** un bouton : c’est un `div` marqué `aria-hidden`, parce qu’elle double le contrôle `Ouvrir` juste à côté. Un élément focusable et masqué aux technologies d’assistance est une faute, pas un raccourci. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg> | Plier une section | Replie un dossier, ou le groupe `Hors dossier`. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Renommer le dossier` | Une invite du navigateur. Rendu seulement sur un vrai dossier — jamais sur `Hors dossier`, qui n’est pas un dossier mais l’absence de dossier. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Renommer le dossier` | Sur la carte d’un dossier ou à côté du chemin. `Déplacer le dossier` et `Supprimer le dossier` sont juste à côté. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Classer « {name} »` | Classe ce projet-là seulement. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Tout vider` | Supprime tous les brouillons vides d’un coup, derrière une seule confirmation. | libre |
 
-### Les deux dialogues de dossier
+### Déplacer
 
-`Nouveau dossier` demande un nom (`Nom du dossier`, avec pour exemple
-`Client, Essais, À revoir…`) et une liste de projets à y mettre.
-**`Créer le dossier` reste désactivé tant que les deux ne sont pas remplis**,
-parce qu’un dossier, dans Mocky, *est* ses projets : il n’existe aucune trace
-d’un dossier vide à enregistrer.
-
-`Classer` affiche les dossiers existants en puces, propose un champ pour en
-créer un, et ajoute `Retirer du dossier` — mais seulement si au moins un des
-projets choisis est actuellement classé, sans quoi le bouton ne déferait rien.
-
----
+Glissez un projet ou un dossier sur un dossier, une ligne de l’arborescence ou une
+étape du chemin. `Classer` ouvre la même arborescence sous forme de liste, pour
+un téléphone ou une sélection : un clic sur une ligne suffit. Un dossier ne peut
+pas être déplacé dans lui-même.
 
 ## L’espace de travail d’un projet
 
@@ -211,7 +202,7 @@ plutôt que de pousser la page de côté.
 - 2.8,50 **Sélectionner**: Aucun mode : un clic sélectionne un écran. Coupe le mode qui était actif.
 - 6.5,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
 - 10.2,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
-- 14,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
+- 14,50 **Modifier**: Cliquez un élément pour le changer ou le supprimer ; Maj ou Ctrl + clic pour en sélectionner plusieurs.
 - 17.7,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
 - 63.8,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](interface.md#le-mode-demo).
 - 75.2,50 **Partager**: Un lien vers l’écran sélectionné, ou le projet envoyé en validation.

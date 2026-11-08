@@ -2,6 +2,8 @@ import { captureRegion } from './capture'
 import { resolveCapabilities, selectCapabilities } from './capabilities/select'
 import type { Screen } from './project'
 import { thumbFrame } from './documentMode'
+import { hashCode } from './codeHash'
+import { knownRemoteThumbs, remoteThumbUrl, uploadThumb } from './thumbSync'
 
 /**
  * A cache of real screenshots, used to illustrate projects on the home page.
@@ -68,21 +70,6 @@ interface ThumbEntry {
 }
 
 type ThumbStore = Record<string, ThumbEntry>
-
-/**
- * Checksum of a screen's code. Deliberately not crypto: its only job is to
- * notice that the code changed since the picture was taken, so a stale
- * thumbnail is never shown. FNV-1a, with the length appended.
- */
-export function hashCode(code: string): string {
-  let h = 0x811c9dc5
-  for (let i = 0; i < code.length; i++) {
-    h ^= code.charCodeAt(i)
-    // FNV prime (16777619) by shift-add, to stay inside 32 bits.
-    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0
-  }
-  return (h >>> 0).toString(36) + '-' + code.length.toString(36)
-}
 
 function isEntry(v: unknown): v is ThumbEntry {
   const e = v as ThumbEntry | null
@@ -245,6 +232,7 @@ export async function captureThumb(screen: Screen): Promise<string | null> {
     const raw = await captureRegion(screen.code, w, h, region, caps, scale)
     const small = await shrink(raw)
     putThumb(screen.id, screen.code, small)
+    void uploadThumb(screen.id, hashCode(screen.code), small)
     return small
   } catch (err) {
     failed.add(mark)
@@ -309,6 +297,24 @@ export function queueThumbs(screens: Screen[]): void {
     pending.push(s)
   }
   if (pending.length) void drain()
+}
+
+/**
+ * The pictures this device does not have but the account does, and on the way
+ * past, the ones only this device has. That second half is what fills the
+ * server from caches filled before it could hold anything. Read-only as far as
+ * generated code goes: nothing here mounts a frame.
+ */
+export async function reconcileRemoteThumbs(screens: Screen[]): Promise<Record<string, string>> {
+  const items = screens.map((s) => ({ id: s.id, hash: hashCode(s.code) }))
+  const known = await knownRemoteThumbs(items)
+  const out: Record<string, string> = {}
+  for (let i = 0; i < screens.length; i++) {
+    const local = getThumb(screens[i].id, screens[i].code)
+    if (!local && known.has(items[i].id)) out[items[i].id] = remoteThumbUrl(items[i])
+    else if (local && !known.has(items[i].id)) void uploadThumb(items[i].id, items[i].hash, local)
+  }
+  return out
 }
 
 /** True while a capture is in flight or queued — for a discreet indicator. */

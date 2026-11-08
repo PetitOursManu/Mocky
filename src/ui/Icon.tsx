@@ -30,6 +30,7 @@ export type IconName =
   | 'download'
   | 'upload'
   | 'library'
+  | 'folder'
   | 'trash'
   | 'pencil'
   | 'comment'
@@ -98,6 +99,7 @@ const PATHS: Record<IconName, string> = {
   download: 'M12 3v12m0 0 4-4m-4 4-4-4M4 19h16',
   upload: 'M12 21V9m0 0 4 4M12 9 8 13M4 5h16',
   library: 'M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1',
+  folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
   trash: 'M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5',
   pencil: 'M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4',
   comment: 'M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z',

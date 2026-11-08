@@ -94,6 +94,21 @@ export const library = {
     // « Monter », « Proposer un montage », « Nouveau montage » — parce qu'un
     // troisième mot pour la même chose est ce qu'on vient de retirer.
     'library.tabFilms': 'Motion Ultra',
+    'library.tabCreations': 'Créations',
+    'library.creations.empty': 'Aucune création pour l’instant. Activez Créations dans le composeur d’un projet : ce que le modèle invente et qui passe les contrôles arrive ici.',
+    'library.creations.kind.frame': 'Cadre',
+    'library.creations.kind.animation': 'Animation',
+    'library.creations.kind.transition': 'Transition',
+    'library.creations.kind.element': 'Élément',
+    'library.creations.reviewed': 'Relecture : {text}',
+    'library.creations.preview': 'Aperçu',
+    'library.creations.hidePreview': 'Masquer',
+    'library.creations.source': 'Code',
+    'library.creations.deleteConfirm': 'Supprimer « {name} » de vos créations ? Les écrans qui l’utilisent gardent leur copie.',
+    'library.creations.stage': 'Recherche de ce qui manque à Mocky…',
+    'library.creations.made': 'Création ajoutée à votre bibliothèque : {names}.',
+    'library.creations.refused': 'Création écartée par les contrôles : {names}. L’écran est généré sans elle.',
+    'library.creations.failed': 'Les créations n’ont pas pu être préparées. L’écran est généré sans elles.',
     // Le temps sous chaque vignette. Aujourd'hui en relatif — c'est la question
     // qu'on pose vraiment devant une bibliotheque (« mon rendu est-il arrive ? ») —
     // et une date sinon, parce que « il y a 4 jours » oblige a compter a l'envers.
@@ -346,6 +361,21 @@ export const library = {
     // word the panel already uses for it — “Cut one”, “Propose a cut”, “New cut”
     // — because a third word for the same thing is what was just removed.
     'library.tabFilms': 'Motion Ultra',
+    'library.tabCreations': 'Creations',
+    'library.creations.empty': 'No creations yet. Turn on Creations in a project’s composer: what the model invents and the checks let through lands here.',
+    'library.creations.kind.frame': 'Frame',
+    'library.creations.kind.animation': 'Animation',
+    'library.creations.kind.transition': 'Transition',
+    'library.creations.kind.element': 'Element',
+    'library.creations.reviewed': 'Review: {text}',
+    'library.creations.preview': 'Preview',
+    'library.creations.hidePreview': 'Hide',
+    'library.creations.source': 'Code',
+    'library.creations.deleteConfirm': 'Delete “{name}” from your creations? Screens that use it keep their copy.',
+    'library.creations.stage': 'Looking for what Mocky lacks…',
+    'library.creations.made': 'Creation added to your library: {names}.',
+    'library.creations.refused': 'Creation dropped by the checks: {names}. The screen is generated without it.',
+    'library.creations.failed': 'Creations could not be prepared. The screen is generated without them.',
     'library.madeSeconds_one': '{n} second ago',
     'library.madeSeconds_other': '{n} seconds ago',
     'library.madeMinutes_one': '{n} minute ago',

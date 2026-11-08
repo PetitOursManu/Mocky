@@ -90,7 +90,7 @@ panel, and a tap unfolds all eleven with their icons and badges.
 | | Control | What it does | Cost |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3"/></svg> | `Search projects…` | Filters on the project name **and on every screen's name and prompt**. A project you cannot name is findable by what you asked for inside it. Not rendered at all with five projects or fewer. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `New folder` | Opens the folder dialog. Hidden until at least one project has a screen. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `New folder` | Creates a folder inside the one you are looking at. It can stay empty. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5 5 19"/></svg> | `Select` / `Done` | Enters and leaves tick mode. Leaving it empties the selection. Hidden when there is only one project. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/></svg> | `New project` | Creates the project and opens it immediately. | free |
 
@@ -114,30 +114,22 @@ The project touched last opens the page as a wide card — its picture, its name
 the request that made its first screen, `Open`. The others follow as a grid of
 cards (one to four columns with the window), each with its picture, its name,
 that request, its screen count and age, and two buttons: file it, delete it.
-Folders are the sections of that grid; empty drafts come last, as small tags.
+Folders nest like folders on a computer. The tree on the left and the path above the grid always show where you are, and both accept a drop. Above the projects sit the folders of the current level; empty drafts come last, as small tags. Deleting a folder deletes no project: what it held moves up one level.
 
 | | Control | What it does | Cost |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg> | `Open` | Opens the project. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Delete project` | One confirmation, naming the project. | free |
 | | Lead thumbnail | Clickable, but deliberately **not** a button: it is a `div`, marked `aria-hidden`, because it duplicates the `Open` control beside it. A focusable element hidden from assistive technology is a defect, not a shortcut. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg> | Fold a section | Collapses a folder, or the `Unfiled` group. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Rename the folder` | A browser prompt. Rendered only on a real folder — never on `Unfiled`, which is not a folder but the absence of one. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Rename the folder` | On a folder's card or beside the path. `Move the folder` and `Delete the folder` sit next to it. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `File “{name}”` | Files that one project. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Clear all` | Deletes every empty draft at once, behind a single confirmation. | free |
 
-### The two folder dialogs
+### Moving things
 
-`New folder` asks for a name (`Folder name`, placeholder
-`Client, Drafts, To review…`) and a list of projects to put in it.
-**`Create the folder` stays disabled until both are filled**, because a folder
-in Mocky *is* its projects: there is no record of an empty one to store.
-
-`File` shows the existing folders as chips, offers a new-folder field, and adds
-`Take out of the folder` — but only when at least one of the chosen projects is
-currently filed, since otherwise the button would undo nothing.
-
----
+Drag a project or a folder onto a folder, a line of the tree or a step of the
+path. `File` opens the same tree as a list, for a phone or a selection: a click
+on a line is the answer. A folder cannot be moved inside itself.
 
 ## The project workspace
 
@@ -197,7 +189,7 @@ into `More`, and the row scrolls itself rather than pushing the page sideways.
 - 2.9,50 **Select**: No mode: a click selects a screen. Switches off whichever mode was on.
 - 6.8,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
 - 10.8,50 **Interact**: Every preview becomes clickable at once.
-- 14.7,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 14.7,50 **Modify**: Click an element to change or delete it; Shift or Ctrl + click to select several.
 - 18.7,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
 - 65.4,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
 - 76.4,50 **Share**: A link to the selected screen, or the project sent for approval.
