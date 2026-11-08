@@ -36,8 +36,8 @@ import type { CarriedFrame, PageSnapshot, RenderedPage } from './types'
  * to hold at once.
  *
  * Two rasterisers. The browser's own engine, through an SVG foreignObject
- * image (nativeRaster.ts), draws what the page really is; html2canvas, the
- * frame's own copy, is the fallback for a page the first could not draw or a
+ * image (nativeRaster.ts), draws what the page really is; html2canvas is the
+ * fallback for a page the first could not draw or a
  * browser that will not let it be read back (Safari). Each carries its own
  * workarounds, and only the fallback needs html2canvas's.
  */
@@ -93,7 +93,7 @@ const CARRIES_FRAMES: ReadonlySet<RasterPurpose> = new Set(['pptx', 'layers'])
  * (the unit `rasterizeNative` counts `missing` in), named by its host.
  *
  * Such a picture is missing from every export, by two rules that are right and
- * stay: the frame's CSP (`img-src` this origin, data: and blob:, capture.ts)
+ * stay: the frame's CSP (`img-src` this origin and data:, stillCopy.ts)
  * never lets it load — so html2canvas has nothing to draw either — and the
  * parent never fetches a URL the model wrote (`inlinePolicy`), which would hand
  * the frame back the network channel `connect-src 'none'` took away.
@@ -172,8 +172,6 @@ function release(canvas: HTMLCanvasElement | null) {
   canvas.width = 0
   canvas.height = 0
 }
-
-type Html2Canvas = (el: Element, opts: Record<string, unknown>) => Promise<HTMLCanvasElement>
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -516,8 +514,8 @@ export async function openSettledDocument(
   web = false,
 ): Promise<SettledDocument> {
   const frame = await openDocumentFrame(code, caps, format.w, format.h, signal)
-  // Cancel means NOW: the frame — and the model's code running in it — goes the
-  // moment the person asks, not when the page being rasterised finishes.
+  // Cancel means NOW: the frame goes the moment the person asks, not when the
+  // page being rasterised finishes.
   // Everything awaited below races the same signal.
   const onAbort = () => frame.dispose()
   signal?.addEventListener('abort', onAbort, { once: true })
@@ -588,7 +586,7 @@ export async function renderDocument(
   const notices: RenderNotice[] = noPages ? [{ code: 'noPages' }] : []
   try {
 
-    const h2c = (frame.win as Window & { html2canvas?: Html2Canvas }).html2canvas
+    const h2c = frame.html2canvas
     const scale = rasterScale(format, purpose, rasterCeiling(typeof navigator === 'undefined' ? null : navigator))
     const hideMode = HIDE_MODE[purpose]
     const hide = hideCss(hideMode)
@@ -702,8 +700,11 @@ export async function renderDocument(
           undo.push(treatClippedText(frame.win, el, (e) => (textMode && !keepInk(e) ? 'erase' : 'flatten')))
           undo.push(prepare())
           undo.push(normalizeColors(frame.win, frame.doc, el))
+          // No CORS and no taint: html2canvas runs from Mocky's realm now, where
+          // the frame's CSP does not apply, and this is what keeps it to Mocky's
+          // own pictures instead of fetching the hosts a model wrote.
           canvas = await raceAbort(
-            h2c(el, { scale, width: format.w, height: format.h, backgroundColor: '#ffffff', logging: false, useCORS: true }),
+            h2c(el, { scale, width: format.w, height: format.h, backgroundColor: '#ffffff', logging: false, useCORS: false, allowTaint: false }),
             signal,
           )
           throwIfAborted(signal)

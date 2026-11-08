@@ -848,42 +848,47 @@ is discarded as stale.
 
 ### Capture: the exception that no longer is
 
-`src/lib/capture.ts` used to mount a **same-origin** iframe, and this document
-used to explain at length why that was unavoidable. It no longer is.
+`src/lib/capture.ts` used to run the model's code in a **same-origin** iframe for
+as long as a thumbnail or an export took, and thumbnails are automatic. That code
+could read the provider key out of `localStorage` and reach into
+`window.parent`. It no longer can.
 
 The reason was html2canvas: it has to read the document it photographs, and it
 clones that document into an iframe of its own, so a sandbox without
 `allow-same-origin` gave every descendant a **fresh** opaque origin and the frame
 could not read its own clone. It failed with "Blocked a frame with origin null
 from accessing a cross-origin frame", on the default path and with
-`foreignObjectRendering` alike.
+`foreignObjectRendering` alike. snapdom, which needs no such access, was shipped
+once and reverted: it scales far worse with node count (4× html2canvas at 6,400
+nodes, and widening), and a capture holds the tab's main thread.
 
-Mocky now snapshots with **snapdom**, which serializes the subtree into an SVG
-`<foreignObject>` with every node's computed style inlined, then rasterizes that
-through a `data:` URL. Nothing in that path crosses an origin boundary, so the
-capture frame carries `allow-scripts` and nothing else — exactly like a preview.
-For the second or so of a capture, the model's code no longer runs with Mocky's
-origin, which means it can no longer read the provider API key out of
-`localStorage` or reach into `window.parent`.
+So the capture is two frames, and neither has both flags:
 
-Measured in an opaque origin before the change was made: the capture succeeds,
-`toDataURL()` does not throw (the canvas is not tainted), Tailwind's injected
-utilities are honoured, and `rgb(var(--token) / 0.5)` composites to the exact
-pixel. 113 ms by default against 111 ms for html2canvas with the origin open.
+| Frame | `sandbox` | What happens in it |
+|---|---|---|
+| Live | `allow-scripts` | The model's code runs, as in a preview: opaque origin, no storage, no cookies, no parent. Once settled it posts its DOM and CSSOM, and is destroyed |
+| Still | `allow-same-origin` | That serialised page, scrubbed (`lib/stillCopy.ts`). Nothing can run in it. html2canvas reads it from Mocky's own window, and the exports walk it page by page |
 
-Two consequences worth knowing:
+Three consequences worth knowing:
 
-- **`connect-src` had to open to this origin.** snapdom inlines a picture by
-  fetching its bytes; under `connect-src 'none'` every fetch was blocked and each
-  image became a grey placeholder. `/api/images/:hash` therefore also answers with
-  `Access-Control-Allow-Origin: *` — it is already unauthenticated by design, so
-  a wildcard exposes nothing. Every other outbound directive stays shut, so there
-  is still nowhere to send anything.
-- **A hidden tab defers the capture.** snapdom rasterizes by awaiting
-  `img.decode()`, which never settles in a document the browser is not
-  compositing: backgrounded, the same capture took 39 s where html2canvas took
-  1 s. The shell now waits for `visibilitychange` rather than burning its
-  watchdog.
+- **What the live frame sends is treated as hostile.** Scripts, event handlers,
+  frames and `<base>` are dropped, and an address survives only if it is a `data:`
+  picture, an in-page fragment, a link, or one of Mocky's own files. "Same origin"
+  is not enough, because html2canvas loads pictures from Mocky's realm with the
+  session cookie and no CSP: `<img src="/api/…">` would otherwise be a
+  credentialed GET on any route a model cares to name.
+- **A picture from another site stays named, and does not load.** The export
+  reports those by host. The copy's CSP refuses them, html2canvas is called with
+  `useCORS: false, allowTaint: false` so it skips them, and the native rasteriser
+  does not fetch them (`inlinePolicy`).
+- **No second origin is involved**, which is what the code comment here used to
+  plan. A second port would not have kept cookies apart, since cookies are not
+  scoped by port, and the exports reach the frame's DOM from the parent, which any
+  cross-origin frame forbids. A single-port deployment therefore needs nothing.
+
+The flags are pinned by `tests/preview-sandbox.test.js`. What they actually do is
+`tests/capture-isolation-e2e.test.js`: a screen that tries to steal, captured in a
+real browser by the real `capture.ts`.
 
 ---
 
@@ -1264,8 +1269,8 @@ DOM attributes the page kit writes (`data-mocky-doc`, `data-mocky-page`,
 and any overflow; the export reads the same attributes back, so an attribute
 renamed on one side is renamed on both.
 
-`render.ts` opens the document offscreen in the capture shell
-(`openSettledDocument`: pictures eager, fonts and images settled, laid out at the
+`render.ts` renders the document in the capture shell and keeps its inert copy
+offscreen (`openSettledDocument`: pictures eager, fonts and images settled, laid out at the
 canvas's height), then walks it page by page. `measure.ts` reads each page's
 words, fields and links with their boxes — skipping what is visually hidden, and
 reporting how far text runs past each edge and which words. Each page is then

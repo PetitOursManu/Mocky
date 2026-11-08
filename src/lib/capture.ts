@@ -4,75 +4,134 @@ import type { Capability } from './capabilities/types'
 import { compileJsx } from './compile'
 import { legibilityVerdict, type LegibilityFinding } from './legibility'
 import { fontFaceCssFor } from './fonts'
+import {
+  SERIALISE_SOURCE,
+  keepScreenAddress,
+  keepScreenCssUrl,
+  loadHtml2canvas,
+  screenStillCsp,
+  stillDocument,
+  type Html2Canvas,
+  type LiveSnapshot,
+} from './stillCopy'
 
 /**
- * The legibility probe, as source for the capture frame.
+ * Pictures of a generated component, and the documents the exports read.
  *
- * Runs instead of `shoot()`: find every run of text laid over a picture (an
- * <img>, a <video>, a canvas, a Motion Ultra <Backdrop>, a background image),
- * rasterise the page once with html2canvas, and hand each run's pixels to
- * `legibilityVerdict` — injected here as source, since nothing of this module
- * exists inside the frame. See src/lib/legibility.ts for why.
- */
-const PROBE_TEMPLATE = "  function probe(){\n    try {\n      var verdict = __VERDICT__;\n      var H = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);\n      var W = document.documentElement.scrollWidth;\n      var grounds = [];\n      var all = document.body.getElementsByTagName('*');\n      for (var i = 0; i < all.length; i++) {\n        var el = all[i]; var tag = el.tagName;\n        var isPic = tag === 'IMG' || tag === 'VIDEO' || tag === 'CANVAS' || (el.classList && el.classList.contains('u-backdrop'));\n        if (!isPic) { var bi = getComputedStyle(el).backgroundImage; isPic = !!bi && bi !== 'none' && bi.indexOf('url(') >= 0; }\n        if (!isPic) continue;\n        var gr0 = el.getBoundingClientRect();\n        if (gr0.width >= 60 && gr0.height >= 40) grounds.push({ el: el, r: gr0 });\n      }\n      if (!grounds.length) return post({ legibility: [] });\n      var runs = [];\n      var seen = [];\n      var tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);\n      var n;\n      while ((n = tw.nextNode())) {\n        var txt = (n.textContent || '').replace(/\\s+/g, ' ').trim();\n        if (txt.length < 2) continue;\n        var host = n.parentElement;\n        if (!host || host.tagName === 'SCRIPT' || host.tagName === 'STYLE' || seen.indexOf(host) >= 0) continue;\n        /* Gradient, shining or hollow type has no single colour to measure\n           against \u2014 and in this frame it is flattened to the accent anyway. */\n        if (host.closest('.u-text-gradient,.u-text-shine,.u-text-outline,[class*=\"bg-clip-text\"]')) continue;\n        var cs = getComputedStyle(host);\n        if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) continue;\n        var range = document.createRange(); range.selectNodeContents(n);\n        var rr = range.getBoundingClientRect();\n        if (rr.width < 4 || rr.height < 4) continue;\n        var over = false;\n        for (var g = 0; g < grounds.length; g++) {\n          var gr = grounds[g].r;\n          if (grounds[g].el.contains(host)) continue;\n          if (rr.left < gr.right && rr.right > gr.left && rr.top < gr.bottom && rr.bottom > gr.top) { over = true; break; }\n        }\n        if (!over) continue;\n        var m = /rgba?\\(([^)]+)\\)/.exec(cs.color);\n        if (!m) continue;\n        var parts = m[1].split(',').map(function (x) { return parseFloat(x); });\n        if (parts.length > 3 && parts[3] < 0.05) continue;\n        var size = parseFloat(cs.fontSize) || 16;\n        var weight = parseInt(cs.fontWeight, 10) || 400;\n        seen.push(host);\n        runs.push({ text: txt.slice(0, 60), r: rr, rgb: [parts[0], parts[1], parts[2]], large: size >= 24 || (size >= 18.66 && weight >= 700) });\n        if (runs.length >= 60) break;\n      }\n      if (!runs.length) return post({ legibility: [] });\n      /* The ink goes, the layout stays: every glyph and icon is made\n         transparent, so the raster below is the GROUND alone \u2014 exactly what each\n         run of text is set on, with nothing of its own or its neighbours' in it.\n         The boxes were measured above, before this, and colour does not move a\n         box. */\n      var hide = document.createElement('style');\n      hide.textContent = '*{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;caret-color:transparent!important}svg{visibility:hidden!important}';\n      document.head.appendChild(hide);\n      /* No windowWidth/windowHeight: html2canvas lays the clone out in a window of\n         that size, and a page with `min-h-screen` or a 90vh hero then stretches \u2014\n         every text box measured above is somewhere else in the picture. The\n         window stays the screen's own; only the rasterised area grows. */\n      html2canvas(document.body, { x: 0, y: 0, width: W, height: H, scale: 1, backgroundColor: '#ffffff', logging: false })\n        .then(function (canvas) {\n          var ctx = canvas.getContext('2d');\n          var out = [];\n          for (var k = 0; k < runs.length; k++) {\n            var q = runs[k].r;\n            var x = Math.max(0, Math.floor(q.left)), y = Math.max(0, Math.floor(q.top));\n            var w = Math.min(canvas.width - x, Math.ceil(q.width)), h = Math.min(canvas.height - y, Math.ceil(q.height));\n            if (w < 2 || h < 2) continue;\n            var band = ctx.getImageData(x, y, w, h).data;\n            var v = verdict(band, runs[k].rgb, runs[k].large);\n            if (v && v.ratio < v.need) out.push({ text: runs[k].text, ratio: v.ratio, need: v.need });\n          }\n          out.sort(function (a, b) { return a.ratio - b.ratio; });\n          post({ legibility: out.slice(0, 8) });\n        })\n        .catch(function (e) { post({ error: String((e && e.message) || e) }); });\n    } catch (e) { post({ error: String((e && e.message) || e) }); }\n  }\n"
-const PROBE_SOURCE = PROBE_TEMPLATE.replace('__VERDICT__', `(${legibilityVerdict.toString()})`)
-
-/**
- * Screenshots a region of a generated component.
- *
- * The live previews stay sandboxed with an opaque origin, but html2canvas cannot
- * read a cross-origin iframe. So we spin up a short-lived, offscreen capture
- * iframe, render the component fresh, snapshot the region, and destroy it.
- * `rect` is normalized (0..1) to the screen viewport.
- *
- * First we compile the JSX in the parent and inject the compiled JS; if that
- * fails at runtime inside the iframe, we fall back to compiling with the
- * vendored Babel there. Every bundle comes from public/vendor (hash-pinned, see
- * VENDOR.md) — Babel in particular used to be fetched from an *unversioned*
- * unpkg URL directly into this privileged frame.
- *
- * ── KNOWN LIMITATION: this frame is same-origin ──────────────────────────────
- *
- * `allow-same-origin` is still granted, so for the ~1 s of a capture the
- * model-generated component runs with Mocky's origin: it can read
- * localStorage['mocky.settings.v1'] (the provider API key, in clear) and reach
- * `parent`.
- *
- * Triggering it is not even a deliberate action. Besides the drag in Annotate
- * mode, `thumbnails.ts` (captureThumb → queueThumbs) mounts this same shell
- * automatically for EVERY generated screen, so the window opens on its own on
- * the normal path. And the code inside it comes from the model, which means an
- * indirect prompt injection through a Muse inspiration URL — or a hostile
- * provider endpoint — is enough to put a payload here.
- *
- * Removing the flag was tried and measured, and it does not work: html2canvas
+ * html2canvas cannot read a sandboxed preview, and it cannot run inside one: it
  * clones the document into an iframe of its own, and a sandbox without
- * allow-same-origin gives every descendant a FRESH opaque origin — so the frame
- * cannot read its own clone. It fails with "Blocked a frame with origin null
- * from accessing a cross-origin frame", both on the default path and with
- * `foreignObjectRendering: true`. Hand-rolling an SVG <foreignObject> snapshot
- * does work in an opaque origin, but carries neither the Tailwind stylesheet nor
- * the images, i.e. it means reimplementing html2canvas.
+ * allow-same-origin gives every descendant a FRESH opaque origin, so the frame
+ * cannot read its own clone. For a long time that meant the capture frame had
+ * `allow-scripts allow-same-origin`, and model-written code ran with Mocky's
+ * origin for as long as a capture lasted. On every generated screen, since
+ * thumbnails are automatic — with the provider key in localStorage and a Muse
+ * inspiration URL enough to put a payload in the code.
  *
- * The CSP below denies connect-src, form-action, frame-src, object-src and
- * base-uri and limits img-src to this origin — but do NOT read that as "the
- * component has no network channel", which is what this comment used to claim.
- * A CSP binds a DOCUMENT, not an origin. Same-origin code reaches
- * `window.parent` and can run in the parent's realm, and the parent has no CSP
- * at all: index.html declares none and the server sends only nosniff / XFO /
- * Referrer-Policy / COOP. One line in the parent's realm — appending an <img>
- * whose src carries localStorage — leaves under the PARENT's policy, so none of
- * the directives below apply to it. The CSP raises the effort; it does not close
- * the hole.
+ * So the two things html2canvas seemed to need together are in two frames:
  *
- * The real fix is ORIGIN SEPARATION: serve the capture shell from a distinct
- * origin (a second port, or a sibling hostname) and keep allow-same-origin.
- * html2canvas then works, while the frame is cross-origin to the app and can
- * touch neither its storage nor its DOM. That needs a server route plus a
- * configurable capture origin, which is why it is not in this change.
+ * 1. LIVE (`allow-scripts`, as a preview, I2). The model's code runs here, under
+ *    the CSP below, with an opaque origin: no localStorage, no cookies, no
+ *    parent. Once settled it hands back its DOM and CSSOM, and is destroyed.
+ * 2. STILL (`allow-same-origin`, no scripts, lib/stillCopy.ts). That serialised
+ *    page, scrubbed. html2canvas runs from Mocky's realm over it, and the exports
+ *    walk it page by page.
  *
- * Keeping the provider key out of localStorage entirely — server-side only —
- * would close it from the other end, and is the cheaper of the two.
+ * No second origin, port or hostname is involved: a deployment needs nothing for
+ * this. A second port was the plan written here before and it would have been
+ * worse: cookies are not scoped by port, so `document.cookie` on :8788 reads what
+ * :8787 set. And the exports must reach the frame's DOM from the parent, which
+ * any cross-origin frame forbids.
+ */
+
+/**
+ * The runs of text laid over a picture that cannot be read on it.
+ *
+ * Find every run of text over a picture (an <img>, a <video>, a canvas, a Motion
+ * Ultra <Backdrop>, a background image), rasterise the page once with the ink
+ * taken out, and hand each run's pixels to `legibilityVerdict`. See
+ * src/lib/legibility.ts for why.
+ */
+async function probeLegibility(win: Window, doc: Document, html2canvas: Html2Canvas): Promise<LegibilityFinding[]> {
+  const H = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight)
+  const W = doc.documentElement.scrollWidth
+  const grounds: { el: Element; r: DOMRect }[] = []
+  for (const el of Array.from(doc.body.getElementsByTagName('*'))) {
+    const tag = el.tagName
+    let isPic = tag === 'IMG' || tag === 'VIDEO' || tag === 'CANVAS' || el.classList.contains('u-backdrop')
+    if (!isPic) {
+      const bi = win.getComputedStyle(el).backgroundImage
+      isPic = !!bi && bi !== 'none' && bi.includes('url(')
+    }
+    if (!isPic) continue
+    const r = el.getBoundingClientRect()
+    if (r.width >= 60 && r.height >= 40) grounds.push({ el, r })
+  }
+  if (!grounds.length) return []
+
+  const runs: { text: string; r: DOMRect; rgb: [number, number, number]; large: boolean }[] = []
+  const seen = new Set<Element>()
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n && runs.length < 60; n = walker.nextNode()) {
+    const txt = (n.textContent || '').replace(/\s+/g, ' ').trim()
+    if (txt.length < 2) continue
+    const host = n.parentElement
+    if (!host || seen.has(host)) continue
+    // Gradient, shining or hollow type has no single colour to measure against.
+    if (host.closest('.u-text-gradient,.u-text-shine,.u-text-outline,[class*="bg-clip-text"]')) continue
+    const cs = win.getComputedStyle(host)
+    if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) continue
+    const range = doc.createRange()
+    range.selectNodeContents(n)
+    const rr = range.getBoundingClientRect()
+    if (rr.width < 4 || rr.height < 4) continue
+    const over = grounds.some(
+      ({ el, r }) => !el.contains(host) && rr.left < r.right && rr.right > r.left && rr.top < r.bottom && rr.bottom > r.top,
+    )
+    if (!over) continue
+    const m = /rgba?\(([^)]+)\)/.exec(cs.color)
+    if (!m) continue
+    const parts = m[1].split(',').map((x) => parseFloat(x))
+    if (parts.length > 3 && parts[3] < 0.05) continue
+    const size = parseFloat(cs.fontSize) || 16
+    const weight = parseInt(cs.fontWeight, 10) || 400
+    seen.add(host)
+    runs.push({ text: txt.slice(0, 60), r: rr, rgb: [parts[0], parts[1], parts[2]], large: size >= 24 || (size >= 18.66 && weight >= 700) })
+  }
+  if (!runs.length) return []
+
+  /* The ink goes, the layout stays: every glyph and icon is made transparent, so
+     the raster below is the GROUND alone — exactly what each run of text is set
+     on. The boxes were measured above, and colour does not move a box. */
+  const hide = doc.createElement('style')
+  hide.textContent =
+    '*{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;caret-color:transparent!important}svg{visibility:hidden!important}'
+  doc.head.appendChild(hide)
+  /* No windowWidth/windowHeight: html2canvas lays the clone out in a window of
+     that size, and a page with `min-h-screen` or a 90vh hero then stretches —
+     every box measured above is somewhere else in the picture. */
+  const canvas = await html2canvas(doc.body, { x: 0, y: 0, width: W, height: H, scale: 1, backgroundColor: '#ffffff', logging: false, useCORS: false, allowTaint: false })
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('no 2d context')
+  const out: LegibilityFinding[] = []
+  for (const run of runs) {
+    const x = Math.max(0, Math.floor(run.r.left))
+    const y = Math.max(0, Math.floor(run.r.top))
+    const w = Math.min(canvas.width - x, Math.ceil(run.r.width))
+    const h = Math.min(canvas.height - y, Math.ceil(run.r.height))
+    if (w < 2 || h < 2) continue
+    const v = legibilityVerdict(ctx.getImageData(x, y, w, h).data, run.rgb, run.large)
+    if (v && v.ratio < v.need) out.push({ text: run.text, ratio: v.ratio, need: v.need })
+  }
+  return out.sort((a, b) => a.ratio - b.ratio).slice(0, 8)
+}
+
+/**
+ * Screenshots a region of a generated component. `rect` is normalized (0..1) to
+ * the screen viewport.
+ *
+ * The JSX is compiled in the parent and injected; if that fails at runtime in
+ * the frame, it is compiled there with the vendored Babel instead. Every bundle
+ * comes from public/vendor (hash-pinned, see VENDOR.md).
  */
 export function captureRegion(
   code: string,
@@ -100,43 +159,24 @@ export function captureRegion(
    */
   scale = 2,
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const id = 'cap' + Math.random().toString(36).slice(2)
-    const previewCode = toPreviewModule(code)
-    const componentName = detectComponentName(code)
-    compileJsx(previewCode)
-      .then((compiled) => {
-        mountCaptureIframe(
-          buildCompiledCaptureSrcDoc(compiled, componentName, id, rect, caps, scale),
-          id,
-          width,
-          height,
-          resolve,
-          () => {
-            // Fallback: compile JSX inside the iframe with Babel from CDN.
-            mountCaptureIframe(
-              buildBabelCaptureSrcDoc(previewCode, componentName, id, rect, caps, scale),
-              id + 'b',
-              width,
-              height,
-              resolve,
-              reject,
-            )
-          },
-        )
+  return renderLive(code, caps, width, height, 'picture').then((snapshot) =>
+    onStillFrame(snapshot, width, height, async (win, doc, html2canvas) => {
+      const vw = win.innerWidth || 1
+      const vh = win.innerHeight || 1
+      const canvas = await html2canvas(doc.body, {
+        x: rect.x * vw,
+        y: rect.y * vh,
+        width: Math.max(1, Math.round(rect.w * vw)),
+        height: Math.max(1, Math.round(rect.h * vh)),
+        scale,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: false,
+        allowTaint: false,
       })
-      .catch(() => {
-        // Parent-side compile failed entirely: still try Babel in the iframe.
-        mountCaptureIframe(
-          buildBabelCaptureSrcDoc(previewCode, componentName, id, rect, caps, scale),
-          id,
-          width,
-          height,
-          resolve,
-          reject,
-        )
-      })
-  })
+      return canvas.toDataURL('image/png')
+    }),
+  )
 }
 
 /**
@@ -188,50 +228,20 @@ function utf8ToBase64(str: string): string {
   )
 }
 
-function buildCompiledCaptureSrcDoc(
-  compiled: string,
-  componentName: string,
-  id: string,
-  rect: { x: number; y: number; w: number; h: number },
-  caps: Capability[] = [],
-  scale = 2,
-): string {
-  const b64 = utf8ToBase64(compiled)
-  return buildCaptureShell(id, rect, false, b64, componentName, caps, scale)
-}
-
-function buildBabelCaptureSrcDoc(
-  sourceCode: string,
-  componentName: string,
-  id: string,
-  rect: { x: number; y: number; w: number; h: number },
-  caps: Capability[] = [],
-  scale = 2,
-): string {
-  const b64 = utf8ToBase64(sourceCode)
-  return buildCaptureShell(id, rect, true, b64, componentName, caps, scale)
-}
-
 function buildCaptureShell(
   id: string,
-  rect: { x: number; y: number; w: number; h: number },
   useBabel: boolean,
   b64: string,
   componentName: string,
   caps: Capability[] = [],
-  scale = 2,
   /**
-   * What the frame does once the page has settled: take the picture (`shoot`),
-   * run the legibility probe (`probe`), or only say it is ready (`document`) —
-   * a document export drives the frame from the parent, page by page, and
-   * needs it to stay alive after the first answer.
+   * A document export wants the page at rest (`STILL_ANIMATIONS_CSS`, and
+   * `<Animated>` told so before it mounts); a picture takes what is there.
    */
-  mode: 'shoot' | 'probe' | 'document' = 'shoot',
+  mode: 'picture' | 'document' = 'picture',
 ): string {
   // Local, pinned copy — see public/vendor/VENDOR.md. This used to point at an
-  // UNVERSIONED unpkg URL, loaded into an iframe that ran with Mocky's own
-  // origin: whatever unpkg served could read localStorage (the provider API key)
-  // and call the API with the session cookie.
+  // UNVERSIONED unpkg URL, when this frame still ran with Mocky's own origin.
   const babelScript = useBabel ? '<script src="/vendor/babel.min.js"></script>' : ''
   /*
    * The typefaces the screen names, as in the preview (lib/fonts) — a thumbnail
@@ -309,10 +319,8 @@ function buildCaptureShell(
     .map((c) => `<script src="${c.cdn!.url}"></script>`)
     .join('\n')
 
-  // This frame is same-origin (see the note at the top of the file), so denying
-  // it a network channel is what keeps a component from posting anything it
-  // manages to read. img-src is limited to this origin because the capture only
-  // ever needs Mocky's own images — a remote <img> would double as a beacon.
+  // Named, never 'self': the origin here is opaque (I2). The capture only ever
+  // needs Mocky's own images, and a remote <img> would double as a beacon.
   const csp = [
     "default-src 'none'",
     `script-src ${location.origin} 'unsafe-inline' 'unsafe-eval' blob:`,
@@ -344,8 +352,8 @@ function buildCaptureShell(
 
   return `<!doctype html><html><head><meta charset="utf-8"/>
 <meta http-equiv="Content-Security-Policy" content="${csp}" />
-<script crossorigin src="/vendor/react.production.min.js"></script>
-<script crossorigin src="/vendor/react-dom.production.min.js"></script>
+<script src="/vendor/react.production.min.js"></script>
+<script src="/vendor/react-dom.production.min.js"></script>
 <script src="/vendor/tailwind.min.js"></script>
 <script>
   /* Same pin as the preview: without it Play CDN defaults to darkMode 'media',
@@ -357,7 +365,6 @@ function buildCaptureShell(
 ${capLinks}
 ${capScripts}
 ${babelScript}
-<script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
 ${fontCss ? `<style data-mocky-fonts>${fontCss}</style>` : ''}
 ${mode === 'document' ? `<style>${STILL_ANIMATIONS_CSS}${EXPORT_NO_TRANSITIONS_CSS}</style>` : ''}
@@ -387,15 +394,10 @@ ${preludeTag}
   try {
     ${runner}
   } catch(e){ post({ error: String((e&&e.message)||e) }); return; }
-${mode === 'probe' ? PROBE_SOURCE : ''}
-  function ready(){ post({ ready: true }); }
-  function shoot(){
-    var vw = window.innerWidth||1, vh = window.innerHeight||1, r = ${JSON.stringify(rect)};
-    try {
-      html2canvas(document.body, { x: r.x*vw, y: r.y*vh, width: Math.max(1,Math.round(r.w*vw)), height: Math.max(1,Math.round(r.h*vh)), scale: ${scale}, backgroundColor:'#ffffff', logging:false })
-        .then(function(canvas){ post({ dataUrl: canvas.toDataURL('image/png') }); })
-        .catch(function(e){ post({ error: String((e&&e.message)||e) }); });
-    } catch(e){ post({ error: String((e&&e.message)||e) }); }
+  ${SERIALISE_SOURCE}
+  function done(){
+    try { var page = mockySerialise(); post({ html: page.html, css: page.css }); }
+    catch(e){ post({ error: String((e&&e.message)||e) }); }
   }
   /* The 400 ms is what the styling needs. A scene needs one thing more: a real
      BOX, which it only has once Tailwind's runtime has applied its classes —
@@ -410,158 +412,50 @@ ${mode === 'probe' ? PROBE_SOURCE : ''}
        font the document has NOW, so a face still on its way is drawn as the
        fallback. Local files, so this is usually nothing; bounded, because a
        face that never arrives must cost the picture its typeface, not the
-       picture. A document export waits on document.fonts.ready itself
-       (docExport/render.ts), so this only spares it a wasted first wait. */
+       picture. The face is loaded again in the still frame; what matters here
+       is that a script measuring text measured the real one. */
     if (document.fonts && document.fonts.status === 'loading' && fontsOwed < 3000) {
       fontsOwed += 60;
       return setTimeout(wait, 60);
     }
-    if (!window.__mockyStillPending || owed >= 600) return ${mode === 'probe' ? 'probe' : mode === 'document' ? 'ready' : 'shoot'}();
+    if (!window.__mockyStillPending || owed >= 600) return done();
     owed += 60;
     setTimeout(wait, 60);
   }, 400);
 })();
 </script></body></html>`
 }
-function mountCaptureIframe(
-  srcdoc: string,
-  id: string,
-  width: number,
-  height: number,
-  // A picture's data URL, or the probe's findings.
-  resolve: (payload: any) => void,
-  reject: (err: Error) => void,
-): void {
-  const iframe = document.createElement('iframe')
-  // KNOWN LIMITATION — this frame runs model-generated code with Mocky's own
-  // origin, and that cannot currently be removed. See the block comment at the
-  // top of this file for the full reasoning, the measurement behind it, and the
-  // design that would fix it properly.
-  //
-  // What IS closed: the shell now loads only vendored, hash-pinned bundles (it
-  // used to pull Babel from an unversioned unpkg URL straight into this
-  // privileged frame), and its CSP denies every outbound network verb.
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
+
+const CAPTURE_TIMEOUT_MS = 25_000
+
+function parkOffscreen(iframe: HTMLIFrameElement, width: number, height: number): void {
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.tabIndex = -1
   iframe.style.cssText = `position:fixed;left:-99999px;top:0;width:${Math.round(width)}px;height:${Math.round(height)}px;border:0;`
-  iframe.srcdoc = srcdoc
-
-  let done = false
-  const cleanup = () => {
-    window.removeEventListener('message', onMsg)
-    iframe.remove()
-  }
-  function onMsg(e: MessageEvent) {
-    // The capture iframe is the only legitimate sender; a live preview must not
-    // be able to resolve someone else's capture with a picture of its choosing.
-    if (e.source !== iframe.contentWindow) return
-    const d = e.data
-    if (!d || !d.__mockyCap || d.id !== id) return
-    done = true
-    cleanup()
-    if (d.dataUrl) resolve(d.dataUrl)
-    else if (Array.isArray(d.legibility)) resolve(d.legibility)
-    else reject(new Error(d.error || 'capture failed'))
-  }
-  window.addEventListener('message', onMsg)
-  document.body.appendChild(iframe)
-  setTimeout(() => {
-    if (!done) {
-      cleanup()
-      reject(
-        new Error(
-          'capture timed out — the screen may be unusually heavy (large background image, very long page)',
-        ),
-      )
-    }
-    // 25 s, not 15. A capture is background work for a thumbnail, and a screen
-    // with a full-bleed image genuinely takes a while to rasterise; giving up
-    // early just means no thumbnail at all.
-  }, 25000)
 }
 
 /**
- * The runs of text laid over a picture that cannot be read on it.
+ * Runs the screen in the live frame and answers with what it drew.
  *
- * Renders the screen in the same offscreen shell as a thumbnail — so the same
- * known limitation applies (see the top of this file) — and measures, rather
- * than infers, the pixels behind each run. No model call. Resolves to an empty
- * list when nothing is laid over a picture; rejects only when the screen could
- * not be rendered at all, which the caller treats as "not checked".
+ * The parent-compiled build first, the in-frame Babel build second. Rejects when
+ * the screen could not be rendered at all, or when `signal` aborts.
  */
-export function checkLegibility(
-  code: string,
-  width: number,
-  height: number,
-  caps: Capability[] = [],
-): Promise<LegibilityFinding[]> {
-  return new Promise((resolve, reject) => {
-    const id = 'leg' + Math.random().toString(36).slice(2)
-    const previewCode = toPreviewModule(code)
-    const componentName = detectComponentName(code)
-    const whole = { x: 0, y: 0, w: 1, h: 1 }
-    const babel = () =>
-      mountCaptureIframe(
-        buildCaptureShell(id + 'b', whole, true, utf8ToBase64(previewCode), componentName, caps, 1, 'probe'),
-        id + 'b', width, height, resolve, reject,
-      )
-    compileJsx(previewCode)
-      .then((compiled) =>
-        mountCaptureIframe(
-          buildCaptureShell(id, whole, false, utf8ToBase64(compiled), componentName, caps, 1, 'probe'),
-          id, width, height, resolve, babel,
-        ),
-      )
-      .catch(babel)
-  })
-}
-
-/** A document rendered in the capture shell and left standing, for the export to read. */
-export interface DocumentFrame {
-  /** The frame's window — same-origin, so its DOM and its html2canvas are reachable. */
-  win: Window
-  doc: Document
-  /** Resize the frame: the pages stack below the first viewport. */
-  resize(height: number): void
-  dispose(): void
-}
-
-/**
- * Renders a DOCUMENT screen offscreen and hands the live frame back.
- *
- * Same shell as a thumbnail — the prelude, Tailwind, the vendored html2canvas,
- * the `__mockyStill` wait — and therefore the same KNOWN LIMITATION described at
- * the top of this file: the model's code runs with Mocky's origin for as long as
- * the export takes. What differs is who drives. A thumbnail is one picture the
- * frame takes of itself; an export is a page-by-page walk (measure the text,
- * hide it, rasterise, next page) that the parent performs on the frame's DOM.
- * So the frame only answers "ready", and stays until `dispose()`.
- *
- * Rejects when the screen could not be rendered at all — the parent-compiled
- * build first, the in-frame Babel build second, as `captureRegion` does — or
- * when `signal` aborts.
- */
-export function openDocumentFrame(
+function renderLive(
   code: string,
   caps: Capability[],
   width: number,
   height: number,
+  mode: 'picture' | 'document',
   signal?: AbortSignal,
-): Promise<DocumentFrame> {
-  const id = 'doc' + Math.random().toString(36).slice(2)
+): Promise<LiveSnapshot> {
+  const id = 'cap' + Math.random().toString(36).slice(2)
   const previewCode = toPreviewModule(code)
   const componentName = detectComponentName(code)
-  const whole = { x: 0, y: 0, w: 1, h: 1 }
   const viaBabel = () =>
-    mountDocumentIframe(
-      buildCaptureShell(id + 'b', whole, true, utf8ToBase64(previewCode), componentName, caps, 1, 'document'),
-      id + 'b', width, height, signal,
-    )
+    runLiveFrame(buildCaptureShell(id + 'b', true, utf8ToBase64(previewCode), componentName, caps, mode), id + 'b', width, height, signal)
   return compileJsx(previewCode).then(
     (compiled) =>
-      mountDocumentIframe(
-        buildCaptureShell(id, whole, false, utf8ToBase64(compiled), componentName, caps, 1, 'document'),
-        id, width, height, signal,
-      ).catch((err) => {
+      runLiveFrame(buildCaptureShell(id, false, utf8ToBase64(compiled), componentName, caps, mode), id, width, height, signal).catch((err) => {
         if (signal?.aborted) throw err
         return viaBabel()
       }),
@@ -569,63 +463,196 @@ export function openDocumentFrame(
   )
 }
 
-function mountDocumentIframe(
-  srcdoc: string,
-  id: string,
-  width: number,
-  height: number,
-  signal?: AbortSignal,
-): Promise<DocumentFrame> {
+function runLiveFrame(srcdoc: string, id: string, width: number, height: number, signal?: AbortSignal): Promise<LiveSnapshot> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new DOMException('Aborted', 'AbortError'))
+    // Exactly what a preview gets (I2). This is the frame the model's code runs
+    // in, and the one flag it must never be given is allow-same-origin.
     const iframe = document.createElement('iframe')
-    // KNOWN LIMITATION — same-origin, see the top of this file.
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
-    iframe.setAttribute('aria-hidden', 'true')
-    iframe.tabIndex = -1
-    iframe.style.cssText = `position:fixed;left:-99999px;top:0;width:${Math.round(width)}px;height:${Math.round(height)}px;border:0;`
+    iframe.setAttribute('sandbox', 'allow-scripts')
+    parkOffscreen(iframe, width, height)
+    // Under the app rather than off to the side, unlike the copy. Parked 99,999 px
+    // away, a frame with an opaque origin gets no rendering frames: a <Scene3D>
+    // never took its still, and the thumbnail showed its fallback gradient, where
+    // the same page in a same-origin frame drew the object. Measured, in Edge.
+    iframe.style.left = '0'
+    iframe.style.opacity = '0'
+    iframe.style.pointerEvents = 'none'
+    iframe.style.zIndex = '-1'
     iframe.srcdoc = srcdoc
-
-    let settled = false
-    const detach = () => {
+    const cleanup = () => {
       window.removeEventListener('message', onMsg)
       signal?.removeEventListener('abort', onAbort)
       clearTimeout(timer)
-    }
-    const fail = (err: Error) => {
-      if (settled) return
-      settled = true
-      detach()
       iframe.remove()
-      reject(err)
     }
     function onAbort() {
-      fail(new DOMException('Aborted', 'AbortError'))
+      cleanup()
+      reject(new DOMException('Aborted', 'AbortError'))
     }
     function onMsg(e: MessageEvent) {
+      // The capture iframe is the only legitimate sender; a live preview must not
+      // be able to resolve someone else's capture with a page of its choosing.
       if (e.source !== iframe.contentWindow) return
       const d = e.data
-      if (!d || !d.__mockyCap || d.id !== id || settled) return
-      if (!d.ready) return fail(new Error(d.error || 'render failed'))
-      const win = iframe.contentWindow
-      const doc = iframe.contentDocument
-      if (!win || !doc) return fail(new Error('render failed'))
-      // From here on an abort is the export's to handle between pages, and the
-      // frame's own error reports are not ours: it measures what DID render.
-      settled = true
-      detach()
-      resolve({
-        win,
-        doc,
-        resize: (h) => {
-          iframe.style.height = `${Math.round(h)}px`
-        },
-        dispose: () => iframe.remove(),
-      })
+      if (!d || !d.__mockyCap || d.id !== id) return
+      cleanup()
+      if (typeof d.html === 'string') resolve({ html: d.html, css: typeof d.css === 'string' ? d.css : '' })
+      else reject(new Error(d.error || 'capture failed'))
     }
-    const timer = setTimeout(() => fail(new Error('render timed out')), 25000)
+    // 25 s, not 15. A capture is background work for a thumbnail, and a screen
+    // with a full-bleed image genuinely takes a while; giving up early just
+    // means no thumbnail at all.
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error('capture timed out — the screen may be unusually heavy (large background image, very long page)'))
+    }, CAPTURE_TIMEOUT_MS)
     window.addEventListener('message', onMsg)
     signal?.addEventListener('abort', onAbort)
     document.body.appendChild(iframe)
   })
+}
+
+function settledWithin(p: Promise<unknown> | undefined, ms: number): Promise<unknown> {
+  return Promise.race([Promise.resolve(p).catch(() => undefined), new Promise((r) => setTimeout(r, ms))])
+}
+
+/** Opens the inert copy of a page and waits for what it shows to have arrived. */
+async function openStillFrame(snapshot: LiveSnapshot, width: number, height: number, signal?: AbortSignal): Promise<HTMLIFrameElement> {
+  const origin = location.origin
+  const html = stillDocument(snapshot, {
+    csp: screenStillCsp(origin),
+    // Animations run to their end: html2canvas clones the document, and the
+    // clone's animations start again from their FIRST frame — a fade-in at 0.
+    css: STILL_ANIMATIONS_CSS + EXPORT_NO_TRANSITIONS_CSS,
+    keepAddress: keepScreenAddress(origin),
+    keepCssUrl: keepScreenCssUrl(origin),
+  })
+  // No allow-scripts, ever: Mocky reaches into this frame, so nothing may run in it.
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('sandbox', 'allow-same-origin')
+  parkOffscreen(iframe, width, height)
+  // Bounded: a picture that never answers costs the picture, not the capture.
+  await settledWithin(
+    new Promise<void>((resolve) => {
+      iframe.onload = () => resolve()
+      iframe.srcdoc = html
+      document.body.appendChild(iframe)
+    }),
+    8000,
+  )
+  const doc = iframe.contentDocument
+  if (!doc || !doc.body || signal?.aborted) {
+    iframe.remove()
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    throw new Error('capture failed')
+  }
+  await settledWithin((doc as Document & { fonts?: FontFaceSet }).fonts?.ready, 3000)
+  // A film has no first frame until it has data: html2canvas and the native
+  // rasteriser draw what the <video> holds now, and an empty one is a hole.
+  const films = Array.from(doc.querySelectorAll('video')).filter((v) => v.readyState < 2 && !v.error)
+  if (films.length) {
+    await settledWithin(
+      Promise.all(
+        films.map(
+          (v) =>
+            new Promise<void>((resolve) => {
+              v.addEventListener('loadeddata', () => resolve(), { once: true })
+              v.addEventListener('error', () => resolve(), { once: true })
+            }),
+        ),
+      ),
+      1500,
+    )
+  }
+  return iframe
+}
+
+/** The inert copy, for as long as `use` needs it. */
+async function onStillFrame<T>(
+  snapshot: LiveSnapshot,
+  width: number,
+  height: number,
+  use: (win: Window, doc: Document, html2canvas: Html2Canvas) => Promise<T>,
+): Promise<T> {
+  const html2canvas = await loadHtml2canvas()
+  const iframe = await openStillFrame(snapshot, width, height)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      use(iframe.contentWindow!, iframe.contentDocument!, html2canvas),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('capture timed out — the screen may be unusually heavy (large background image, very long page)')),
+          CAPTURE_TIMEOUT_MS,
+        )
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+    iframe.remove()
+  }
+}
+
+/**
+ * The runs of text laid over a picture that cannot be read on it.
+ *
+ * Renders the screen as a thumbnail is rendered, and measures, rather than
+ * infers, the pixels behind each run. No model call. Resolves to an empty list
+ * when nothing is laid over a picture; rejects only when the screen could not be
+ * rendered at all, which the caller treats as "not checked".
+ */
+export function checkLegibility(
+  code: string,
+  width: number,
+  height: number,
+  caps: Capability[] = [],
+): Promise<LegibilityFinding[]> {
+  return renderLive(code, caps, width, height, 'picture').then((snapshot) =>
+    onStillFrame(snapshot, width, height, probeLegibility),
+  )
+}
+
+/** A document rendered, then left standing as an inert copy for the export to read. */
+export interface DocumentFrame {
+  /** The copy's window: same-origin and script-free, so its DOM is reachable and nothing in it runs. */
+  win: Window
+  doc: Document
+  /** Mocky's own copy, to rasterise this frame. Absent if the bundle failed to load. */
+  html2canvas?: Html2Canvas
+  /** Resize the frame: the pages stack below the first viewport. */
+  resize(height: number): void
+  dispose(): void
+}
+
+/**
+ * Renders a DOCUMENT screen offscreen and hands the copy of it back.
+ *
+ * A thumbnail is one picture; an export is a page-by-page walk (measure the
+ * text, hide it, rasterise, next page) that the parent performs on the frame's
+ * DOM. That walk is why the copy exists at all rather than html2canvas moving to
+ * some other origin. The model's code is gone by the time the walk starts.
+ *
+ * Rejects when the screen could not be rendered at all, or when `signal` aborts.
+ */
+export async function openDocumentFrame(
+  code: string,
+  caps: Capability[],
+  width: number,
+  height: number,
+  signal?: AbortSignal,
+): Promise<DocumentFrame> {
+  const snapshot = await renderLive(code, caps, width, height, 'document', signal)
+  // The fallback rasteriser only: an export can do without it.
+  const html2canvas = await loadHtml2canvas().catch(() => undefined)
+  const iframe = await openStillFrame(snapshot, width, height, signal)
+  return {
+    win: iframe.contentWindow!,
+    doc: iframe.contentDocument!,
+    html2canvas,
+    resize: (h) => {
+      iframe.style.height = `${Math.round(h)}px`
+    },
+    dispose: () => iframe.remove(),
+  }
 }

@@ -91,6 +91,15 @@ with an **absolute** URL, `${window.location.origin}/api/images/…`. Inside a
 Mocky. Displaying an `<img>` is not CORS-gated, so this works. Reading it back
 into a canvas would be, but these images are never read back.
 
+**The capture follows the same rule.** `src/lib/capture.ts` runs the model's code
+in a frame with exactly `allow-scripts`, and hands what it drew to a second frame
+with `allow-same-origin` and no script (`src/lib/stillCopy.ts`), which is what
+html2canvas and the exports read. **No frame ever holds both flags**: that
+combination is model-written code with Mocky's origin, on every thumbnail. The
+flags are pinned by `tests/preview-sandbox.test.js`, and
+`tests/capture-isolation-e2e.test.js` proves in a real browser that the code gets
+neither `localStorage`, nor cookies, nor the parent.
+
 ---
 
 ### I3. No CDN script in the preview

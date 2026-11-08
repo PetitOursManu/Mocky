@@ -8,29 +8,15 @@ import { knownRemoteThumbs, remoteThumbUrl, uploadThumb } from './thumbSync'
 /**
  * A cache of real screenshots, used to illustrate projects on the home page.
  *
- * WHERE THE PICTURE IS TAKEN, AND WHY IT MATTERS
+ * WHERE THE PICTURE IS TAKEN
  *
- * Taking it is not free and it is not innocent: html2canvas cannot read the
- * sandboxed preview (opaque origin) and cannot run inside it either — it clones
- * the document into an iframe of its own, and a sandbox without
- * allow-same-origin gives every descendant a FRESH opaque origin, so the frame
- * cannot read its own clone. The only way to screenshot a generated screen is
- * therefore a short-lived SAME-ORIGIN iframe, which for that moment runs
- * model-written code with Mocky's own origin.
- *
- * That was closed once, by snapshotting with snapdom — which serializes in place
- * and needs no such access — and then reopened, because snapdom scales far worse
- * with node count (measured: 4x html2canvas at 6400 nodes, and widening) and a
- * capture that takes tens of seconds holds the tab's main thread for that long.
- * See the note at the top of capture.ts. The hole is real and is documented in
- * docs/AUDIT-2026-07.md §2.1; the fix has to come back with the performance
- * work done, not before it.
+ * The model's code runs in a frame of its own with an opaque origin, and
+ * html2canvas photographs an inert copy of what it drew (see capture.ts).
  *
  * The picture is taken ONCE, in the project view, right after a screen settles
  * (see `queueThumbs`), rather than on every home-page visit as it originally
- * was — every visit used to re-run a same-origin capture for every project. The
- * home page only ever READS the cache: it mounts no iframe and executes no
- * generated code.
+ * was. The home page only ever READS the cache: it mounts no iframe and executes
+ * no generated code.
  *
  * The entry is keyed by a checksum of the code that produced it, so it is
  * retaken only when the screen actually changes.
@@ -286,8 +272,8 @@ async function drain() {
  * Ask for thumbnails of these screens, skipping any that are already current.
  *
  * Call it from the project view once a screen has settled — never from a list
- * view. See the note at the top of this file: the capture runs model code
- * same-origin, which belongs where the user is already generating.
+ * view: a capture is a second of the main thread, which belongs where the user
+ * is already generating.
  */
 export function queueThumbs(screens: Screen[]): void {
   for (const s of screens) {
