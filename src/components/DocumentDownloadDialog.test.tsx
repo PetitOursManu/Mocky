@@ -6,6 +6,9 @@ import { FIELD_ATTR, PAGE_FORMAT_IDS } from '../lib/pageFormats'
 import { partsEn, partsFr } from '../i18n/parts'
 import type { Screen } from '../lib/project'
 
+/** As React writes text into markup. */
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;')
+
 const screen = {
   id: 's1',
   name: 'Flyer',
@@ -21,14 +24,21 @@ const screen = {
 } as unknown as Screen
 
 describe('DocumentDownloadDialog', () => {
-  it('offers the five downloads as buttons, each explained', () => {
+  it('offers the six downloads as buttons, each explained', () => {
     const html = renderToStaticMarkup(<DocumentDownloadDialog screen={screen} onClose={() => {}} />)
     expect(html).toContain('role="dialog"')
-    for (const kind of ['pdf', 'pptx', 'png', 'psd', 'svg']) {
-      expect(html).toContain(partsFr[`docExport.${kind}.title`])
+    for (const [kind, key] of [
+      ['pdf', 'pdf'],
+      ['pptx', 'pptx'],
+      ['pptx-edit', 'pptxEdit'],
+      ['png', 'png'],
+      ['psd', 'psd'],
+      ['svg', 'svg'],
+    ]) {
+      expect(html).toContain(escapeHtml(partsFr[`docExport.${key}.title`]))
       expect(html).toContain(`aria-describedby="doc-export-${kind}-help"`)
     }
-    expect(html.match(/aria-describedby="doc-export-/g)).toHaveLength(5)
+    expect(html.match(/aria-describedby="doc-export-/g)).toHaveLength(6)
     // The format the document was made in is named, in words.
     expect(html).toContain(partsFr['docExport.format.a4-landscape'])
   })
@@ -40,7 +50,20 @@ describe('DocumentDownloadDialog', () => {
     expect(partsEn['docExport.pptx.title']).toContain('Canva')
     // A frame you can refill left the empty one nothing to offer.
     expect(html).not.toContain('doc-export-frames')
-    expect(html.match(/aria-describedby="doc-export-/g)).toHaveLength(5)
+    expect(html.match(/aria-describedby="doc-export-/g)).toHaveLength(6)
+  })
+
+  it('offers the file taken apart for Canva right after the faithful one, and says what it costs', () => {
+    const html = renderToStaticMarkup(<DocumentDownloadDialog screen={screen} onClose={() => {}} />)
+    expect(html.indexOf('doc-export-pptx-help')).toBeLessThan(html.indexOf('doc-export-pptx-edit-help'))
+    expect(html.indexOf('doc-export-pptx-edit-help')).toBeLessThan(html.indexOf('doc-export-png-help'))
+    for (const parts of [partsFr, partsEn]) {
+      expect(parts['docExport.pptxEdit.title']).toContain('Canva')
+      expect(parts['docExport.pptxEdit.help']).toBeTruthy()
+      expect(parts['docExport.notice.frames']).toContain('{pages}')
+      expect(parts['docExport.notice.whole']).toContain('{pages}')
+      expect(parts['docExport.notice.raster.pptxEdit']).toContain('{pages}')
+    }
   })
 
   it('promises fillable fields only when the document has some', () => {

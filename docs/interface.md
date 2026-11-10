@@ -90,6 +90,7 @@ panel, and a tap unfolds all eleven with their icons and badges.
 | | Control | What it does | Cost |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3"/></svg> | `Search projects…` | Filters on the project name **and on every screen's name and prompt**. A project you cannot name is findable by what you asked for inside it. Not rendered at all with five projects or fewer. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z"/></svg> | `Folders` / `Hide the folders` | Shows or hides the folder tree. Below 1024px it is a panel under the header, closed by default; from 1024px it is the sidebar, open by default. Each width remembers its own choice, in this browser. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `New folder` | Creates a folder inside the one you are looking at. It can stay empty. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5 5 19"/></svg> | `Select` / `Done` | Enters and leaves tick mode. Leaving it empties the selection. Hidden when there is only one project. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/></svg> | `New project` | Creates the project and opens it immediately. | free |
@@ -114,7 +115,7 @@ The project touched last opens the page as a wide card — its picture, its name
 the request that made its first screen, `Open`. The others follow as a grid of
 cards (one to four columns with the window), each with its picture, its name,
 that request, its screen count and age, and two buttons: file it, delete it.
-Folders nest like folders on a computer. The tree on the left and the path above the grid always show where you are, and both accept a drop. Above the projects sit the folders of the current level; empty drafts come last, as small tags. Deleting a folder deletes no project: what it held moves up one level.
+Folders nest like folders on a computer. The tree (on the left, or under `Folders` on a narrow window) and the path above the grid always show where you are, and both accept a drop. Above the projects sit the folders of the current level; empty drafts come last, as small tags. Deleting a folder deletes no project: what it held moves up one level.
 
 | | Control | What it does | Cost |
 |---|---|---|---|
@@ -125,11 +126,37 @@ Folders nest like folders on a computer. The tree on the left and the path above
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `File “{name}”` | Files that one project. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Clear all` | Deletes every empty draft at once, behind a single confirmation. | free |
 
+### The folder tree
+
+Each line shows the number of projects inside the folder, its subfolders
+included. Folders are always sorted by name: there is no manual order to keep.
+
+| Gesture | What it does |
+|---|---|
+| Click | Goes into the folder. The chevron opens or closes it without going in. |
+| `+` (on hover, always shown on a touch screen) | Creates a subfolder there. On `All projects`, a folder at the top. |
+| `⋯`, or a right-click | `New subfolder`, `Rename the folder`, `Move…`, `Delete folder`. |
+| Double-click, or `F2` | Renames in place: `Enter` keeps the name, `Escape` drops it. |
+| `↑` `↓`, `Home` `End` | Moves along the lines. The tree is a single stop for `Tab`. |
+| `→` / `←` | Opens a folder, then enters it; closes it, then climbs to its parent. |
+| `Enter` | Goes into the folder. |
+
 ### Moving things
 
 Drag a project or a folder onto a folder, a line of the tree or a step of the
-path. `File` opens the same tree as a list, for a phone or a selection: a click
-on a line is the answer. A folder cannot be moved inside itself.
+path. A line of the tree is draggable too, so a folder can be moved from the
+tree into another or onto `All projects`. While you drag, the place under the
+pointer says what a drop would do: lime and `Move here` when it would move,
+red and `Not here` when a rule refuses it (a folder inside itself, or too deep),
+nothing when it is already there. A dashed line shows, in an open folder, where
+the dropped folder will sit in the name order. Resting on a closed folder for
+a little over half a second opens it, which is how a folder three levels down
+is reached in one drag.
+
+A touch screen has no drag. `File` on every project card (the lead and the
+empty drafts included), `Move folder` on every folder card, and `Move…` in a
+tree line's `⋯` menu open the same tree as a list: a click on a line is the
+answer. A folder cannot be moved inside itself.
 
 ## The project workspace
 
@@ -294,6 +321,32 @@ When a screen is added — a generation, or **Duplicate** — the view glides to
 it in about a third of a second, so the new frame is in sight while it is
 written. A press, the wheel or a zoom button stops the move where it is; with
 reduced motion the view cuts straight to it.
+
+### In `Modify` mode
+
+A click on an element opens the `Element` card (see [The modals](#the-modals)).
+Three gestures never call a model: each one rewrites the screen's source,
+lands at once, and `Revert to the previous version` undoes it.
+
+- **Shift or Ctrl + click** gathers a selection, and a bar at the top offers
+  `Change together`, `Delete` and `Cancel`. `Delete` — or the Delete key —
+  takes the elements out of the code. An element a list draws several times
+  asks first: this item only, or every one.
+- **Press an element and drag it** to move it among its neighbours. A fuchsia
+  line shows where it will land; the press must travel a few pixels, so a plain
+  click still picks. Over an empty cell of a CSS grid, the cell lights up
+  instead and the element is placed on it, by its `col-start-*` and
+  `row-start-*` classes. **Esc** cancels the drag. A press inside the selected
+  element moves that element; elsewhere, the element under the cursor — or its
+  nearest container that has neighbours, since an only child has nowhere to go.
+- **Alt + arrows**, with exactly one element selected, moves it one neighbour
+  back or forward. The selection follows it, so the keys can be pressed again.
+
+What Mocky will not move by itself, and says why: an element out of its own
+block, an item of a list the code computes, something a list or a reused
+component draws several times (it would move everywhere at once), and a grid
+cell for an element whose classes the code computes. Describe those to the
+model in the `Element` card.
 
 ### Cables between screens
 

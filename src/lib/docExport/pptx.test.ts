@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { getPageFormat } from '../pageFormats'
 import {
   EMU_PER_PX,
+  avoidAround,
   blockBox,
+  frameBounds,
+  linAngle,
+  paraLayout,
+  pictureItemXml,
+  shapeItemXml,
   buildPptx,
   contentTypesXml,
   escapeXml,
@@ -18,7 +24,7 @@ import {
   textBoxXml,
 } from './pptx'
 import { TINY_JPEG, field, flyerPage, line, style } from './fixtures'
-import type { TextBlock } from './types'
+import type { ShapeItem, SlideItem, TextBlock } from './types'
 import type { PptxFrame } from './pptx'
 import { frameShape } from '../frameShapes'
 import { toCubics } from '../frameGeometry'
@@ -399,5 +405,210 @@ describe('a part of a frame in a box of its own', () => {
     expect(custGeomXml(ownBox(tri, { shape: 'tape', cx: 0, cy: 0, w: 100, h: 100, angle: 0 })!.subs, 30, 20)).toContain(
       '<a:path w="3000" h="2000"><a:moveTo><a:pt x="0" y="0"/></a:moveTo><a:lnTo><a:pt x="3000" y="0"/></a:lnTo>',
     )
+  })
+})
+
+describe('blocks made one box (mergeBlocks)', () => {
+  // "Fête" over "d’été" in the accent, leading-none, measured 48 px apart; a line of body copy below.
+  const merged: TextBlock = {
+    rect: { x: 80, y: 100, w: 220, h: 149 },
+    lines: [
+      line('Fête', 80, 100, 160, 58, { fontSize: 48, fontWeight: 800 }, 0),
+      line('d’été', 80, 148, 190, 58, { fontSize: 48, fontWeight: 800, color: { r: 236, g: 72, b: 153, a: 1 } }, 1),
+      line('Concerts gratuits', 80, 230, 220, 19, {}, 2),
+    ],
+    align: 'left',
+    pitch: 48,
+    paras: [
+      { start: 0, pitch: 48 },
+      { start: 1, pitch: 48 },
+      { start: 2, pitch: 24 },
+    ],
+  }
+
+  it('is ONE text box, a paragraph per block, each with its own runs and pitch', () => {
+    const xml = textBoxXml(merged, 3, 794, 'fr-FR')!
+    expect(xml.match(/<p:sp>/g)).toHaveLength(1)
+    expect(xml.match(/<a:p>/g)).toHaveLength(3)
+    expect(xml).toContain('<a:srgbClr val="EC4899">')
+    expect(xml.match(/<a:lnSpc><a:spcPts val="3600"\/><\/a:lnSpc>/g)).toHaveLength(2)
+    expect(xml).toContain('<a:lnSpc><a:spcPts val="1800"/></a:lnSpc>')
+    expect(wellFormed(xml)).toBeNull()
+  })
+
+  it('puts each paragraph where the page had it: the space before it is the gap past “the next line”', () => {
+    const { paras, height } = paraLayout(merged)
+    // The third paragraph's line box starts at 230 − 2.5; the two above end at 100 + 2 × 48.
+    expect(paras.map((p) => p.before)).toEqual([0, 0, 31.5])
+    expect(height).toBe(227.5 + 24 - 100)
+    const xml = textBoxXml(merged, 3, 794, 'fr-FR')!
+    expect(xml).toContain(`<a:spcBef><a:spcPts val="${pxToCentipoints(31.5)}"/></a:spcBef>`)
+  })
+
+  it('drops a paragraph nobody can see without losing the others', () => {
+    const ghost = { ...merged, lines: merged.lines.map((l, i) => (i === 1 ? line('x', 80, 148, 10, 58, { color: { r: 0, g: 0, b: 0, a: 0 } }, 1) : l)) }
+    const xml = textBoxXml(ghost, 3, 794, 'fr-FR')!
+    expect(xml.match(/<a:p>/g)).toHaveLength(2)
+    expect(xml).not.toContain('<a:t>x</a:t>')
+  })
+})
+
+describe('a text box beside a frame', () => {
+  const caption: TextBlock = { rect: { x: 100, y: 100, w: 200, h: 20 }, lines: [line('Légende', 100, 100, 200, 20)], align: 'left', pitch: 30 }
+
+  it('stops its slack at the frame’s edge, and never moves the text', () => {
+    // The frame starts 6 px right of the text: the 16 px of slack would cover it.
+    const b = blockBox(caption, 800, [{ x: 306, y: 50, w: 200, h: 200 }])
+    expect(b.x).toBe(100)
+    expect(b.x + b.w).toBe(306)
+    // A frame flush with the text leaves the box at the text's own width.
+    expect(blockBox(caption, 800, [{ x: 300, y: 50, w: 200, h: 200 }]).w).toBe(200)
+    // Under it, the half-leading stops at the frame's top.
+    const under = blockBox(caption, 800, [{ x: 0, y: 122, w: 800, h: 100 }])
+    expect(under.y + under.h).toBe(122)
+  })
+
+  it('stays over a frame its text is written on: that is the design', () => {
+    expect(avoidAround({ x: 90, y: 90, w: 240, h: 40 }, caption.rect, [{ x: 150, y: 80, w: 100, h: 100 }])).toEqual({ x: 90, y: 90, w: 240, h: 40 })
+  })
+
+  it('reads a turned frame by its bounds on the page', () => {
+    const r = frameBounds({ shape: 'circle', cx: 100, cy: 100, w: 100, h: 50, angle: 90 })
+    expect(r.w).toBeCloseTo(50, 6)
+    expect(r.h).toBeCloseTo(100, 6)
+  })
+
+  it('is written so on a slide with frames', () => {
+    const page = { ...flyerPage(0), blocks: [caption] }
+    const f: PptxFrame = { box: { shape: 'circle', cx: 406, cy: 150, w: 200, h: 200, angle: 0 }, name: 'Cadre 1', picture: { bytes: TINY_JPEG, type: 'jpeg' }, overlays: [], shadow: false }
+    const xml = slideXml(page, 'fr-FR', [f])
+    const sp = xml.slice(xml.indexOf('name="Text: Légende"'))
+    expect(sp).toContain(`<a:off x="${pxToEmu(100)}" y="${pxToEmu(95)}"/><a:ext cx="${pxToEmu(206)}"`)
+  })
+})
+
+describe('a page taken apart (the .pptx for Canva)', () => {
+  const card: ShapeItem = {
+    kind: 'shape',
+    rect: { x: 40, y: 60, w: 300, h: 200 },
+    geom: { prst: 'roundRect', radius: 24 },
+    fill: { kind: 'solid', color: { r: 255, g: 255, b: 255, a: 1 } },
+    line: { width: 2, color: { r: 17, g: 24, b: 39, a: 1 }, dash: 'dash' },
+    shadow: { dx: 0, dy: 10, blur: 15, color: { r: 0, g: 0, b: 0, a: 0.1 } },
+  }
+
+  it('writes a shape every editor can recolour: preset, fill, outline, shadow', () => {
+    const xml = shapeItemXml(card, 5, 'Forme 1')
+    expect(xml).toContain('<p:cNvPr id="5" name="Forme 1"/><p:cNvSpPr/>')
+    expect(xml).toContain('<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 12000"/></a:avLst></a:prstGeom>')
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="FFFFFF"></a:srgbClr></a:solidFill>')
+    expect(xml).toContain(`<a:ln w="${pxToEmu(2)}"><a:solidFill><a:srgbClr val="111827"></a:srgbClr></a:solidFill><a:prstDash val="dash"/></a:ln>`)
+    expect(xml).toContain(`<a:outerShdw blurRad="${pxToEmu(15)}" dist="${pxToEmu(10)}" dir="5400000"`)
+    // Nothing that stops it being edited.
+    expect(xml).not.toContain('Locks')
+    expect(xml).not.toContain('<p:txBody>')
+    expect(wellFormed(xml)).toBeNull()
+  })
+
+  it('writes a gradient as DrawingML reads its angle', () => {
+    expect(linAngle(90)).toBe(0)
+    expect(linAngle(180)).toBe(5400000)
+    expect(linAngle(0)).toBe(270 * 60000)
+    const xml = shapeItemXml(
+      {
+        ...card,
+        fill: {
+          kind: 'linear',
+          angle: 180,
+          stops: [
+            { pos: 0, color: { r: 255, g: 0, b: 0, a: 1 } },
+            { pos: 1, color: { r: 255, g: 0, b: 0, a: 0 } },
+          ],
+        },
+      },
+      2,
+      'x',
+    )
+    expect(xml).toContain(
+      '<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:srgbClr val="FF0000"></a:srgbClr></a:gs><a:gs pos="100000"><a:srgbClr val="FF0000"><a:alpha val="0"/></a:srgbClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>',
+    )
+    expect(wellFormed(xml)).toBeNull()
+  })
+
+  it('writes the bottom-rounded preset upside down, and a circle as an ellipse', () => {
+    expect(shapeItemXml({ ...card, geom: { prst: 'round2SameRect', radius: 10, flip: true } }, 2, 'x')).toContain('<a:xfrm flipV="1">')
+    expect(shapeItemXml({ ...card, geom: { prst: 'ellipse' } }, 2, 'x')).toContain('<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>')
+  })
+
+  it('writes a picture of one element as a picture with no lock', () => {
+    const xml = pictureItemXml({ rect: { x: 10, y: 20, w: 24, h: 24 } }, 7, 'rId9', 'Icône 1')
+    expect(xml).toContain('<p:cNvPicPr/>')
+    expect(xml).toContain('<a:blip r:embed="rId9"/>')
+    expect(xml).toContain(`<a:off x="${pxToEmu(10)}" y="${pxToEmu(20)}"/>`)
+    expect(wellFormed(xml)).toBeNull()
+  })
+
+  const PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47)
+  const frame: PptxFrame = {
+    box: { shape: 'circle', cx: 600, cy: 400, w: 200, h: 200, angle: 0 },
+    name: 'Cadre 1 — Cercle',
+    picture: { bytes: TINY_JPEG, type: 'jpeg' },
+    overlays: [],
+    shadow: false,
+  }
+  const items: SlideItem[] = [
+    { kind: 'picture', rect: { x: 0, y: 0, w: 30, h: 30 }, role: 'decor', image: { bytes: PNG, type: 'png' } },
+    card,
+    { kind: 'frame', index: 0 },
+    { kind: 'picture', rect: { x: 50, y: 70, w: 24, h: 24 }, role: 'icon', image: { bytes: PNG, type: 'png' } },
+  ]
+
+  it('lays out the slide in paint order, over the page’s colour, words on top', () => {
+    const xml = slideXml({ ...flyerPage(0), ground: { r: 250, g: 240, b: 230, a: 1 } }, 'fr-FR', [frame], { items, pagePicture: false })
+    // The ground is a colour, never a picture: not the background Canva refused.
+    expect(xml).toContain('<p:bg><p:bgPr><a:solidFill><a:srgbClr val="FAF0E6"/></a:solidFill>')
+    expect(xml).not.toContain('Fond de la page')
+    const at = (s: string) => xml.indexOf(s)
+    expect(at('name="Décor 1"')).toBeLessThan(at('name="Forme 1"'))
+    expect(at('name="Forme 1"')).toBeLessThan(at('name="Cadre 1 — Cercle"'))
+    expect(at('name="Cadre 1 — Cercle"')).toBeLessThan(at('name="Icône 1"'))
+    expect(at('name="Icône 1"')).toBeLessThan(at('name="Text: '))
+    // Pictures after the frames' relationships: rId3 is the frame.
+    expect(xml).toContain('<a:blip r:embed="rId3"/>')
+    expect(xml.match(/<a:blip r:embed="rId4"\/>/g)).toHaveLength(1)
+    expect(xml.match(/<a:blip r:embed="rId5"\/>/g)).toHaveLength(1)
+    const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(wellFormed(xml)).toBeNull()
+  })
+
+  it('names the pieces in English for an English export', () => {
+    const xml = slideXml(flyerPage(0), 'en-US', [frame], { items, pagePicture: false })
+    expect(xml).toContain('name="Decoration 1"')
+    expect(xml).toContain('name="Shape 1"')
+    expect(xml).toContain('name="Icon 1"')
+  })
+
+  it('packs no page picture when the page’s colour says it all, and every piece its own', () => {
+    const entries = pptxEntries([{ snapshot: flyerPage(0), background: null, frames: [frame], items }], a4, { title: 'x', created })
+    const names = entries.map((e) => e.name)
+    expect(names.some((n) => /media\/page1\.(jpeg|png)$/.test(n))).toBe(false)
+    expect(names).toContain('ppt/media/page1-frame1.jpeg')
+    expect(names).toContain('ppt/media/page1-item1.png')
+    expect(names).toContain('ppt/media/page1-item2.png')
+    const rels = entries.find((e) => e.name === 'ppt/slides/_rels/slide1.xml.rels')!.content as string
+    expect(rels).not.toContain('Id="rId2"')
+    expect(rels).toContain('Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page1-item1.png"')
+    expect(rels).toContain('Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page1-item2.png"')
+    for (const e of entries) if (typeof e.content === 'string') expect(wellFormed(e.content), e.name).toBeNull()
+  })
+
+  it('keeps a photograph behind everything as the page picture: the background with frames, the first element without', () => {
+    const withFrames = pptxEntries([{ snapshot: flyerPage(0), background: TINY_JPEG, frames: [frame], items }], a4, { title: 'x', created })
+    const slide = withFrames.find((e) => e.name === 'ppt/slides/slide1.xml')!.content as string
+    expect(slide).toContain('<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId2"/>')
+    const without = slideXml(flyerPage(0), 'fr-FR', [], { items: [card], pagePicture: true })
+    const tree = without.slice(without.indexOf('</p:grpSpPr>') + '</p:grpSpPr>'.length)
+    expect(tree.startsWith('<p:pic><p:nvPicPr><p:cNvPr id="2" name="Fond de la page"/>')).toBe(true)
   })
 })

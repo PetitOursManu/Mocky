@@ -104,7 +104,7 @@ export const canvas = {
     // ---- mode hints ----
     'canvas.hintLink':
       'Mode Lier — cliquez un bouton ou un élément dans un écran, puis tirez le câble jusqu’à l’écran de destination',
-    'canvas.hintModify': 'Mode Modifier — cliquez un élément dans un écran, puis décrivez le changement',
+    'canvas.hintModify': 'Mode Modifier — cliquez un élément dans un écran, puis décrivez le changement · glissez-le pour le déplacer',
     'canvas.hintAnnotate': 'Mode Annoter — tracez un rectangle sur un écran pour le joindre à la conversation',
     'canvas.hintDefault':
       'Glissez pour sélectionner · Espace ou clic-molette pour naviguer · molette pour zoomer · double-clic pour interagir avec un écran',
@@ -236,7 +236,7 @@ export const canvas = {
 
     // ---- mode hints ----
     'canvas.hintLink': 'Link mode — click a button or an element in a screen, then draw the cable to the destination screen',
-    'canvas.hintModify': 'Modify mode — click an element in a screen, then describe the change',
+    'canvas.hintModify': 'Modify mode — click an element in a screen, then describe the change · drag it to move it',
     'canvas.hintAnnotate': 'Annotate mode — drag a rectangle over a screen to attach it to the conversation',
     'canvas.hintDefault':
       'Drag to select · Space or middle-click to pan · scroll to zoom · double-click to interact with a screen',

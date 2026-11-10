@@ -1188,6 +1188,15 @@ export function useProjects() {
     return project.id
   }, [])
 
+  /**
+   * A project built elsewhere, whole — today only `projectFromTemplate`
+   * (lib/templates.ts), which hands over fresh ids. Refused if the id is taken:
+   * this adds, it never replaces.
+   */
+  const addProject = useCallback((project: Project) => {
+    setProjects((prev) => (prev.some((p) => p.id === project.id) ? prev : [project, ...prev]))
+  }, [])
+
   const deleteProject = useCallback((id: string) => {
     // Tombstone rather than removal — see Project.deletedAt. Dropping the record
     // outright made deletions un-syncable: the next merge with a device that
@@ -1422,6 +1431,7 @@ export function useProjects() {
   return {
     projects,
     createProject,
+    addProject,
     deleteProject,
     renameProject,
     folders,

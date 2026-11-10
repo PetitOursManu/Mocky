@@ -135,6 +135,16 @@ export const fr = {
   'projects.createFolder': "Créer le dossier",
   'projects.fileProject': "Classer « {name} »",
   'projects.fileOne': "Classer « {name} »",
+  'projects.newSubfolder': "Nouveau sous-dossier",
+  'projects.newFolderIn': "Nouveau dossier dans « {name} »",
+  'projects.folderActions': "Actions du dossier",
+  'projects.moveFolderEllipsis': "Déplacer…",
+  'projects.showFolders': "Afficher les dossiers",
+  'projects.hideFolders': "Masquer les dossiers",
+  'projects.dropHere': "Déposer ici",
+  'projects.dropRefused': "Impossible",
+  'projects.treeCount': "{count} projet(s)",
+  'projects.treeEmptyHint': "Aucun dossier pour l’instant. « + » en crée un.",
 
   // ---- canvas & screens ----
   'canvas.rename': 'Renommer',

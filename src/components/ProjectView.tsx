@@ -4,7 +4,16 @@ import { buildDesignPreamble, isDesignActive, loadBrand, loadDesign, extractDesi
 import { brandSection, hasBrand, type BrandIdentity } from '../lib/brand'
 import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, buildElementsEditInstruction, tryDirectTextReplace, deriveDesignSystem, refreshDesignSystem, type AnimationLevel } from '../lib/generate'
 import { designSyncOf, isDesignFresh, type DesignSync } from '../lib/designRefresh'
-import { applyCuts, planRemovals, type Cut } from '../lib/screenElements'
+import {
+  applyCuts,
+  planGridPlacement,
+  planMove,
+  planRemovals,
+  type Cut,
+  type MoveRefusal,
+  type MoveRequest,
+  type PickedSource,
+} from '../lib/screenElements'
 import { deriveName, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import type { Plan } from '../lib/api'
@@ -87,6 +96,8 @@ import { DesignViews } from './DesignWebPreview'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
 import Bibliotheque, { type MediaTab } from './Bibliotheque'
+import { SaveTemplateDialog } from './DesignModels'
+import { instantiateScreens, type ProjectTemplate } from '../lib/templates'
 import ImageLightbox from './ImageLightbox'
 import FilmLightbox from './FilmLightbox'
 import ScreenImagesDialog from './ScreenImagesDialog'
@@ -218,6 +229,17 @@ function recolorChange(hex: string): string {
 }
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
+
+/** Why a drag was not written, as dictionary keys. `same` is no notice at all. */
+const MOVE_REFUSALS: Record<Exclude<MoveRefusal, 'same'>, TranslationKey> = {
+  root: 'project.moveRoot',
+  unknown: 'project.moveUnknown',
+  computed: 'project.moveComputed',
+  repeated: 'project.moveRepeated',
+  container: 'project.moveContainer',
+  className: 'project.moveClassName',
+  component: 'project.moveComponent',
+}
 
 
 const EXAMPLE_KEYS = ['project.example1', 'project.example2', 'project.example3']
@@ -483,6 +505,8 @@ export default function ProjectView({
     [onUpdateScreen],
   )
   const [showLibrary, setShowLibrary] = useState(false)
+  /** "Save as template" (Export menu): the dialog that names and keeps it. */
+  const [savingTemplate, setSavingTemplate] = useState(false)
   /**
    * Which media tab the library opens on next time.
    *
@@ -643,6 +667,8 @@ export default function ProjectView({
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo; group?: PickInfo[] } | null>(null)
   /** Elements gathered with Shift or Ctrl in Modify mode, all on one screen. */
   const [pickedElements, setPickedElements] = useState<{ screenId: string; items: PickInfo[] } | null>(null)
+  /** Alt+Arrow with the focus outside the frame: the frame knows the neighbours, so it is asked. */
+  const [pickStep, setPickStep] = useState<{ screenId: string; delta: -1 | 1; nonce: number } | null>(null)
   /** A removal that needs an answer first: the element is drawn several times. */
   const [pendingRemoval, setPendingRemoval] = useState<{ screenId: string; code: string; count: number | null; cuts: Cut[]; item?: Cut[] } | null>(null)
   /** What the last refresh replaced, for the panel's Undo. Null: the project followed the global DESIGN.md. */
@@ -1264,6 +1290,30 @@ export default function ProjectView({
   }
 
   /**
+   * Fill this EMPTY project from a template (lib/templates.ts): its screens with
+   * fresh ids, at the places they had, its direction and its settings. Through
+   * the same writes as everything else — add, then place, then each setting — so
+   * nothing here knows how a project is stored. Refused on a project that already
+   * has screens: a template is a starting point, not something merged into work.
+   */
+  function applyTemplate(template: ProjectTemplate) {
+    if (screens.length > 0) return
+    const { screens: fresh, referenceScreenId } = instantiateScreens(template)
+    for (const s of fresh) {
+      const { x, y, ...rest } = s
+      onAddScreen(rest)
+      onUpdateScreen(s.id, { x, y })
+    }
+    if (referenceScreenId) onSetReference(referenceScreenId)
+    if (template.design) onSetDesign(template.design)
+    const st = template.settings || {}
+    onSetUltra(st.ultra ?? null)
+    onSetUseBrand?.(!!st.useBrand)
+    onSetCreative?.(!!st.creative)
+    onSetCreations?.(!!st.creations)
+  }
+
+  /**
    * Recolor one token from the Design-system frame (D.2).
    *
    * Edits the direction the frame is DISPLAYING. It used to read the global file
@@ -1523,6 +1573,20 @@ export default function ProjectView({
   removeSelectionRef.current = () => {
     if (pickedElements) void removeElements(pickedElements.screenId, pickedElements.items)
   }
+  // The chains of what is outlined, read by the document showing it now.
+  const onMarksInfo = useCallback((screenId: string, items: { selector: string; source?: PickedSource[] }[]) => {
+    setPickedElements((prev) => {
+      if (!prev || prev.screenId !== screenId) return prev
+      let changed = false
+      const next = prev.items.map((i) => {
+        const fresh = items.find((f) => f.selector === i.selector)
+        if (!fresh || JSON.stringify(fresh.source) === JSON.stringify(i.source)) return i
+        changed = true
+        return { ...i, source: fresh.source }
+      })
+      return changed ? { ...prev, items: next } : prev
+    })
+  }, [])
   const onPickKey = useCallback((key: string) => {
     if (key === 'Escape') setPickedElements(null)
     else removeSelectionRef.current()
@@ -1540,6 +1604,14 @@ export default function ProjectView({
       if (e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
         onPickKey(e.key)
+      }
+      // Alt+Left is also the browser's Back: prevented even when there is nothing to move.
+      if (e.altKey && /^Arrow(Up|Down|Left|Right)$/.test(e.key)) {
+        e.preventDefault()
+        if (pickedElements.items.length === 1) {
+          const delta = e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1
+          setPickStep({ screenId: pickedElements.screenId, delta, nonce: Date.now() })
+        }
       }
     }
     window.addEventListener('keydown', onKey)
@@ -2890,6 +2962,40 @@ export default function ProjectView({
    * (lib/screenElements.ts). Same write-back as any edit: `previousCode` for
    * Revert, and nothing is written over code that moved in the meantime.
    */
+  /**
+   * Move an element by writing the source, with no model call either
+   * (lib/screenElements.ts, planMove / planGridPlacement). The frame decided
+   * where; this resolves both ends on the stored code and writes with the
+   * removal's conventions. A selection of that one element follows it, by the
+   * selector the frame predicted and with NO chain until the new document
+   * reports one (`onMarksInfo`): the old chain names the place it left.
+   */
+  async function moveElement(screenId: string, move: MoveRequest) {
+    if (busy) return
+    const code = screensRef.current.find((s) => s.id === screenId)?.code
+    if (!code?.trim()) return
+    const plan = move.grid
+      ? await planGridPlacement(code, move.from, move.grid)
+      : await planMove(code, move.from, move.to, move.before ? 'before' : 'after')
+    if (plan.kind === 'refused') {
+      if (plan.reason !== 'same') setNotice(t(MOVE_REFUSALS[plan.reason]))
+      return
+    }
+    const out = await applyCuts(code, plan.cuts)
+    const live = screensRef.current.find((s) => s.id === screenId)
+    if (!out || !live || live.code !== code) {
+      setNotice(t('project.moveFailed'))
+      return
+    }
+    noteChange(screenId, t('project.moveNote'))
+    onUpdateScreen(screenId, { code: out, componentName: detectComponentName(out), previousCode: code })
+    setPickedElements((prev) => {
+      if (!prev || prev.screenId !== screenId) return prev
+      const only = prev.items.length === 1 && prev.items[0].selector === move.selector && move.after
+      return only ? { screenId, items: [{ ...prev.items[0], selector: move.after, source: undefined }] } : null
+    })
+  }
+
   async function commitCuts(screenId: string, code: string, cuts: Cut[]) {
     const out = await applyCuts(code, cuts)
     const live = screensRef.current.find((s) => s.id === screenId)
@@ -3361,6 +3467,7 @@ export default function ProjectView({
 
   const libraryModal = (
     <>
+      {savingTemplate && <SaveTemplateDialog project={project} onClose={() => setSavingTemplate(false)} />}
       {showLibrary && (
         <Bibliotheque
           projectId={project.id}
@@ -3378,6 +3485,8 @@ export default function ProjectView({
           }
           onClose={() => setShowLibrary(false)}
           onOpenImage={setLightboxHash}
+          currentDirection={directionMd}
+          onApplyDirection={(markdown) => onSetDesign(markdown)}
         />
       )}
       {lightboxHash && (
@@ -3513,6 +3622,7 @@ export default function ProjectView({
         onOpenSettings={onOpenSettings}
         onOpenDesign={onOpenDesign}
         onApplyStyle={applyStyleMarkdown}
+        onApplyTemplate={applyTemplate}
         museConfig={museConfig}
         onMuseChange={updateMuse}
         flowsOn={flowsOn}
@@ -3765,6 +3875,15 @@ export default function ProjectView({
                         }}
                       />
                     ))}
+                    <BarMenuItem
+                      icon="copy"
+                      label={t('templates.saveAs')}
+                      hint={t('templates.templatesHint')}
+                      onClick={() => {
+                        close()
+                        setSavingTemplate(true)
+                      }}
+                    />
                     <BarMenuRule />
                     <BarMenuLabel>{t('workspace.exportScreen')}</BarMenuLabel>
                     {!one ? (
@@ -4120,6 +4239,9 @@ export default function ProjectView({
           }
         }}
         onPickKey={onPickKey}
+        onMoveElement={(screenId, move) => void moveElement(screenId, move)}
+        onMarksInfo={onMarksInfo}
+        pickStep={pickStep}
         pickMarks={pickedElements && { screenId: pickedElements.screenId, selectors: pickedElements.items.map((i) => i.selector) }}
         onRemoveHotspot={removeHotspot}
         highlightedHotspotId={highlightHotspot}
@@ -5237,6 +5359,7 @@ export default function ProjectView({
           <span className="whitespace-nowrap text-body-sm text-ink">
             {t('project.selectionCount', { n: pickedElements.items.length })}
           </span>
+          <span className="whitespace-nowrap text-body-sm text-ink-muted">{t('project.selectionMoveHint')}</span>
           <button
             type="button"
             className="btn-ghost text-body-sm"

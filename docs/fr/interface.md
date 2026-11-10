@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 34f6c55bee3e
+source_hash: ef63c2d9c945
 ---
 
 # L’interface
@@ -95,6 +95,7 @@ déplie les onze avec leurs icônes et leurs badges.
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3"/></svg> | `Rechercher un projet…` | Filtre sur le nom du projet **et sur le nom et la demande de chacun de ses écrans**. Un projet dont vous ne vous rappelez pas le nom se retrouve par ce que vous aviez demandé dedans. Pas rendu du tout à cinq projets ou moins. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z"/></svg> | `Dossiers` / `Masquer les dossiers` | Affiche ou masque l’arborescence des dossiers. Sous 1024 px, c’est un panneau sous l’en-tête, fermé par défaut ; à partir de 1024 px, c’est la barre latérale, ouverte par défaut. Chaque largeur retient son propre choix, dans ce navigateur. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Nouveau dossier` | Crée un dossier dans celui que vous regardez. Il peut rester vide. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5 5 19"/></svg> | `Sélectionner` / `Terminer` | Entre et sort du mode coche. En sortir vide la sélection. Caché s’il n’y a qu’un projet. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/></svg> | `Nouveau projet` | Crée le projet et l’ouvre aussitôt. | libre |
@@ -119,7 +120,7 @@ Le dernier projet touché ouvre la page en grande carte — son image, son nom, 
 demande qui a fait son premier écran, `Ouvrir`. Les autres suivent en grille de
 cartes (d’une à quatre colonnes selon la fenêtre), chacune avec son image, son
 nom, cette demande, son nombre d’écrans et son âge, et deux boutons : le classer,
-le supprimer. Les dossiers s’imbriquent comme sur un ordinateur. L’arborescence à gauche et le chemin au-dessus de la grille montrent toujours où vous êtes, et acceptent tous deux un dépôt. Les dossiers du niveau courant passent avant les projets ; les brouillons vides viennent en dernier, en petites étiquettes. Supprimer un dossier ne supprime aucun projet : son contenu remonte d’un niveau.
+le supprimer. Les dossiers s’imbriquent comme sur un ordinateur. L’arborescence (à gauche, ou sous `Dossiers` sur une fenêtre étroite) et le chemin au-dessus de la grille montrent toujours où vous êtes, et acceptent tous deux un dépôt. Les dossiers du niveau courant passent avant les projets ; les brouillons vides viennent en dernier, en petites étiquettes. Supprimer un dossier ne supprime aucun projet : son contenu remonte d’un niveau.
 
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
@@ -130,12 +131,39 @@ le supprimer. Les dossiers s’imbriquent comme sur un ordinateur. L’arboresce
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Classer « {name} »` | Classe ce projet-là seulement. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Tout vider` | Supprime tous les brouillons vides d’un coup, derrière une seule confirmation. | libre |
 
+### L’arborescence des dossiers
+
+Chaque ligne affiche le nombre de projets du dossier, sous-dossiers compris. Les
+dossiers sont toujours triés par nom : il n’y a pas d’ordre manuel à entretenir.
+
+| Geste | Ce qu’il fait |
+|---|---|
+| Clic | Entre dans le dossier. Le chevron l’ouvre ou le ferme sans y entrer. |
+| `+` (au survol, toujours visible sur un écran tactile) | Crée un sous-dossier à cet endroit. Sur `Tous les projets`, un dossier au premier niveau. |
+| `⋯`, ou un clic droit | `Nouveau sous-dossier`, `Renommer le dossier`, `Déplacer…`, `Supprimer le dossier`. |
+| Double-clic, ou `F2` | Renomme sur place : `Entrée` garde le nom, `Échap` l’abandonne. |
+| `↑` `↓`, `Début` `Fin` | Parcourt les lignes. L’arborescence ne compte que pour un arrêt de `Tab`. |
+| `→` / `←` | Ouvre un dossier, puis y entre ; le ferme, puis remonte à son parent. |
+| `Entrée` | Entre dans le dossier. |
+
 ### Déplacer
 
 Glissez un projet ou un dossier sur un dossier, une ligne de l’arborescence ou une
-étape du chemin. `Classer` ouvre la même arborescence sous forme de liste, pour
-un téléphone ou une sélection : un clic sur une ligne suffit. Un dossier ne peut
-pas être déplacé dans lui-même.
+étape du chemin. Une ligne de l’arborescence se glisse aussi : un dossier se
+déplace depuis l’arborescence dans un autre, ou sur `Tous les projets`. Pendant
+le glisser, l’endroit sous le pointeur dit ce que ferait le dépôt : vert acide et
+`Déposer ici` s’il déplacerait, rouge et `Impossible` si une règle le refuse (un
+dossier dans lui-même, ou trop profond), rien s’il y est déjà. Dans un dossier
+ouvert, une ligne en pointillés montre où le dossier déposé prendra place dans
+l’ordre des noms. S’attarder un peu plus d’une demi-seconde sur un dossier fermé
+l’ouvre : c’est ainsi qu’on atteint un dossier trois niveaux plus bas d’un seul
+glisser.
+
+Un écran tactile ne glisse pas. `Classer` sur chaque carte de projet (la une et
+les brouillons vides compris), `Déplacer le dossier` sur chaque carte de dossier,
+et `Déplacer…` dans le menu `⋯` d’une ligne de l’arborescence ouvrent la même
+arborescence sous forme de liste : un clic sur une ligne suffit. Un dossier ne
+peut pas être déplacé dans lui-même.
 
 ## L’espace de travail d’un projet
 
@@ -310,6 +338,33 @@ jusqu’à lui en un tiers de seconde environ, pour que le nouveau cadre soit
 visible pendant qu’il s’écrit. Un clic, la molette ou un bouton de zoom arrête
 le mouvement là où il est ; avec les animations réduites, la vue y saute
 directement.
+
+### En mode `Modifier`
+
+Un clic sur un élément ouvre la carte `Élément` (voir [Les modales](#les-modales)).
+Trois gestes n’appellent jamais de modèle : chacun réécrit le code de l’écran,
+s’applique aussitôt, et `Revenir à la version précédente` le défait.
+
+- **Maj ou Ctrl + clic** constitue une sélection, et une barre en haut propose
+  `Modifier ensemble`, `Supprimer` et `Annuler`. `Supprimer` — ou la touche
+  Suppr — retire les éléments du code. Un élément qu’une liste dessine plusieurs
+  fois demande d’abord : celui-ci seulement, ou tous.
+- **Appuyez sur un élément et faites-le glisser** pour le déplacer parmi ses
+  voisins. Une ligne fuchsia montre où il atterrira ; l’appui doit parcourir
+  quelques pixels, si bien qu’un simple clic sélectionne toujours. Au-dessus
+  d’une case vide d’une grille CSS, c’est la case qui s’allume, et l’élément y
+  est placé par ses classes `col-start-*` et `row-start-*`. **Échap** annule le
+  glissement. Un appui dans l’élément sélectionné déplace cet élément ;
+  ailleurs, l’élément sous le curseur — ou son plus proche conteneur qui a des
+  voisins, puisqu’un enfant unique n’a nulle part où aller.
+- **Alt + flèches**, avec un seul élément sélectionné, le déplace d’un voisin
+  en arrière ou en avant. La sélection le suit : on peut appuyer de nouveau.
+
+Ce que Mocky ne déplace pas tout seul, en disant pourquoi : un élément hors de
+son propre bloc, une entrée d’une liste que le code calcule, ce qu’une liste ou
+un composant réutilisé dessine plusieurs fois (il bougerait partout à la fois),
+et une case de grille pour un élément dont le code calcule les classes. Décrivez
+ces cas au modèle dans la carte `Élément`.
 
 ### Les câbles entre les écrans
 

@@ -3,10 +3,15 @@ import {
   buildFolderTree,
   canMoveFolder,
   FOLDER_MAX_DEPTH,
+  folderDropVerdict,
   folderStats,
+  insertionIndex,
   legacyFolderId,
   parseFolders,
   placeOf,
+  projectsDropVerdict,
+  treeKeyAction,
+  visibleRows,
   withLegacyFolders,
   type Folder,
 } from './folderTree'
@@ -110,6 +115,100 @@ describe('folderStats', () => {
     expect(stats.get('a')).toMatchObject({ folders: 1, projects: 2 })
     expect(stats.get('a')?.covers).toHaveLength(1)
     expect(stats.get('b')).toMatchObject({ folders: 0, projects: 1 })
+  })
+})
+
+describe('drop verdicts', () => {
+  const tree = buildFolderTree([f('a'), f('b', 'a'), f('c', 'b'), f('d')])
+
+  it('tells "already there" from "not allowed"', () => {
+    expect(folderDropVerdict(tree, 'b', 'a')).toBe('here')
+    expect(folderDropVerdict(tree, 'a', null)).toBe('here')
+    expect(folderDropVerdict(tree, 'a', 'c')).toBe('refused')
+    expect(folderDropVerdict(tree, 'a', 'a')).toBe('here')
+    expect(folderDropVerdict(tree, 'a', 'b')).toBe('refused')
+    expect(folderDropVerdict(tree, 'b', 'd')).toBe('move')
+    expect(folderDropVerdict(tree, 'c', null)).toBe('move')
+    expect(folderDropVerdict(tree, 'gone', null)).toBe('refused')
+  })
+
+  it('lets projects go anywhere they are not all already', () => {
+    expect(projectsDropVerdict(['a', 'a'], 'a')).toBe('here')
+    expect(projectsDropVerdict(['a', null], 'a')).toBe('move')
+    expect(projectsDropVerdict([null], null)).toBe('here')
+    expect(projectsDropVerdict([], null)).toBe('move')
+  })
+})
+
+describe('the side tree, flattened', () => {
+  const tree = buildFolderTree([f('a'), f('b', 'a'), f('c', 'b'), f('d'), f('e', 'd')])
+  const rowsWith = (open: string[]) => visibleRows(tree, (id) => open.includes(id))
+
+  it('lists the root, then what is open, depth first and by name', () => {
+    expect(rowsWith([]).map((r) => r.id)).toEqual([null, 'a', 'd'])
+    expect(rowsWith(['a', 'b']).map((r) => [r.id, r.depth])).toEqual([
+      [null, 0],
+      ['a', 1],
+      ['b', 2],
+      ['c', 3],
+      ['d', 1],
+    ])
+  })
+
+  it('does not call a folder with nothing inside open', () => {
+    expect(rowsWith(['c']).find((r) => r.id === 'c')).toBeUndefined()
+    expect(rowsWith(['a', 'b', 'c']).find((r) => r.id === 'c')).toMatchObject({ hasKids: false, open: false })
+  })
+
+  it('walks with the arrow keys', () => {
+    const rows = rowsWith(['a'])
+    expect(treeKeyAction(rows, null, 'ArrowDown')).toEqual({ focus: 'a' })
+    expect(treeKeyAction(rows, 'a', 'ArrowUp')).toEqual({ focus: null })
+    expect(treeKeyAction(rows, null, 'ArrowUp')).toBeNull()
+    expect(treeKeyAction(rows, 'b', 'End')).toEqual({ focus: 'd' })
+    expect(treeKeyAction(rows, 'd', 'Home')).toEqual({ focus: null })
+    expect(treeKeyAction(rows, 'b', 'Enter')).toEqual({ go: 'b' })
+    expect(treeKeyAction(rows, null, 'Enter')).toEqual({ go: null })
+  })
+
+  it('opens, enters, closes and climbs', () => {
+    const rows = rowsWith(['a'])
+    expect(treeKeyAction(rows, 'b', 'ArrowRight')).toEqual({ open: 'b' })
+    expect(treeKeyAction(rows, 'a', 'ArrowRight')).toEqual({ focus: 'b' })
+    expect(treeKeyAction(rows, 'a', 'ArrowLeft')).toEqual({ close: 'a' })
+    expect(treeKeyAction(rows, 'b', 'ArrowLeft')).toEqual({ focus: 'a' })
+    expect(treeKeyAction(rows, 'a', 'ArrowLeft')).toEqual({ close: 'a' })
+    expect(treeKeyAction(rowsWith([]), 'a', 'ArrowLeft')).toEqual({ focus: null })
+    expect(treeKeyAction(rows, null, 'ArrowLeft')).toBeNull()
+    expect(treeKeyAction(rows, null, 'ArrowRight')).toEqual({ focus: 'a' })
+  })
+
+  it('starts from the top when the focused row has gone', () => {
+    expect(treeKeyAction(rowsWith([]), 'c', 'ArrowDown')).toEqual({ focus: null })
+  })
+})
+
+describe('insertionIndex', () => {
+  const tree = buildFolderTree([f('b'), f('d'), f('b1', 'b'), f('b3', 'b'), f('x', 'd')])
+
+  it('places a dropped folder where the name order will put it', () => {
+    const rows = visibleRows(tree, () => true) // root, b, b1, b3, d, x
+    expect(insertionIndex(rows, tree, 'b', { id: 'x', name: 'b2' })).toBe(3)
+    expect(insertionIndex(rows, tree, 'b', { id: 'x', name: 'a' })).toBe(2)
+    // Last among the children: after the target's last descendant on show.
+    expect(insertionIndex(rows, tree, 'b', { id: 'x', name: 'z' })).toBe(4)
+    expect(insertionIndex(rows, tree, null, { id: 'x', name: 'c' })).toBe(4)
+    expect(insertionIndex(rows, tree, null, { id: 'x', name: 'z' })).toBe(6)
+  })
+
+  it('has nowhere to show a folder dropped on a closed one', () => {
+    const rows = visibleRows(tree, () => false)
+    expect(insertionIndex(rows, tree, 'b', { id: 'x', name: 'b2' })).toBeNull()
+  })
+
+  it('does not count the moving folder among its new siblings', () => {
+    const rows = visibleRows(tree, () => true)
+    expect(insertionIndex(rows, tree, null, { id: 'b', name: 'c' })).toBe(4)
   })
 })
 

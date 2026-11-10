@@ -2,16 +2,18 @@ import { describe, expect, it } from 'vitest'
 import {
   alignOf,
   applyTextTransform,
+  belongTogether,
   groupBlocks,
   groupLines,
+  mergeBlocks,
   parseCssColor,
   primaryFontFamily,
   splitAcrossRects,
   toHex6,
   unionRect,
 } from './lines'
-import { style } from './fixtures'
-import type { RunStyle, Word } from './types'
+import { line, style } from './fixtures'
+import type { BlockInfo, RunStyle, TextBlock, TextLine, Word } from './types'
 
 const word = (text: string, x: number, y: number, w: number, h = 20, block = 0, s: RunStyle = style(), space = true): Word => ({
   text,
@@ -139,5 +141,93 @@ describe('groupBlocks', () => {
   it('splits a block interrupted by another one, so two boxes never overlap', () => {
     const lines = groupLines([word('Intro', 0, 0, 40, 20, 0), word('Para', 0, 30, 40, 20, 1), word('Outro', 0, 60, 40, 20, 0)])
     expect(groupBlocks(lines, infos).map((b) => b.lines.map((l) => l.text))).toEqual([['Intro'], ['Para'], ['Outro']])
+  })
+})
+
+describe('mergeBlocks — one piece of text set on several lines is one box', () => {
+  /** A one-line block, as `groupBlocks` makes it from one block element. */
+  const one = (l: TextLine, pitch: number, align: TextBlock['align'] = 'left'): TextBlock => ({ rect: l.rect, lines: [l], align, pitch })
+  const headline = { fontSize: 48, fontWeight: 800 }
+
+  it('joins the lines of a heading written one block <span> per line, each keeping its own style', () => {
+    // <h1><span class="block">Fête</span><span class="block text-pink-500">d’été</span></h1>, leading-none.
+    const infos: BlockInfo[] = [
+      { align: 'left', lineHeight: 48, group: 0 },
+      { align: 'left', lineHeight: 48, group: 0 },
+    ]
+    const a = one(line('Fête', 80, 100, 160, 58, headline, 0), 48)
+    const b = one(line('d’été', 80, 148, 190, 58, { ...headline, color: { r: 236, g: 72, b: 153, a: 1 } }, 1), 48)
+    const merged = mergeBlocks([a, b], infos)
+    expect(merged).toHaveLength(1)
+    expect(merged[0].lines.map((l) => l.text)).toEqual(['Fête', 'd’été'])
+    expect(merged[0].paras).toEqual([
+      { start: 0, pitch: 48 },
+      { start: 1, pitch: 48 },
+    ])
+    expect(merged[0].rect).toEqual({ x: 80, y: 100, w: 190, h: 106 })
+  })
+
+  it('joins stacked lines of one look in a flex column, with nothing around them', () => {
+    const infos: BlockInfo[] = [
+      { align: 'center', lineHeight: 24 },
+      { align: 'center', lineHeight: 24 },
+    ]
+    const a = one(line('Samedi 21 juin', 300, 400, 200, 19, {}, 0), 24, 'center')
+    const b = one(line('à partir de 18 h', 290, 426, 220, 19, {}, 1), 24, 'center')
+    expect(mergeBlocks([a, b], infos)).toHaveLength(1)
+  })
+
+  it('keeps two paragraphs two boxes: a margin between them is a break the designer chose', () => {
+    const infos: BlockInfo[] = [
+      { align: 'left', lineHeight: 24, group: 0 },
+      { align: 'left', lineHeight: 24, group: 1 },
+    ]
+    // mb-4 under the first: 16 px more than the leading.
+    const a = one(line('Premier paragraphe.', 80, 100, 300, 19, {}, 0), 24)
+    const b = one(line('Second paragraphe.', 80, 140, 280, 19, {}, 1), 24)
+    expect(mergeBlocks([a, b], infos)).toHaveLength(2)
+  })
+
+  it('keeps a kicker and its headline apart even when they touch', () => {
+    const infos: BlockInfo[] = [
+      { align: 'left', lineHeight: 20 },
+      { align: 'left', lineHeight: 52 },
+    ]
+    const a = one(line('ÉDITION 2025', 80, 100, 120, 17, { fontSize: 14 }, 0), 20)
+    const b = one(line('Le grand concert', 80, 120, 500, 58, headline, 1), 52)
+    expect(mergeBlocks([a, b], infos)).toHaveLength(2)
+  })
+
+  it('never joins what is side by side, on another edge, or aligned differently', () => {
+    const infos: BlockInfo[] = [
+      { align: 'left', lineHeight: 24 },
+      { align: 'left', lineHeight: 24 },
+    ]
+    const a = one(line('Gauche', 80, 100, 100, 19, {}, 0), 24)
+    expect(belongTogether(a, one(line('Droite', 400, 100, 100, 19, {}, 1), 24), infos)).toBe(false)
+    expect(belongTogether(a, one(line('Décalé', 120, 124, 100, 19, {}, 1), 24), infos)).toBe(false)
+    expect(belongTogether(a, one(line('Centré', 80, 124, 100, 19, {}, 1), 24, 'center'), infos)).toBe(false)
+    expect(belongTogether(a, one(line('Dessous', 80, 124, 100, 19, {}, 1), 24), infos)).toBe(true)
+  })
+
+  it('keeps apart what a rule or an icon separates', () => {
+    const infos: BlockInfo[] = [
+      { align: 'left', lineHeight: 24 },
+      { align: 'left', lineHeight: 24 },
+    ]
+    const a = one(line('Au-dessus', 80, 100, 100, 19, {}, 0), 24)
+    const b = one(line('Au-dessous', 80, 124, 100, 19, {}, 1), 24)
+    const rule = { x: 80, y: 120, w: 200, h: 1 }
+    expect(belongTogether(a, b, infos, [rule])).toBe(false)
+    // A picture beside the text, not between its lines, changes nothing.
+    expect(belongTogether(a, b, infos, [{ x: 400, y: 110, w: 40, h: 40 }])).toBe(true)
+  })
+
+  it('chains: three lines, one box, three paragraphs', () => {
+    const infos: BlockInfo[] = [0, 1, 2].map(() => ({ align: 'left' as const, lineHeight: 24, group: 7 }))
+    const blocks = [0, 1, 2].map((i) => one(line(`ligne ${i}`, 80, 100 + 24 * i, 100, 19, {}, i), 24))
+    const [m] = mergeBlocks(blocks, infos)
+    expect(m.lines).toHaveLength(3)
+    expect(m.paras?.map((p) => p.start)).toEqual([0, 1, 2])
   })
 })

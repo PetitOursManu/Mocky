@@ -1,14 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTimeAgo } from '../lib/timeAgo'
 import { headline, shownProjectName, type Project, type Screen } from '../lib/project'
 import {
   buildFolderTree,
   canMoveFolder,
+  cleanFolderName,
   FOLDER_NAME_MAX,
+  folderDropVerdict,
   folderStats,
+  insertionIndex,
   placeOf,
+  projectsDropVerdict,
+  treeKeyAction,
+  visibleRows,
+  type DropVerdict,
   type Folder,
   type FolderTree,
+  type TreeRow,
 } from '../lib/folderTree'
 import { getThumb, pruneThumbs, reconcileRemoteThumbs } from '../lib/thumbnails'
 import { Button, Icon, IconButton, Input, Modal } from '../ui'
@@ -19,8 +27,49 @@ import type { ProjectReviewState } from '../lib/review'
 /** Coming back from a project lands in the folder it was opened from. */
 const CWD_KEY = 'mocky.home.folder'
 
-/** What is being dragged. The page's own state: a drag never leaves this page. */
-type Dragged = { projects: string[] } | { folder: string }
+/**
+ * Whether the folder tree is shown, per viewer: below `lg` it is a panel that
+ * opens from the header (closed by default — a phone's first screen belongs to
+ * the projects), from `lg` a sidebar (open by default). Two answers, because
+ * someone who hides the sidebar on a wide screen has not asked to lose it on
+ * their phone, and the other way round.
+ */
+const SHELF_KEY = 'mocky.home.tree'
+type Shelf = { narrow: boolean; wide: boolean }
+function readShelf(): Shelf {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SHELF_KEY) ?? 'null') as Partial<Shelf> | null
+    return { narrow: raw?.narrow === true, wide: raw?.wide !== false }
+  } catch {
+    return { narrow: false, wide: true }
+  }
+}
+
+/**
+ * How long a drag rests on a closed folder of the tree before it opens. Long
+ * enough that sweeping across the shelf opens nothing, short enough that
+ * pausing on a folder to look inside does not feel like waiting.
+ */
+const HOVER_OPEN_MS = 600
+
+/**
+ * What is being dragged. The page's own state: a drag never leaves this page.
+ * A project drag carries where each project is now, read once at the start,
+ * so hovering does not look every project up on every `dragover`.
+ */
+type Dragged = { projects: string[]; places: (string | null)[] } | { folder: string }
+
+/** A tree row's key: its folder id, or `root` for "All projects". */
+const rowKey = (id: string | null) => id ?? 'root'
+
+/** The look of a place being hovered by a drag, by what dropping would do. */
+function dropTone(verdict: DropVerdict | null): string {
+  if (verdict === 'move') return 'bg-accent/15 ring-1 ring-inset ring-accent'
+  // A rule just met, said in the status colour rather than in a flat "no":
+  // the cursor alone does not tell a folder you cannot enter from a gap.
+  if (verdict === 'refused') return 'bg-danger/10 ring-1 ring-inset ring-danger/50 cursor-no-drop'
+  return ''
+}
 
 /**
  * The tick box that appears on a row in selection mode.
@@ -155,6 +204,7 @@ export default function ProjectsHome({
   onMoveFolder,
   onDeleteFolder,
   reviewStates = {},
+  onSaveTemplate,
 }: {
   projects: Project[]
   folders: Folder[]
@@ -173,6 +223,8 @@ export default function ProjectsHome({
    * sent to anyone, and a page where every card says "Draft" says nothing.
    */
   reviewStates?: Record<string, ProjectReviewState>
+  /** "Save as template" on a project's card (lib/templates.ts). Absent: not offered. */
+  onSaveTemplate?: (id: string) => void
 }) {
   const t = useT()
   const timeAgo = useTimeAgo()
@@ -181,10 +233,29 @@ export default function ProjectsHome({
   const [picked, setPicked] = useState<Set<string>>(new Set())
   /** The move dialog: for the ticked set, one project, or one folder. */
   const [moving, setMoving] = useState<{ selection: true } | { project: string } | { folder: string } | null>(null)
-  /** The naming dialog: a new folder here, or a new name for this one. */
-  const [naming, setNaming] = useState<{ create: true } | { rename: Folder } | null>(null)
+  /** The naming dialog: a new folder under `create` (null: the top), or a new name for this one. */
+  const [naming, setNaming] = useState<{ create: string | null } | { rename: Folder } | null>(null)
   const [dragged, setDragged] = useState<Dragged | null>(null)
-  const [dropOver, setDropOver] = useState<string | null>(null)
+  /** The place a drag is over, and what dropping there would do. */
+  const [dropOver, setDropOver] = useState<{ key: string; verdict: DropVerdict } | null>(null)
+  /** The tree row being renamed in place. */
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  /** A tree row's menu, from a right-click, the menu key or its `⋯` button. */
+  const [rowMenu, setRowMenu] = useState<{ id: string | null; x: number; y: number } | null>(null)
+  /** The tree row that holds the tab stop (roving tabindex). */
+  const [focusKey, setFocusKey] = useState<string | null>(null)
+  const rowRefs = useRef(new Map<string, HTMLElement>())
+  const hoverOpen = useRef<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const [shelf, setShelf] = useState<Shelf>(readShelf)
+  const toggleShelf = (which: keyof Shelf) => {
+    const next = { ...shelf, [which]: !shelf[which] }
+    setShelf(next)
+    try {
+      localStorage.setItem(SHELF_KEY, JSON.stringify(next))
+    } catch {
+      /* not remembered, still toggled */
+    }
+  }
 
   const tree = useMemo(() => buildFolderTree(folders), [folders])
   const stats = useMemo(() => folderStats(tree, projects), [tree, projects])
@@ -209,16 +280,30 @@ export default function ProjectsHome({
     }
   }
 
-  /** Folders open in the side tree. The way down to where you are always is. */
-  const [opened, setOpened] = useState<Set<string>>(new Set())
-  const openPath = useMemo(() => new Set(cwd ? tree.pathOf(cwd).map((f) => f.id) : []), [tree, cwd])
-  const toggleOpen = (id: string) =>
+  /**
+   * Folders open in the side tree. Arriving somewhere opens the way down to it,
+   * once: it used to be forced open for as long as you stood there, which left
+   * the arrow keys and the chevron unable to close an ancestor of where you are.
+   */
+  const [opened, setOpened] = useState<Set<string>>(() => new Set(cwd ? tree.pathOf(cwd).map((f) => f.id) : []))
+  useEffect(() => {
+    if (!cwd) return
+    const path = tree.pathOf(cwd).map((f) => f.id)
+    setOpened((prev) => (path.every((id) => prev.has(id)) ? prev : new Set([...prev, ...path])))
+    // Only on arrival: `tree` changing under you (a rename elsewhere) must not
+    // reopen what you just closed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cwd])
+  const setOpen = (id: string, on: boolean) =>
     setOpened((prev) => {
+      if (prev.has(id) === on) return prev
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (on) next.add(id)
+      else next.delete(id)
       return next
     })
+  const toggleOpen = (id: string) => setOpen(id, !opened.has(id))
+  const rows = useMemo(() => visibleRows(tree, (id) => opened.has(id)), [tree, opened])
 
   const searching = query.trim().length > 0
 
@@ -297,31 +382,66 @@ export default function ProjectsHome({
 
   // ---- moving things ------------------------------------------------------
 
-  const canDrop = (what: Dragged | null, target: string | null) => {
-    if (!what) return false
-    if ('folder' in what) return tree.parentOf(what.folder) !== target && canMoveFolder(tree, what.folder, target)
-    return true
+  const verdictOf = (what: Dragged | null, target: string | null): DropVerdict | null => {
+    if (!what) return null
+    if ('folder' in what) return folderDropVerdict(tree, what.folder, target)
+    return projectsDropVerdict(what.places, target)
   }
-  const drop = (target: string | null) => {
-    if (dragged && canDrop(dragged, target)) {
-      if ('folder' in dragged) onMoveFolder(dragged.folder, target)
-      else onMoveProjects(dragged.projects, target)
+  const disarmHoverOpen = (id?: string) => {
+    if (hoverOpen.current && (id === undefined || hoverOpen.current.id === id)) {
+      clearTimeout(hoverOpen.current.timer)
+      hoverOpen.current = null
     }
+  }
+  useEffect(() => () => disarmHoverOpen(), [])
+  const endDrag = () => {
+    disarmHoverOpen()
     setDragged(null)
     setDropOver(null)
   }
-  /** What makes something a place to drop on. `null` is the top of the tree. */
-  const dropZone = (target: string | null) => {
-    const key = target ?? 'root'
+  const drop = (target: string | null) => {
+    if (dragged && verdictOf(dragged, target) === 'move') {
+      if ('folder' in dragged) {
+        onMoveFolder(dragged.folder, target)
+        // Show where it went: the folder it landed in opens.
+        if (target) setOpen(target, true)
+      } else onMoveProjects(dragged.projects, target)
+    }
+    endDrag()
+  }
+  /**
+   * What makes something a place to drop on. `null` is the top of the tree.
+   * `opensAfterRest` is a closed tree row's id: resting on it opens it, which
+   * is how a folder three levels down is reached in one drag.
+   */
+  const dropZone = (target: string | null, opensAfterRest?: string) => {
+    const key = rowKey(target)
     return {
       onDragOver: (e: React.DragEvent) => {
-        if (!canDrop(dragged, target)) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'move'
-        if (dropOver !== key) setDropOver(key)
+        const verdict = verdictOf(dragged, target)
+        if (!verdict) return
+        if (verdict === 'move') {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+        }
+        if (dropOver?.key !== key || dropOver.verdict !== verdict) setDropOver({ key, verdict })
+        const isCarried = dragged != null && 'folder' in dragged && dragged.folder === opensAfterRest
+        if (opensAfterRest && verdict !== 'refused' && !isCarried && hoverOpen.current?.id !== opensAfterRest) {
+          disarmHoverOpen()
+          const id = opensAfterRest
+          hoverOpen.current = {
+            id,
+            timer: setTimeout(() => {
+              hoverOpen.current = null
+              setOpen(id, true)
+            }, HOVER_OPEN_MS),
+          }
+        }
       },
       onDragLeave: (e: React.DragEvent) => {
-        if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) setDropOver(null)
+        if ((e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) return
+        if (opensAfterRest) disarmHoverOpen(opensAfterRest)
+        setDropOver((prev) => (prev?.key === key ? null : prev))
       },
       onDrop: (e: React.DragEvent) => {
         e.preventDefault()
@@ -329,7 +449,9 @@ export default function ProjectsHome({
       },
     }
   }
-  const dropLit = (target: string | null) => dropOver === (target ?? 'root') && dragged != null
+  /** What dropping on this place would do, while a drag is over it. */
+  const dropAt = (target: string | null): DropVerdict | null =>
+    dragged != null && dropOver?.key === rowKey(target) ? dropOver.verdict : null
   const startDrag = (e: React.DragEvent, what: Dragged) => {
     // Firefox starts no drag without data, and the data is never read.
     e.dataTransfer.setData('text/plain', '')
@@ -338,13 +460,30 @@ export default function ProjectsHome({
   }
   const dragProject = (p: Project) => ({
     draggable: true,
-    onDragStart: (e: React.DragEvent) =>
-      startDrag(e, { projects: picked.has(p.id) ? [...picked] : [p.id] }),
-    onDragEnd: () => {
-      setDragged(null)
-      setDropOver(null)
+    onDragStart: (e: React.DragEvent) => {
+      const ids = picked.has(p.id) ? [...picked] : [p.id]
+      const places = ids.map((id) => {
+        const q = projects.find((x) => x.id === id)
+        return q ? placeOf(q, tree) : null
+      })
+      startDrag(e, { projects: ids, places })
     },
+    onDragEnd: endDrag,
   })
+  const dragFolder = (id: string) => ({
+    draggable: renamingId !== id,
+    onDragStart: (e: React.DragEvent) => {
+      e.stopPropagation()
+      startDrag(e, { folder: id })
+    },
+    onDragEnd: endDrag,
+  })
+  /** Dimmed while it is the thing being carried. */
+  const carried = (what: { project: string } | { folder: string }) =>
+    dragged != null &&
+    ('folder' in what
+      ? 'folder' in dragged && dragged.folder === what.folder
+      : 'projects' in dragged && dragged.projects.includes(what.project))
 
   const movingTitle = useMemo(() => {
     if (!moving) return ''
@@ -372,6 +511,71 @@ export default function ProjectsHome({
   const confirmDeleteFolder = (f: Folder) => {
     if (confirm(t('projects.deleteFolderConfirm', { name: f.name }))) onDeleteFolder(f.id)
   }
+
+  // ---- the tree's own gestures -------------------------------------------
+
+  const focusRow = (key: string) => {
+    // A frame later: the row may only just have been rendered (a folder opened,
+    // a rename input replaced by the name again).
+    requestAnimationFrame(() => rowRefs.current.get(key)?.focus())
+  }
+
+  /** Set once the rename has been settled, so the blur that follows cannot settle it twice. */
+  const renameSettled = useRef(false)
+  const startRename = (id: string) => {
+    renameSettled.current = false
+    setRenamingId(id)
+  }
+  const finishRename = (id: string, value: string | null) => {
+    if (renameSettled.current) return
+    renameSettled.current = true
+    const clean = value === null ? null : cleanFolderName(value)
+    const before = tree.get(id)?.name
+    if (clean && clean !== before) onRenameFolder(id, clean)
+    setRenamingId(null)
+    focusRow(id)
+  }
+
+  const openRowMenu = (id: string | null, e: React.MouseEvent | { currentTarget: Element }) => {
+    // The menu key and Shift+F10 arrive as a contextmenu event at (0, 0): put
+    // the menu under the row instead of in the window's corner.
+    const fromPointer = 'clientX' in e && (e.clientX !== 0 || e.clientY !== 0)
+    const rect = (e.currentTarget as Element).getBoundingClientRect()
+    setRowMenu({
+      id,
+      x: fromPointer ? (e as React.MouseEvent).clientX : rect.left + 16,
+      y: fromPointer ? (e as React.MouseEvent).clientY : rect.bottom,
+    })
+  }
+  const closeRowMenu = (refocus: boolean) => {
+    const id = rowMenu?.id
+    setRowMenu(null)
+    if (refocus && id !== undefined) focusRow(rowKey(id))
+  }
+
+  const onRowKey = (e: React.KeyboardEvent, row: TreeRow) => {
+    // Keys typed in the rename field are the field's.
+    if (e.target !== e.currentTarget) return
+    if (e.key === 'F2' && row.id) {
+      e.preventDefault()
+      startRename(row.id)
+      return
+    }
+    const action = treeKeyAction(rows, row.id, e.key)
+    if (!action) return
+    e.preventDefault()
+    if ('focus' in action) focusRow(rowKey(action.focus))
+    else if ('open' in action) setOpen(action.open, true)
+    else if ('close' in action) setOpen(action.close, false)
+    else go(action.go)
+  }
+
+  /** The row holding the tab stop: the one last focused, else where you are. */
+  const tabKey = (() => {
+    const keys = new Set(rows.map((r) => rowKey(r.id)))
+    if (focusKey && keys.has(focusKey)) return focusKey
+    return keys.has(rowKey(cwd)) ? rowKey(cwd) : 'root'
+  })()
 
   // Real screenshots, keyed by the id of the screen they show.
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
@@ -446,46 +650,194 @@ export default function ProjectsHome({
     for (const p of empties) onDelete(p.id)
   }
 
-  const renderTree = (parent: string | null, depth: number): React.ReactNode =>
-    tree.children(parent).map((f) => {
-      const kids = tree.children(f.id).length > 0
-      const open = opened.has(f.id) || openPath.has(f.id)
+  // ---- the side tree ------------------------------------------------------
+  //
+  // One flat list of rows with `aria-level`, not nested lists: the keyboard
+  // walks rows in the order they are drawn, and the placeholder of a drop can
+  // be slotted between any two of them.
+
+  const indent = (depth: number) => 4 + Math.max(0, depth - 1) * 14
+
+  /** Where a folder being dragged would land among the rows on show. */
+  const ghost = (() => {
+    if (!dragged || !('folder' in dragged) || dropOver?.verdict !== 'move') return null
+    const target = dropOver.key === 'root' ? null : dropOver.key
+    const moving = tree.get(dragged.folder)
+    if (!moving) return null
+    const index = insertionIndex(rows, tree, target, moving)
+    if (index === null) return null
+    const depth = (rows.find((r) => r.id === target)?.depth ?? 0) + 1
+    return { index, depth, target, name: moving.name }
+  })()
+
+  const renderGhost = (g: NonNullable<typeof ghost>) => (
+    // A drop zone for the same target: resting on the placeholder must not
+    // make it vanish and the rows below it jump back up under the cursor.
+    <div key="ghost" aria-hidden {...dropZone(g.target)} style={{ paddingLeft: indent(g.depth) }} className="flex min-h-8 items-center pr-1">
+      <span className="w-5 shrink-0" />
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-dashed border-accent px-1.5 py-0.5 text-body-sm text-accent-ink">
+        <Icon name="folder" size={13} className="shrink-0" />
+        <span className="truncate">{g.name}</span>
+      </span>
+    </div>
+  )
+
+  /** Count, or what a drop here would do while a drag is over the row. */
+  const rowTail = (target: string | null, count: number) => {
+    const verdict = dropAt(target)
+    if (verdict === 'move')
+      return <span aria-hidden className="shrink-0 px-1 font-mono text-caption text-accent-ink">{t('projects.dropHere')}</span>
+    if (verdict === 'refused')
+      return <span aria-hidden className="shrink-0 px-1 font-mono text-caption text-danger">{t('projects.dropRefused')}</span>
+    return <span aria-hidden className="shrink-0 px-1 font-mono text-caption text-ink-faint">{count}</span>
+  }
+
+  /** `+` and `⋯`: on hover and focus with a mouse, always under a finger. */
+  const rowActions = (id: string | null) =>
+    !dragged &&
+    renamingId !== id && (
+      <span className="hidden shrink-0 items-center group-hover:flex group-focus-visible:flex pointer-coarse:flex">
+        <IconButton
+          label={id ? t('projects.newSubfolder') : t('projects.newFolder')}
+          variant="quiet"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation()
+            setNaming({ create: id })
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+          className="text-ink-faint hover:text-accent-ink"
+        >
+          <Icon name="plus" size={14} />
+        </IconButton>
+        <IconButton
+          label={t('projects.folderActions')}
+          variant="quiet"
+          tabIndex={-1}
+          aria-haspopup="menu"
+          onClick={(e) => {
+            e.stopPropagation()
+            openRowMenu(id, e)
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+          className="text-ink-faint hover:text-accent-ink"
+        >
+          <Icon name="more" size={14} />
+        </IconButton>
+      </span>
+    )
+
+  const rowProps = (row: TreeRow) => {
+    const key = rowKey(row.id)
+    return {
+      role: 'treeitem',
+      ref: (el: HTMLDivElement | null) => {
+        if (el) rowRefs.current.set(key, el)
+        else rowRefs.current.delete(key)
+      },
+      'aria-level': row.depth + 1,
+      'aria-expanded': row.id !== null && row.hasKids ? row.open : undefined,
+      'aria-selected': row.id === cwd && !(row.id === null && searching),
+      tabIndex: tabKey === key ? 0 : -1,
+      onFocus: (e: React.FocusEvent) => {
+        if (e.target === e.currentTarget) setFocusKey(key)
+      },
+      onKeyDown: (e: React.KeyboardEvent) => onRowKey(e, row),
+      onClick: () => go(row.id),
+      onContextMenu: (e: React.MouseEvent) => {
+        e.preventDefault()
+        openRowMenu(row.id, e)
+      },
+    }
+  }
+
+  const renderRow = (row: TreeRow) => {
+    if (row.id === null) {
+      const here = cwd === null && !searching
       return (
-        <li key={f.id}>
-          <div
-            {...dropZone(f.id)}
-            style={{ paddingLeft: 4 + depth * 14 }}
-            className={`flex items-center gap-0.5 rounded-md pr-1 transition ${
-              dropLit(f.id) ? 'bg-accent/20' : cwd === f.id ? 'bg-ink/10' : 'hover:bg-ink/5'
-            }`}
-          >
-            {kids ? (
-              <button
-                type="button"
-                onClick={() => toggleOpen(f.id)}
-                aria-expanded={open}
-                aria-label={f.name}
-                className="flex h-6 w-5 shrink-0 items-center justify-center text-ink-faint"
-              >
-                <Icon name={open ? 'chevronDown' : 'chevronRight'} size={12} />
-              </button>
-            ) : (
-              <span className="w-5 shrink-0" />
-            )}
-            <button
-              type="button"
-              onClick={() => go(f.id)}
-              aria-current={cwd === f.id ? 'true' : undefined}
-              className={`min-w-0 flex-1 truncate py-1 text-left text-body-sm ${cwd === f.id ? 'text-ink' : 'text-ink-muted'}`}
-              title={f.name}
-            >
-              {f.name}
-            </button>
-          </div>
-          {kids && open && <ul>{renderTree(f.id, depth + 1)}</ul>}
-        </li>
+        <div
+          key="root"
+          {...rowProps(row)}
+          {...dropZone(null)}
+          aria-label={`${t('projects.allProjects')}, ${t('projects.treeCount', { count: projects.length })}`}
+          className={`group flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-1 text-body-sm outline-offset-[-2px] transition ${
+            dropTone(dropAt(null)) || (here ? 'bg-ink/10 text-ink' : 'text-ink-muted hover:bg-ink/5')
+          }`}
+        >
+          <Icon name="grid" size={15} className="ml-0.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{t('projects.allProjects')}</span>
+          {rowTail(null, projects.length)}
+          {rowActions(null)}
+        </div>
       )
-    })
+    }
+    const f = tree.get(row.id)
+    if (!f) return null
+    const here = cwd === f.id
+    const count = stats.get(f.id)?.projects ?? 0
+    return (
+      <div
+        key={f.id}
+        {...rowProps(row)}
+        {...dragFolder(f.id)}
+        {...dropZone(f.id, row.hasKids && !row.open ? f.id : undefined)}
+        aria-label={`${f.name}, ${t('projects.treeCount', { count })}`}
+        onDoubleClick={() => startRename(f.id)}
+        title={f.name}
+        style={{ paddingLeft: indent(row.depth) }}
+        className={`group flex min-h-8 cursor-pointer items-center gap-0.5 rounded-md pr-1 text-body-sm outline-offset-[-2px] transition ${
+          carried({ folder: f.id }) ? 'opacity-40' : ''
+        } ${dropTone(dropAt(f.id)) || (here ? 'bg-ink/10 text-ink' : 'text-ink-muted hover:bg-ink/5')}`}
+      >
+        {row.hasKids ? (
+          // The pointer's way to open a folder without going into it. Not a
+          // button: the row is the focusable thing, and the arrow keys are
+          // the keyboard's way to do the same.
+          <span
+            role="presentation"
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleOpen(f.id)
+            }}
+            onDoubleClick={(e) => e.stopPropagation()}
+            className="flex h-6 w-5 shrink-0 items-center justify-center text-ink-faint hover:text-ink"
+          >
+            <Icon name={row.open ? 'chevronDown' : 'chevronRight'} size={12} />
+          </span>
+        ) : (
+          <span className="w-5 shrink-0" />
+        )}
+        {renamingId === f.id ? (
+          <input
+            autoFocus
+            defaultValue={f.name}
+            maxLength={FOLDER_NAME_MAX}
+            aria-label={t('projects.folderName')}
+            onFocus={(e) => e.currentTarget.select()}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                finishRename(f.id, e.currentTarget.value)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                finishRename(f.id, null)
+              }
+            }}
+            onBlur={(e) => finishRename(f.id, e.currentTarget.value)}
+            className="input min-w-0 flex-1 !py-0.5 text-body-sm"
+          />
+        ) : (
+          <span className="min-w-0 flex-1 truncate py-1">{f.name}</span>
+        )}
+        {renamingId !== f.id && rowTail(f.id, count)}
+        {rowActions(f.id)}
+      </div>
+    )
+  }
+
+  const menuFolder = rowMenu?.id ? tree.get(rowMenu.id) : undefined
 
   const crumbs = cwd ? tree.pathOf(cwd) : []
   const subfolders = searching ? [] : tree.children(cwd)
@@ -529,7 +881,37 @@ export default function ProjectsHome({
               />
             </label>
           )}
-          <Button variant="ghost" onClick={() => setNaming({ create: true })}>
+          {/* Two toggles for two answers (see SHELF_KEY): each one only exists
+              at the widths whose shelf it governs. */}
+          <span className="lg:hidden">
+            <Button
+              variant="ghost"
+              active={shelf.narrow}
+              aria-pressed={undefined}
+              aria-expanded={shelf.narrow}
+              aria-controls="projects-shelf"
+              onClick={() => toggleShelf('narrow')}
+            >
+              <Icon name="list" size={16} />
+              {t('projects.folders')}
+            </Button>
+          </span>
+          <span className="hidden lg:inline">
+            <IconButton
+              label={shelf.wide ? t('projects.hideFolders') : t('projects.showFolders')}
+              variant="ghost"
+              size="md"
+              active={shelf.wide}
+              aria-pressed={undefined}
+              aria-expanded={shelf.wide}
+              aria-controls="projects-shelf"
+              onClick={() => toggleShelf('wide')}
+              className="!w-9"
+            >
+              <Icon name="list" size={16} />
+            </IconButton>
+          </span>
+          <Button variant="ghost" onClick={() => setNaming({ create: cwd })}>
             <Icon name="folder" size={16} />
             {t('projects.newFolder')}
           </Button>
@@ -589,26 +971,26 @@ export default function ProjectsHome({
       )}
 
 
-      <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-        {/* The whole shelf, always visible: a place to go and a place to drop. */}
-        <nav aria-label={t('projects.folders')} className="hidden lg:block">
-          <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-            <div
-              {...dropZone(null)}
-              className={`flex items-center rounded-md px-1 transition ${
-                dropLit(null) ? 'bg-accent/20' : cwd === null && !searching ? 'bg-ink/10' : 'hover:bg-ink/5'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => go(null)}
-                className={`flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left text-body-sm ${cwd === null ? 'text-ink' : 'text-ink-muted'}`}
-              >
-                <Icon name="grid" size={15} />
-                {t('projects.allProjects')}
-              </button>
+      <div className={`grid gap-6 lg:gap-8 ${shelf.wide ? 'lg:grid-cols-[240px_minmax(0,1fr)]' : ''}`}>
+        {/* The whole shelf: a place to go and a place to drop. A panel under
+            the header on a narrow window, a sidebar from `lg`; either can be
+            put away, and each remembers it for this viewer. */}
+        <nav
+          id="projects-shelf"
+          aria-label={t('projects.folders')}
+          className={`${shelf.narrow ? 'block' : 'hidden'} ${shelf.wide ? 'lg:block' : 'lg:hidden'} rounded-xl border border-line bg-surface p-1.5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0`}
+        >
+          <div className="max-h-[60vh] overflow-y-auto lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
+            <div role="tree" aria-label={t('projects.folders')} className="flex flex-col gap-px">
+              {rows.flatMap((row, i) => {
+                const drawn = renderRow(row)
+                return ghost && ghost.index === i ? [renderGhost(ghost), drawn] : [drawn]
+              })}
+              {ghost && ghost.index === rows.length && renderGhost(ghost)}
             </div>
-            {folders.length > 0 && <ul className="mt-1">{renderTree(null, 0)}</ul>}
+            {tree.all.length === 0 && (
+              <p className="px-1.5 pt-2 text-body-sm text-ink-faint">{t('projects.treeEmptyHint')}</p>
+            )}
           </div>
         </nav>
 
@@ -619,7 +1001,7 @@ export default function ProjectsHome({
               type="button"
               {...dropZone(null)}
               onClick={() => go(null)}
-              className={`rounded px-1.5 py-0.5 transition ${dropLit(null) ? 'bg-accent/20' : 'hover:bg-ink/5'} ${cwd === null ? 'text-ink' : 'text-ink-muted'}`}
+              className={`rounded px-1.5 py-0.5 transition ${dropTone(dropAt(null)) || 'hover:bg-ink/5'} ${cwd === null ? 'text-ink' : 'text-ink-muted'}`}
             >
               {t('projects.allProjects')}
             </button>
@@ -631,7 +1013,7 @@ export default function ProjectsHome({
                   {...dropZone(f.id)}
                   onClick={() => go(f.id)}
                   aria-current={i === crumbs.length - 1 ? 'page' : undefined}
-                  className={`rounded px-1.5 py-0.5 transition ${dropLit(f.id) ? 'bg-accent/20' : 'hover:bg-ink/5'} ${i === crumbs.length - 1 ? 'text-ink' : 'text-ink-muted'}`}
+                  className={`rounded px-1.5 py-0.5 transition ${dropTone(dropAt(f.id)) || 'hover:bg-ink/5'} ${i === crumbs.length - 1 ? 'text-ink' : 'text-ink-muted'}`}
                 >
                   {f.name}
                 </button>
@@ -707,6 +1089,25 @@ export default function ProjectsHome({
                   {t('projects.open')}
                   <Icon name="chevronRight" size={16} />
                 </Button>
+                {/* Every card says where else it can go: a finger has no drag. */}
+                <IconButton
+                  label={t('projects.fileProject', { name: headline(shownProjectName(lead.name, t('projects.untitled'))) })}
+                  variant="quiet"
+                  onClick={() => setMoving({ project: lead.id })}
+                  className="text-ink-faint hover:text-accent-ink"
+                >
+                  <Icon name="folder" size={16} />
+                </IconButton>
+                {onSaveTemplate && (
+                  <IconButton
+                    label={t('templates.saveProject', { name: headline(shownProjectName(lead.name, t('projects.untitled'))) })}
+                    variant="quiet"
+                    onClick={() => onSaveTemplate(lead.id)}
+                    className="text-ink-faint hover:text-accent-ink"
+                  >
+                    <Icon name="copy" size={16} />
+                  </IconButton>
+                )}
                 <IconButton
                   label={t('projects.delete')}
                   variant="quiet"
@@ -743,15 +1144,16 @@ export default function ProjectsHome({
               return (
                 <article
                   key={f.id}
-                  draggable
-                  onDragStart={(e) => startDrag(e, { folder: f.id })}
-                  onDragEnd={() => {
-                    setDragged(null)
-                    setDropOver(null)
-                  }}
+                  {...dragFolder(f.id)}
                   {...dropZone(f.id)}
                   className={`group flex min-w-0 flex-col overflow-hidden rounded-xl border bg-surface transition ${
-                    dropLit(f.id) ? 'border-accent ring-1 ring-accent' : 'border-line hover:border-ink/25 focus-within:border-ink/25'
+                    carried({ folder: f.id }) ? 'opacity-40' : ''
+                  } ${
+                    dropAt(f.id) === 'move'
+                      ? 'border-accent ring-1 ring-accent'
+                      : dropAt(f.id) === 'refused'
+                        ? 'cursor-no-drop border-danger/60 ring-1 ring-danger/40'
+                        : 'border-line hover:border-ink/25 focus-within:border-ink/25'
                   }`}
                 >
                   <div onClick={() => go(f.id)} aria-hidden className="cursor-pointer">
@@ -814,7 +1216,9 @@ export default function ProjectsHome({
                 <article
                   key={p.id}
                   {...dragProject(p)}
-                  className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface transition hover:border-ink/25 focus-within:border-ink/25"
+                  className={`group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface transition hover:border-ink/25 focus-within:border-ink/25 ${
+                    carried({ project: p.id }) ? 'opacity-40' : ''
+                  }`}
                 >
                   {/* Decoration, not a control — the name already opens the
                       project. See the note on the lead's picture. */}
@@ -862,6 +1266,16 @@ export default function ProjectsHome({
                       >
                         <Icon name="folder" size={16} />
                       </IconButton>
+                      {onSaveTemplate && (
+                        <IconButton
+                          label={t('templates.saveProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
+                          variant="quiet"
+                          onClick={() => onSaveTemplate(p.id)}
+                          className="text-ink-faint hover:text-accent-ink"
+                        >
+                          <Icon name="copy" size={16} />
+                        </IconButton>
+                      )}
                       <IconButton
                         label={t('projects.delete')}
                         variant="quiet"
@@ -923,6 +1337,15 @@ export default function ProjectsHome({
                 <span className="font-mono text-caption text-ink-faint">{timeAgo(p.updatedAt)}</span>
                 <button
                   type="button"
+                  onClick={() => setMoving({ project: p.id })}
+                  aria-label={t('projects.fileProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
+                  title={t('projects.fileProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
+                  className="py-1 pl-1 text-ink-faint transition hover:text-accent-ink"
+                >
+                  <Icon name="folder" size={14} />
+                </button>
+                <button
+                  type="button"
                   onClick={() => confirmDelete(p)}
                   aria-label={t('projects.delete')}
                   className="px-2 py-1 text-ink-faint transition hover:text-danger"
@@ -961,18 +1384,191 @@ export default function ProjectsHome({
 
       {naming && (
         <NameDialog
-          title={'create' in naming ? t('projects.newFolder') : t('projects.renameFolder')}
+          title={
+            'rename' in naming
+              ? t('projects.renameFolder')
+              : naming.create && tree.get(naming.create)
+                ? t('projects.newFolderIn', { name: tree.get(naming.create)?.name ?? '' })
+                : t('projects.newFolder')
+          }
           initial={'rename' in naming ? naming.rename.name : ''}
           action={'create' in naming ? t('projects.createFolder') : t('projects.renameFolder')}
           onSubmit={(name) => {
-            if ('create' in naming) onCreateFolder(name, cwd)
-            else onRenameFolder(naming.rename.id, name)
+            if ('create' in naming) {
+              onCreateFolder(name, naming.create)
+              // The new folder is shown where it was made, not hidden under a closed parent.
+              if (naming.create) setOpen(naming.create, true)
+            } else onRenameFolder(naming.rename.id, name)
             setNaming(null)
           }}
           onClose={() => setNaming(null)}
         />
       )}
+
+      {rowMenu && (
+        <RowMenu
+          x={rowMenu.x}
+          y={rowMenu.y}
+          label={menuFolder ? menuFolder.name : t('projects.allProjects')}
+          onClose={closeRowMenu}
+        >
+          {menuFolder ? (
+            <>
+              <RowMenuItem
+                icon="plus"
+                label={t('projects.newSubfolder')}
+                onClick={() => {
+                  closeRowMenu(false)
+                  setNaming({ create: menuFolder.id })
+                }}
+              />
+              <RowMenuItem
+                icon="pencil"
+                label={t('projects.renameFolder')}
+                hint="F2"
+                onClick={() => {
+                  closeRowMenu(false)
+                  startRename(menuFolder.id)
+                }}
+              />
+              <RowMenuItem
+                icon="folder"
+                label={t('projects.moveFolderEllipsis')}
+                onClick={() => {
+                  closeRowMenu(false)
+                  setMoving({ folder: menuFolder.id })
+                }}
+              />
+              <div className="my-1 border-t border-line-soft" role="separator" />
+              <RowMenuItem
+                icon="trash"
+                label={t('projects.deleteFolder')}
+                danger
+                onClick={() => {
+                  closeRowMenu(false)
+                  confirmDeleteFolder(menuFolder)
+                }}
+              />
+            </>
+          ) : (
+            <RowMenuItem
+              icon="plus"
+              label={t('projects.newFolder')}
+              onClick={() => {
+                closeRowMenu(false)
+                setNaming({ create: null })
+              }}
+            />
+          )}
+        </RowMenu>
+      )}
     </div>
+  )
+}
+
+/**
+ * A tree row's menu. Kept to the page rather than shared with the canvas's:
+ * four entries, and its keyboard contract (arrows inside, Escape back to the
+ * row it came from) is the tree's own.
+ */
+function RowMenu({
+  x,
+  y,
+  label,
+  onClose,
+  children,
+}: {
+  x: number
+  y: number
+  label: string
+  /** `true` when focus should go back to the row (Escape, Tab). */
+  onClose: (refocus: boolean) => void
+  children: React.ReactNode
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ left: x, top: y })
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    const M = 8
+    const up = y + height + M > window.innerHeight && y - height - M > 0
+    setPos({
+      left: Math.max(M, Math.min(x, window.innerWidth - width - M)),
+      top: up ? y - height : Math.max(M, Math.min(y, window.innerHeight - height - M)),
+    })
+    el.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+  }, [x, y])
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const items = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
+    const i = items.indexOf(document.activeElement as HTMLElement)
+    if (e.key === 'Escape' || e.key === 'Tab') {
+      e.preventDefault()
+      onClose(true)
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      items[(i + step + items.length) % items.length]?.focus()
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault()
+      items[e.key === 'Home' ? 0 : items.length - 1]?.focus()
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-menu"
+        onClick={() => onClose(false)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          onClose(false)
+        }}
+      />
+      <div
+        ref={ref}
+        role="menu"
+        aria-label={label}
+        onKeyDown={onKeyDown}
+        className="menu-in fixed z-menu w-max min-w-[13rem] max-w-[min(20rem,calc(100vw-1rem))] rounded-lg border border-line bg-raised p-1 text-body-sm text-ink shadow-2xl"
+        style={{ left: pos.left, top: pos.top }}
+      >
+        {children}
+      </div>
+    </>
+  )
+}
+
+function RowMenuItem({
+  icon,
+  label,
+  hint,
+  danger = false,
+  onClick,
+}: {
+  icon: React.ComponentProps<typeof Icon>['name']
+  label: string
+  /** A shortcut, printed at the end of the row. */
+  hint?: string
+  danger?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
+      onClick={onClick}
+      className={`flex min-h-8 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-body-sm transition hover:bg-ink/5 focus-visible:bg-ink/5 ${
+        danger ? 'text-ink hover:text-danger' : 'text-ink hover:text-accent-ink'
+      }`}
+    >
+      <Icon name={icon} size={15} className="shrink-0 text-ink-muted" />
+      <span className="min-w-0 flex-1">{label}</span>
+      {hint && <span className="font-mono text-caption text-ink-faint">{hint}</span>}
+    </button>
   )
 }
 

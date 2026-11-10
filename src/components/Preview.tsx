@@ -8,7 +8,7 @@ import type { Capability } from '../lib/capabilities/types'
 import { DOC_PAGES_MESSAGE } from '../lib/pageFormats'
 import { flowStateScript } from '../lib/flows'
 import { fontFaceCssFor } from '../lib/fonts'
-import { PICK_SOURCE_PLUGIN, readPickedSource, type PickedSource } from '../lib/screenElements'
+import { PICK_SOURCE_PLUGIN, readMoveRequest, readPickedSource, type MoveRequest, type PickedSource } from '../lib/screenElements'
 
 export interface PickInfo {
   selector: string
@@ -486,17 +486,188 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     function setMarks(selectors) {
       for (var i = 0; i < marked.length; i++) { marked[i].style.outline = ''; marked[i].style.outlineOffset = ''; }
       marked = [];
+      var info = [];
       for (var j = 0; j < selectors.length; j++) {
         var el = null; try { el = document.querySelector(selectors[j]); } catch (_) {}
-        if (el) { el.style.outline = '2px solid #d946ef'; el.style.outlineOffset = '1px'; marked.push(el); }
+        if (el) { el.style.outline = '2px solid #d946ef'; el.style.outlineOffset = '1px'; marked.push(el); info.push({ selector: selectors[j], source: sourceChain(el) }); }
       }
+      // A selection outlives the document it was made in: after a move the
+      // screen is a new document, and the chains the parent holds name the old
+      // one. These are the chains of what is outlined NOW.
+      if (info.length && mode === 'pick') post('marks', { items: info });
+    }
+    /*
+     * Moving an element by dragging it (lib/screenElements.ts, planMove).
+     *
+     * Only what the DOM knows is decided here — which sibling, which side,
+     * which grid cell — and only chains travel, never offsets: the parent
+     * resolves both ends on the stored code and refuses what it cannot write.
+     * A press that does not travel stays a click, so picking is unchanged.
+     * The dragged element is the selected one when the press lands inside it;
+     * otherwise the hovered one, or its nearest ancestor that HAS siblings — an
+     * only child has nowhere to go, and a press on a card's text means the card.
+     */
+    var pickMove = false, press = null, drag = null, dropHl = null, pressDragged = false, swallowClick = false;
+    function siblingsOf(el) {
+      var p = el.parentElement, out = [];
+      if (!p) return out;
+      for (var i = 0; i < p.children.length; i++) {
+        var c = p.children[i];
+        if (c === el || c === hl || c === dropHl || /^(SCRIPT|STYLE|TEMPLATE|LINK|META)$/.test(c.tagName)) continue;
+        var r = c.getBoundingClientRect();
+        if (r.width > 0 || r.height > 0) out.push(c);
+      }
+      return out;
+    }
+    function dragSource(el) {
+      for (var i = 0; i < marked.length; i++) { if (marked[i] === el || marked[i].contains(el)) return marked[i]; }
+      var n = pickTarget(el);
+      while (n && n.parentElement && n.parentElement !== document.body && !siblingsOf(n).length) n = n.parentElement;
+      if (!n || !n.parentElement || n.parentElement === document.body || !siblingsOf(n).length) return null;
+      return sourceChain(n).length ? n : null;
+    }
+    // Grid tracks as the browser resolved them: px sizes, line names dropped.
+    function tracks(v) {
+      var out = [], parts = String(v || '').replace(/\\[[^\\]]*\\]/g, ' ').trim().split(/\\s+/);
+      for (var i = 0; i < parts.length; i++) { var n = parseFloat(parts[i]); if (n > 0) out.push(n); }
+      return out;
+    }
+    function gridOf(p) {
+      var cs = getComputedStyle(p);
+      if (cs.display.indexOf('grid') < 0) return null;
+      var cols = tracks(cs.gridTemplateColumns), rows = tracks(cs.gridTemplateRows);
+      if (!cols.length || !rows.length) return null;
+      var r = p.getBoundingClientRect();
+      return { cols: cols, rows: rows, cg: parseFloat(cs.columnGap) || 0, rg: parseFloat(cs.rowGap) || 0,
+        x: r.left + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0) - p.scrollLeft,
+        y: r.top + (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.paddingTop) || 0) - p.scrollTop };
+    }
+    function trackAt(list, g, s, v) { for (var i = 0; i < list.length; i++) { if (v >= s && v < s + list[i]) return i + 1; s += list[i] + g; } return 0; }
+    function trackEdge(list, g, s, i, end) { for (var k = 0; k < i - 1; k++) s += list[k] + g; return end ? s + list[i - 1] : s; }
+    // How many tracks the element covers: those whose middle it contains.
+    function spanOf(list, g, s, a, b) { var n = 0; for (var i = 0; i < list.length; i++) { var c = s + list[i] / 2; if (c >= a && c <= b) n++; s += list[i] + g; } return n || 1; }
+    function showDrop(x, y, w, h, cell) {
+      if (!dropHl) { dropHl = document.createElement('div'); dropHl.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;border-radius:3px;box-sizing:border-box'; document.body.appendChild(dropHl); }
+      dropHl.style.background = cell ? 'rgba(217,70,239,0.14)' : '#d946ef';
+      dropHl.style.border = cell ? '2px dashed #d946ef' : 'none';
+      dropHl.style.display = 'block'; dropHl.style.left = x + 'px'; dropHl.style.top = y + 'px'; dropHl.style.width = w + 'px'; dropHl.style.height = h + 'px';
+    }
+    function hideDrop() { if (dropHl) dropHl.style.display = 'none'; }
+    function startDrag() {
+      var el = dragSource(press.target);
+      press = null;
+      if (!el) return;
+      var p = el.parentElement, g = gridOf(p), cs = getComputedStyle(p), axis = 'y', rev = false, r = el.getBoundingClientRect();
+      if (g) axis = cs.gridAutoFlow.indexOf('column') >= 0 ? 'y' : 'x';
+      else if (cs.display.indexOf('flex') >= 0) { axis = cs.flexDirection.indexOf('row') === 0 ? 'x' : 'y'; rev = cs.flexDirection.indexOf('reverse') > 0; }
+      else if (getComputedStyle(el).display.indexOf('inline') === 0) axis = 'x';
+      drag = { el: el, sibs: siblingsOf(el), grid: g, axis: axis, rev: rev, to: null, before: false, cell: null,
+        opacity: el.style.opacity, select: document.documentElement.style.userSelect,
+        cs: g ? spanOf(g.cols, g.cg, g.x, r.left, r.right) : 1, rs: g ? spanOf(g.rows, g.rg, g.y, r.top, r.bottom) : 1 };
+      pressDragged = true;
+      el.style.opacity = '0.45';
+      document.documentElement.style.userSelect = 'none';
+      try { window.getSelection().removeAllRanges(); } catch (_) {}
+      hideHl();
+    }
+    function endDrag() {
+      if (!drag) return;
+      drag.el.style.opacity = drag.opacity;
+      document.documentElement.style.userSelect = drag.select;
+      hideDrop();
+      drag = null;
+    }
+    // Where a drop at (x, y) would go: a grid cell nothing occupies, or a side of the nearest sibling.
+    function aim(x, y) {
+      drag.to = null; drag.cell = null;
+      var self = drag.el.getBoundingClientRect();
+      if (x >= self.left && x <= self.right && y >= self.top && y <= self.bottom) { hideDrop(); return; }
+      var near = null, best = Infinity;
+      for (var i = 0; i < drag.sibs.length; i++) {
+        var r = drag.sibs[i].getBoundingClientRect();
+        var dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0, dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+        if (dx * dx + dy * dy < best) { best = dx * dx + dy * dy; near = { el: drag.sibs[i], r: r }; }
+      }
+      var g = drag.grid;
+      if (g && best > 0) {
+        var col = trackAt(g.cols, g.cg, g.x, x), row = trackAt(g.rows, g.rg, g.y, y);
+        if (col && row) {
+          col = Math.max(1, Math.min(col, g.cols.length - drag.cs + 1));
+          var c2 = Math.min(col + drag.cs - 1, g.cols.length), r2 = Math.min(row + drag.rs - 1, g.rows.length);
+          var x0 = trackEdge(g.cols, g.cg, g.x, col, false), y0 = trackEdge(g.rows, g.rg, g.y, row, false);
+          drag.cell = { col: col, row: row, colSpan: drag.cs, rowSpan: drag.rs };
+          showDrop(x0, y0, trackEdge(g.cols, g.cg, g.x, c2, true) - x0, trackEdge(g.rows, g.rg, g.y, r2, true) - y0, true);
+          return;
+        }
+      }
+      if (!near) { hideDrop(); return; }
+      var b = near.r, mid = drag.axis === 'x' ? x < b.left + b.width / 2 : y < b.top + b.height / 2;
+      drag.to = near.el; drag.before = drag.rev ? !mid : mid;
+      if (drag.axis === 'x') showDrop(mid ? b.left - 2 : b.right - 1, b.top, 3, b.height, false);
+      else showDrop(b.left, mid ? b.top - 2 : b.bottom - 1, b.width, 3, false);
+    }
+    // What the element's selector will be once the screen has re-rendered with it there.
+    function selectorAfter(el, to, before) {
+      var p = el.parentNode, next = el.nextSibling, out = '';
+      try { p.insertBefore(el, before ? to : to.nextSibling); out = cssPath(el); } catch (_) {}
+      try { p.insertBefore(el, next); } catch (_) {}
+      return out;
+    }
+    function postMove(el, to, before, cell, byKey) {
+      var from = sourceChain(el);
+      if (!from.length) return;
+      var m = { selector: cssPath(el), from: from, step: !!byKey };
+      if (cell) { m.grid = cell; m.after = m.selector; }
+      else { m.to = sourceChain(to); m.before = !!before; m.after = selectorAfter(el, to, before); }
+      post('move', m);
+    }
+    // Alt+Arrow: the one selected element, one sibling over.
+    function step(delta) {
+      if (marked.length !== 1) return;
+      var el = marked[0], sibs = siblingsOf(el), p = el.parentElement, all = [];
+      if (!p) return;
+      for (var i = 0; i < p.children.length; i++) { var c = p.children[i]; if (c === el || sibs.indexOf(c) >= 0) all.push(c); }
+      var to = all[all.indexOf(el) + delta];
+      if (to) postMove(el, to, delta < 0, null, true);
     }
     document.addEventListener('keydown', function (e) {
-      if (mode !== 'pick' || (e.key !== 'Delete' && e.key !== 'Backspace' && e.key !== 'Escape')) return;
+      if (mode !== 'pick') return;
+      if (drag && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); endDrag(); return; }
+      if (pickMove && e.altKey && /^Arrow(Up|Down|Left|Right)$/.test(e.key)) {
+        e.preventDefault(); step(e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1); return;
+      }
+      if (e.key !== 'Delete' && e.key !== 'Backspace' && e.key !== 'Escape') return;
       e.preventDefault(); post('pick-key', { key: e.key });
     }, true);
-    document.addEventListener('mousemove', function (e) { if (mode === 'pick') moveHl(pickTarget(e.target)); }, true);
+    document.addEventListener('mousedown', function (e) {
+      press = null; pressDragged = false;
+      if (mode !== 'pick' || !pickMove || e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey) return;
+      press = { x: e.clientX, y: e.clientY, target: e.target };
+    }, true);
+    // An image or a link would start the browser's own drag and eat the gesture.
+    document.addEventListener('dragstart', function (e) { if (mode === 'pick') e.preventDefault(); }, true);
+    document.addEventListener('mousemove', function (e) {
+      if (mode !== 'pick') return;
+      // Released outside the frame: no mouseup ever arrives in here.
+      if (drag && !(e.buttons & 1)) { endDrag(); return; }
+      if (press && !drag) {
+        if (!(e.buttons & 1)) press = null;
+        else if (Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) > 6) startDrag();
+      }
+      if (drag) { e.preventDefault(); aim(e.clientX, e.clientY); return; }
+      moveHl(pickTarget(e.target));
+    }, true);
+    document.addEventListener('mouseup', function () {
+      press = null;
+      if (pressDragged) { swallowClick = true; setTimeout(function () { swallowClick = false; }, 0); }
+      if (!drag) return;
+      var d = drag;
+      endDrag();
+      if (d.cell) postMove(d.el, null, false, d.cell, false);
+      else if (d.to) postMove(d.el, d.to, d.before, null, false);
+    }, true);
     document.addEventListener('click', function (e) {
+      if (mode === 'pick' && swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); return false; }
       if (mode === 'pick') {
         e.preventDefault(); e.stopPropagation();
         var el = pickTarget(e.target), r = el.getBoundingClientRect(), vw = window.innerWidth || 1, vh = window.innerHeight || 1;
@@ -603,7 +774,12 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       // preview into demo mode with links of its own choosing.
       if (e.source !== window.parent) return;
       var d = e.data || {};
-      if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; pickFill = d.fill !== false; pickPrecise = !!d.precise; } else if (mode === 'pick') { mode = null; hideHl(); } }
+      if (d.__mockyCmd === 'pick') {
+        if (d.on) { mode = 'pick'; pickFill = d.fill !== false; pickPrecise = !!d.precise; pickMove = !!d.move; }
+        else if (mode === 'pick') { mode = null; hideHl(); }
+        if (!d.on || !d.move) { endDrag(); press = null; pickMove = !!d.on && !!d.move; }
+      }
+      if (d.__mockyCmd === 'pick-step' && mode === 'pick' && pickMove) step(d.delta < 0 ? -1 : 1);
       if (d.__mockyCmd === 'pick-marks') { setMarks(Array.isArray(d.selectors) ? d.selectors : []); }
       if (d.__mockyCmd === 'demo') { mode = 'demo'; links = d.links || []; markLinks(); }
       // The WebGL budget, granted by the canvas. A browser keeps about sixteen
@@ -636,6 +812,10 @@ export default function Preview({
   pickMode,
   pickOutlineOnly,
   pickPrecise,
+  pickMove,
+  onMove,
+  onMarksInfo,
+  pickStep,
   gl,
   retrying,
   onPick,
@@ -663,6 +843,14 @@ export default function Preview({
   pickOutlineOnly?: boolean
   /** In pick mode, pick the exact element under the cursor (no walk-up) — used by Modify mode. */
   pickPrecise?: boolean
+  /** In pick mode, a press that travels drags the element to another place among its siblings (Modify mode). */
+  pickMove?: boolean
+  /** A drag or Alt+Arrow ended on a place: the parent plans it on the source (lib/screenElements.ts). */
+  onMove?: (move: MoveRequest) => void
+  /** The selected elements' chains, as the CURRENT document reads them. */
+  onMarksInfo?: (items: { selector: string; source?: PickedSource[] }[]) => void
+  /** Ask the frame to move the one selected element a sibling over; `nonce` makes a repeat a new request. */
+  pickStep?: { delta: -1 | 1; nonce: number } | null
   /**
    * May this screen hold a live WebGL context?
    *
@@ -735,6 +923,12 @@ export default function Preview({
   const onPickRef = useRef(onPick)
   const onPickKeyRef = useRef(onPickKey)
   onPickKeyRef.current = onPickKey
+  const onMoveRef = useRef(onMove)
+  onMoveRef.current = onMove
+  const onMarksInfoRef = useRef(onMarksInfo)
+  onMarksInfoRef.current = onMarksInfo
+  const pickMoveRef = useRef(pickMove)
+  pickMoveRef.current = pickMove
   const onNavRef = useRef(onNavigate)
   const onCaptureRectRef = useRef(onCaptureRect)
   const onErrorRef = useRef(onError)
@@ -918,6 +1112,25 @@ export default function Preview({
         onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className, source: readPickedSource(d.source), additive: d.additive === true })
       if (d.type === 'pick-key' && pickModeRef.current && (d.key === 'Delete' || d.key === 'Backspace' || d.key === 'Escape'))
         onPickKeyRef.current?.(d.key)
+      // A move is a pick that travelled, and is held to the same gate — plus
+      // the tool's own, since Link mode picks too and never moves anything.
+      // And both are dropped from a document that no longer shows the code:
+      // for the half second before a moved screen is rebuilt, the old one is
+      // still there to be dragged or Alt+Arrowed, and its ranks name places in
+      // the code BEFORE the move. Planned on the code after it, a second quick
+      // step would move a neighbour.
+      const current = srcCodeRef.current === code
+      if (d.type === 'move' && current && pickModeRef.current && pickMoveRef.current) {
+        const move = readMoveRequest(d)
+        if (move) onMoveRef.current?.(move)
+      }
+      if (d.type === 'marks' && current && pickModeRef.current && Array.isArray(d.items))
+        onMarksInfoRef.current?.(
+          d.items
+            .slice(0, 64)
+            .filter((i: unknown) => typeof (i as { selector?: unknown } | null)?.selector === 'string')
+            .map((i: { selector: string; source?: unknown }) => ({ selector: i.selector.slice(0, 600), source: readPickedSource(i.source) })),
+        )
       if (d.type === 'navigate' && demoLinksRef.current && demoLinksRef.current.length > 0) onNavRef.current?.(d.target)
       if (d.type === 'swept' && Array.isArray(d.elements)) onSweptRef.current?.(d.elements)
       // A working prototype's requests, honoured only by a holder that asked
@@ -1014,12 +1227,18 @@ export default function Preview({
   useEffect(() => {
     const win = iframeRef.current?.contentWindow
     if (!win || !ready) return
-    win.postMessage({ __mockyCmd: 'pick', on: !!pickMode, fill: !pickOutlineOnly, precise: !!pickPrecise }, '*')
+    win.postMessage({ __mockyCmd: 'pick', on: !!pickMode, fill: !pickOutlineOnly, precise: !!pickPrecise, move: !!pickMove }, '*')
     if (demoLinks && demoLinks.length) win.postMessage({ __mockyCmd: 'demo', links: demoLinks }, '*')
     // Undefined means granted — see the prop. The frame keeps the answer on
     // `window.__mockyGL` and `<Scene3D>` starts or stops on the event.
     win.postMessage({ __mockyCmd: 'gl', on: gl !== false }, '*')
-  }, [ready, pickMode, pickOutlineOnly, pickPrecise, gl, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, pickMode, pickOutlineOnly, pickPrecise, pickMove, gl, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const win = iframeRef.current?.contentWindow
+    if (!win || !ready || !pickStep) return
+    win.postMessage({ __mockyCmd: 'pick-step', delta: pickStep.delta }, '*')
+  }, [pickStep?.nonce]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const marksKey = (pickMarks ?? []).join('\u0000')
   useEffect(() => {

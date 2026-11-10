@@ -40,6 +40,7 @@ import { createShareStore } from './share.js'
 import { createVersionStore } from './versions.js'
 import { createThumbStore } from './thumbs.js'
 import { createCreationStore } from './creations.js'
+import { createTemplateStore } from './templates.js'
 import { createReviewStore, publicScreen } from './reviews.js'
 import { mergeStoredFolders, mergeStoredProjects } from './merge.js'
 import { createDataEvents } from './data-events.js'
@@ -140,6 +141,8 @@ const diskBudget = createDiskBudget({
     path.join(DATA_DIR, 'versions'),
     path.join(DATA_DIR, 'thumbs'),
     path.join(DATA_DIR, 'creations'),
+    // Project templates (server/templates.js): a copy of a project's screens.
+    path.join(DATA_DIR, 'templates'),
   ],
 })
 
@@ -250,6 +253,7 @@ const shares = createShareStore(DATA_DIR)
 const versions = createVersionStore(DATA_DIR, { budget: diskBudget })
 const thumbs = createThumbStore(DATA_DIR, { budget: diskBudget })
 const creations = createCreationStore(DATA_DIR, { budget: diskBudget })
+const templates = createTemplateStore(DATA_DIR, { budget: diskBudget })
 const reviews = createReviewStore(DATA_DIR)
 const dataEvents = createDataEvents()
 const runnerAuth = createRunnerAuth()
@@ -2001,6 +2005,7 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   versions.removeAllFor(id)
   thumbs.removeAllFor(id)
   creations.removeAllFor(id)
+  templates.removeAllFor(id)
   // And their review links: a client's page must not outlive the account either.
   reviews.revokeAllFor(id)
   // And the assistants it let in: a token must not outlive its account.
@@ -2110,6 +2115,48 @@ app.post('/api/creations', requireUser, authRateLimit(30, 60_000, 'creations'), 
 app.delete('/api/creations/:id', requireUser, (req, res) => {
   const removed = creations.remove(req.user.id, req.params.id)
   if (!removed) return res.status(404).json({ error: 'Creation not found.' })
+  res.json({ removed })
+})
+
+// ---- project templates (server/templates.js) ----
+//
+// Not gated by plan: keeping a copy of one's own work bills nothing, and a
+// template becomes a project without a model call. Writes fall under
+// maintenance's method rule like every other route.
+const templateError = (res, err) =>
+  res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+
+app.get('/api/templates', requireUser, (req, res) => {
+  res.json({ templates: templates.list(req.user.id) })
+})
+
+app.get('/api/templates/:id', requireUser, (req, res) => {
+  const template = templates.get(req.user.id, req.params.id)
+  if (!template) return res.status(404).json({ error: 'Template not found.' })
+  res.json({ template })
+})
+
+app.post('/api/templates', requireUser, authRateLimit(30, 60_000, 'templates'), (req, res) => {
+  try {
+    res.json({ template: templates.add(req.user.id, req.body || {}) })
+  } catch (err) {
+    templateError(res, err)
+  }
+})
+
+app.patch('/api/templates/:id', requireUser, (req, res) => {
+  try {
+    const template = templates.rename(req.user.id, req.params.id, req.body?.name)
+    if (!template) return res.status(404).json({ error: 'Template not found.' })
+    res.json({ template })
+  } catch (err) {
+    templateError(res, err)
+  }
+})
+
+app.delete('/api/templates/:id', requireUser, (req, res) => {
+  const removed = templates.remove(req.user.id, req.params.id)
+  if (!removed) return res.status(404).json({ error: 'Template not found.' })
   res.json({ removed })
 })
 

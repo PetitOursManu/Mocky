@@ -187,6 +187,116 @@ export function canMoveFolder(tree: FolderTree, id: string, target: string | nul
   return path.length + heightOf(tree, id) <= FOLDER_MAX_DEPTH
 }
 
+/**
+ * What dropping on `target` would do. Three answers and not two, because "it is
+ * already there" and "it cannot go there" look alike to a drop handler — both
+ * refuse — and must not look alike to the person dragging: one is nothing to
+ * do, the other is a rule they just ran into and deserve to see.
+ */
+export type DropVerdict = 'move' | 'here' | 'refused'
+
+export function folderDropVerdict(tree: FolderTree, id: string, target: string | null): DropVerdict {
+  if (!tree.has(id)) return 'refused'
+  // On itself is where every drag from the tree starts: nothing to do, and
+  // not a rule to flash red about before the pointer has even moved.
+  if (id === target || tree.parentOf(id) === target) return 'here'
+  return canMoveFolder(tree, id, target) ? 'move' : 'refused'
+}
+
+/** Projects go anywhere; dropping them where they all already are is nothing. */
+export function projectsDropVerdict(places: (string | null)[], target: string | null): DropVerdict {
+  return places.length > 0 && places.every((p) => p === target) ? 'here' : 'move'
+}
+
+/**
+ * One line of the side tree, flattened. The root — "All projects" — is a row
+ * too (`id: null`, depth 0, always open), so the keyboard walks one list from
+ * the top of the shelf to its last open folder.
+ */
+export interface TreeRow {
+  id: string | null
+  depth: number
+  hasKids: boolean
+  open: boolean
+  /** `undefined` for the root, which has no parent to go back to. */
+  parent: string | null | undefined
+}
+
+export function visibleRows(tree: FolderTree, isOpen: (id: string) => boolean): TreeRow[] {
+  const rows: TreeRow[] = [{ id: null, depth: 0, hasKids: tree.children(null).length > 0, open: true, parent: undefined }]
+  const walk = (parent: string | null, depth: number) => {
+    for (const f of tree.children(parent)) {
+      const hasKids = tree.children(f.id).length > 0
+      const open = hasKids && isOpen(f.id)
+      rows.push({ id: f.id, depth, hasKids, open, parent })
+      if (open) walk(f.id, depth + 1)
+    }
+  }
+  walk(null, 1)
+  return rows
+}
+
+/** What a key does on a tree row — the WAI-ARIA tree pattern, minus type-ahead. */
+export type TreeKeyAction =
+  | { focus: string | null }
+  | { open: string }
+  | { close: string }
+  | { go: string | null }
+
+export function treeKeyAction(rows: TreeRow[], current: string | null, key: string): TreeKeyAction | null {
+  const i = rows.findIndex((r) => r.id === current)
+  if (i < 0) return rows.length ? { focus: rows[0].id } : null
+  const row = rows[i]
+  switch (key) {
+    case 'ArrowDown':
+      return i + 1 < rows.length ? { focus: rows[i + 1].id } : null
+    case 'ArrowUp':
+      return i > 0 ? { focus: rows[i - 1].id } : null
+    case 'Home':
+      return { focus: rows[0].id }
+    case 'End':
+      return { focus: rows[rows.length - 1].id }
+    case 'ArrowRight':
+      if (!row.hasKids) return null
+      if (!row.open && row.id !== null) return { open: row.id }
+      return i + 1 < rows.length ? { focus: rows[i + 1].id } : null
+    case 'ArrowLeft':
+      if (row.open && row.id !== null) return { close: row.id }
+      return row.parent === undefined ? null : { focus: row.parent }
+    case 'Enter':
+      return { go: row.id }
+    default:
+      return null
+  }
+}
+
+/**
+ * Where, in the flattened rows, a folder dropped on `target` would appear —
+ * the index a placeholder row goes in front of — or null when the target's
+ * children are not on show. Siblings are sorted by name, so the place is not a
+ * choice the person makes, but it is one they should see before letting go:
+ * a folder that vanishes into the middle of a long list reads as lost.
+ */
+export function insertionIndex(
+  rows: TreeRow[],
+  tree: FolderTree,
+  target: string | null,
+  moving: Pick<Folder, 'id' | 'name'>,
+): number | null {
+  const at = rows.findIndex((r) => r.id === target)
+  if (at < 0 || !rows[at].open) return null
+  const siblings = tree.children(target).filter((f) => f.id !== moving.id)
+  const before = siblings.findIndex((s) => byName(s, moving as Folder) > 0)
+  if (before >= 0) {
+    const idx = rows.findIndex((r) => r.id === siblings[before].id)
+    if (idx >= 0) return idx
+  }
+  // After the last descendant of the target on show.
+  let end = at + 1
+  while (end < rows.length && rows[end].depth > rows[at].depth) end++
+  return end
+}
+
 export interface FolderStats {
   folders: number
   projects: number

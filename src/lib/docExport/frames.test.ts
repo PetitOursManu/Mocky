@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coverCrop, focusOf } from './frames'
+import { backgroundUrl, coverCrop, focusOf } from './frames'
 
 describe('the part of a picture a frame shows', () => {
   it('reads the focus the component writes, and the centre for anything else', () => {
@@ -33,5 +33,15 @@ describe('the part of a picture a frame shows', () => {
     expect(c.sy).toBeGreaterThanOrEqual(0)
     expect(c.sx + c.sw).toBeLessThanOrEqual(1000 + 1e-9)
     expect(c.sy + c.sh).toBeLessThanOrEqual(500 + 1e-9)
+  })
+})
+
+describe('a picture laid as a CSS background', () => {
+  it('is read off the computed background-image, quoted or not', () => {
+    expect(backgroundUrl('url("http://localhost:8787/api/images/abc")')).toBe('http://localhost:8787/api/images/abc')
+    expect(backgroundUrl("url(/api/images/abc)")).toBe('/api/images/abc')
+    expect(backgroundUrl('linear-gradient(rgb(0, 0, 0), rgba(0, 0, 0, 0)), url("/x.jpg")')).toBe('/x.jpg')
+    expect(backgroundUrl('none')).toBeNull()
+    expect(backgroundUrl('linear-gradient(red, blue)')).toBeNull()
   })
 })
