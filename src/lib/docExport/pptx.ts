@@ -1,8 +1,23 @@
 import { shapeCubics, toCubics, type FrameBox, type Pt, type Subpath } from '../frameGeometry'
 import type { PageFormat } from '../pageFormats'
 import { makeZipBytes, type ZipInput } from '../zip'
-import { primaryFontFamily, toHex6 } from './lines'
-import type { FieldBox, FrameOverlay, PageSnapshot, Rgba, RunStyle, TextAlign, TextBlock } from './types'
+import { parasOf, primaryFontFamily, toHex6, unionRect } from './lines'
+import type {
+  FieldBox,
+  FrameOverlay,
+  PageSnapshot,
+  PictureItem,
+  Rect,
+  Rgba,
+  RunStyle,
+  ShapeFill,
+  ShapeItem,
+  SlideItem,
+  TextAlign,
+  TextBlock,
+  TextLine,
+  TextPara,
+} from './types'
 
 /**
  * A document as a .pptx — the way a DESIGNED page stays editable in Google.
@@ -20,6 +35,10 @@ import type { FieldBox, FrameOverlay, PageSnapshot, Rgba, RunStyle, TextAlign, T
  * (`<ShapeFrame>`) is a shape of its own over the page, filled with the
  * picture: one Canva imports as a frame to drop another photo into (frames.ts,
  * `carryFrames`, says how that was found).
+ *
+ * The second .pptx, for Canva, is the same slide TAKEN APART (`slideXml`'s
+ * `items`, decompose.ts): instead of one picture under everything, each
+ * element's own paint as a native shape or as a picture of that element alone.
  *
  * Hand-written OOXML, stored in Mocky's own zip writer: the whole format needed
  * here is a dozen small parts, and a dependency would have been a megabyte for
@@ -62,10 +81,17 @@ export function escapeXml(s: string): string {
 
 export interface PptxPageInput {
   snapshot: PageSnapshot
-  /** The page with its text removed, as a JPEG. */
-  background: Uint8Array
+  /**
+   * The page with its text removed, as a JPEG — or, taken apart (`items`), the
+   * page's own paint when no colour can say it, and nothing when one can.
+   */
+  background: Uint8Array | null
+  /** 'jpeg' unless said. */
+  backgroundType?: 'jpeg' | 'png'
   /** Its frames, drawn over the page and under the text; the background no longer has them. */
   frames?: PptxFrame[]
+  /** The page taken apart, in paint order (decompose.ts): the .pptx for Canva. */
+  items?: SlideItem[]
 }
 
 export interface PptxFrame {
@@ -98,6 +124,41 @@ export interface BoxGeometry {
 }
 
 /**
+ * A block's paragraphs as a slide lays them out: each one's lines, its exact
+ * pitch, and the space before it that puts its first line where the page had
+ * it. A slide stacks line boxes of `pitch` one under the other, so a paragraph
+ * that the page set further down than "the next line" needs that much space
+ * before it — never less than none.
+ */
+export function paraLayout(block: TextBlock): { paras: { lines: TextLine[]; pitch: number; before: number }[]; height: number } {
+  const ps = parasOf(block)
+  const paras: { lines: TextLine[]; pitch: number; before: number }[] = []
+  let first: number | null = null
+  let cursor = 0
+  ps.forEach((p, i) => {
+    const lines = block.lines.slice(p.start, ps[i + 1]?.start ?? block.lines.length)
+    if (!lines.length) return
+    const top = lines[0].rect.y - Math.max(0, (p.pitch - lines[0].rect.h) / 2)
+    let before = 0
+    if (first === null) {
+      first = top
+      cursor = top
+    } else before = Math.max(0, top - cursor)
+    cursor += before + p.pitch * lines.length
+    paras.push({ lines, pitch: p.pitch, before })
+  })
+  return { paras, height: first === null ? 0 : cursor - first }
+}
+
+/** A frame's axis-aligned bounds on the page, turn included. */
+export function frameBounds(box: FrameBox): Rect {
+  const a = (box.angle * Math.PI) / 180
+  const w = Math.abs(box.w * Math.cos(a)) + Math.abs(box.h * Math.sin(a))
+  const h = Math.abs(box.w * Math.sin(a)) + Math.abs(box.h * Math.cos(a))
+  return { x: box.cx - w / 2, y: box.cy - h / 2, w, h }
+}
+
+/**
  * Where a block's text box goes, in px.
  *
  * Two corrections to the measured rect. VERTICAL: a Range rect is the glyphs'
@@ -108,13 +169,21 @@ export interface BoxGeometry {
  * wrap the last word of every line onto a line of its own. The slack is added
  * on the side the text grows towards — right of left-aligned text, both sides
  * of centred text — and never beyond the page's edge.
+ *
+ * Nor over a frame (`avoid`) the text did not already cover: an editor's
+ * element IS its box, the text boxes are written above the frames, and a
+ * caption's slack lying over the photo beside it is what Canva meets first when
+ * a photo is dropped there. The slack and the half-leading stop at the frame's
+ * edge; the measured text itself never moves.
  */
-export function blockBox(block: TextBlock, pageWidth: number): BoxGeometry {
+export function blockBox(block: TextBlock, pageWidth: number, avoid: readonly Rect[] = []): BoxGeometry {
   const first = block.lines[0]
   const maxFont = Math.max(...block.lines.map((l) => l.fontSize))
-  const lead = Math.max(0, (block.pitch - first.rect.h) / 2)
+  const layout = paraLayout(block)
+  const pitch = layout.paras[0]?.pitch ?? block.pitch
+  const lead = Math.max(0, (pitch - first.rect.h) / 2)
   const y = Math.max(0, block.rect.y - lead)
-  const h = Math.max(block.rect.h + 2 * lead, block.pitch * block.lines.length)
+  const h = Math.max(block.rect.h + 2 * lead, layout.height)
   const want = Math.max(4, block.rect.w * 0.08, maxFont * 0.5)
   const left = block.rect.x
   const right = pageWidth - (block.rect.x + block.rect.w)
@@ -131,7 +200,31 @@ export function blockBox(block: TextBlock, pageWidth: number): BoxGeometry {
   } else {
     w += Math.max(0, Math.min(want, right))
   }
-  return { x, y, w, h }
+  return avoidAround({ x, y, w, h }, block.rect, avoid)
+}
+
+/**
+ * `box` pulled back from every rect in `avoid` that it reaches only through
+ * its margins — on the side where that rect lies, never inside `text`. A rect
+ * the text itself overlaps (a caption ON a photo) is the design, and stays.
+ */
+export function avoidAround(box: BoxGeometry, text: Rect, avoid: readonly Rect[]): BoxGeometry {
+  let x1 = box.x
+  let y1 = box.y
+  let x2 = box.x + box.w
+  let y2 = box.y + box.h
+  const tx2 = text.x + text.w
+  const ty2 = text.y + text.h
+  for (const r of avoid) {
+    const rx2 = r.x + r.w
+    const ry2 = r.y + r.h
+    if (!(r.y < y2 && ry2 > y1 && r.x < x2 && rx2 > x1)) continue
+    if (r.x >= tx2 - 0.5) x2 = Math.max(tx2, Math.min(x2, r.x))
+    else if (rx2 <= text.x + 0.5) x1 = Math.min(text.x, Math.max(x1, rx2))
+    else if (r.y >= ty2 - 0.5) y2 = Math.max(ty2, Math.min(y2, r.y))
+    else if (ry2 <= text.y + 0.5) y1 = Math.min(text.y, Math.max(y1, ry2))
+  }
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }
 }
 
 function fillXml(c: Rgba): string {
@@ -169,33 +262,64 @@ function spXml(id: number, name: string, box: BoxGeometry, body: string, anchor:
 }
 
 /**
- * One text block as a text box: one paragraph, its visual lines joined by line
- * breaks (`<a:br/>`) rather than left to re-wrap, and an EXACT line spacing
- * equal to the measured pitch — so the lines land where the page had them, and
- * editing a word still reflows only that paragraph.
+ * A block with the runs nobody can see taken out (painted transparent), and
+ * the lines and paragraphs that leaves empty. Null when nothing is left.
  */
-export function textBoxXml(block: TextBlock, id: number, pageWidth: number, lang: string): string | null {
-  const lines = block.lines
-    .map((l) => ({ ...l, runs: l.runs.filter((r) => visible(r.style) && r.text.length > 0) }))
-    .filter((l) => l.runs.some((r) => r.text.trim()))
-  if (lines.length === 0) return null
-  const box = blockBox({ ...block, lines }, pageWidth)
-  const parts: string[] = []
-  lines.forEach((l, i) => {
-    if (i > 0) parts.push(`<a:br>${runProps(l.runs[0].style, lang)}</a:br>`)
-    l.runs.forEach((r, j) => {
-      // A line's trailing space would push a centred line off its axis.
-      const text = j === l.runs.length - 1 ? r.text.replace(/\s+$/, '') : r.text
-      if (text) parts.push(`<a:r>${runProps(r.style, lang)}<a:t>${escapeXml(text)}</a:t></a:r>`)
-    })
+function visibleBlock(block: TextBlock): TextBlock | null {
+  const ps = parasOf(block)
+  const lines: TextLine[] = []
+  const paras: TextPara[] = []
+  ps.forEach((p, i) => {
+    const kept = block.lines
+      .slice(p.start, ps[i + 1]?.start ?? block.lines.length)
+      .map((l) => ({ ...l, runs: l.runs.filter((r) => visible(r.style) && r.text.length > 0) }))
+      .filter((l) => l.runs.some((r) => r.text.trim()))
+    if (!kept.length) return
+    paras.push({ start: lines.length, pitch: p.pitch })
+    lines.push(...kept)
   })
-  const last = lines[lines.length - 1].runs.slice(-1)[0].style
-  const pPr =
-    `<a:pPr marL="0" indent="0" algn="${ALGN[block.align]}">` +
-    `<a:lnSpc><a:spcPts val="${Math.max(100, pxToCentipoints(block.pitch))}"/></a:lnSpc>` +
-    `<a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft><a:buNone/></a:pPr>`
-  const name = `Text: ${lines[0].text.trim().slice(0, 40)}`
-  return spXml(id, name, box, `<a:p>${pPr}${parts.join('')}${runProps(last, lang, 'a:endParaRPr')}</a:p>`, 't')
+  if (!lines.length) return null
+  const dropped = lines.length !== block.lines.length
+  return {
+    ...block,
+    lines,
+    rect: dropped ? unionRect(lines.map((l) => l.rect)) : block.rect,
+    pitch: paras[0].pitch,
+    paras: paras.length > 1 ? paras : undefined,
+  }
+}
+
+/**
+ * One text block as a text box: one paragraph per block it was made of
+ * (`mergeBlocks` — a headline and its second line, each in its own size and
+ * ink), each paragraph's visual lines joined by line breaks (`<a:br/>`) rather
+ * than left to re-wrap, and an EXACT line spacing equal to the measured pitch —
+ * so the lines land where the page had them, and editing a word still reflows
+ * only that paragraph.
+ */
+export function textBoxXml(block: TextBlock, id: number, pageWidth: number, lang: string, avoid: readonly Rect[] = []): string | null {
+  const shown = visibleBlock(block)
+  if (!shown) return null
+  const box = blockBox(shown, pageWidth, avoid)
+  const paras = paraLayout(shown).paras.map(({ lines, pitch, before }) => {
+    const parts: string[] = []
+    lines.forEach((l, i) => {
+      if (i > 0) parts.push(`<a:br>${runProps(l.runs[0].style, lang)}</a:br>`)
+      l.runs.forEach((r, j) => {
+        // A line's trailing space would push a centred line off its axis.
+        const text = j === l.runs.length - 1 ? r.text.replace(/\s+$/, '') : r.text
+        if (text) parts.push(`<a:r>${runProps(r.style, lang)}<a:t>${escapeXml(text)}</a:t></a:r>`)
+      })
+    })
+    const last = lines[lines.length - 1].runs.slice(-1)[0].style
+    const pPr =
+      `<a:pPr marL="0" indent="0" algn="${ALGN[shown.align]}">` +
+      `<a:lnSpc><a:spcPts val="${Math.max(100, pxToCentipoints(pitch))}"/></a:lnSpc>` +
+      `<a:spcBef><a:spcPts val="${Math.min(158400, pxToCentipoints(before))}"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft><a:buNone/></a:pPr>`
+    return `<a:p>${pPr}${parts.join('')}${runProps(last, lang, 'a:endParaRPr')}</a:p>`
+  })
+  const name = `Text: ${shown.lines[0].text.trim().slice(0, 40)}`
+  return spXml(id, name, box, paras.join(''), 't')
 }
 
 /**
@@ -376,7 +500,93 @@ export function pagePictureXml(page: Pick<PageSnapshot, 'width' | 'height'>, id:
   )
 }
 
-export function slideXml(page: PageSnapshot, lang: string, frames: readonly PptxFrame[] = []): string {
+// ── a page taken apart: its paint as shapes and small pictures ─────────────
+
+/** CSS degrees (0 = towards the top, clockwise) → DrawingML's `lin ang` (0 = towards the right, clockwise, 60 000ths). */
+export function linAngle(cssDeg: number): number {
+  const d = (((cssDeg - 90) % 360) + 360) % 360
+  return Math.round(d * 60000) % 21600000
+}
+
+function shapeFillXml(f: ShapeFill | null): string {
+  if (!f) return '<a:noFill/>'
+  if (f.kind === 'solid') return fillXml(f.color)
+  const stops = f.stops.length >= 2 ? f.stops : [...f.stops, ...f.stops].slice(0, 2)
+  const gs = stops
+    .map((s) => {
+      const alpha = s.color.a < 0.999 ? `<a:alpha val="${Math.round(Math.max(0, s.color.a) * 100000)}"/>` : ''
+      return `<a:gs pos="${Math.round(Math.max(0, Math.min(1, s.pos)) * 100000)}"><a:srgbClr val="${toHex6(s.color)}">${alpha}</a:srgbClr></a:gs>`
+    })
+    .join('')
+  return `<a:gradFill rotWithShape="1"><a:gsLst>${gs}</a:gsLst><a:lin ang="${linAngle(f.angle)}" scaled="0"/></a:gradFill>`
+}
+
+/** `val` of a corner adjustment: the radius as a share of the shorter side, 50 000 being a half. */
+const cornerAdj = (radius: number, w: number, h: number) =>
+  Math.round(Math.min(50000, Math.max(0, (radius / Math.max(1e-6, Math.min(w, h))) * 100000)))
+
+/**
+ * One element's own paint as a NATIVE shape — its fill, its outline, its
+ * shadow — which every editor can recolour, resize, move and delete: what a
+ * person who asked for "every shape editable" meant, and what the page's single
+ * picture could never give.
+ */
+export function shapeItemXml(s: ShapeItem, id: number, name: string): string {
+  const { x, y, w, h } = s.rect
+  const flip = s.geom.prst === 'round2SameRect' && s.geom.flip ? ' flipV="1"' : ''
+  const xfrm = `<a:xfrm${flip}><a:off x="${pxToEmu(x)}" y="${pxToEmu(y)}"/><a:ext cx="${Math.max(1, pxToEmu(w))}" cy="${Math.max(1, pxToEmu(h))}"/></a:xfrm>`
+  const g = s.geom
+  const geom =
+    g.prst === 'roundRect'
+      ? `<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ${cornerAdj(g.radius, w, h)}"/></a:avLst></a:prstGeom>`
+      : g.prst === 'round2SameRect'
+        ? `<a:prstGeom prst="round2SameRect"><a:avLst><a:gd name="adj1" fmla="val ${cornerAdj(g.radius, w, h)}"/><a:gd name="adj2" fmla="val 0"/></a:avLst></a:prstGeom>`
+        : `<a:prstGeom prst="${g.prst}"><a:avLst/></a:prstGeom>`
+  const line = s.line
+    ? `<a:ln w="${Math.max(1, pxToEmu(s.line.width))}">${fillXml(s.line.color)}${s.line.dash === 'solid' ? '' : `<a:prstDash val="${s.line.dash === 'dash' ? 'dash' : 'sysDot'}"/>`}</a:ln>`
+    : '<a:ln><a:noFill/></a:ln>'
+  const sh = s.shadow
+  const effect = sh
+    ? `<a:effectLst><a:outerShdw blurRad="${pxToEmu(Math.max(0, sh.blur))}" dist="${pxToEmu(Math.hypot(sh.dx, sh.dy))}" dir="${Math.round(((((Math.atan2(sh.dy, sh.dx) * 180) / Math.PI) % 360) + 360) % 360 * 60000) % 21600000}" algn="ctr" rotWithShape="0">` +
+      `<a:srgbClr val="${toHex6(sh.color)}"><a:alpha val="${Math.round(Math.max(0, Math.min(1, sh.color.a)) * 100000)}"/></a:srgbClr></a:outerShdw></a:effectLst>`
+    : ''
+  return (
+    `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${escapeXml(name)}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
+    `<p:spPr>${xfrm}${geom}${shapeFillXml(s.fill)}${line}${effect}</p:spPr></p:sp>`
+  )
+}
+
+/**
+ * What no shape can say — a photograph, an icon, a blur, a radial gradient — as
+ * a picture of that element alone, where it was. No lock of any kind: a
+ * picture here is a thing to move, swap or delete.
+ */
+export function pictureItemXml(p: Pick<PictureItem, 'rect'>, id: number, rel: string, name: string): string {
+  const { x, y, w, h } = p.rect
+  return (
+    `<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="${escapeXml(name)}"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>` +
+    `<p:blipFill><a:blip r:embed="${rel}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
+    `<p:spPr><a:xfrm><a:off x="${pxToEmu(x)}" y="${pxToEmu(y)}"/><a:ext cx="${Math.max(1, pxToEmu(w))}" cy="${Math.max(1, pxToEmu(h))}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`
+  )
+}
+
+/** The relationship id of a page's `k`-th item picture: after the layout, the page and its frames. */
+const itemRel = (frames: number, k: number) => `rId${frames + k + 3}`
+
+const ITEM_NAMES = {
+  fr: { shape: 'Forme', picture: 'Image', icon: 'Icône', decor: 'Décor' },
+  en: { shape: 'Shape', picture: 'Picture', icon: 'Icon', decor: 'Decoration' },
+} as const
+
+export interface SlideOptions {
+  /** The page taken apart, in paint order — instead of the frames alone over one picture. */
+  items?: readonly SlideItem[]
+  /** The package holds a picture of the page (rId2). True unless said: the faithful .pptx always has one. */
+  pagePicture?: boolean
+}
+
+export function slideXml(page: PageSnapshot, lang: string, frames: readonly PptxFrame[] = [], opts: SlideOptions = {}): string {
   // Shape ids are unique per slide; 1 is the tree.
   let next = 2
   const shapes: string[] = []
@@ -385,6 +595,7 @@ export function slideXml(page: PageSnapshot, lang: string, frames: readonly Pptx
     shapes.push(xml)
     next++
   }
+  const pagePicture = opts.pagePicture ?? true
   // Where the page goes depends on whether it has frames, and both answers
   // were settled in Canva, one file at a time.
   //
@@ -404,13 +615,40 @@ export function slideXml(page: PageSnapshot, lang: string, frames: readonly Pptx
   // the picture is an element again — the FIRST one, under every word — and
   // the slide's own background is the page's ground colour, white when it has
   // none to read.
+  //
+  // TAKEN APART (`opts.items`), the page has a picture only when its own paint
+  // is one no colour can say — a photograph behind everything — and the same
+  // two answers hold for it. Otherwise the slide's ground is its colour, which
+  // is a fill and not the picture Canva refused.
   const ground: Rgba = page.ground ?? { r: 255, g: 255, b: 255, a: 1 }
-  if (!frames.length) add(pagePictureXml(page, next, lang))
-  // Over the page and under its words, in the page's order.
-  frames.forEach((f, j) => frameStackXml(f, next, frameRel(j)).forEach(add))
-  for (const b of page.blocks) add(textBoxXml(b, next, page.width, lang))
+  if (pagePicture && !frames.length) add(pagePictureXml(page, next, lang))
+  if (opts.items) {
+    // In paint order: a card's colour under the frame that sits on it, the
+    // frame under the sticker that overlaps it.
+    const names = /^fr\b/i.test(lang) ? ITEM_NAMES.fr : ITEM_NAMES.en
+    const count = { shape: 0, picture: 0, icon: 0, decor: 0 }
+    const placed = new Set<number>()
+    let k = 0
+    for (const it of opts.items) {
+      if (it.kind === 'frame') {
+        const f = frames[it.index]
+        if (!f || placed.has(it.index)) continue
+        placed.add(it.index)
+        frameStackXml(f, next, frameRel(it.index)).forEach(add)
+      } else if (it.kind === 'shape') add(shapeItemXml(it, next, `${names.shape} ${++count.shape}`))
+      else add(pictureItemXml(it, next, itemRel(frames.length, k++), `${names[it.role]} ${++count[it.role]}`))
+    }
+    frames.forEach((f, j) => {
+      if (!placed.has(j)) frameStackXml(f, next, frameRel(j)).forEach(add)
+    })
+  } else {
+    // Over the page and under its words, in the page's order.
+    frames.forEach((f, j) => frameStackXml(f, next, frameRel(j)).forEach(add))
+  }
+  const avoid = frames.map((f) => frameBounds(f.box))
+  for (const b of page.blocks) add(textBoxXml(b, next, page.width, lang, avoid))
   for (const f of page.fields) add(fieldBoxXml(f, next, lang))
-  const bg = frames.length
+  const bg = pagePicture && frames.length
     ? '<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId2"/><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>'
     : `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${toHex6(ground)}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>`
   return (
@@ -573,18 +811,24 @@ export function pptxEntries(pages: readonly PptxPageInput[], format: Pick<PageFo
   pages.forEach((p, i) => {
     const frames = p.frames ?? []
     const media = frames.map((f, j) => `page${i + 1}-frame${j + 1}.${f.picture.type}`)
+    const pictures = (p.items ?? []).filter((it): it is PictureItem => it.kind === 'picture')
+    const itemMedia = pictures.map((it, k) => `page${i + 1}-item${k + 1}.${it.image.type}`)
+    const hasPage = !!p.background && p.background.length > 0
+    const pageMedia = `page${i + 1}.${p.backgroundType ?? 'jpeg'}`
     entries.push(
-      { name: `ppt/slides/slide${i + 1}.xml`, content: slideXml(p.snapshot, lang, frames) },
+      { name: `ppt/slides/slide${i + 1}.xml`, content: slideXml(p.snapshot, lang, frames, { items: p.items, pagePicture: hasPage }) },
       {
         name: `ppt/slides/_rels/slide${i + 1}.xml.rels`,
         content: rels([
           { id: 'rId1', type: `${REL}/slideLayout`, target: '../slideLayouts/slideLayout1.xml' },
-          { id: 'rId2', type: `${REL}/image`, target: `../media/page${i + 1}.jpeg` },
+          ...(hasPage ? [{ id: 'rId2', type: `${REL}/image`, target: `../media/${pageMedia}` }] : []),
           ...media.map((m, j) => ({ id: frameRel(j), type: `${REL}/image`, target: `../media/${m}` })),
+          ...itemMedia.map((m, k) => ({ id: itemRel(frames.length, k), type: `${REL}/image`, target: `../media/${m}` })),
         ]),
       },
-      { name: `ppt/media/page${i + 1}.jpeg`, content: p.background },
+      ...(hasPage ? [{ name: `ppt/media/${pageMedia}`, content: p.background as Uint8Array }] : []),
       ...frames.map((f, j) => ({ name: `ppt/media/${media[j]}`, content: f.picture.bytes })),
+      ...pictures.map((it, k) => ({ name: `ppt/media/${itemMedia[k]}`, content: it.image.bytes })),
     )
   })
   return entries

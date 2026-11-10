@@ -1087,7 +1087,14 @@ data: URL of the path. Three things:
    few pixels away. On a page with NO frame it is the reverse: Canva refused the
    `<p:bg>` blipFill outright ("Impossible d'appliquer votre design") and took
    the same picture as a full-slide `<p:pic>`, first in the tree, over a plain
-   ground (`slideXml` has the bisection). Do not unify the two.
+   ground (`slideXml` has the bisection). Do not unify the two. The second
+   .pptx, the page TAKEN APART for Canva (`decompose.ts`: shapes, small
+   pictures, frames in paint order), keeps both answers for a page whose own
+   paint is a picture, and grounds a plain page in a `solidFill` — not yet
+   imported into Canva when it shipped, so a refusal there is the first thing
+   to suspect. In both files a text box's slack stops at a frame's edge
+   (`avoidAround`): written above the frames, a caption's margin lying over the
+   photo beside it is what a dropped photo meets first.
 
 ## Fonts in a generated page
 
@@ -1172,6 +1179,15 @@ those up React's fibers, so one click can tell "the third card" from "the Card
 component". A rank and not an offset: the frame compiles `toPreviewModule(code)`
 behind the prelude. The two walks must count alike, and the test runs the plugin's
 own text against the resolver.
+
+Moving one (drag, Alt+arrows, a grid cell) is the same file: `planMove` puts the
+container's slots in a new order and leaves the text BETWEEN them where it was,
+which is what keeps the margins without re-indenting. Two rules, both about the
+moment between a write and the rebuilt frame: `Preview` drops a `move` or `marks` report from a document that no
+longer shows the current code (for the half second before a moved screen is
+rebuilt its ranks name the code BEFORE the move, and a second Alt+arrow would
+move a neighbour), and a selection that follows a move keeps the predicted
+selector with NO chain until the new document reports one (`onMarksInfo`).
 
 ## Maintenance mode and server migration
 

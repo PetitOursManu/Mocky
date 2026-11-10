@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 307b5c169f29
+source_hash: 3ebe93e40f44
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -248,7 +248,7 @@ Instagram.
 
 Le cadre d’un document porte une pastille `Télécharger`, et le menu contextuel de
 l’écran une entrée `Télécharger…`. Les deux ouvrent `Télécharger le document`, avec
-cinq boutons :
+six boutons :
 
 :::hotspots src=../assets/ui/fr/download.webp alt="Télécharger le document : PDF, PowerPoint / Google Slides / Canva, images PNG, PSD, SVG"
 - 50,13.2 **Le format**: Le format de page du document. Le fichier se télécharge directement — sans fenêtre d’impression.
@@ -262,7 +262,8 @@ cinq boutons :
 | Bouton | Ce que vous obtenez | Pour |
 |---|---|---|
 | `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — à 500 dpi pour le papier, au triple pour une diapositive et au quadruple de ses pixels pour un post, pour rester nettes zoomées comme imprimées (sur iPhone ou iPad, aussi haut que Safari le permet, environ 350 dpi en A4) — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
-| `PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables` | Une diapositive par page : le dessin en une image sous tout le reste — l’arrière-plan de la diapositive quand la page a des images dans une forme, sinon une image que l’on peut sélectionner (Canva refusait cet arrière-plan sur une page qui n’en a aucune) — et chaque texte en zone de texte modifiable par-dessus. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Importez-le dans Canva, ou déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
+| `PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables` | Une diapositive par page : le dessin en une image sous tout le reste — l’arrière-plan de la diapositive quand la page a des images dans une forme, sinon une image que l’on peut sélectionner (Canva refusait cet arrière-plan sur une page qui n’en a aucune) — et chaque texte en zone de texte modifiable par-dessus — un titre composé sur plusieurs lignes est une seule zone, chaque ligne gardant sa taille et sa couleur. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Importez-le dans Canva, ou déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
+| `Canva / PowerPoint (.pptx) — tout en éléments séparés` | La même diapositive, démontée : chaque bloc de couleur, contour et dégradé simple est une forme que l’on peut recolorer, déplacer ou supprimer ; chaque photo, icône et effet qu’une forme ne sait pas dessiner (un flou, une ombre intérieure, un dégradé circulaire) est une petite image de cet élément seul ; les textes et les images dans une forme sont comme dans le fichier ci-dessus. Voir [Démonter la page](#démonter-la-page). | Retravailler le design pièce par pièce. |
 | `Images PNG` | Une image par page, dans un `.zip` quand il y en a plusieurs. Un post sort exactement aux pixels de son format. | Publier. |
 | `PSD — Photoshop, Photopea` | Un calque pour la page, puis un par image dans une forme, avec son contour, son ruban et son ombre en calques à part. Le texte fait partie de la page. | Terminer dans Photoshop. |
 | `SVG — Figma, Illustrator, Inkscape` | La page, et chaque image dans une forme comme un groupe-masque nommé qui la contient, avec son contour et son ruban par-dessus. Le texte fait partie de la page. | Terminer dans Figma ou Illustrator. |
@@ -277,7 +278,41 @@ tourné laissé dans l’image d’une diapositive, une page dessinée par le mo
 secours, une image ou une police qui n’a pas pu être intégrée — et, à part et
 avec son site, une image que la page charge depuis un autre site. Celles-là ne
 voyagent jamais : un export n’emporte que les images de Mocky ; ajoutez-les à la
-bibliothèque et placez-les dans le document.
+bibliothèque et placez-les dans le document. Une image dans une forme qui n’a pas
+pu être relue est signalée aussi : elle reste dans l’image de la page, juste, mais
+pas en cadre à part.
+
+### Démonter la page
+
+:::why
+Le premier `.pptx` garde le design exactement tel qu’il est dessiné, en une image
+sous les mots : parfait pour changer une date, inutile pour recolorer une carte ou
+supprimer un sticker. Le second rend chaque pièce du design en pièce, au prix d’un
+peu de fidélité là où une diapositive ne sait pas dire ce que le CSS a dessiné.
+:::
+
+`Canva / PowerPoint (.pptx) — tout en éléments séparés` parcourt la page élément
+par élément, dans l’ordre où la page les peint :
+
+| Sur la page | Dans la diapositive |
+|---|---|
+| Une couleur de fond unie | La couleur de fond de la diapositive. |
+| Un bloc de couleur, une carte, un badge, la forme d’un bouton, un cercle | Une forme : son remplissage, ses coins arrondis, son contour (plein, tirets ou pointillés) et son ombre. |
+| Une bordure d’un seul côté (un filet sous un titre) | Une barre fine. |
+| Un dégradé linéaire simple | Une forme remplie d’un dégradé. |
+| Une photo, une icône, un flou, un masque, un dégradé circulaire, une image posée en fond, un élément tourné | Une image de cet élément seul, recadrée à ce qu’il dessine. |
+| Une image dans une forme | Un cadre, comme dans l’autre `.pptx`. |
+| Le texte | Des zones de texte modifiables, au-dessus. |
+
+Ce que rien de tout cela ne décrit (les puces d’une liste, un contour) est gardé
+en petites images tout en bas plutôt que perdu. Quand une page ne peut pas être
+démontée, elle sort comme dans l’autre `.pptx`, et la fenêtre dit laquelle.
+
+À savoir : une forme qui dépasse du bord de la page est entière dans la
+diapositive (un logiciel la montre au-delà du bord, là où la page la coupait) ;
+un groupe dessiné en transparence est remplacé par chacune de ses pièces à cette
+transparence ; et une image dans une forme n’est un cadre que si sa photo a pu
+être relue.
 
 ### Les images dans une forme, dans les fichiers
 
@@ -293,7 +328,7 @@ voyage à part :
 
 | Fichier | L'image dans une forme est… | Pour la remplacer |
 |---|---|---|
-| PowerPoint / Google Slides / Canva | une forme remplie de son image, au-dessus de la page | Dans Canva, déposez une photo dessus : c'est un cadre. Dans PowerPoint ou Google Slides, changez l'image. |
+| PowerPoint / Google Slides / Canva (les deux fichiers) | une forme remplie de son image, au-dessus de la page | Dans Canva, déposez une photo dessus : c'est un cadre. Dans PowerPoint ou Google Slides, changez l'image. |
 | PSD | un calque de l'image, dans sa forme | Placez une photo au-dessus de ce calque, puis Alt + clic entre les deux : un masque d'écrêtage. |
 | SVG | un groupe-masque nommé qui contient l'image | Remplacez l'image dans le groupe. |
 

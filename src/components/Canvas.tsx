@@ -20,6 +20,7 @@ import {
   type ViewState,
 } from '../lib/framing'
 import Preview, { type PickInfo, type SweptElement } from './Preview'
+import type { MoveRequest, PickedSource } from '../lib/screenElements'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import CableLayer from './CableLayer'
 import CableConnect from './CableConnect'
@@ -245,6 +246,9 @@ export default function Canvas({
   onPickElement,
   onPickKey,
   pickMarks,
+  onMoveElement,
+  onMarksInfo,
+  pickStep,
   onRemoveHotspot,
   highlightedHotspotId,
   focusScreenId,
@@ -301,6 +305,12 @@ export default function Canvas({
   onPickKey?: (key: string) => void
   /** The elements currently selected, and on which screen. */
   pickMarks?: { screenId: string; selectors: string[] } | null
+  /** Modify mode: an element dragged (or Alt+Arrowed) to another place in its screen. */
+  onMoveElement?: (screenId: string, move: MoveRequest) => void
+  /** The selected elements' chains as the screen's current document reads them. */
+  onMarksInfo?: (screenId: string, items: { selector: string; source?: PickedSource[] }[]) => void
+  /** Move the one selected element a sibling over, in this screen. */
+  pickStep?: { screenId: string; delta: -1 | 1; nonce: number } | null
   onRemoveHotspot: (screenId: string, hotspotId: string) => void
   highlightedHotspotId?: string | null
   focusScreenId?: string | null
@@ -1341,6 +1351,10 @@ export default function Canvas({
                       onPick={(info) => onPickElement(s.id, info)}
                       onPickKey={onPickKey}
                       pickMarks={pickMarks?.screenId === s.id ? pickMarks.selectors : undefined}
+                      pickMove={modifyMode}
+                      onMove={(move) => onMoveElement?.(s.id, move)}
+                      onMarksInfo={(items) => onMarksInfo?.(s.id, items)}
+                      pickStep={pickStep?.screenId === s.id ? pickStep : null}
                       hideScrollbars={s.device === 'iphone'}
                       radius={SCREEN_RADIUS}
                       captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
@@ -1372,6 +1386,10 @@ export default function Canvas({
                     onPick={(info) => onPickElement(s.id, info)}
                     onPickKey={onPickKey}
                     pickMarks={pickMarks?.screenId === s.id ? pickMarks.selectors : undefined}
+                    pickMove={modifyMode}
+                    onMove={(move) => onMoveElement?.(s.id, move)}
+                    onMarksInfo={(items) => onMarksInfo?.(s.id, items)}
+                    pickStep={pickStep?.screenId === s.id ? pickStep : null}
                     // A document's frame is sized to its pages, so a scrollbar
                     // could only appear in the moment before the kit reports
                     // them — and would narrow the page it is measuring.

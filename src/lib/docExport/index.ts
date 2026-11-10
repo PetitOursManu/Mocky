@@ -15,12 +15,17 @@ import type { RenderedPage } from './types'
  *  - `pptx` — to keep EDITING: every text a text box and every picture in a
  *             shape a frame of its own — in Canva, Google Slides (upload to
  *             Drive, "Open with Google Slides"), PowerPoint, Keynote;
+ *  - `pptx-edit` — the same, TAKEN APART (decompose.ts): every coloured box,
+ *             outline and gradient a native shape, every picture and icon a
+ *             picture of its own, for a person who wants to recolour, move and
+ *             delete the design's pieces in Canva — less faithful where a shape
+ *             cannot say exactly what CSS drew, and then a small picture;
  *  - `png`  — to post: one picture per page, zipped when there are several;
  *  - `psd`, `svg` — to finish in a layered editor (layers.ts): the page, and
  *             each picture in a shape as a layer or a mask group of its own.
  */
 
-export type ExportKind = 'pdf' | 'pptx' | 'png' | 'psd' | 'svg'
+export type ExportKind = 'pdf' | 'pptx' | 'pptx-edit' | 'png' | 'psd' | 'svg'
 
 /** The files built from the page in layers (layers.ts). */
 const isLayered = (kind: ExportKind): kind is 'psd' | 'svg' => kind === 'psd' || kind === 'svg'
@@ -59,8 +64,10 @@ export async function exportDocument(screen: Screen, kind: ExportKind, opts: Exp
   const base = fileBaseName(screen.name)
   opts.onProgress?.({ phase: 'render' })
   const layered = isLayered(kind)
+  const editable = kind === 'pptx-edit'
   const { pages, notices } = await renderDocument(screen.code, capsForScreen(screen), format, {
-    purpose: layered ? 'layers' : kind,
+    purpose: layered ? 'layers' : editable ? 'pptx' : kind,
+    decompose: editable,
     signal: opts.signal,
     onPage: (page, total) => opts.onProgress?.({ phase: 'page', page, total }),
   })
@@ -97,15 +104,21 @@ export async function exportDocument(screen: Screen, kind: ExportKind, opts: Exp
     )
     blob = new Blob([bytes as BlobPart], { type: MIME.pdf })
     filename = `${base}.pdf`
-  } else if (kind === 'pptx') {
+  } else if (kind === 'pptx' || editable) {
     const { buildPptx } = await import('./pptx')
     const bytes = buildPptx(
-      pages.map((p, i) => ({ snapshot: p.snapshot, background: p.image, frames: named[i] })),
+      pages.map((p, i) => ({
+        snapshot: p.snapshot,
+        background: p.image.length ? p.image : null,
+        frames: named[i],
+        ...(p.items ? { items: p.items } : {}),
+      })),
       format,
       { title, lang: opts.lang === 'en' ? 'en-US' : 'fr-FR' },
     )
     blob = new Blob([bytes as BlobPart], { type: MIME.pptx })
-    filename = `${base}.pptx`
+    // Its own name: both files are .pptx, and the second would otherwise land as "(1)".
+    filename = editable ? `${base} - Canva.pptx` : `${base}.pptx`
   } else if (pages.length === 1) {
     blob = new Blob([pages[0].image as BlobPart], { type: MIME.png })
     filename = `${base}.png`

@@ -40,6 +40,9 @@ export const docExport = {
     'docExport.pptx.title': 'PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables',
     'docExport.pptx.help':
       'Pour continuer à modifier : importez le fichier dans Canva, ou déposez-le sur Google Drive puis « Ouvrir avec Google Slides ». Chaque texte reste modifiable, et chaque image dans une forme est un cadre où glisser une autre photo. S’ouvre aussi dans PowerPoint et Keynote.',
+    'docExport.pptxEdit.title': 'Canva / PowerPoint (.pptx) — tout en éléments séparés',
+    'docExport.pptxEdit.help':
+      'Pour retravailler le design pièce par pièce : chaque forme de couleur, contour et dégradé devient une forme modifiable, chaque image et chaque icône une image à part, chaque texte un bloc de texte. Moins fidèle que le fichier ci-dessus : un effet qu’une forme ne sait pas reproduire (flou, ombre complexe, dégradé circulaire) devient une petite image de cet élément.',
     'docExport.png.title': 'Images PNG',
     'docExport.png.help': 'Pour publier : une image par page, réunies dans un .zip s’il y en a plusieurs.',
     'docExport.psd.title': 'PSD — Photoshop, Photopea',
@@ -74,6 +77,12 @@ export const docExport = {
     'docExport.notice.raster.pptx':
       'La page {pages} n’a pas pu être dessinée : son fond est blanc, mais ses textes restent modifiables.',
     'docExport.notice.raster.png': 'La page {pages} n’a pas pu être dessinée : l’image est blanche.',
+    'docExport.notice.raster.pptxEdit':
+      'Une partie des images de la page {pages} n’a pas pu être dessinée : elles manquent, mais les formes et les textes sont là.',
+    'docExport.notice.frames':
+      'Une image dans une forme (page {pages}) n’a pas pu être lue : elle reste dans l’image de la page, telle qu’elle est dessinée, et n’est pas un cadre séparé.',
+    'docExport.notice.whole':
+      'La page {pages} n’a pas pu être découpée en éléments : elle est exportée comme dans le fichier PowerPoint ci-dessus, textes et cadres modifiables.',
   },
   en: {
     'docExport.title': 'Download the document',
@@ -107,6 +116,9 @@ export const docExport = {
     'docExport.pptx.title': 'PowerPoint / Google Slides / Canva (.pptx) — editable text and frames',
     'docExport.pptx.help':
       'To keep editing: import the file into Canva, or upload it to Google Drive and choose “Open with Google Slides”. Every text stays editable, and every picture in a shape is a frame to drop another photo into. Also opens in PowerPoint and Keynote.',
+    'docExport.pptxEdit.title': 'Canva / PowerPoint (.pptx) — everything as separate elements',
+    'docExport.pptxEdit.help':
+      'To rework the design piece by piece: every coloured shape, outline and gradient becomes an editable shape, every picture and icon a picture of its own, every text a text box. Less faithful than the file above: an effect a shape cannot reproduce (a blur, a complex shadow, a radial gradient) becomes a small picture of that element.',
     'docExport.png.title': 'PNG images',
     'docExport.png.help': 'To post: one image per page, bundled in a .zip when there are several.',
     'docExport.psd.title': 'PSD — Photoshop, Photopea',
@@ -138,5 +150,10 @@ export const docExport = {
     'docExport.notice.raster.pdf': 'Page {pages} could not be drawn: it is blank in the PDF, with only its fillable fields.',
     'docExport.notice.raster.pptx': 'Page {pages} could not be drawn: its background is blank, but its text stays editable.',
     'docExport.notice.raster.png': 'Page {pages} could not be drawn: the image is blank.',
+    'docExport.notice.raster.pptxEdit': 'Some pictures of page {pages} could not be drawn: they are missing, but the shapes and the text are there.',
+    'docExport.notice.frames':
+      'A picture in a shape (page {pages}) could not be read: it stays in the page’s picture, as drawn, and is not a separate frame.',
+    'docExport.notice.whole':
+      'Page {pages} could not be taken apart: it was exported as in the PowerPoint file above, with editable text and frames.',
   },
 }

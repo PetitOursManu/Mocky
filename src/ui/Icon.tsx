@@ -72,6 +72,7 @@ export type IconName =
   | 'coins'
   | 'history'
   | 'branch'
+  | 'template'
 
 /** Path data only — every icon shares the same 24×24 box and stroke settings. */
 const PATHS: Record<IconName, string> = {
@@ -166,6 +167,10 @@ const PATHS: Record<IconName, string> = {
   history: 'M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 8v4.5l3 2',
   // Two lines leaving one: a branch, as in "try another direction from here".
   branch: 'M6 3v12M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM18 9c0 6-12 3-12 9',
+  // A bookmark with a plus: "keep this project as a model". It borrowed `copy`
+  // at first, which on a project card sits beside Move and Delete and reads as
+  // "Duplicate" — a promise the button does not keep.
+  template: 'M6 3h12v18l-6-4-6 4V3ZM12 7v6M9 10h6',
 }
 
 /** Icons whose shape reads better filled than stroked. */

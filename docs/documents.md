@@ -237,7 +237,7 @@ The social types ask for none: nobody fills in an Instagram post.
 ## Downloading
 
 A document's frame carries a `Download` pill, and the screen context menu a
-`Download…` item. Both open `Download the document`, with five buttons:
+`Download…` item. Both open `Download the document`, with six buttons:
 
 :::hotspots src=assets/ui/download.webp alt="Download the document: PDF, PowerPoint / Google Slides / Canva, PNG images, PSD, SVG"
 - 50,12.3 **The format**: The page format the document was laid out in. The file downloads directly — no print dialog.
@@ -251,7 +251,8 @@ A document's frame carries a `Download` pill, and the screen context menu a
 | Button | What you get | For |
 |---|---|---|
 | `PDF` / `PDF — fillable fields` | The pages as drawn — at 500 dpi for paper, three times for a slide and four times its pixels for a post, so it stays sharp zoomed in as well as printed (on an iPhone or an iPad, as high as Safari allows, about 350 dpi on A4) — with the text still selectable and every field fillable. | Printing, sending. |
-| `PowerPoint / Google Slides / Canva (.pptx) — editable text and frames` | One slide per page: the design as one picture under everything — the slide's background when the page has pictures in a shape, otherwise a picture you can select (Canva refused that background on a page without any) — and every run of text as an editable text box over it. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Import it into Canva, or upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
+| `PowerPoint / Google Slides / Canva (.pptx) — editable text and frames` | One slide per page: the design as one picture under everything — the slide's background when the page has pictures in a shape, otherwise a picture you can select (Canva refused that background on a page without any) — and every run of text as an editable text box over it — a heading set on several lines is one box, each line keeping its own size and colour. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Import it into Canva, or upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
+| `Canva / PowerPoint (.pptx) — everything as separate elements` | The same slide, taken apart: every coloured box, outline and simple gradient is a shape you can recolour, move or delete; every photograph, icon and effect a shape cannot draw (a blur, an inner shadow, a radial gradient) is a small picture of that element alone; the text and the pictures in a shape are as in the file above. See [Taking the page apart](#taking-the-page-apart). | Reworking the design piece by piece. |
 | `PNG images` | One image per page, in a `.zip` when there are several. A social post comes out at exactly its format's pixels. | Posting. |
 | `PSD — Photoshop, Photopea` | One layer for the page, then one per picture in a shape, with its outline, tape and shadow as layers of their own. The text is part of the page. | Finishing in Photoshop. |
 | `SVG — Figma, Illustrator, Inkscape` | The page, and each picture in a shape as a named mask group holding it, with its outline and tape over it. The text is part of the page. | Finishing in Figma or Illustrator. |
@@ -265,7 +266,40 @@ link rather than hiding it: content cut at the page edge, rotated text left in
 the picture of a slide, a page drawn by the fallback renderer, a picture or font
 that could not be embedded — and, named apart with its site, a picture the page
 loads from another site. Those never travel: an export carries only Mocky's own
-pictures, so add them to the library and put them in the document.
+pictures, so add them to the library and put them in the document. A picture in
+a shape that could not be read back is said too: it stays in the page's picture,
+right but not a frame of its own.
+
+### Taking the page apart
+
+:::why
+The first `.pptx` keeps the design exactly as drawn, as one picture under the
+words: right for changing a date, useless for recolouring a card or deleting a
+sticker. The second one gives every piece of the design back as a piece, at the
+cost of a little fidelity where a slide cannot say what CSS drew.
+:::
+
+`Canva / PowerPoint (.pptx) — everything as separate elements` walks the page
+element by element, in the order the page paints them:
+
+| On the page | In the slide |
+|---|---|
+| A plain background colour | The slide's own background colour. |
+| A coloured box, a card, a badge, a button's shape, a circle | A shape: its fill, its rounded corners, its outline (solid, dashed or dotted) and its shadow. |
+| A border on one side only (a rule under a heading) | A thin bar. |
+| A simple linear gradient | A shape with a gradient fill. |
+| A photograph, an icon, a blur, a mask, a radial gradient, a picture laid as a background, something rotated | A picture of that element alone, cut to what it draws. |
+| A picture in a shape | A frame, as in the other `.pptx`. |
+| Text | Editable text boxes, on top. |
+
+What nothing above describes (a list's bullets, an outline) is kept as small
+pictures at the bottom rather than lost. When a page cannot be taken apart, it
+comes out as in the other `.pptx`, and the dialog says which page.
+
+Things to know: a shape that runs past the page's edge is whole in the slide
+(an editor shows it past the edge, where the page cut it); a group drawn
+see-through is replaced by each of its pieces at that transparency; and a
+picture in a shape is still a frame only when its photograph could be read.
 
 ### Pictures in a shape, in the files
 
@@ -281,7 +315,7 @@ travels on its own:
 
 | File | The picture in a shape is… | To replace it |
 |---|---|---|
-| PowerPoint / Google Slides / Canva | a shape filled with its picture, over the page | In Canva, drop a photo on it: it is a frame. In PowerPoint or Google Slides, change the picture. |
+| PowerPoint / Google Slides / Canva (both files) | a shape filled with its picture, over the page | In Canva, drop a photo on it: it is a frame. In PowerPoint or Google Slides, change the picture. |
 | PSD | a layer of the picture, in its shape | Place a photo above that layer, then Alt + click between the two: a clipping mask. |
 | SVG | a named mask group holding the picture | Replace the picture inside the group. |
 

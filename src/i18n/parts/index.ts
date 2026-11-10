@@ -33,8 +33,9 @@ import { publication } from './publication'
 import { fonts } from './fonts'
 import { brand } from './brand'
 import { workspace } from './workspace'
+import { templates } from './templates'
 
-const AREAS = [app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard, composer, chime, docExport, mcp, plan, spend, frames, versions, review, flows, campaign, publication, fonts, brand, workspace]
+const AREAS = [app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard, composer, chime, docExport, mcp, plan, spend, frames, versions, review, flows, campaign, publication, fonts, brand, workspace, templates]
 
 export const partsFr: Record<string, string> = Object.assign({}, ...AREAS.map((a) => a.fr))
 export const partsEn: Record<string, string> = Object.assign({}, ...AREAS.map((a) => a.en))

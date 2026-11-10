@@ -43,6 +43,15 @@ describe('the preview message listener', () => {
     expect(deps?.[0]).not.toMatch(/demoLinks\b/)
   })
 
+  it('takes a move only from a document that shows the current code, in a tool that moves', () => {
+    // Link mode picks too; and the old document is still draggable for the
+    // half second before a moved screen is rebuilt, its ranks naming places in
+    // the code BEFORE the move.
+    expect(source).toMatch(/const current = srcCodeRef\.current === code/)
+    expect(source).toMatch(/d\.type === 'move' && current && pickModeRef\.current && pickMoveRef\.current/)
+    expect(source).toMatch(/pickMoveRef\.current = pickMove/)
+  })
+
   it('keeps both refs in step with the props on every render', () => {
     expect(source).toMatch(/pickModeRef\.current = pickMode/)
     expect(source).toMatch(/demoLinksRef\.current = demoLinks/)

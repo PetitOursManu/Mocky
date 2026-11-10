@@ -58,6 +58,13 @@ export interface BlockInfo {
   align: TextAlign
   /** Computed `line-height` in px, or null for `normal`. */
   lineHeight: number | null
+  /**
+   * The text element this block is a line of, when it is one — the `<h1>` of
+   * `<h1><span class="block">Fête</span><span class="block">d’été</span></h1>`.
+   * Blocks sharing it are one piece of text set on several lines
+   * (`mergeBlocks`). Absent when the block stands alone.
+   */
+  group?: number
 }
 
 export interface TextRun {
@@ -75,6 +82,13 @@ export interface TextLine {
   fontSize: number
 }
 
+/** A paragraph of a text box: from `start` (an index into the block's `lines`) to the next one. */
+export interface TextPara {
+  start: number
+  /** Its own line pitch, px: a headline over a subtitle keeps each one's. */
+  pitch: number
+}
+
 /** The lines of one block element, in order — one text box in a slide. */
 export interface TextBlock {
   rect: Rect
@@ -82,6 +96,12 @@ export interface TextBlock {
   align: TextAlign
   /** Distance between two consecutive lines' tops, px — measured when there are several. */
   pitch: number
+  /**
+   * Set when blocks that belong together were made one box (`mergeBlocks`):
+   * each keeps its own paragraph, so its own size, ink and pitch. Absent = one
+   * paragraph at `pitch`.
+   */
+  paras?: TextPara[]
 }
 
 export interface FieldBox {
@@ -153,7 +173,75 @@ export interface PageSnapshot {
    * Optional for the same reason.
    */
   ground?: Rgba
+  /**
+   * What sits between lines without being text — a picture, an icon, a rule —
+   * so two blocks on either side of it are never made one box. Optional for
+   * the same reason.
+   */
+  obstacles?: Rect[]
 }
+
+// ── a page taken apart (the .pptx for Canva, decompose.ts) ────────────────
+
+export interface GradientStop {
+  /** 0–1 along the gradient line. */
+  pos: number
+  color: Rgba
+}
+
+export type ShapeFill =
+  | { kind: 'solid'; color: Rgba }
+  /** `angle` in CSS degrees: 0 is towards the top, 90 towards the right. */
+  | { kind: 'linear'; angle: number; stops: GradientStop[] }
+
+export interface ShapeLine {
+  /** px */
+  width: number
+  color: Rgba
+  dash: 'solid' | 'dash' | 'dot'
+}
+
+export interface ShapeShadow {
+  dx: number
+  dy: number
+  blur: number
+  color: Rgba
+}
+
+export type ShapeGeom =
+  | { prst: 'rect' }
+  /** `radius` in px. */
+  | { prst: 'roundRect'; radius: number }
+  /** Two corners on one side rounded: the top ones, or the bottom ones when `flip`. */
+  | { prst: 'round2SameRect'; radius: number; flip: boolean }
+  | { prst: 'ellipse' }
+
+/** An element's own paint, as a native shape: a fill, an outline, a shadow. */
+export interface ShapeItem {
+  kind: 'shape'
+  rect: Rect
+  geom: ShapeGeom
+  fill: ShapeFill | null
+  line: ShapeLine | null
+  shadow: ShapeShadow | null
+}
+
+/** What no shape can say, as a picture of just that element. */
+export interface PictureItem {
+  kind: 'picture'
+  rect: Rect
+  /** For its name in the editor's layers. */
+  role: 'picture' | 'icon' | 'decor'
+  image: { bytes: Uint8Array; type: 'png' }
+}
+
+/** Where a carried frame (`RenderedPage.frames[index]`) goes in the paint order. */
+export interface FrameRef {
+  kind: 'frame'
+  index: number
+}
+
+export type SlideItem = ShapeItem | PictureItem | FrameRef
 
 /** One page, rasterised and measured. */
 /**
@@ -187,8 +275,13 @@ export interface RenderedPage {
   snapshot: PageSnapshot
   /** The frames the .pptx, the SVG and the PSD carry on their own; the picture no longer has them. */
   frames?: CarriedFrame[]
-  /** Encoded picture (JPEG or PNG, per the request). */
+  /**
+   * Encoded picture (JPEG or PNG, per the request). Taken apart (`items`), only
+   * the page's own paint when no colour can say it — and empty when one can.
+   */
   image: Uint8Array
+  /** Set when the page was taken apart: its paint, element by element, in paint order. */
+  items?: SlideItem[]
   /** Size of the picture in pixels. */
   pixelWidth: number
   pixelHeight: number

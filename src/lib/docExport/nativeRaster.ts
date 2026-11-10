@@ -45,6 +45,12 @@ export interface NativeRasterOptions {
   signal?: AbortSignal
   /** How long the image may take to decode before the page falls back. */
   timeoutMs?: number
+  /**
+   * No white under the page: the page taken apart (decompose.ts) cuts pictures
+   * of single elements out of the drawing, and each must be see-through where
+   * that element draws nothing.
+   */
+  transparent?: boolean
 }
 
 export interface NativeRasterResult {
@@ -451,8 +457,10 @@ export async function rasterizeNative(win: Window, page: Element, opts: NativeRa
   if (!ctx) throw new Error('no 2d context')
   // White under everything, as html2canvas's `backgroundColor` did: a JPEG has
   // no alpha, and a page with a transparent background would come out black.
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  if (!opts.transparent) {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
   return { canvas, missing }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ImageLightbox from './ImageLightbox'
 import { autoFocusOk, haptic } from '../lib/touch'
 import {
@@ -43,6 +43,9 @@ import StockVideoSearch from './StockVideoSearch'
 import CreationsGrid from './CreationsGrid'
 import { listCreations } from '../lib/creations/browser'
 import type { Creation } from '../lib/creations/stage'
+import { DesignModelsTab, useTemplates } from './DesignModels'
+import { listDesigns, type DesignEntry } from '../lib/design'
+import type { ProjectTemplate } from '../lib/templates'
 import { useLang, useT, type TranslationKey } from '../i18n'
 
 /**
@@ -67,7 +70,7 @@ import { useLang, useT, type TranslationKey } from '../i18n'
  * like `video.*` stays `video`: renaming it would touch every call site to
  * change a string no interface prints.
  */
-export type MediaTab = 'images' | 'videos' | 'films' | 'creations'
+export type MediaTab = 'images' | 'videos' | 'films' | 'creations' | 'design'
 
 /** Bytes, rounded to something a person reads. MB is the useful unit for a film. */
 function formatBytes(bytes: number): string {
@@ -130,6 +133,10 @@ export default function Bibliotheque({
   initialTab = 'images',
   onClose,
   onOpenImage,
+  currentDirection,
+  onApplyDirection,
+  onNewProjectWithDirection,
+  onNewProjectFromTemplate,
 }: {
   variant?: 'modal' | 'page'
   projectId?: string
@@ -154,6 +161,15 @@ export default function Bibliotheque({
   onClose?: () => void
   /** Open an image full size. When absent, the page handles it itself. */
   onOpenImage?: (hash: string) => void
+  /**
+   * The Design tab (components/DesignModels.tsx). In a project: the project's
+   * own direction and how to replace it — never the global DESIGN.md. On the
+   * Media page: how to start a project from a direction or a template.
+   */
+  currentDirection?: string
+  onApplyDirection?: (markdown: string) => void
+  onNewProjectWithDirection?: (entry: DesignEntry) => void
+  onNewProjectFromTemplate?: (template: ProjectTemplate) => void
 }) {
   const t = useT()
   const [lang] = useLang()
@@ -178,6 +194,10 @@ export default function Bibliotheque({
   useEffect(() => {
     refreshCreations()
   }, [refreshCreations])
+  /** The Design tab: saved directions (local, synced with DESIGN.md) and templates (server). */
+  const templates = useTemplates()
+  const [directionsVersion, setDirectionsVersion] = useState(0)
+  const directionCount = useMemo(() => listDesigns().length, [directionsVersion])
   /**
    * Has the film listing answered yet?
    *
@@ -506,8 +526,9 @@ export default function Bibliotheque({
     videos: 'library.tabVideos',
     films: 'library.tabFilms',
     creations: 'library.tabCreations',
+    design: 'templates.tab',
   }
-  const tabCount = (id: MediaTab) => (id === 'images' ? images.length : id === 'videos' ? videos.length : id === 'films' ? films.length : creations.length)
+  const tabCount = (id: MediaTab) => (id === 'images' ? images.length : id === 'videos' ? videos.length : id === 'films' ? films.length : id === 'design' ? directionCount + templates.list.length : creations.length)
 
   /**
    * The films tab appears only when there is something to say.
@@ -520,7 +541,7 @@ export default function Bibliotheque({
    */
   const showFilms = films.length > 0 || filmError !== null || tab === 'films'
   // Like the films: a tab that would read a permanent zero appears once there is something in it.
-  const visibleTabs = (['images', 'videos', ...(showFilms ? (['films'] as const) : []), ...(creations.length > 0 || tab === 'creations' ? (['creations'] as const) : [])] as MediaTab[])
+  const visibleTabs = (['images', 'videos', ...(showFilms ? (['films'] as const) : []), ...(creations.length > 0 || tab === 'creations' ? (['creations'] as const) : []), 'design'] as MediaTab[])
 
   const tabs = (
     // The reference's tool tray: segments in one raised box, the active one in
@@ -561,8 +582,11 @@ export default function Bibliotheque({
     if (tab === 'images') void refresh()
     else if (tab === 'videos') void refreshVideos()
     else if (tab === 'creations') refreshCreations()
-    else void refreshFilms()
-  }, [tab, refresh, refreshVideos, refreshFilms, refreshCreations])
+    else if (tab === 'design') {
+      templates.refresh()
+      setDirectionsVersion((v) => v + 1)
+    } else void refreshFilms()
+  }, [tab, refresh, refreshVideos, refreshFilms, refreshCreations, templates])
 
   const refreshing = tab === 'images' ? loading : tab === 'films' ? filmsLoading : false
 
@@ -1074,6 +1098,19 @@ export default function Bibliotheque({
 
   const activeGrid = tab === 'images' ? grid : tab === 'videos' ? videoGrid : tab === 'creations' ? (
     <CreationsGrid creations={creations} onRemoved={(id) => setCreations((list) => list.filter((c) => c.id !== id))} />
+  ) : tab === 'design' ? (
+    <DesignModelsTab
+      wide={isPage}
+      templates={templates.list}
+      onTemplatesChange={templates.setList}
+      templatesFailed={templates.failed}
+      directionsVersion={directionsVersion}
+      onDirectionsChanged={() => setDirectionsVersion((v) => v + 1)}
+      currentDirection={currentDirection}
+      onApplyDirection={onApplyDirection}
+      onNewProjectWithDirection={onNewProjectWithDirection}
+      onNewProjectFromTemplate={onNewProjectFromTemplate}
+    />
   ) : filmGrid
   // Above the clips, on their tab only: what it imports lands in that grid.
   const stockSearch =
@@ -1130,7 +1167,7 @@ export default function Bibliotheque({
         <div className="mb-4 flex max-w-3xl flex-wrap items-center gap-3">
           {tabs}
           {refreshButton}
-          {toolbar}
+          {tab !== 'design' && toolbar}
         </div>
         {uploadError && (
           <Banner tone="danger" className="mb-3">
@@ -1177,7 +1214,7 @@ export default function Bibliotheque({
           </span>
           {tabs}
           {refreshButton}
-          {toolbar}
+          {tab !== 'design' && toolbar}
           {/* Last in the DOM so the desktop row still ends with it, but ordered
               first once things wrap: the way out of a dialog must be on the line
               you can see, not three wrapped rows down. */}

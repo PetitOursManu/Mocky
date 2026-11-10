@@ -1,4 +1,4 @@
-import type { BlockInfo, Rect, Rgba, RunStyle, TextAlign, TextBlock, TextLine, TextRun, Word } from './types'
+import type { BlockInfo, Rect, Rgba, RunStyle, TextAlign, TextBlock, TextLine, TextPara, TextRun, Word } from './types'
 
 /**
  * From words the layout drew to the lines and blocks an export can rebuild.
@@ -271,4 +271,130 @@ export function groupBlocks(lines: readonly TextLine[], infos: readonly BlockInf
     const pitch = deltas.length ? median(deltas) : info.lineHeight ?? g[0].rect.h
     return { rect: unionRect(g.map((l) => l.rect)), lines: g, align: info.align, pitch: Math.max(pitch, g[0].rect.h * 0.8) }
   })
+}
+
+// ── blocks that belong together ─────────────────────────────────────────────
+
+/** A block's paragraphs, always at least one. */
+export function parasOf(b: Pick<TextBlock, 'paras' | 'pitch'>): TextPara[] {
+  return b.paras && b.paras.length ? b.paras : [{ start: 0, pitch: b.pitch }]
+}
+
+const sideOf = (a: TextAlign) => (a === 'justify' ? 'left' : a)
+
+/**
+ * The run that sets a line's look: the one with the most characters. A line
+ * "Fête **d’été**" is set in the regular face with one word bold.
+ */
+function dominant(l: TextLine): RunStyle {
+  let best = l.runs[0].style
+  let n = -1
+  for (const r of l.runs) {
+    if (r.text.length > n) {
+      n = r.text.length
+      best = r.style
+    }
+  }
+  return best
+}
+
+/**
+ * How far apart, in em of the smaller type, two blocks' edges may be and still
+ * be the same edge: sub-pixel layout, and the side bearing of a capital.
+ */
+export const MERGE_EDGE_EM = 0.3
+
+/**
+ * Two consecutive blocks read as one piece of text, set on several lines.
+ *
+ * Every line a page sets as a block of its own came out as a text box of its
+ * own: a headline written `<span class="block">` per line, a date over a time in
+ * a flex column — in Canva, three boxes to move one heading. They are one box
+ * when ALL of this holds:
+ *
+ *  - the second is BELOW the first (not beside it: a column, a price, a badge);
+ *  - they share their edge — left edges for left-aligned text, the axis for
+ *    centred, right edges for right — and their alignment;
+ *  - the space between them is the space between two lines of either, give or
+ *    take a fraction of an em: a paragraph's margin is a designer's break, and
+ *    two paragraphs stay two boxes;
+ *  - they are lines of the SAME text element (`BlockInfo.group`), or, when not,
+ *    they are set in the same face at about the same size: a kicker over a
+ *    headline is two things even when they touch;
+ *  - nothing that is not text (`obstacles`: a rule, an icon, a picture) lies in
+ *    the gap between them.
+ *
+ * Styles may differ inside one box: each block stays its own paragraph, with
+ * its own runs and pitch (`TextBlock.paras`).
+ */
+export function belongTogether(a: TextBlock, b: TextBlock, infos: readonly BlockInfo[], obstacles: readonly Rect[] = []): boolean {
+  if (sideOf(a.align) !== sideOf(b.align)) return false
+  const la = a.lines[a.lines.length - 1]
+  const fb = b.lines[0]
+  if (!la || !fb) return false
+  const small = Math.max(1, Math.min(la.fontSize, fb.fontSize))
+  const big = Math.max(la.fontSize, fb.fontSize)
+
+  // Below, not beside.
+  if (fb.rect.y <= la.rect.y + la.rect.h * 0.5) return false
+  const gap = fb.rect.y - (la.rect.y + la.rect.h)
+  if (gap < -0.35 * Math.min(la.rect.h, fb.rect.h)) return false
+
+  // One edge.
+  const tol = Math.max(2, MERGE_EDGE_EM * small)
+  const side = sideOf(a.align)
+  const edge = (r: Rect) => (side === 'left' ? r.x : side === 'right' ? r.x + r.w : r.x + r.w / 2)
+  if (Math.abs(edge(a.rect) - edge(b.rect)) > tol) return false
+
+  // The space two lines of either would leave.
+  const paraA = parasOf(a)
+  const pitchA = paraA[paraA.length - 1].pitch
+  const pitchB = parasOf(b)[0].pitch
+  const lead = Math.max(0, pitchA - la.rect.h, pitchB - fb.rect.h)
+  const ga = infos[la.block]?.group
+  const sameText = ga !== undefined && ga === infos[fb.block]?.group
+  if (sameText) {
+    if (gap > lead + 0.35 * big) return false
+  } else {
+    const sa = dominant(la)
+    const sb = dominant(fb)
+    if (big > small * 1.2) return false
+    if (primaryFontFamily(sa.fontFamily) !== primaryFontFamily(sb.fontFamily)) return false
+    if (gap > lead + 0.25 * small) return false
+  }
+
+  // Nothing drawn between them.
+  const x1 = Math.min(a.rect.x, b.rect.x)
+  const x2 = Math.max(a.rect.x + a.rect.w, b.rect.x + b.rect.w)
+  const top = la.rect.y + la.rect.h - 1
+  const bottom = fb.rect.y + 1
+  for (const o of obstacles) {
+    if (!(o.w > 0 && o.h > 0)) continue
+    if (o.x >= x2 || o.x + o.w <= x1) continue
+    if (o.y >= top && o.y + o.h <= bottom) return false
+  }
+  return true
+}
+
+/** `b` appended to `a` as paragraphs of their own. */
+export function joinBlocks(a: TextBlock, b: TextBlock): TextBlock {
+  const n = a.lines.length
+  return {
+    rect: unionRect([a.rect, b.rect]),
+    lines: [...a.lines, ...b.lines],
+    align: a.align,
+    pitch: a.pitch,
+    paras: [...parasOf(a), ...parasOf(b).map((p) => ({ start: p.start + n, pitch: p.pitch }))],
+  }
+}
+
+/** Consecutive blocks that belong together (`belongTogether`), made one. */
+export function mergeBlocks(blocks: readonly TextBlock[], infos: readonly BlockInfo[], obstacles: readonly Rect[] = []): TextBlock[] {
+  const out: TextBlock[] = []
+  for (const b of blocks) {
+    const prev = out[out.length - 1]
+    if (prev && belongTogether(prev, b, infos, obstacles)) out[out.length - 1] = joinBlocks(prev, b)
+    else out.push(b)
+  }
+  return out
 }

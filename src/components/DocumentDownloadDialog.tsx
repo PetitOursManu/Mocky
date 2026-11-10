@@ -8,12 +8,12 @@ import { documentHasFields, startDownload } from '../lib/docExport/files'
 
 /**
  * Downloading a DOCUMENT screen (lib/pageFormats.ts): PDF with fillable
- * fields, PowerPoint / Google Slides / Canva, PNG per page, and the page in
- * layers for Photoshop and for Figma.
+ * fields, PowerPoint / Google Slides / Canva, the same taken apart for Canva,
+ * PNG per page, and the page in layers for Photoshop and for Figma.
  *
- * Five buttons and nothing to configure, because each output answers a
- * different next step — print it, keep editing it, post it, finish it in a
- * layered editor — and the page
+ * Six buttons and nothing to configure, because each output answers a
+ * different next step — print it, keep editing it, rework its pieces, post it,
+ * finish it in a layered editor — and the page
  * format was chosen when the document was made. The file is handed to the
  * browser as a download the moment it exists: the print dialog was the other
  * way to get a PDF out of a page, and it is the one the user asked NOT to have
@@ -28,6 +28,11 @@ import { documentHasFields, startDownload } from '../lib/docExport/files'
 const KINDS: { kind: ExportKind; icon: IconName; title: string; help: string }[] = [
   { kind: 'pdf', icon: 'download', title: 'docExport.pdf.title', help: 'docExport.pdf.help' },
   { kind: 'pptx', icon: 'pencil', title: 'docExport.pptx.title', help: 'docExport.pptx.help' },
+  // A button of its own, not an option of the one above: the two files answer
+  // different wishes — the design as drawn with its words editable, or the
+  // design in pieces — and a choice hidden behind the first button is a choice
+  // nobody who wanted the second one finds.
+  { kind: 'pptx-edit', icon: 'grid', title: 'docExport.pptxEdit.title', help: 'docExport.pptxEdit.help' },
   { kind: 'png', icon: 'image', title: 'docExport.png.title', help: 'docExport.png.help' },
   { kind: 'psd', icon: 'grid', title: 'docExport.psd.title', help: 'docExport.psd.help' },
   { kind: 'svg', icon: 'crop', title: 'docExport.svg.title', help: 'docExport.svg.help' },
@@ -164,12 +169,15 @@ export default function DocumentDownloadDialog({
     if (n.code === 'fallback') return t('docExport.notice.fallback', { pages })
     if (n.code === 'assets') return t('docExport.notice.assets', { pages })
     if (n.code === 'external') return t('docExport.notice.external', { pages, hosts: n.hosts.join(', ') })
+    if (n.code === 'frames') return t('docExport.notice.frames', { pages })
+    if (n.code === 'whole') return t('docExport.notice.whole', { pages })
     // What survives a page neither renderer could draw depends on the file:
     // the .pptx keeps its editable text, the PDF only its fillable fields (its
     // text layer is invisible by design), a PNG nothing at all — and the
     // layered files, drawn as the PNG is, what the PNG would.
     if (n.code === 'raster') {
       const kind = lastKindRef.current ?? 'pdf'
+      if (kind === 'pptx-edit') return t('docExport.notice.raster.pptxEdit', { pages })
       return t(`docExport.notice.raster.${kind === 'psd' || kind === 'svg' ? 'png' : kind}`, { pages })
     }
     return t('docExport.notice.measure', { pages })

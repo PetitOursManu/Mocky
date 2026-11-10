@@ -72,6 +72,43 @@ export function readPickedSource(raw: unknown): PickedSource[] | undefined {
   return out.length ? out : undefined
 }
 
+/** A drag (or Alt+Arrow) as the frame reports it. */
+export interface MoveRequest {
+  from: PickedSource[]
+  /** The dragged element's selector now, and what it will be once the screen re-renders. */
+  selector: string
+  after: string
+  /** A reorder: the sibling it lands beside. */
+  to?: PickedSource[]
+  before: boolean
+  /** A grid placement instead. */
+  grid?: GridCell
+  /** Alt+Arrow rather than a drag. */
+  step: boolean
+}
+
+const selectorOf = (v: unknown) => (typeof v === 'string' ? v.slice(0, 600) : '')
+
+/** The same distrust as `readPickedSource`: what does not fit is dropped whole. */
+export function readMoveRequest(raw: unknown): MoveRequest | undefined {
+  const d = raw as Record<string, unknown> | null
+  if (!d || typeof d !== 'object') return undefined
+  const from = readPickedSource(d.from)
+  if (!from) return undefined
+  const base = { from, selector: selectorOf(d.selector), after: selectorOf(d.after), step: d.step === true }
+  if (d.grid && typeof d.grid === 'object') {
+    const g = d.grid as Record<string, unknown>
+    const n = (v: unknown, max: number) => (Number.isInteger(v) && (v as number) >= 1 && (v as number) <= max ? (v as number) : undefined)
+    const colStart = n(g.col, 64)
+    const rowStart = n(g.row, 64)
+    if (!colStart || !rowStart) return undefined
+    return { ...base, before: false, grid: { colStart, rowStart, colSpan: n(g.colSpan, 12), rowSpan: n(g.rowSpan, 12) } }
+  }
+  const to = readPickedSource(d.to)
+  if (!to) return undefined
+  return { ...base, to, before: d.before === true }
+}
+
 /** Every JSX element of the source as a Babel path, in the plugin's order; null when it does not parse. */
 async function elementsOf(source: string): Promise<any[] | null> {
   try {
@@ -253,6 +290,307 @@ export async function planRemovals(source: string, chains: (PickedSource[] | und
     if (!paths || !chain?.length) return { kind: 'refused', reason: 'unknown' } as const
     return plan(source, paths, chain, 0)
   })
+}
+
+/*
+ * MOVING an element, with no model call either.
+ *
+ * A move is a reorder among the things one container holds, and the container
+ * is read off the SOURCE: the children of a JSX element, or the entries of the
+ * array literal a `.map()` walks. Whatever the frame's drag saw — a flex row, a
+ * grid, a column of blocks — what is written is the same thing: the slots of
+ * that container in a new order, the text BETWEEN them left where it was. That
+ * is what keeps the indentation right without re-indenting anything: siblings
+ * of one container share their margin, and the separators carry it.
+ *
+ * Both ends of a move are resolved the way a removal resolves its target, and
+ * they must land in the SAME container. Dragging an element out of its parent
+ * is a different operation — it changes what styles apply to it — and the
+ * person was given reorder, not re-parenting.
+ */
+
+export type MoveRefusal =
+  /** The screen itself, or a component's own root with nothing above it. */
+  | 'root'
+  | 'unknown'
+  /** An item of a list the code computes: there is no written entry to move. */
+  | 'computed'
+  /** Drawn several times by one piece of code: moving it here moves it everywhere. */
+  | 'repeated'
+  /** The two ends are not in the same container. */
+  | 'container'
+  /** Its `className` is an expression Mocky does not write into. */
+  | 'className'
+  /** A component's use, whose class may never reach the page. */
+  | 'component'
+  /** The drop leaves it where it was. Not worth a notice. */
+  | 'same'
+
+export type ElementMove = { kind: 'moved'; cuts: Cut[] } | { kind: 'refused'; reason: MoveRefusal }
+
+/** A CSS grid cell, 1-based like the lines Tailwind names. */
+export interface GridCell {
+  colStart: number
+  rowStart: number
+  /** Only when the element spans more than one track; otherwise its own span class is kept. */
+  colSpan?: number
+  rowSpan?: number
+}
+
+interface Slot {
+  start: number
+  end: number
+  node: any
+}
+
+interface Unit {
+  /** What moves: a JSX child, the `{…}` that holds it, or an array entry. */
+  node: any
+  /** The container's slots in source order. Identity of `slots` is not the container's: `container` is. */
+  container: any
+  slots: Slot[]
+  /** The JSX element written for it, and the chain index it was found at. */
+  element: any
+  at: number
+  /** A component's root that this use stands for, when the walk went up through one. */
+  rootFrom: any | null
+  /** The `.map()` call, when the unit is an entry of the array it walks. */
+  list: any | null
+}
+
+const refusedMove = (reason: MoveRefusal): ElementMove => ({ kind: 'refused', reason })
+
+/**
+ * A JSX element's children as slots. Whitespace-only text is a separator, not
+ * a slot; text with words is a slot narrowed to its words, so the margin
+ * around it stays a separator too.
+ */
+function jsxSlots(source: string, parent: any): Slot[] {
+  const out: Slot[] = []
+  for (const child of parent.children) {
+    if (child.type === 'JSXText') {
+      const raw = source.slice(child.start, child.end)
+      if (!raw.trim()) continue
+      const lead = raw.length - raw.trimStart().length
+      const trail = raw.length - raw.trimEnd().length
+      out.push({ start: child.start + lead, end: child.end - trail, node: child })
+    } else {
+      out.push({ start: child.start, end: child.end, node: child })
+    }
+  }
+  return out
+}
+
+/** Where the element at `chain[i]` sits, as something a reorder can move. */
+function resolveUnit(source: string, paths: any[], chain: PickedSource[], i: number, rootFrom: any = null): Unit | MoveRefusal {
+  const entry = chain[i]
+  const path = entry && paths[entry.rank]
+  if (!path) return i === 0 ? 'unknown' : 'root'
+  // `{on && <b/>}` and `{on ? <a/> : <b/>}` move whole: the condition goes with its element.
+  let at = path
+  for (;;) {
+    const p = at.parentPath
+    if (p?.isLogicalExpression() && p.node.right === at.node) at = p
+    else if (p?.isConditionalExpression() && p.node.test !== at.node) at = p
+    else break
+  }
+  const parent = at.parentPath
+  if (!parent) return 'unknown'
+  const base = { element: path, at: i, rootFrom, list: null }
+  if (parent.isJSXElement() || parent.isJSXFragment()) {
+    return { ...base, node: at.node, container: parent.node, slots: jsxSlots(source, parent.node) }
+  }
+  if (parent.isJSXExpressionContainer()) {
+    const holder = parent.parentPath
+    if (holder?.isJSXElement() || holder?.isJSXFragment()) {
+      return { ...base, node: parent.node, container: holder.node, slots: jsxSlots(source, holder.node) }
+    }
+    return 'unknown'
+  }
+  const fn = parent.isReturnStatement()
+    ? parent.getFunctionParent()
+    : parent.isArrowFunctionExpression() && parent.node.body === at.node
+      ? parent
+      : null
+  if (!fn) return 'unknown'
+  if (isMapCallback(fn)) {
+    const elements = literalArray(fn.parentPath)
+    if (!elements) return 'computed'
+    const item = elements[entry.index]
+    if (!item) return 'unknown'
+    return {
+      ...base,
+      node: item,
+      container: elements,
+      slots: elements.map((e: any) => ({ start: e.start, end: e.end, node: e })),
+      list: fn.parentPath,
+    }
+  }
+  // A component's root is that component: what moves is its use.
+  return i + 1 < chain.length ? resolveUnit(source, paths, chain, i + 1, path) : 'root'
+}
+
+/** Is this code drawn more than once — inside a loop, or a component the screen uses several times? */
+function repeatedAt(paths: any[], chain: PickedSource[], i: number, path: any): boolean {
+  if (path.findParent((p: any) => p.isFunction() && isMapCallback(p))) return true
+  const component = componentOf(path)
+  if (!component) return false
+  if (paths.filter((p) => nameOf(p) === component).length > 1) return true
+  for (let j = i + 1; j < chain.length; j++) {
+    const up = paths[chain[j].rank]
+    if (up && nameOf(up) === component) return repeatedAt(paths, chain, j, up)
+  }
+  return false
+}
+
+const unitRepeats = (paths: any[], chain: PickedSource[], u: Unit) =>
+  repeatedAt(paths, chain, u.at, u.list ?? u.element)
+
+/** The slots in a new order, the separators where they were: one cut over the part that changed. */
+function reorder(source: string, slots: Slot[], from: number, to: number, position: 'before' | 'after'): ElementMove {
+  if (from < 0 || to < 0 || from === to) return refusedMove(from === to && from >= 0 ? 'same' : 'unknown')
+  const order = slots.map((_, k) => k).filter((k) => k !== from)
+  const at = order.indexOf(to) + (position === 'after' ? 1 : 0)
+  order.splice(at, 0, from)
+  let lo = 0
+  while (lo < order.length && order[lo] === lo) lo++
+  if (lo === order.length) return refusedMove('same')
+  let hi = order.length - 1
+  while (order[hi] === hi) hi--
+  let text = ''
+  for (let n = lo; n <= hi; n++) {
+    if (n > lo) text += source.slice(slots[n - 1].end, slots[n].start)
+    text += source.slice(slots[order[n]].start, slots[order[n]].end)
+  }
+  return { kind: 'moved', cuts: [{ start: slots[lo].start, end: slots[hi].end, text }] }
+}
+
+/**
+ * Move the element `from` names to just before or after the one `to` names.
+ * Both are chains as the frame reports them; only ranks and indices travel,
+ * never offsets. Never throws.
+ */
+export async function planMove(
+  source: string,
+  from: PickedSource[] | undefined,
+  to: PickedSource[] | undefined,
+  position: 'before' | 'after',
+): Promise<ElementMove> {
+  const paths = await elementsOf(source)
+  if (!paths || !from?.length || !to?.length) return refusedMove('unknown')
+  const a = resolveUnit(source, paths, from, 0)
+  if (typeof a === 'string') return refusedMove(a)
+  const b = resolveUnit(source, paths, to, 0)
+  if (typeof b === 'string') return refusedMove(b === 'root' ? 'container' : b)
+  if (a.container !== b.container) return refusedMove('container')
+  if (unitRepeats(paths, from, a)) return refusedMove('repeated')
+  const index = (node: any) => a.slots.findIndex((s) => s.node === node)
+  return reorder(source, a.slots, index(a.node), index(b.node), position)
+}
+
+/*
+ * Placing an element on a grid cell is a class, not a reorder: the
+ * `col-start-*` / `row-start-*` of Tailwind 3 (the preview's runtime). The
+ * literal is rewritten at parser offsets; only its tokens are matched, and only
+ * the ones that place an item on the grid — the shorthands (`col-[…]`,
+ * `col-auto`) and the ends included, since any of them left behind would fight
+ * the new start. Under every variant too: a `md:col-start-2` left in place is
+ * the class the preview, wide enough for `md:`, actually applies, so the drop
+ * would do nothing anybody could see.
+ */
+const PLACES = /^(?:[^\s:]+:)*!?(?:col|row)-(?:start-|end-|auto$|\[)/
+const SPANS_COL = /^(?:[^\s:]+:)*!?col-span-/
+const SPANS_ROW = /^(?:[^\s:]+:)*!?row-span-/
+
+const named = (prefix: string, n: number, max: number) => (n <= max ? `${prefix}-${n}` : `${prefix}-[${n}]`)
+
+function placementClasses(cell: GridCell): string[] {
+  const out = [named('col-start', cell.colStart, 13), named('row-start', cell.rowStart, 13)]
+  if (cell.colSpan && cell.colSpan > 1) out.push(`col-span-${Math.min(cell.colSpan, 12)}`)
+  if (cell.rowSpan && cell.rowSpan > 1) out.push(`row-span-${Math.min(cell.rowSpan, 12)}`)
+  return out
+}
+
+/**
+ * One literal's tokens without the dropped ones. Null when a dropped token
+ * touches an interpolation (`col-start-${n}`): half of it is code, and
+ * removing the written half would leave a class nobody wrote.
+ */
+function withoutTokens(raw: string, drop: (tok: string) => boolean, openStart: boolean, openEnd: boolean): string | null {
+  let touched = false
+  const out = raw.replace(/(\s*)(\S+)/g, (m: string, ws: string, tok: string, offset: number) => {
+    if (!drop(tok)) return m
+    if ((openStart && offset + ws.length === 0) || (openEnd && offset + m.length === raw.length)) touched = true
+    return ''
+  })
+  if (touched) return null
+  return /^\s/.test(raw) ? out : out.replace(/^\s+/, '')
+}
+
+const joinClasses = (kept: string, add: string[], gap: boolean) =>
+  kept + (kept ? (/\s$/.test(kept) ? '' : ' ') : gap ? ' ' : '') + add.join(' ')
+
+function classCut(source: string, opening: any, add: string[], drop: (tok: string) => boolean): Cut | null {
+  const attr = opening.attributes.find((a: any) => a.type === 'JSXAttribute' && a.name?.name === 'className')
+  if (!attr) return { start: opening.name.end, end: opening.name.end, text: ` className="${add.join(' ')}"` }
+  let lit = attr.value
+  if (lit?.type === 'JSXExpressionContainer') lit = lit.expression
+  if (lit?.type === 'StringLiteral') {
+    const kept = withoutTokens(source.slice(lit.start + 1, lit.end - 1), drop, false, false)
+    if (kept === null) return null
+    return { start: lit.start + 1, end: lit.end - 1, text: joinClasses(kept, add, false) }
+  }
+  if (lit?.type === 'TemplateLiteral') {
+    const quasis = lit.quasis
+    const last = quasis.length - 1
+    let text = ''
+    for (let k = 0; k <= last; k++) {
+      const q = quasis[k]
+      let kept = withoutTokens(source.slice(q.start, q.end), drop, k > 0, k < last)
+      if (kept === null) return null
+      if (k === last) kept = joinClasses(kept, add, last > 0)
+      if (k > 0) text += source.slice(quasis[k - 1].end, q.start)
+      text += kept
+    }
+    return { start: quasis[0].start, end: quasis[last].end, text }
+  }
+  return null
+}
+
+/** Host elements, and `motion.*`, which forwards its class to one. */
+function writesItsOwnClass(path: any): boolean {
+  const name = path.node.openingElement?.name
+  if (name?.type === 'JSXIdentifier') return /^[a-z]/.test(name.name)
+  return name?.type === 'JSXMemberExpression' && name.object?.type === 'JSXIdentifier' && name.object.name === 'motion'
+}
+
+/** Put the element `chain` names on this grid cell, by its class. Never throws. */
+export async function planGridPlacement(source: string, chain: PickedSource[] | undefined, cell: GridCell): Promise<ElementMove> {
+  const ok = (n: unknown) => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 64
+  if (!ok(cell.colStart) || !ok(cell.rowStart)) return refusedMove('unknown')
+  const paths = await elementsOf(source)
+  if (!paths || !chain?.length) return refusedMove('unknown')
+  const u = resolveUnit(source, paths, chain, 0)
+  if (typeof u === 'string') return refusedMove(u)
+  // One class written in a loop places every item on the same cell.
+  if (u.list || unitRepeats(paths, chain, u)) return refusedMove('repeated')
+  let target = u.element
+  if (!writesItsOwnClass(target)) {
+    // A component used once: its root is the element the grid holds.
+    const root = u.rootFrom
+    const name = nameOf(target)
+    if (!root || !name || componentOf(root) !== name || paths.filter((p) => nameOf(p) === name).length !== 1) {
+      return refusedMove('component')
+    }
+    if (!writesItsOwnClass(root)) return refusedMove('component')
+    target = root
+  }
+  const drop = (tok: string) =>
+    PLACES.test(tok) || (!!cell.colSpan && cell.colSpan > 1 && SPANS_COL.test(tok)) || (!!cell.rowSpan && cell.rowSpan > 1 && SPANS_ROW.test(tok))
+  const cut = classCut(source, target.node.openingElement, placementClasses(cell), drop)
+  if (!cut) return refusedMove('className')
+  if (cut.text === source.slice(cut.start, cut.end)) return refusedMove('same')
+  return { kind: 'moved', cuts: [cut] }
 }
 
 /** The source with these cuts made, or null when the result would not parse. Never throws. */

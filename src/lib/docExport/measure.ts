@@ -4,6 +4,7 @@ import {
   applyTextTransform,
   groupBlocks,
   groupLines,
+  mergeBlocks,
   parseCssColor,
   splitAcrossRects,
 } from './lines'
@@ -210,6 +211,94 @@ export function groundOf(backgroundColor: string | null | undefined): { ground?:
   return c.a >= 0.999 ? { ground: c } : {}
 }
 
+/**
+ * What each element's content is clipped to, in page px (memoised). The clip
+ * follows the CONTAINING BLOCK for a positioned box: an absolute badge inside a
+ * static `overflow-hidden` wrapper escapes it, exactly as it is drawn. Shared by
+ * the text walk and the page taken apart (decompose.ts), which must agree on
+ * what is visible.
+ */
+export function makeClipper(win: Window, page: Element, origin: { x: number; y: number }) {
+  const styleOf = (el: Element) => win.getComputedStyle(el)
+  const innerClip = new Map<Element, Clip>()
+  const containingBlock = (el: Element): Element | null => {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      if (p === page) return p
+      const cs = styleOf(p)
+      if (cs.position !== 'static' || (cs.transform && cs.transform !== 'none')) return p
+    }
+    return null
+  }
+  /** What an element is clipped to by its ancestors (not by itself). */
+  const outerOf = (el: Element): Clip => {
+    const pos = styleOf(el).position
+    if (pos === 'fixed') return null
+    const from = pos === 'absolute' ? containingBlock(el) : el.parentElement
+    return from ? contentClip(from) : null
+  }
+  const contentClip = (el: Element): Clip => {
+    // The page's own edge is `onPage`'s business: a word half off the paper is
+    // judged by its centre, as before. Every element asked about is inside the
+    // page: a host, its parents, or a containing block, which stops at the page.
+    if (el === page) return null
+    const hit = innerClip.get(el)
+    if (hit !== undefined) return hit
+    const cs = styleOf(el)
+    const flags = clipsByStyle(cs)
+    let own: Clip = null
+    if (flags.empty) own = { x: 0, y: 0, w: 0, h: 0 }
+    else if (flags.x || flags.y) {
+      const r = rel(el.getBoundingClientRect(), origin)
+      own = {
+        x: flags.x ? r.x : -UNBOUNDED,
+        y: flags.y ? r.y : -UNBOUNDED,
+        w: flags.x ? r.w : 2 * UNBOUNDED,
+        h: flags.y ? r.h : 2 * UNBOUNDED,
+      }
+    }
+    const v = intersectClip(outerOf(el), own)
+    innerClip.set(el, v)
+    return v
+  }
+  return { contentClip, outerOf }
+}
+
+/**
+ * The text elements whose lines may each be laid out as a block of their own —
+ * a heading written one `<span class="block">` per line — and are still one
+ * piece of text (`BlockInfo.group`, lines.ts's `belongTogether`).
+ */
+const TEXT_ELEMENTS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'LI', 'BLOCKQUOTE', 'A', 'BUTTON', 'LABEL', 'FIGCAPTION', 'DT', 'DD', 'CAPTION', 'TH', 'TD'])
+
+/**
+ * Things drawn between lines that are not text: a block on either side of one
+ * stays its own box. Pictures, icons, rules — and any childless element drawn as
+ * a thin bar (a `h-px bg-…` divider).
+ */
+const OBSTACLE_TAGS = 'img,svg,hr,canvas,video,picture,[data-mocky-frame]'
+
+function obstaclesOf(win: Window, page: Element, origin: { x: number; y: number }): Rect[] {
+  const out: Rect[] = []
+  const seen = new Set<Element>()
+  page.querySelectorAll(OBSTACLE_TAGS).forEach((el) => {
+    // A frame's own layers and an icon's inner <svg> are inside an obstacle already counted.
+    if (el.parentElement?.closest('svg,[data-mocky-frame]')) return
+    seen.add(el)
+    const r = rel(el.getBoundingClientRect(), origin)
+    if (r.w > 0 && r.h > 0) out.push(r)
+  })
+  page.querySelectorAll('*').forEach((el) => {
+    if (seen.has(el) || el.childElementCount > 0 || el.namespaceURI === 'http://www.w3.org/2000/svg') return
+    const r = el.getBoundingClientRect()
+    if (!(r.width > 0 && r.height > 0) || Math.min(r.width, r.height) > 6) return
+    const cs = win.getComputedStyle(el)
+    const paints = parseCssColor(cs.backgroundColor).a > 0.05 && /^\s*(#|rgba?\()/.test(cs.backgroundColor)
+    const ruled = px(cs.borderTopWidth) > 0 || px(cs.borderBottomWidth) > 0
+    if (paints || ruled) out.push(rel(r, origin))
+  })
+  return out
+}
+
 export function snapshotPage(
   win: Window,
   page: Element,
@@ -274,52 +363,26 @@ export function snapshotPage(
   // ── what each element's content is clipped to ───────────────────────────
   // Visually hidden text (`sr-only`, a word past an `overflow-hidden` edge) is
   // still in the DOM and still has rects; exported, it became a text box in a
-  // slide and a searchable line in a PDF that the design never showed. The
-  // clip follows the CONTAINING BLOCK for a positioned box: an absolute badge
-  // inside a static `overflow-hidden` wrapper escapes it, exactly as it is drawn.
-  const innerClip = new Map<Element, Clip>()
-  const containingBlock = (el: Element): Element | null => {
-    for (let p = el.parentElement; p; p = p.parentElement) {
-      if (p === page) return p
-      const cs = styleOf(p)
-      if (cs.position !== 'static' || (cs.transform && cs.transform !== 'none')) return p
-    }
-    return null
-  }
-  const outerOf = (el: Element): Clip => {
-    const pos = styleOf(el).position
-    if (pos === 'fixed') return null
-    const from = pos === 'absolute' ? containingBlock(el) : el.parentElement
-    return from ? contentClip(from) : null
-  }
-  const contentClip = (el: Element): Clip => {
-    // The page's own edge is `onPage`'s business: a word half off the paper is
-    // judged by its centre, as before. Every element asked about is inside the
-    // page: a host, its parents, or a containing block, which stops at the page.
-    if (el === page) return null
-    const hit = innerClip.get(el)
-    if (hit !== undefined) return hit
-    const cs = styleOf(el)
-    const flags = clipsByStyle(cs)
-    let own: Clip = null
-    if (flags.empty) own = { x: 0, y: 0, w: 0, h: 0 }
-    else if (flags.x || flags.y) {
-      const r = rel(el.getBoundingClientRect(), origin)
-      own = {
-        x: flags.x ? r.x : -UNBOUNDED,
-        y: flags.y ? r.y : -UNBOUNDED,
-        w: flags.x ? r.w : 2 * UNBOUNDED,
-        h: flags.y ? r.h : 2 * UNBOUNDED,
-      }
-    }
-    const v = intersectClip(outerOf(el), own)
-    innerClip.set(el, v)
-    return v
-  }
+  // slide and a searchable line in a PDF that the design never showed.
+  const { contentClip } = makeClipper(win, page, origin)
 
   // ── the block each run of text is laid out in ────────────────────────────
   const blockIndex = new Map<Element, number>()
   const infos: BlockInfo[] = []
+  const groupIndex = new Map<Element, number>()
+  /** The text element a block is a line of: itself or its nearest such ancestor, up to the page. */
+  const groupOf = (blockEl: Element): number | undefined => {
+    for (let e: Element | null = blockEl; e && e !== page; e = e.parentElement) {
+      if (!TEXT_ELEMENTS.has(e.tagName.toUpperCase())) continue
+      let g = groupIndex.get(e)
+      if (g === undefined) {
+        g = groupIndex.size
+        groupIndex.set(e, g)
+      }
+      return g
+    }
+    return undefined
+  }
   const blockOf = (host: Element): { block: number; underline: boolean } => {
     let el: Element | null = host
     let underline = false
@@ -337,9 +400,11 @@ export function snapshotPage(
     if (i === undefined) {
       const cs = styleOf(blockEl)
       i = infos.length
+      const group = groupOf(blockEl)
       infos.push({
         align: alignOf(cs.textAlign, cs.direction),
         lineHeight: cs.lineHeight === 'normal' ? null : px(cs.lineHeight) || null,
+        ...(group !== undefined ? { group } : {}),
       })
       blockIndex.set(blockEl, i)
     }
@@ -477,12 +542,20 @@ export function snapshotPage(
 
   const lines = groupLines(words)
   const round = (v: number) => Math.max(0, Math.round(v))
+  // Measured, never decided: a failure here costs the merge, not the page.
+  let obstacles: Rect[] = []
+  try {
+    obstacles = obstaclesOf(win, page, origin)
+  } catch (err) {
+    console.warn('mocky: what lies between the lines could not be read —', err)
+  }
   return {
     index,
     width,
     height,
     lines,
-    blocks: groupBlocks(lines, infos),
+    blocks: mergeBlocks(groupBlocks(lines, infos), infos, obstacles),
+    obstacles,
     fields,
     links,
     overflow,

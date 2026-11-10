@@ -13,6 +13,9 @@ import DesignPanel from './components/DesignPanel'
 import AuthModal from './components/AuthModal'
 import AdminDashboard from './components/admin/AdminDashboard'
 import Bibliotheque from './components/Bibliotheque'
+import { SaveTemplateDialog } from './components/DesignModels'
+import { projectFromTemplate, type ProjectTemplate } from './lib/templates'
+import type { DesignEntry } from './lib/design'
 import SyncIndicator from './components/SyncIndicator'
 import MaintenanceBanner from './components/MaintenanceBanner'
 import AnnouncementBanner from './components/AnnouncementBanner'
@@ -134,6 +137,7 @@ function MockyApp() {
   const {
     projects,
     createProject,
+    addProject,
     deleteProject,
     renameProject,
     folders,
@@ -207,6 +211,8 @@ function MockyApp() {
   const [authOpen, setAuthOpen] = useState(false)
   /** The folded masthead, below md. See the `md:hidden` nav further down. */
   const [menuOpen, setMenuOpen] = useState(false)
+  /** The project whose "Save as template" dialog is open, from the home page. */
+  const [templateFor, setTemplateFor] = useState<string | null>(null)
   const [ssoError, setSsoError] = useState<string | null>(null)
   /** The sequence Muse will use for the hero, mirrored from the Muse settings. */
   const [videoPin, setVideoPin] = useState<MuseVideoPin | null>(() => loadMuseConfig().videoPin)
@@ -329,6 +335,38 @@ function MockyApp() {
   function newProject(folderId?: string | null) {
     const id = createProject(undefined, folderId)
     openProject(id)
+  }
+
+  /**
+   * The folder the projects page was last looking at, when it still exists —
+   * where a project started from Media → Design goes. Read from the key
+   * ProjectsHome keeps it under (`mocky.home.folder`, its CWD_KEY), per tab.
+   */
+  function homeFolder(): string | null {
+    try {
+      const id = sessionStorage.getItem('mocky.home.folder')
+      return id && folders.some((f) => f.id === id) ? id : null
+    } catch {
+      return null
+    }
+  }
+
+  /** Media → Design: a new project that starts under a saved direction. */
+  function newProjectWithDirection(entry: DesignEntry) {
+    const id = createProject(undefined, homeFolder())
+    setProjectDesign(id, entry.markdown)
+    openProject(id)
+  }
+
+  /** Media → Design: a new project made from a template (lib/templates.ts), opened. */
+  function newProjectFromTemplate(template: ProjectTemplate) {
+    const folderId = homeFolder()
+    const project = projectFromTemplate(template, {
+      folderId,
+      folderLabel: folderId ? folders.find((f) => f.id === folderId)?.name : undefined,
+    })
+    addProject(project)
+    openProject(project.id)
   }
 
   // Follow a waiting project link once the projects are the merged ones —
@@ -800,6 +838,13 @@ function MockyApp() {
           onMoveFolder={moveFolder}
           onDeleteFolder={deleteFolder}
           reviewStates={reviewStates.states}
+          onSaveTemplate={setTemplateFor}
+        />
+      )}
+      {templateFor && projects.some((p) => p.id === templateFor) && (
+        <SaveTemplateDialog
+          project={projects.find((p) => p.id === templateFor) as (typeof projects)[number]}
+          onClose={() => setTemplateFor(null)}
         />
       )}
 
@@ -882,6 +927,8 @@ function MockyApp() {
       {route === 'media' && (
         <Bibliotheque
           variant="page"
+          onNewProjectWithDirection={newProjectWithDirection}
+          onNewProjectFromTemplate={newProjectFromTemplate}
           projectId={activeProject?.id}
           projectNames={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
           // Choosing a sequence here has no project to attach to, so it is

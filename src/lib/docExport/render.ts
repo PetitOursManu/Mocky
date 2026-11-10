@@ -1,4 +1,5 @@
-import { carryFrames, hideElements } from './frames'
+import { carryFrames, hideElements, unpaintElements, type CarriedFrames } from './frames'
+import { planDecomposition, takeApart, type TakenApart } from './decompose'
 import { openDocumentFrame, type DocumentFrame } from '../capture'
 import type { Capability } from '../capabilities/types'
 import { DOC_ATTR, FIELD_ATTR, PAGE_ATTR, docFrameHeight, type PageFormat } from '../pageFormats'
@@ -24,7 +25,7 @@ import {
   type RasterPurpose,
 } from './raster'
 import { classifyNativeFailure, externalPictureHost, raceAbort } from './svgRaster'
-import type { CarriedFrame, PageSnapshot, RenderedPage } from './types'
+import type { PageSnapshot, RenderedPage } from './types'
 
 /**
  * A document screen, rendered offscreen and read back one page at a time.
@@ -65,6 +66,13 @@ export type RenderNotice =
    * left a flyer's three QR codes, logo and banner photo missing with no hint why.
    */
   | { code: 'external'; pages: number[]; hosts: string[] }
+  /**
+   * Pictures in a shape on these pages that could not be read back: each stays
+   * in the page as it was drawn, right but not a frame of its own.
+   */
+  | { code: 'frames'; pages: number[] }
+  /** .pptx for Canva only: these pages could not be taken apart, and came out as the faithful slide. */
+  | { code: 'whole'; pages: number[] }
 
 export interface RenderResult {
   pages: RenderedPage[]
@@ -81,6 +89,11 @@ export interface RenderOptions {
   signal?: AbortSignal
   /** Called before each page is rasterised, 1-based. */
   onPage?: (page: number, total: number) => void
+  /**
+   * The .pptx only: take each page apart into native shapes and pictures of
+   * single elements (decompose.ts) instead of one picture under the text.
+   */
+  decompose?: boolean
 }
 
 const HIDE_MODE = { pdf: 'fields', pptx: 'text', png: 'none', layers: 'none' } as const
@@ -597,9 +610,12 @@ export async function renderDocument(
     const unmeasured: number[] = []
     const overflow: number[] = []
     const tiltedPages: number[] = []
-    const fellBack: number[] = []
-    const incomplete: number[] = []
-    const blank: number[] = []
+    // Sets: a page taken apart is drawn once per layer, and each drawing reports.
+    const fellBack = new Set<number>()
+    const incomplete = new Set<number>()
+    const blank = new Set<number>()
+    const framesMissed: number[] = []
+    const undecomposed: number[] = []
     const external: number[] = []
     const externalHosts = new Set<string>()
     const out: RenderedPage[] = []
@@ -635,7 +651,7 @@ export async function renderDocument(
 
       // The .pptx, the SVG and the PSD carry each frame on its own, holding the
       // picture as the frame shows it: read now, before anything is hidden.
-      let carried: { frames: CarriedFrame[]; hide: Element[] } = { frames: [], hide: [] }
+      let carried: CarriedFrames = { frames: [], roots: [], hide: [], unpaint: [], missed: 0 }
       if (CARRIES_FRAMES.has(purpose)) {
         try {
           carried = await raceAbort(carryFrames(frame.win, el, scale), signal)
@@ -643,6 +659,7 @@ export async function renderDocument(
           if (signal?.aborted || (err as { name?: string } | null)?.name === 'AbortError') throw err
           console.warn('mocky: the frames stay in the page —', err)
         }
+        if (carried.missed) framesMissed.push(i + 1)
       }
 
       // Only the .pptx hides every glyph, so only there does tilted text need
@@ -651,45 +668,57 @@ export async function renderDocument(
         purpose === 'pptx'
           ? (e: Element) => e.namespaceURI === SVG_NS || tilted(e)
           : (e: Element) => e.namespaceURI === SVG_NS
-      const prepare = (): (() => void) => {
+      const prepare = (extra?: () => () => void): (() => void) => {
         const undo: Array<() => void> = []
         if (hide) undo.push(applyHide(frame.win, frame.doc, el, hide, keepInk, textMode))
         if (purpose === 'pdf') undo.push(uncheckFields(el))
         if (carried.hide.length) undo.push(hideElements(carried.hide))
+        if (carried.unpaint.length) undo.push(unpaintElements(carried.unpaint))
+        // Last, so it overrides what the hide rules pinned back.
+        if (extra) undo.push(extra())
         return undoAll(undo)
       }
-      let rendered: { image: Uint8Array; w: number; h: number } | null = null
 
-      // ── the browser's own engine ─────────────────────────────────────────
-      if (native) {
-        const restore = prepare()
-        let canvas: HTMLCanvasElement | null = null
-        try {
-          const res = await rasterizeNative(frame.win, el, { width: format.w, height: format.h, scale, signal })
-          canvas = res.canvas
-          // Inside the try: Safari's refusal to read the canvas back is a
-          // SecurityError thrown HERE, not when drawing.
-          rendered = { image: await raceAbort(encode(canvas, type), signal), w: canvas.width, h: canvas.height }
-          // Only once the native picture is the one kept: a page that falls
-          // back is drawn by html2canvas from the live DOM, pictures included,
-          // and reporting it as incomplete as well contradicted the other notice.
-          // The pictures from another site have a notice of their own; this one
-          // is for whatever ELSE did not travel.
-          if (res.missing > remote.length) incomplete.push(i + 1)
-        } catch (err) {
-          const verdict = classifyNativeFailure(err, !!signal?.aborted)
-          if (verdict === 'abort') throw err
-          if (verdict === 'tainted') native = false
-          console.warn('mocky: native page raster failed, using html2canvas —', err)
-        } finally {
-          restore()
-          release(canvas)
+      /**
+       * The page drawn once — by the browser's own engine, html2canvas when that
+       * fails — and handed to `consume` while the canvas is alive. Inside the
+       * same try as the drawing: Safari's refusal to read a canvas back is a
+       * SecurityError thrown by the READ, and it is what sends a page to the
+       * fallback. Null when neither could draw it.
+       */
+      const drawPage = async <T,>(
+        extra: (() => () => void) | undefined,
+        transparent: boolean,
+        consume: (canvas: HTMLCanvasElement) => Promise<T>,
+      ): Promise<{ value: T } | null> => {
+        // ── the browser's own engine ─────────────────────────────────────────
+        if (native) {
+          const restore = prepare(extra)
+          let canvas: HTMLCanvasElement | null = null
+          try {
+            const res = await rasterizeNative(frame.win, el, { width: format.w, height: format.h, scale, signal, transparent })
+            canvas = res.canvas
+            const value = await raceAbort(consume(canvas), signal)
+            // Only once the native picture is the one kept: a page that falls
+            // back is drawn by html2canvas from the live DOM, pictures included,
+            // and reporting it as incomplete as well contradicted the other notice.
+            // The pictures from another site have a notice of their own; this one
+            // is for whatever ELSE did not travel.
+            if (res.missing > remote.length) incomplete.add(i + 1)
+            return { value }
+          } catch (err) {
+            const verdict = classifyNativeFailure(err, !!signal?.aborted)
+            if (verdict === 'abort') throw err
+            if (verdict === 'tainted') native = false
+            console.warn('mocky: native page raster failed, using html2canvas —', err)
+          } finally {
+            restore()
+            release(canvas)
+          }
         }
-      }
 
-      // ── html2canvas, the fallback ────────────────────────────────────────
-      if (!rendered) {
-        fellBack.push(i + 1)
+        // ── html2canvas, the fallback ────────────────────────────────────────
+        fellBack.add(i + 1)
         const undo: Array<() => void> = []
         let canvas: HTMLCanvasElement | null = null
         try {
@@ -698,28 +727,68 @@ export async function renderDocument(
           // ink (erased in the .pptx pass, where it is a text box), and every
           // colour it would throw on resolved first.
           undo.push(treatClippedText(frame.win, el, (e) => (textMode && !keepInk(e) ? 'erase' : 'flatten')))
-          undo.push(prepare())
+          undo.push(prepare(extra))
           undo.push(normalizeColors(frame.win, frame.doc, el))
           // No CORS and no taint: html2canvas runs from Mocky's realm now, where
           // the frame's CSP does not apply, and this is what keeps it to Mocky's
           // own pictures instead of fetching the hosts a model wrote.
           canvas = await raceAbort(
-            h2c(el, { scale, width: format.w, height: format.h, backgroundColor: '#ffffff', logging: false, useCORS: false, allowTaint: false }),
+            h2c(el, {
+              scale,
+              width: format.w,
+              height: format.h,
+              backgroundColor: transparent ? null : '#ffffff',
+              logging: false,
+              useCORS: false,
+              allowTaint: false,
+            }),
             signal,
           )
           throwIfAborted(signal)
-          rendered = { image: await raceAbort(encode(canvas, type), signal), w: canvas.width, h: canvas.height }
+          return { value: await raceAbort(consume(canvas), signal) }
         } catch (err) {
           if (signal?.aborted || (err as { name?: string } | null)?.name === 'AbortError') throw err
           console.warn('mocky: page could not be rasterised —', err)
+          return null
         } finally {
           undoAll(undo)()
           release(canvas)
         }
       }
 
+      // ── taken apart: the .pptx for Canva ──────────────────────────────────
+      if (opts.decompose && purpose === 'pptx') {
+        let apart: TakenApart | null = null
+        try {
+          const plan = planDecomposition(frame.win, el, { tilted, frameRoots: carried.roots, skip: new Set(carried.hide) })
+          apart = await takeApart(plan, scale, (extra, consume) => drawPage(extra, true, consume))
+        } catch (err) {
+          if (signal?.aborted || (err as { name?: string } | null)?.name === 'AbortError') throw err
+          // Degrade to the faithful slide for this page rather than lose it.
+          console.warn('mocky: the page could not be taken apart, drawn whole —', err)
+          apart = null
+        }
+        if (apart) {
+          if (apart.failed) blank.add(i + 1)
+          out.push({
+            snapshot,
+            image: apart.background ?? new Uint8Array(0),
+            pixelWidth: Math.round(format.w * scale),
+            pixelHeight: Math.round(format.h * scale),
+            items: apart.items,
+            ...(carried.frames.length ? { frames: carried.frames } : {}),
+          })
+          continue
+        }
+        undecomposed.push(i + 1)
+      }
+
+      let rendered: { image: Uint8Array; w: number; h: number } | null = null
+      const drawn = await drawPage(undefined, false, async (canvas) => ({ image: await encode(canvas, type), w: canvas.width, h: canvas.height }))
+      if (drawn) rendered = drawn.value
+
       if (!rendered) {
-        blank.push(i + 1)
+        blank.add(i + 1)
         rendered = await blankImage(format.w * scale, format.h * scale, type)
       }
       out.push({
@@ -730,14 +799,17 @@ export async function renderDocument(
         ...(carried.frames.length ? { frames: carried.frames } : {}),
       })
     }
+    const sorted = (s: Set<number>) => [...s].sort((a, b) => a - b)
     if (overflow.length) notices.push({ code: 'overflow', pages: overflow })
     if (unmeasured.length) notices.push({ code: 'measure', pages: unmeasured })
     if (purpose === 'pptx' && tiltedPages.length) notices.push({ code: 'tilted', pages: tiltedPages })
-    const drawnByFallback = fellBack.filter((p) => !blank.includes(p))
+    const drawnByFallback = sorted(fellBack).filter((p) => !blank.has(p))
     if (drawnByFallback.length) notices.push({ code: 'fallback', pages: drawnByFallback })
-    if (incomplete.length) notices.push({ code: 'assets', pages: incomplete })
-    if (blank.length) notices.push({ code: 'raster', pages: blank })
+    if (incomplete.size) notices.push({ code: 'assets', pages: sorted(incomplete) })
+    if (blank.size) notices.push({ code: 'raster', pages: sorted(blank) })
     if (external.length) notices.push({ code: 'external', pages: external, hosts: [...externalHosts].slice(0, 3) })
+    if (framesMissed.length) notices.push({ code: 'frames', pages: framesMissed })
+    if (undecomposed.length) notices.push({ code: 'whole', pages: undecomposed })
     return { pages: out, notices }
   } finally {
     close()

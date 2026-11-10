@@ -133,6 +133,16 @@ export const en: Record<keyof typeof fr, string> = {
   'projects.createFolder': "Create the folder",
   'projects.fileProject': "File “{name}”",
   'projects.fileOne': "File “{name}”",
+  'projects.newSubfolder': "New subfolder",
+  'projects.newFolderIn': "New folder in “{name}”",
+  'projects.folderActions': "Folder actions",
+  'projects.moveFolderEllipsis': "Move…",
+  'projects.showFolders': "Show the folders",
+  'projects.hideFolders': "Hide the folders",
+  'projects.dropHere': "Move here",
+  'projects.dropRefused': "Not here",
+  'projects.treeCount': "{count} project(s)",
+  'projects.treeEmptyHint': "No folders yet. “+” creates one.",
 
   // ---- canvas & screens ----
   'canvas.rename': 'Rename',

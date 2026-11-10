@@ -23,6 +23,8 @@ import type { PageFormatId } from '../lib/pageFormats'
 import type { FoldId } from '../lib/folds'
 import FoldControl from './FoldControl'
 import { OPTION_TILE, OptionTile, OptionTileAction, OptionTileChoice } from './ComposerOptions'
+import { FromMyDesigns } from './DesignModels'
+import type { ProjectTemplate } from '../lib/templates'
 
 type Props = {
   prompt: string
@@ -44,6 +46,8 @@ type Props = {
   onOpenSettings: () => void
   onOpenDesign: () => void
   onApplyStyle: (markdown: string) => void
+  /** Fill this empty project from a saved template (lib/templates.ts). Absent: templates are not offered. */
+  onApplyTemplate?: (template: ProjectTemplate) => void
   museConfig: MuseConfig
   onMuseChange: (c: MuseConfig) => void
   /** The composer's "Parcours" (lib/flows.ts), shown here too: the first screen is often the one a flow starts from. */
@@ -126,6 +130,7 @@ export default function Welcome({
   onOpenSettings,
   onOpenDesign,
   onApplyStyle,
+  onApplyTemplate,
   museConfig,
   onMuseChange,
   flowsOn,
@@ -489,6 +494,10 @@ export default function Welcome({
             </div>
           </div>
         )}
+        {/* The person's own: saved directions and whole-project templates.
+            Shown whether or not a direction is on — a template brings screens,
+            and choosing a saved direction replaces this project's. */}
+        {onApplyTemplate && <FromMyDesigns onDirection={onApplyStyle} onTemplate={onApplyTemplate} disabled={busy} />}
         {designActive && (
           <div className="mt-4 text-center text-body-sm text-ok">
             {t('auth.welcome.designSystemOn')}{' '}
