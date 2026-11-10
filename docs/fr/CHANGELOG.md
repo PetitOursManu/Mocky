@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | arbre des dossiers, modèles de projet, export pptx pour Canva et déplacement d'éléments | `9b2b79d` |
 | — | dossiers imbriqués, miniatures synchronisées, suppression directe et créations du LLM | `b3d70a9` |
 | `animations` | 151 presets, des déclencheurs et un plan de mouvement | `b48dc37` |
 | `formes` | des compositions en contour et l'option outline | `591f5ab` |
@@ -41,6 +42,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | les modèles ont leur icône, le README présente les nouveautés | `a601f98` |
 | `fr` | interface marquée à jour après le rebase sur main | `ae9dbdb` |
 
 **Maintenance**
