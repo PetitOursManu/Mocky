@@ -1,7 +1,7 @@
 ---
 description: Démarrer un nouveau projet depuis une direction gardée, ou depuis un projet entier gardé comme modèle. Les deux sont dans Média, sous Design.
 badge: Nouveau
-source_hash: 500f8666e78f
+source_hash: a70ed68637c7
 ---
 
 # Directions et modèles
@@ -30,7 +30,7 @@ Chaque carte montre la palette, et se renomme ou se supprime.
 ## Modèles de projet
 
 Enregistrez un projet comme modèle depuis sa carte sur la page des projets
-(l’icône de copie), ou depuis `Exporter ▾ → Enregistrer comme modèle` dans le
+(l’icône de signet), ou depuis `Exporter ▾ → Enregistrer comme modèle` dans le
 projet. Vous le nommez, et Mocky en garde une copie sur le serveur, dans votre
 compte. Personne d’autre sur l’instance ne la voit.
 

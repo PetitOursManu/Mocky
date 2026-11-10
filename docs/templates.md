@@ -29,7 +29,7 @@ the palette, and can be renamed or deleted.
 
 ## Project templates
 
-Save a project as a template from its card on the projects page (the copy icon),
+Save a project as a template from its card on the projects page (the bookmark icon),
 or from `Export ▾ → Save as template` inside the project. You name it, and Mocky
 keeps a copy on the server, in your account. Nobody else on the instance sees it.
 

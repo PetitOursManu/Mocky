@@ -3876,7 +3876,7 @@ export default function ProjectView({
                       />
                     ))}
                     <BarMenuItem
-                      icon="copy"
+                      icon="template"
                       label={t('templates.saveAs')}
                       hint={t('templates.templatesHint')}
                       onClick={() => {

@@ -1105,7 +1105,7 @@ export default function ProjectsHome({
                     onClick={() => onSaveTemplate(lead.id)}
                     className="text-ink-faint hover:text-accent-ink"
                   >
-                    <Icon name="copy" size={16} />
+                    <Icon name="template" size={16} />
                   </IconButton>
                 )}
                 <IconButton
@@ -1273,7 +1273,7 @@ export default function ProjectsHome({
                           onClick={() => onSaveTemplate(p.id)}
                           className="text-ink-faint hover:text-accent-ink"
                         >
-                          <Icon name="copy" size={16} />
+                          <Icon name="template" size={16} />
                         </IconButton>
                       )}
                       <IconButton
