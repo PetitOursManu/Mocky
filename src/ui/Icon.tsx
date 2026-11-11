@@ -73,6 +73,8 @@ export type IconName =
   | 'history'
   | 'branch'
   | 'template'
+  | 'sortAsc'
+  | 'sortDesc'
 
 /** Path data only — every icon shares the same 24×24 box and stroke settings. */
 const PATHS: Record<IconName, string> = {
@@ -171,6 +173,10 @@ const PATHS: Record<IconName, string> = {
   // at first, which on a project card sits beside Move and Delete and reads as
   // "Duplicate" — a promise the button does not keep.
   template: 'M6 3h12v18l-6-4-6 4V3ZM12 7v6M9 10h6',
+  // Bars by length and an arrow: the order a list is in. Lengths and not
+  // letters, because the same button reverses a date and a screen count too.
+  sortAsc: 'M4 6h6M4 12h9M4 18h12M19 19V5m0 0-3 3m3-3 3 3',
+  sortDesc: 'M4 6h12M4 12h9M4 18h6M19 5v14m0 0-3-3m3 3 3-3',
 }
 
 /** Icons whose shape reads better filled than stroked. */

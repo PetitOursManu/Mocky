@@ -19,6 +19,16 @@ import {
   type TreeRow,
 } from '../lib/folderTree'
 import { getThumb, pruneThumbs, reconcileRemoteThumbs } from '../lib/thumbnails'
+import {
+  DEFAULT_SORT,
+  isDefaultSort,
+  NATURAL_DIR,
+  parseSorts,
+  PROJECT_SORT_KEYS,
+  sortProjects,
+  type ProjectSort,
+  type ProjectSortKey,
+} from '../lib/projectSort'
 import { Button, Icon, IconButton, Input, Modal } from '../ui'
 import { useT } from '../i18n'
 import ReviewStatusPill from './ReviewStatusPill'
@@ -52,6 +62,16 @@ function readShelf(): Shelf {
  */
 const HOVER_OPEN_MS = 600
 
+/** Each folder's chosen order, per viewer (`lib/projectSort.ts` says why per folder). */
+const SORT_KEY = 'mocky.home.sort'
+function readSorts(): Record<string, ProjectSort> {
+  try {
+    return parseSorts(JSON.parse(localStorage.getItem(SORT_KEY) ?? 'null'))
+  } catch {
+    return {}
+  }
+}
+
 /**
  * What is being dragged. The page's own state: a drag never leaves this page.
  * A project drag carries where each project is now, read once at the start,
@@ -72,7 +92,13 @@ function dropTone(verdict: DropVerdict | null): string {
 }
 
 /**
- * The tick box that appears on a row in selection mode.
+ * The tick box on every project.
+ *
+ * Always there, never a mode: a "Select" button in the header was one more
+ * step between wanting two projects in a folder and having them there, and
+ * nobody found the drag that already carried a ticked set. On a card it rests
+ * faint and comes up on hover (and stays up once anything is ticked, so the
+ * page reads as a selection); on a screen with no hover it simply shows.
  *
  * Drawn rather than a native `<input type=checkbox>`: the native control paints
  * itself with the operating system's accent colour, which is the one colour on
@@ -229,8 +255,8 @@ export default function ProjectsHome({
   const t = useT()
   const timeAgo = useTimeAgo()
   const [query, setQuery] = useState('')
-  const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  const selecting = picked.size > 0
   /** The move dialog: for the ticked set, one project, or one folder. */
   const [moving, setMoving] = useState<{ selection: true } | { project: string } | { folder: string } | null>(null)
   /** The naming dialog: a new folder under `create` (null: the top), or a new name for this one. */
@@ -280,6 +306,20 @@ export default function ProjectsHome({
     }
   }
 
+  const [sorts, setSorts] = useState<Record<string, ProjectSort>>(readSorts)
+  const sort = sorts[rowKey(cwd)] ?? DEFAULT_SORT
+  const setSort = (next: ProjectSort) => {
+    const all = { ...sorts, [rowKey(cwd)]: next }
+    // The default is not stored: a folder put back to it follows the default.
+    if (isDefaultSort(next)) delete all[rowKey(cwd)]
+    setSorts(all)
+    try {
+      localStorage.setItem(SORT_KEY, JSON.stringify(all))
+    } catch {
+      /* sorted for this visit only */
+    }
+  }
+
   /**
    * Folders open in the side tree. Arriving somewhere opens the way down to it,
    * once: it used to be forced open for as long as you stood there, which left
@@ -314,10 +354,13 @@ export default function ProjectsHome({
       p.name.toLowerCase().includes(q) ||
       p.screens.some((s) => `${s.name} ${s.prompt}`.toLowerCase().includes(q))
     const byRecency = [...projects.filter(matches)].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-    const lead = q ? null : (byRecency.find((p) => p.screens.length > 0) ?? null)
+    // The lead is "the project you touched last", a story worth telling only
+    // while the list below is in that same order. Sorted by name, a card pulled
+    // out of the alphabet and printed first reads as a mistake.
+    const lead = q || !isDefaultSort(sort) ? null : (byRecency.find((p) => p.screens.length > 0) ?? null)
     // A search looks everywhere: where a project is filed is exactly what you
     // may have forgotten.
-    const here = q ? byRecency : byRecency.filter((p) => placeOf(p, tree) === cwd)
+    const here = sortProjects(q ? byRecency : byRecency.filter((p) => placeOf(p, tree) === cwd), sort, t('projects.untitled'))
     const withScreens = here.filter((p) => p.screens.length > 0)
     const atTop = !q && cwd === null
     return {
@@ -328,7 +371,7 @@ export default function ProjectsHome({
       visible: atTop && lead && !here.includes(lead) ? [lead, ...here] : here,
       matched: byRecency.length,
     }
-  }, [projects, query, tree, cwd])
+  }, [projects, query, tree, cwd, sort, t])
 
   // Ticks are dropped when a project leaves the view — through the search box or
   // a deletion. Acting on something the user can no longer see is how a batch
@@ -351,10 +394,32 @@ export default function ProjectsHome({
       return next
     })
 
-  const leaveSelection = () => {
-    setSelecting(false)
-    setPicked(new Set())
-  }
+  /**
+   * How a tick box sits at rest. Faint until the card is hovered or a box has
+   * the focus; up for good once anything is ticked; and always up where there
+   * is no hover to reveal it (a finger, a pen).
+   */
+  const tickRest = (id: string) =>
+    picked.has(id) || selecting
+      ? ''
+      : 'opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100'
+
+  const leaveSelection = () => setPicked(new Set())
+
+  // Escape lets go of the ticks, unless something else on the page has the key
+  // (a dialog, a menu, a text field): those close or keep themselves.
+  useEffect(() => {
+    if (!selecting) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const el = e.target as HTMLElement | null
+      const typing = el?.tagName === 'INPUT' && (el as HTMLInputElement).type !== 'checkbox'
+      if (typing || el?.closest('[role="dialog"], [role="menu"]')) return
+      setPicked(new Set())
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selecting])
 
   /**
    * Delete everything ticked, behind one confirmation.
@@ -461,15 +526,32 @@ export default function ProjectsHome({
   const dragProject = (p: Project) => ({
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
-      const ids = picked.has(p.id) ? [...picked] : [p.id]
-      const places = ids.map((id) => {
-        const q = projects.find((x) => x.id === id)
-        return q ? placeOf(q, tree) : null
-      })
-      startDrag(e, { projects: ids, places })
+      startProjectsDrag(e, picked.has(p.id) ? [...picked] : [p.id])
     },
     onDragEnd: endDrag,
   })
+  /**
+   * A drag of one or several projects. The browser's own drag picture is the
+   * card the pointer happened to grab, which says "one project" while five
+   * travel — so a ticked set is carried as a label that says how many.
+   */
+  const startProjectsDrag = (e: React.DragEvent, ids: string[]) => {
+    const places = ids.map((id) => {
+      const q = projects.find((x) => x.id === id)
+      return q ? placeOf(q, tree) : null
+    })
+    startDrag(e, { projects: ids, places })
+    if (ids.length > 1) {
+      const tag = document.createElement('div')
+      tag.textContent = t('projects.dragCount', { count: ids.length })
+      tag.className =
+        'fixed left-[-1000px] top-0 rounded-md border border-accent bg-raised px-3 py-1.5 font-mono text-body-sm text-ink shadow-lg'
+      document.body.appendChild(tag)
+      e.dataTransfer.setDragImage(tag, 14, 14)
+      // The picture is taken during this event; the element can go right after.
+      requestAnimationFrame(() => tag.remove())
+    }
+  }
   const dragFolder = (id: string) => ({
     draggable: renamingId !== id,
     onDragStart: (e: React.DragEvent) => {
@@ -915,12 +997,6 @@ export default function ProjectsHome({
             <Icon name="folder" size={16} />
             {t('projects.newFolder')}
           </Button>
-          {projects.length > 1 && (
-            <Button variant={selecting ? 'primary' : 'ghost'} onClick={() => (selecting ? leaveSelection() : setSelecting(true))}>
-              <Icon name={selecting ? 'close' : 'check'} size={16} />
-              {selecting ? t('projects.selectDone') : t('projects.select')}
-            </Button>
-          )}
           <Button variant="primary" onClick={() => onCreate(cwd)}>
             <Icon name="plus" size={16} />
             {t('projects.new')}
@@ -930,16 +1006,22 @@ export default function ProjectsHome({
 
       {/* ---- the selection bar ----
           Sticky, because the ticks are spread down a long page and the actions
-          must not be somewhere you have to scroll back to. */}
+          must not be somewhere you have to scroll back to. It exists while
+          something is ticked, and its count is itself a handle: dragging it
+          carries the whole set, wherever the ticked cards are on the page. */}
       {selecting && (
-        <div className="sticky top-2 z-20 mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-raised px-3 py-2 shadow-lg">
-          <span className="font-mono text-body-sm text-ink">
-            {picked.size === 0
-              ? t('projects.selectHint')
-              : picked.size === 1
-                ? t('projects.selected_one')
-                : t('projects.selected_other', { count: picked.size })}
+        <div className="sticky top-2 z-20 mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-accent/50 bg-raised px-3 py-2 shadow-lg">
+          <span
+            draggable
+            onDragStart={(e) => startProjectsDrag(e, [...picked])}
+            onDragEnd={endDrag}
+            title={t('projects.dragSelection')}
+            className="inline-flex cursor-grab items-center gap-2 rounded-md px-1.5 py-0.5 font-mono text-body-sm text-ink transition hover:bg-ink/5 active:cursor-grabbing"
+          >
+            <Icon name="hand" size={15} className="text-accent-ink" />
+            {picked.size === 1 ? t('projects.selected_one') : t('projects.selected_other', { count: picked.size })}
           </span>
+          <span className="hidden text-body-sm text-ink-faint md:inline">{t('projects.dragSelectionHint')}</span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <Button
               variant="ghost"
@@ -966,6 +1048,9 @@ export default function ProjectsHome({
               <Icon name="trash" size={15} />
               {t('projects.deleteSelected')}
             </Button>
+            <IconButton label={t('projects.clearSelection')} variant="quiet" onClick={leaveSelection} className="text-ink-faint hover:text-ink">
+              <Icon name="close" size={15} />
+            </IconButton>
           </div>
         </div>
       )}
@@ -1032,10 +1117,111 @@ export default function ProjectsHome({
                 </IconButton>
               </span>
             )}
+            {/* The order of THIS folder's projects (folders stay on top, by name).
+                Shown from two projects: one project has no order to choose. */}
+            {visible.length > 1 && (
+              <span className="ml-auto flex items-center gap-1">
+                <label className="flex items-center gap-1.5 text-caption text-ink-faint">
+                  <span className="font-mono uppercase tracking-wider">{t('projects.sortBy')}</span>
+                  <select
+                    value={sort.key}
+                    onChange={(e) => {
+                      const key = e.target.value as ProjectSortKey
+                      setSort({ key, dir: NATURAL_DIR[key] })
+                    }}
+                    className="rounded-md border border-line bg-surface px-2 py-1 text-body-sm text-ink transition hover:border-ink/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    {PROJECT_SORT_KEYS.map((k) => (
+                      <option key={k} value={k}>
+                        {t(`projects.sort.${k}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <IconButton
+                  label={sort.dir === 'asc' ? t('projects.sortAsc') : t('projects.sortDesc')}
+                  variant="quiet"
+                  onClick={() => setSort({ key: sort.key, dir: sort.dir === 'asc' ? 'desc' : 'asc' })}
+                  className={`text-ink-faint hover:text-accent-ink ${sort.dir === NATURAL_DIR[sort.key] ? '' : 'text-accent-ink'}`}
+                >
+                  <Icon name={sort.dir === 'asc' ? 'sortAsc' : 'sortDesc'} size={15} />
+                </IconButton>
+              </span>
+            )}
           </nav>
 
       {matched === 0 && query && (
         <p className="measure text-body text-ink-muted">{t('projects.noMatch', { q: query })}</p>
+      )}
+
+      {/* ---- folders first, always: the way down the tree stays at the top
+          whatever the projects below are sorted by. ---- */}
+      {subfolders.length > 0 && (
+        <section className="mb-10">
+          <div className="section-head">
+            <span className="kicker">{t('projects.folders')}</span>
+            <span className="ml-auto font-mono text-caption text-ink-faint">{subfolders.length}</span>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {subfolders.map((f) => {
+              const st = stats.get(f.id)
+              const minis = st?.covers ?? []
+              return (
+                <article
+                  key={f.id}
+                  {...dragFolder(f.id)}
+                  {...dropZone(f.id)}
+                  className={`group flex min-w-0 flex-col overflow-hidden rounded-xl border bg-surface transition ${
+                    carried({ folder: f.id }) ? 'opacity-40' : ''
+                  } ${
+                    dropAt(f.id) === 'move'
+                      ? 'border-accent ring-1 ring-accent'
+                      : dropAt(f.id) === 'refused'
+                        ? 'cursor-no-drop border-danger/60 ring-1 ring-danger/40'
+                        : 'border-line hover:border-ink/25 focus-within:border-ink/25'
+                  }`}
+                >
+                  <div onClick={() => go(f.id)} aria-hidden className="cursor-pointer">
+                    {minis.length > 0 ? (
+                      <div className="grid aspect-[16/7] grid-cols-3 gap-px border-b border-line-soft bg-line-soft">
+                        {[0, 1, 2].map((i) => (
+                          <div key={i} className="relative overflow-hidden bg-sunken">
+                            {minis[i] && thumbs[minis[i].id] && (
+                              <img src={thumbs[minis[i].id]} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover object-[0_0]" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex aspect-[16/7] items-center justify-center border-b border-line-soft bg-sunken text-ink-faint">
+                        <Icon name="folder" size={28} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 items-start gap-1 p-3">
+                    <button type="button" onClick={() => go(f.id)} className="min-w-0 flex-1 text-left">
+                      <span className="block truncate text-body font-semibold text-ink transition group-hover:text-accent-ink">{f.name}</span>
+                      <span className="mt-1 block font-mono text-caption text-ink-faint">
+                        {t('projects.folderStats', { folders: st?.folders ?? 0, projects: st?.projects ?? 0 })}
+                      </span>
+                    </button>
+                    <div className="flex shrink-0 items-center opacity-60 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      <IconButton label={t('projects.renameFolder')} variant="quiet" onClick={() => setNaming({ rename: f })} className="text-ink-faint hover:text-accent-ink">
+                        <Icon name="pencil" size={15} />
+                      </IconButton>
+                      <IconButton label={t('projects.moveFolder')} variant="quiet" onClick={() => setMoving({ folder: f.id })} className="text-ink-faint hover:text-accent-ink">
+                        <Icon name="folder" size={15} />
+                      </IconButton>
+                      <IconButton label={t('projects.deleteFolder')} variant="quiet" onClick={() => confirmDeleteFolder(f)} className="text-ink-faint hover:text-danger">
+                        <Icon name="trash" size={15} />
+                      </IconButton>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </section>
       )}
 
       {/* ---- the lead ----
@@ -1051,14 +1237,12 @@ export default function ProjectsHome({
           <div className="group grid overflow-hidden rounded-2xl border border-line bg-surface transition hover:border-ink/25 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
             <div className="flex min-w-0 flex-col p-6">
               <div className="flex items-start gap-3">
-                {selecting && (
-                  <TickBox
-                    checked={picked.has(lead.id)}
-                    onChange={(on) => toggle(lead.id, on)}
-                    label={t('projects.selectProject', { name: headline(shownProjectName(lead.name, t('projects.untitled'))) })}
-                    className="mt-1.5"
-                  />
-                )}
+                <TickBox
+                  checked={picked.has(lead.id)}
+                  onChange={(on) => toggle(lead.id, on)}
+                  label={t('projects.selectProject', { name: headline(shownProjectName(lead.name, t('projects.untitled'))) })}
+                  className={`mt-1.5 ${tickRest(lead.id)}`}
+                />
                 <button
                   type="button"
                   onClick={() => onOpen(lead.id)}
@@ -1131,74 +1315,6 @@ export default function ProjectsHome({
       )}
 
 
-      {subfolders.length > 0 && (
-        <section className="mb-10">
-          <div className="section-head">
-            <span className="kicker">{t('projects.folders')}</span>
-            <span className="ml-auto font-mono text-caption text-ink-faint">{subfolders.length}</span>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {subfolders.map((f) => {
-              const st = stats.get(f.id)
-              const minis = st?.covers ?? []
-              return (
-                <article
-                  key={f.id}
-                  {...dragFolder(f.id)}
-                  {...dropZone(f.id)}
-                  className={`group flex min-w-0 flex-col overflow-hidden rounded-xl border bg-surface transition ${
-                    carried({ folder: f.id }) ? 'opacity-40' : ''
-                  } ${
-                    dropAt(f.id) === 'move'
-                      ? 'border-accent ring-1 ring-accent'
-                      : dropAt(f.id) === 'refused'
-                        ? 'cursor-no-drop border-danger/60 ring-1 ring-danger/40'
-                        : 'border-line hover:border-ink/25 focus-within:border-ink/25'
-                  }`}
-                >
-                  <div onClick={() => go(f.id)} aria-hidden className="cursor-pointer">
-                    {minis.length > 0 ? (
-                      <div className="grid aspect-[16/7] grid-cols-3 gap-px border-b border-line-soft bg-line-soft">
-                        {[0, 1, 2].map((i) => (
-                          <div key={i} className="relative overflow-hidden bg-sunken">
-                            {minis[i] && thumbs[minis[i].id] && (
-                              <img src={thumbs[minis[i].id]} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover object-[0_0]" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex aspect-[16/7] items-center justify-center border-b border-line-soft bg-sunken text-ink-faint">
-                        <Icon name="folder" size={28} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex min-w-0 items-start gap-1 p-3">
-                    <button type="button" onClick={() => go(f.id)} className="min-w-0 flex-1 text-left">
-                      <span className="block truncate text-body font-semibold text-ink transition group-hover:text-accent-ink">{f.name}</span>
-                      <span className="mt-1 block font-mono text-caption text-ink-faint">
-                        {t('projects.folderStats', { folders: st?.folders ?? 0, projects: st?.projects ?? 0 })}
-                      </span>
-                    </button>
-                    <div className="flex shrink-0 items-center opacity-60 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                      <IconButton label={t('projects.renameFolder')} variant="quiet" onClick={() => setNaming({ rename: f })} className="text-ink-faint hover:text-accent-ink">
-                        <Icon name="pencil" size={15} />
-                      </IconButton>
-                      <IconButton label={t('projects.moveFolder')} variant="quiet" onClick={() => setMoving({ folder: f.id })} className="text-ink-faint hover:text-accent-ink">
-                        <Icon name="folder" size={15} />
-                      </IconButton>
-                      <IconButton label={t('projects.deleteFolder')} variant="quiet" onClick={() => confirmDeleteFolder(f)} className="text-ink-faint hover:text-danger">
-                        <Icon name="trash" size={15} />
-                      </IconButton>
-                    </div>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
       {shown.length > 0 && (
         <section className="mb-10">
           <div className="section-head">
@@ -1225,14 +1341,15 @@ export default function ProjectsHome({
                   <div onClick={() => onOpen(p.id)} aria-hidden className="cursor-pointer">
                     <ProjectCover screens={p.screens} thumbs={thumbs} className="aspect-[16/10] border-b border-line-soft" />
                   </div>
-                  {selecting && (
+                  {/* On the picture, in a chip of the card's own surface: a tick
+                      box straight on a screenshot is lost on half of them. */}
+                  <div className={`absolute left-2.5 top-2.5 rounded-md bg-surface/90 p-1 shadow-sm backdrop-blur ${tickRest(p.id)}`}>
                     <TickBox
                       checked={picked.has(p.id)}
                       onChange={(on) => toggle(p.id, on)}
                       label={t('projects.selectProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
-                      className="absolute left-3 top-3"
                     />
-                  )}
+                  </div>
                   <div className="flex min-w-0 items-start gap-1 p-3">
                     <button
                       type="button"
@@ -1324,13 +1441,12 @@ export default function ProjectsHome({
                 key={p.id}
                 className="group inline-flex min-h-8 items-center gap-1.5 rounded-md border border-line bg-surface pl-2.5 text-body-sm text-ink-muted"
               >
-                {selecting && (
-                  <TickBox
-                    checked={picked.has(p.id)}
-                    onChange={(on) => toggle(p.id, on)}
-                    label={t('projects.selectProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
-                  />
-                )}
+                <TickBox
+                  checked={picked.has(p.id)}
+                  onChange={(on) => toggle(p.id, on)}
+                  label={t('projects.selectProject', { name: headline(shownProjectName(p.name, t('projects.untitled'))) })}
+                  className={tickRest(p.id)}
+                />
                 <button type="button" onClick={() => onOpen(p.id)} className="transition hover:text-accent-ink">
                   {headline(shownProjectName(p.name, t('projects.untitled')))}
                 </button>
