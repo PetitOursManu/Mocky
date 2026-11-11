@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `projets` | tri par dossier, cases de sélection et déplacement groupé | `63e81f4` |
 | — | arbre des dossiers, modèles de projet, export pptx pour Canva et déplacement d'éléments | `9b2b79d` |
 | — | dossiers imbriqués, miniatures synchronisées, suppression directe et créations du LLM | `b3d70a9` |
 | `animations` | 151 presets, des déclencheurs et un plan de mouvement | `b48dc37` |
