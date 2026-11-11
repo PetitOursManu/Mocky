@@ -92,12 +92,17 @@ panel, and a tap unfolds all eleven with their icons and badges.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3"/></svg> | `Search projects…` | Filters on the project name **and on every screen's name and prompt**. A project you cannot name is findable by what you asked for inside it. Not rendered at all with five projects or fewer. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z"/></svg> | `Folders` / `Hide the folders` | Shows or hides the folder tree. Below 1024px it is a panel under the header, closed by default; from 1024px it is the sidebar, open by default. Each width remembers its own choice, in this browser. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `New folder` | Creates a folder inside the one you are looking at. It can stay empty. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5 5 19"/></svg> | `Select` / `Done` | Enters and leaves tick mode. Leaving it empties the selection. Hidden when there is only one project. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/></svg> | `New project` | Creates the project and opens it immediately. | free |
 
 ### The selection bar
 
-Sticky, and only present in tick mode.
+Every project carries a tick box: faint at rest, it comes up when the card is
+hovered and stays up once anything is ticked (always shown on a touch screen).
+There is no selection mode to enter. The bar appears, sticky, as soon as one
+project is ticked; `Escape` or its `✕` unticks everything. Its count —
+`3 projects ticked` — is a handle: drag it onto a folder, a line of the tree or a
+step of the path and every ticked project moves at once. Dragging any ticked
+card does the same.
 
 | | Control | What it does | Cost |
 |---|---|---|---|
@@ -115,7 +120,7 @@ The project touched last opens the page as a wide card — its picture, its name
 the request that made its first screen, `Open`. The others follow as a grid of
 cards (one to four columns with the window), each with its picture, its name,
 that request, its screen count and age, and two buttons: file it, delete it.
-Folders nest like folders on a computer. The tree (on the left, or under `Folders` on a narrow window) and the path above the grid always show where you are, and both accept a drop. Above the projects sit the folders of the current level; empty drafts come last, as small tags. Deleting a folder deletes no project: what it held moves up one level.
+Folders nest like folders on a computer. The tree (on the left, or under `Folders` on a narrow window) and the path above the grid always show where you are, and both accept a drop. The folders of the current level always come first, above the lead and the projects; empty drafts come last, as small tags. Deleting a folder deletes no project: what it held moves up one level.
 
 | | Control | What it does | Cost |
 |---|---|---|---|
@@ -125,6 +130,17 @@ Folders nest like folders on a computer. The tree (on the left, or under `Folder
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Rename the folder` | On a folder's card or beside the path. `Move the folder` and `Delete the folder` sit next to it. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `File “{name}”` | Files that one project. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Clear all` | Deletes every empty draft at once, behind a single confirmation. | free |
+
+### Sorting
+
+`Sort`, at the right of the path, orders the projects of the folder you are in:
+`Last change` (the default), `Date added`, `Name` or `Number of screens`; the
+arrow beside it reverses the order. Each folder keeps its own choice, in this
+browser — a client folder sorted by name and a work-in-progress folder sorted by
+last change do not undo each other. Folders are not sorted with the projects:
+they always come first, by name. The lead card is shown only in the default
+order, since "the project touched last" printed above a list sorted by name
+would read as a mistake.
 
 ### The folder tree
 
@@ -143,8 +159,8 @@ included. Folders are always sorted by name: there is no manual order to keep.
 
 ### Moving things
 
-Drag a project or a folder onto a folder, a line of the tree or a step of the
-path. A line of the tree is draggable too, so a folder can be moved from the
+Drag a project, the ticked projects, or a folder onto a folder, a line of the
+tree or a step of the path. A line of the tree is draggable too, so a folder can be moved from the
 tree into another or onto `All projects`. While you drag, the place under the
 pointer says what a drop would do: lime and `Move here` when it would move,
 red and `Not here` when a rule refuses it (a folder inside itself, or too deep),

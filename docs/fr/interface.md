@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: ef63c2d9c945
+source_hash: c09a2d5af021
 ---
 
 # L’interface
@@ -97,12 +97,17 @@ déplie les onze avec leurs icônes et leurs badges.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3"/></svg> | `Rechercher un projet…` | Filtre sur le nom du projet **et sur le nom et la demande de chacun de ses écrans**. Un projet dont vous ne vous rappelez pas le nom se retrouve par ce que vous aviez demandé dedans. Pas rendu du tout à cinq projets ou moins. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z"/></svg> | `Dossiers` / `Masquer les dossiers` | Affiche ou masque l’arborescence des dossiers. Sous 1024 px, c’est un panneau sous l’en-tête, fermé par défaut ; à partir de 1024 px, c’est la barre latérale, ouverte par défaut. Chaque largeur retient son propre choix, dans ce navigateur. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Nouveau dossier` | Crée un dossier dans celui que vous regardez. Il peut rester vide. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 6L20 5"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5 5 19"/></svg> | `Sélectionner` / `Terminer` | Entre et sort du mode coche. En sortir vide la sélection. Caché s’il n’y a qu’un projet. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/></svg> | `Nouveau projet` | Crée le projet et l’ouvre aussitôt. | libre |
 
 ### La barre de sélection
 
-Collante, et présente seulement en mode coche.
+Chaque projet porte une case à cocher : discrète au repos, elle apparaît au
+survol de la carte et reste visible dès qu’un projet est coché (toujours visible
+sur un écran tactile). Il n’y a plus de mode sélection à activer. La barre
+apparaît, collante, dès qu’un projet est coché ; `Échap` ou son `✕` décoche tout.
+Son compteur — `3 projets cochés` — est une poignée : glissez-le sur un dossier,
+une ligne de l’arborescence ou une étape du chemin, et tous les projets cochés
+partent d’un coup. Glisser n’importe quelle carte cochée fait de même.
 
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
@@ -120,7 +125,7 @@ Le dernier projet touché ouvre la page en grande carte — son image, son nom, 
 demande qui a fait son premier écran, `Ouvrir`. Les autres suivent en grille de
 cartes (d’une à quatre colonnes selon la fenêtre), chacune avec son image, son
 nom, cette demande, son nombre d’écrans et son âge, et deux boutons : le classer,
-le supprimer. Les dossiers s’imbriquent comme sur un ordinateur. L’arborescence (à gauche, ou sous `Dossiers` sur une fenêtre étroite) et le chemin au-dessus de la grille montrent toujours où vous êtes, et acceptent tous deux un dépôt. Les dossiers du niveau courant passent avant les projets ; les brouillons vides viennent en dernier, en petites étiquettes. Supprimer un dossier ne supprime aucun projet : son contenu remonte d’un niveau.
+le supprimer. Les dossiers s’imbriquent comme sur un ordinateur. L’arborescence (à gauche, ou sous `Dossiers` sur une fenêtre étroite) et le chemin au-dessus de la grille montrent toujours où vous êtes, et acceptent tous deux un dépôt. Les dossiers du niveau courant viennent toujours en premier, avant la une et les projets ; les brouillons vides viennent en dernier, en petites étiquettes. Supprimer un dossier ne supprime aucun projet : son contenu remonte d’un niveau.
 
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
@@ -130,6 +135,17 @@ le supprimer. Les dossiers s’imbriquent comme sur un ordinateur. L’arboresce
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Renommer le dossier` | Sur la carte d’un dossier ou à côté du chemin. `Déplacer le dossier` et `Supprimer le dossier` sont juste à côté. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Classer « {name} »` | Classe ce projet-là seulement. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Tout vider` | Supprime tous les brouillons vides d’un coup, derrière une seule confirmation. | libre |
+
+### Trier
+
+`Trier`, à droite du chemin, ordonne les projets du dossier où vous êtes :
+`Dernière modification` (par défaut), `Date d’ajout`, `Nom` ou `Nombre d’écrans` ;
+la flèche à côté inverse l’ordre. Chaque dossier garde son propre choix, dans ce
+navigateur — un dossier client trié par nom et un dossier en cours trié par
+dernière modification ne se défont pas l’un l’autre. Les dossiers ne sont pas
+triés avec les projets : ils viennent toujours en premier, par nom. La une n’est
+affichée que dans l’ordre par défaut, puisque « le dernier projet touché » posé
+au-dessus d’une liste triée par nom passerait pour une erreur.
 
 ### L’arborescence des dossiers
 
@@ -148,8 +164,8 @@ dossiers sont toujours triés par nom : il n’y a pas d’ordre manuel à entre
 
 ### Déplacer
 
-Glissez un projet ou un dossier sur un dossier, une ligne de l’arborescence ou une
-étape du chemin. Une ligne de l’arborescence se glisse aussi : un dossier se
+Glissez un projet, les projets cochés ou un dossier sur un dossier, une ligne de
+l’arborescence ou une étape du chemin. Une ligne de l’arborescence se glisse aussi : un dossier se
 déplace depuis l’arborescence dans un autre, ou sur `Tous les projets`. Pendant
 le glisser, l’endroit sous le pointeur dit ce que ferait le dépôt : vert acide et
 `Déposer ici` s’il déplacerait, rouge et `Impossible` si une règle le refuse (un
