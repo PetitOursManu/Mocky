@@ -310,6 +310,29 @@ export function pickReference<S extends { id: string; code: string; createdAt: n
   return first ? { kind: 'identity', screen: first } : undefined
 }
 
+/**
+ * The screen a document instance copies its composition from (`followLayout`):
+ * a document of the project, the closest to what is being made — the same page
+ * format first (an Instagram 4:5 model for an Instagram post), then the same
+ * screen type, then the oldest document. A web screen is never a model for a
+ * page. Undefined when the project has no document to copy.
+ */
+export function pickLayoutModel<S extends { id: string; code: string; createdAt: number; page?: PageFormatId; theme?: string }>(
+  screens: readonly S[],
+  opts: { page: PageFormatId | null | undefined; theme: string | null | undefined; excludeId?: string },
+): { screen: S; sameFormat: boolean } | undefined {
+  const docs = screens.filter((s) => s.id !== opts.excludeId && s.code.trim() && !!s.page && isPageFormat(s.page))
+  if (!docs.length) return undefined
+  const oldest = (list: S[]) => list.reduce((best, s) => (s.createdAt < best.createdAt ? s : best))
+  const samePage = opts.page ? docs.filter((s) => s.page === opts.page) : []
+  if (samePage.length) {
+    const sameTheme = samePage.filter((s) => !!opts.theme && s.theme === opts.theme)
+    return { screen: oldest(sameTheme.length ? sameTheme : samePage), sameFormat: true }
+  }
+  const sameTheme = docs.filter((s) => !!opts.theme && s.theme === opts.theme)
+  return { screen: oldest(sameTheme.length ? sameTheme : docs), sameFormat: false }
+}
+
 // ---- the pipeline --------------------------------------------------------------
 
 /**

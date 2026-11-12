@@ -1,5 +1,5 @@
 ---
-source_hash: 6e96a840000f
+source_hash: 10ab676d39c6
 ---
 
 # Connecter un assistant (MCP)
@@ -159,8 +159,14 @@ rien remplir, un prompt démarre quand même une conversation sensée.
 - **Depuis un modèle.** `create_design` avec `template_id` démarre le nouveau
   projet depuis un des [modèles](templates.md) du compte, comme le fait
   « Nouveau projet depuis ce modèle » : sa direction, ses réglages et ses
-  écrans, avec de nouveaux identifiants. Les écrans du modèle suivent exprès —
-  c'est la mise en page à laquelle le nouvel écran se tient — et Muse est
+  écrans, avec de nouveaux identifiants. Les écrans du modèle suivent exprès :
+  un post ou un document imprimé fait depuis le modèle est une nouvelle
+  INSTANCE du plus proche d'entre eux (`follow_layout`, activé par défaut avec
+  un modèle) — même composition, même typographie, mêmes couleurs et ornements,
+  seul le contenu change. Sans cela, un document n'hérite que de l'identité
+  d'un écran précédent (son nom et sa marque), et un post fait depuis un modèle
+  revenait dans ses couleurs et rien d'autre. `add_screen` accepte
+  `follow_layout: true` pour garder les posts d'un projet semblables. Muse est
   coupée sauf demande, le projet ayant sa direction. Le serveur lit le modèle
   dans le stockage du compte ; un identifiant qui n'est pas à ce compte répond
   comme un identifiant inexistant.

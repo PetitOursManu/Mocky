@@ -230,8 +230,10 @@ A person can keep a whole project as a **template** in Mocky (Media → Design):
 its art direction, settings and screens. When they ask for a new design "in the
 style of" a template they NAME, \`list_templates\` gives its id, and
 \`create_design\` with \`template_id\` starts the new project from it: the
-template's screens come along and the new one is held to their layout. Never
-pick a template on your own, for the same reason as a project.
+template's screens come along and a post or a document copies their
+composition, only the content changing (\`follow_layout\`, on by default with a
+template; pass \`follow_layout: true\` to \`add_screen\` to keep a project's posts
+alike). Never pick a template on your own, for the same reason as a project.
 
 ## Working on a screen that exists
 

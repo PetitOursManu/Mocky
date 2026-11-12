@@ -129,6 +129,8 @@ export interface RunnerJob {
    * the account's own store; the page only instantiates it.
    */
   template?: ProjectTemplate
+  /** A document that copies the composition of one already in the project (`NewScreenRequest.followLayout`). */
+  followLayout?: boolean
 }
 
 export interface RunnerResult {
@@ -245,9 +247,9 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
   // the server already refused it, and a new project is not what was asked.
   if (job.projectId && !project) throw new Error('project not found')
   if (!project && job.template && Array.isArray(job.template.screens)) {
-    // The template's screens come along on purpose: they are the layout the new
-    // screen is held to (`referenceScreenId`, identityOrLayoutReference), which
-    // is the whole point of starting from a model rather than from its DESIGN.md.
+    // The template's screens come along on purpose: with `followLayout` they are
+    // the model the new document copies (`pickLayoutModel`) — the point of
+    // starting from a template rather than from its DESIGN.md alone.
     project = projectFromTemplate(job.template, { name: String(job.projectName || '').trim().slice(0, 120) || job.template.name, now })
     if (job.useBrand) project.useBrand = true
     if (job.creative) project.creative = true
@@ -322,6 +324,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     settings,
     project: working,
     screens: working.screens,
+    ...(job.followLayout === true ? { followLayout: true } : {}),
     images: [],
     annotationCount: 0,
     site: null,

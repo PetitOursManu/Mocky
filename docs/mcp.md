@@ -143,9 +143,14 @@ a prompt still starts a sensible conversation.
 - **From a template.** `create_design` with `template_id` starts the new
   project from one of the account's [templates](templates.md), as "New project
   from this template" does: its direction, settings and screens, with fresh ids.
-  The template's screens come along on purpose — they are the layout the new
-  screen is held to — and Muse is off unless asked, the project having its
-  direction. The server reads the template from the account's own store; an id
+  The template's screens come along on purpose: a post or a printed document
+  made from it is a new INSTANCE of the closest one (`follow_layout`, on by
+  default with a template) — same composition, typography, colours and
+  ornaments, only the content changes. Without it a document inherits only the
+  identity of an earlier screen (its name and its mark), and a post made from a
+  template came back in its colours and nothing else of it. `add_screen` takes
+  `follow_layout: true` to keep a project's posts alike. Muse is off unless
+  asked, the project having its direction. The server reads the template from the account's own store; an id
   that is not the account's answers like one that does not exist.
 - **One design at a time per account**; maintenance refuses new designs (reads
   still work); the optional daily quota counts them.
