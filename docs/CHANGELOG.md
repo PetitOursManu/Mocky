@@ -46,6 +46,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| — | MCP : des modèles comme EXEMPLES de style (inspiration_ids) | `882bb64` |
 | — | Fenêtre de téléchargement allégée, les deux .pptx ensemble | `6c15025` |
 | — | MCP : un post fait depuis un modèle reprend sa mise en page | `8590926` |
 | — | MCP : export des écrans (PNG, PPTX Canva, PDF) et nouveau projet depuis un modèle | `8723e5d` |
