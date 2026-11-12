@@ -50,6 +50,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | MCP : export des écrans (PNG, PPTX Canva, PDF) et nouveau projet depuis un modèle | `8723e5d` |
 | `projet` | un liseré d'accent sur le bouton Démo | `2fd5c17` |
 
 ## octobre 2026
