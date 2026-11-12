@@ -46,6 +46,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| — | MCP : un post fait depuis un modèle reprend sa mise en page | `8590926` |
 | — | MCP : export des écrans (PNG, PPTX Canva, PDF) et nouveau projet depuis un modèle | `8723e5d` |
 | `projet` | un liseré d'accent sur le bouton Démo | `2fd5c17` |
 
