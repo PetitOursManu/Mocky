@@ -13,11 +13,14 @@
  * page makes through a runner token bound to one account and one job, accepted
  * on the routes a generation needs and nowhere else (server/mcp/runner-auth.js).
  *
- * Two calls, both on `window.__mockyRunner`:
+ * Three calls, all on `window.__mockyRunner`:
  *   run(job)    generate one new screen and write it into the account's project;
  *   show(spec)  mount that screen's preview, sized to its frame, and resolve when
  *               it has rendered — the server then screenshots the iframe with
- *               Chromium itself (real pixels, WebGL included), not html2canvas.
+ *               Chromium itself (real pixels, WebGL included), not html2canvas;
+ *   exportScreen(spec)  one downloadable file of a screen — PNG, .pptx, the
+ *               taken-apart .pptx for Canva, PDF — made by the Download dialog's
+ *               own functions (lib/docExport), never a second exporter.
  */
 import { createRoot } from 'react-dom/client'
 // The app's own stylesheet: Preview sizes its frame with the app's classes, and
@@ -34,7 +37,10 @@ import { documentPictureSource, imageGenerationAvailable, type DocumentImageChoi
 import { stockImageStatus, stockUsable } from '../lib/stockImages'
 import { imageUrl } from '../lib/imageLibrary'
 import { defaultDesign, extractProductName, isDesignActive } from '../lib/design'
-import { DEFAULT_PROJECT_NAME, deriveName, designForProject, newId, placeScreen, type Project, type Screen } from '../lib/project'
+import { DEFAULT_PROJECT_NAME, deriveName, designForProject, newId, normalizeScreen, placeScreen, type Project, type Screen } from '../lib/project'
+import { projectFromTemplate, type ProjectTemplate } from '../lib/templates'
+import { exportDocument, type ExportKind } from '../lib/docExport'
+import { exportWebScreen } from '../lib/docExport/web'
 import { runNewScreen, type NewScreenHooks, type NewScreenPhase, type NewScreenRequest, type ScreenWriter } from '../lib/pipeline/newScreen'
 import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
 import { readCampaignFacts, runCampaign } from '../lib/pipeline/campaign'
@@ -116,6 +122,13 @@ export interface RunnerJob {
   useBrand?: boolean
   /** A NEW project made in Créatif (`Project.creative`, lib/creative.ts). */
   creative?: boolean
+  /**
+   * A NEW project started from one of the account's project templates, as
+   * "New project from this template" starts it (lib/templates.ts): its
+   * direction, settings and screens, with fresh ids. The server read it from
+   * the account's own store; the page only instantiates it.
+   */
+  template?: ProjectTemplate
 }
 
 export interface RunnerResult {
@@ -162,6 +175,14 @@ declare global {
       show: (spec: { code: string; w: number; h: number; caps: string[] }) => Promise<{ height: number }>
       /** The same screen as a live document, animations on, for the MCP live view (server/mcp/view.js). */
       document: (spec: { code: string; caps: string[] }) => string
+      /** One downloadable file of a screen (PNG, .pptx, PDF), as base64. */
+      exportScreen: (spec: { screen: Partial<Screen>; kind: string; lang?: string }) => Promise<{
+        base64: string
+        filename: string
+        mime: string
+        pages: number
+        notices: string[]
+      }>
     }
     /** Exposed by the server (page.exposeFunction): where progress goes. */
     __mockyRunnerProgress?: (phase: string) => void
@@ -223,6 +244,14 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
   // A project id that is not this account's reads as "no such project" (X4):
   // the server already refused it, and a new project is not what was asked.
   if (job.projectId && !project) throw new Error('project not found')
+  if (!project && job.template && Array.isArray(job.template.screens)) {
+    // The template's screens come along on purpose: they are the layout the new
+    // screen is held to (`referenceScreenId`, identityOrLayoutReference), which
+    // is the whole point of starting from a model rather than from its DESIGN.md.
+    project = projectFromTemplate(job.template, { name: String(job.projectName || '').trim().slice(0, 120) || job.template.name, now })
+    if (job.useBrand) project.useBrand = true
+    if (job.creative) project.creative = true
+  }
   if (!project) {
     project = {
       id: newId(),
@@ -871,9 +900,46 @@ function show(spec: { code: string; w: number; h: number; caps: string[] }): Pro
   })
 }
 
+/** The formats an assistant may ask for. A web screen (no page) has only the first two. */
+const EXPORT_KINDS: readonly ExportKind[] = ['png', 'pptx', 'pptx-edit', 'pdf']
+
+/**
+ * One file of a screen, exactly as the Download dialog makes it — a document
+ * through exportDocument, a web screen through exportWebScreen — returned as
+ * base64 for the server to keep behind a signed link. The server read the
+ * screen from the account's data; the page holds no session and needs none:
+ * the capture loads /vendor and the library's public bytes, like `show`.
+ */
+async function exportScreen(spec: { screen: Partial<Screen>; kind: string; lang?: string }) {
+  const kind = EXPORT_KINDS.includes(spec.kind as ExportKind) ? (spec.kind as ExportKind) : null
+  if (!kind) throw new Error(`unknown export: ${String(spec.kind).slice(0, 20)}`)
+  const screen = normalizeScreen(spec.screen || {}, 0)
+  if (!screen.code.trim()) throw new Error('empty screen')
+  const lang = spec.lang === 'en' ? 'en' : 'fr'
+  let result
+  if (screen.page) result = await exportDocument(screen, kind, { lang })
+  else if (kind === 'png' || kind === 'pptx' || kind === 'pptx-edit') {
+    // A web screen has one .pptx (slides cut from the page): the taken-apart
+    // one exists for documents only, and asking for it gets the one there is.
+    result = await exportWebScreen(screen, kind === 'png' ? 'png' : 'pptx', { lang })
+  } else throw new Error('a web screen has no PDF export')
+  const bytes = new Uint8Array(await result.blob.arrayBuffer())
+  let binary = ''
+  // In slices: String.fromCharCode(...bytes) on megabytes overflows the stack.
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return {
+    base64: btoa(binary),
+    filename: result.filename,
+    mime: result.blob.type || 'application/octet-stream',
+    pages: result.pages,
+    notices: result.notices.map((n) => n.code),
+  }
+}
+
 window.__mockyRunner = {
   run,
   show,
+  exportScreen,
   // Built here, in a page at the public origin, so its addresses are the ones a
   // browser elsewhere can load — the reason the runner lives at that origin.
   document: (spec) => previewDocument(spec.code, spec.caps || [], { frameId: 'mcp-view', animations: true }),

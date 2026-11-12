@@ -25,6 +25,8 @@ account makes for itself, read-only or read and write.
 | `list_projects` | The account's projects, each with a link. |
 | `get_project` | One project's screens: name, device, the request that made it, a link. |
 | `get_screenshot` | A picture of a screen that already exists. |
+| `export_screen` | A screen as a **file**, as the Download dialog makes it: `png` (to publish — a post at its exact pixels), `pptx` (texts editable over the design), `pptx-edit` (Canva / PowerPoint with every piece taken apart) or `pdf` (documents). Answers a download link that works for a day; changes nothing and calls no model. |
+| `list_templates` | The account's [project templates](templates.md): names and screens, never their code. |
 | `search_free_images` | Free photos from the libraries this Mocky is connected to (Pexels, Pixabay), as thumbnails the assistant looks at. |
 | `add_image` | Puts one picture in the account's library for a design: a free photo chosen above, a picture from the conversation (one ChatGPT generated, or one the person attached), or a public address. |
 | `edit_design` | Changes an existing screen as the person asks — "make the header dark" — keeping the rest. Returns a picture and the link. |
@@ -131,6 +133,20 @@ a prompt still starts a sensible conversation.
   alone, signed, valid for a day, and invalid after a restart.
 - **The link** opens the project in Mocky, centred on the new screen, for
   someone signed in to that account and nobody else.
+- **The files.** `export_screen` runs the Download dialog's own exporters
+  (`lib/docExport`) in the runner's page — the same PNG, `.pptx` and PDF a
+  person downloads, never a second exporter. The file is kept a day under
+  `mcp-exports/` (a hundred at most) behind a link signed over its hash and its
+  extension, and an unchanged screen asked for twice in one format is not made
+  twice. No model, no quota, and a read key may ask for it: the account does not
+  change.
+- **From a template.** `create_design` with `template_id` starts the new
+  project from one of the account's [templates](templates.md), as "New project
+  from this template" does: its direction, settings and screens, with fresh ids.
+  The template's screens come along on purpose — they are the layout the new
+  screen is held to — and Muse is off unless asked, the project having its
+  direction. The server reads the template from the account's own store; an id
+  that is not the account's answers like one that does not exist.
 - **One design at a time per account**; maintenance refuses new designs (reads
   still work); the optional daily quota counts them.
 - **In Admin → Live activity and Users**, an account using Mocky through an
@@ -340,7 +356,7 @@ maintenance.
 
 | Level | What it reaches |
 |---|---|
-| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `audit_design`, `search_free_images` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
+| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `list_templates`, `audit_design`, `search_free_images` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
 | **Read and write** | Every tool the account may use, as with an OAuth connection. |
 
 The read-only list is **closed**, in code (`server/mcp/levels.js`): a tool

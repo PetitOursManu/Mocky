@@ -73,6 +73,22 @@ export const MAX_SHOTS = 200
 export const SHOT_TTL_MS = 7 * 24 * 60 * 60 * 1000
 /** How much of a page the assistant's picture shows, from the top. */
 export const PREVIEW_MAX_HEIGHT = 2000
+/**
+ * Files made by `export_screen`, kept behind a signed link like the shots:
+ * bounded by count and age. An export is cheap to make again (no model), so a
+ * day is plenty; the count keeps a loop of an assistant from filling the disk.
+ */
+export const MAX_EXPORTS = 100
+export const EXPORT_TTL_MS = 24 * 60 * 60 * 1000
+/** One export, PDF of a long document included. Past this the page is closed. */
+export const EXPORT_TIMEOUT_MS = 3 * 60 * 1000
+/** The extensions an export is kept under, and the type each is served with. */
+export const EXPORT_TYPES = {
+  png: 'image/png',
+  zip: 'application/zip',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  pdf: 'application/pdf',
+}
 
 /** The screen `check()` photographs: no capability, no picture, no network. */
 export const CHECK_SCREEN = `export default function App() {
@@ -140,6 +156,7 @@ export function findChromium({ env = process.env, exists = fs.existsSync, readdi
 export function createRunner(d) {
   const journalFile = path.join(d.dataDir, 'mcp-jobs.json')
   const shotsDir = path.join(d.dataDir, 'mcp-shots')
+  const exportsDir = path.join(d.dataDir, 'mcp-exports')
   const loadPlaywright = d.loadPlaywright || (() => import('playwright-core'))
   /** @type {Map<string, any>} */
   const jobs = new Map()
@@ -166,8 +183,9 @@ export function createRunner(d) {
     try {
       fs.mkdirSync(d.dataDir, { recursive: true })
       const tmp = `${journalFile}.${crypto.randomBytes(6).toString('hex')}.tmp`
-      // Never the contract: tens of kilobytes of prompt, and a restart fails the job anyway.
-      fs.writeFileSync(tmp, JSON.stringify(list, (k, v) => (k === 'contract' ? undefined : v)), { mode: 0o600 })
+      // Never the contract (tens of kilobytes of prompt) nor a template (every
+      // screen's code, up to 6 MB): a restart fails the job anyway.
+      fs.writeFileSync(tmp, JSON.stringify(list, (k, v) => (k === 'contract' || k === 'template' ? undefined : v)), { mode: 0o600 })
       fs.renameSync(tmp, journalFile)
     } catch (err) {
       console.error(`mocky: could not write the runner journal — ${err?.message || err}`)
@@ -269,6 +287,50 @@ export function createRunner(d) {
     if (!/^[a-f0-9]{64}$/.test(String(hash)) || !['png', 'jpg', 'html'].includes(kind)) return null
     try {
       return fs.readFileSync(path.join(shotsDir, `${hash}.${kind}`))
+    } catch {
+      return null
+    }
+  }
+
+  // ---- exports -------------------------------------------------------------------
+  /**
+   * A file `export_screen` made: `<hash>.<ext>` and its `<hash>.json` (name,
+   * type, pages, notices). The hash is of the screen and the format, so asking
+   * twice for an unchanged screen costs nothing.
+   */
+  function saveExport(hash, ext, bytes, meta) {
+    fs.mkdirSync(exportsDir, { recursive: true })
+    fs.writeFileSync(path.join(exportsDir, `${hash}.${ext}`), bytes, { mode: 0o600 })
+    fs.writeFileSync(path.join(exportsDir, `${hash}.json`), JSON.stringify({ ...meta, ext }), { mode: 0o600 })
+    pruneExports()
+  }
+
+  function pruneExports() {
+    try {
+      const metas = fs
+        .readdirSync(exportsDir)
+        .filter((f) => /^[a-f0-9]{64}\.json$/.test(f))
+        .map((f) => ({ f, t: fs.statSync(path.join(exportsDir, f)).mtimeMs }))
+        .sort((a, b) => b.t - a.t)
+      const now = Date.now()
+      metas.forEach((x, i) => {
+        if (i < MAX_EXPORTS && now - x.t <= EXPORT_TTL_MS) return
+        const hash = x.f.slice(0, 64)
+        for (const ext of [...Object.keys(EXPORT_TYPES), 'json']) fs.rmSync(path.join(exportsDir, `${hash}.${ext}`), { force: true })
+      })
+    } catch {
+      /* nothing to prune */
+    }
+  }
+
+  /** An export by its hash: `{ bytes, filename, mime, ext, pages, notices }`, or null. */
+  function readExport(hash) {
+    if (!/^[a-f0-9]{64}$/.test(String(hash))) return null
+    try {
+      const meta = JSON.parse(fs.readFileSync(path.join(exportsDir, `${hash}.json`), 'utf8'))
+      if (!EXPORT_TYPES[meta?.ext]) return null
+      const bytes = fs.readFileSync(path.join(exportsDir, `${hash}.${meta.ext}`))
+      return { bytes, filename: String(meta.filename || `export.${meta.ext}`), mime: EXPORT_TYPES[meta.ext], ext: meta.ext, pages: meta.pages || 1, notices: meta.notices || [] }
     } catch {
       return null
     }
@@ -628,6 +690,52 @@ export function createRunner(d) {
           if (codeShots.size > MAX_SHOTS) codeShots.delete(codeShots.keys().next().value)
           return hash
         } finally {
+          await context?.close().catch(() => {})
+          armIdle()
+        }
+      })
+      photoQueue = run.catch(() => {})
+      return run
+    },
+
+    readExport,
+
+    /**
+     * One file of a screen that exists (`export_screen`): the Download dialog's
+     * own exporters, run in the runner's page. No model, no token — like
+     * `photographCode`, the capture needs only /vendor and the library's public
+     * bytes. Shares the photographs' queue: one page of the warm browser at a
+     * time. Returns the export's hash; an unchanged screen asked for twice in
+     * the same format costs nothing.
+     */
+    async exportCode(spec) {
+      const why = availability()
+      if (!why.available) throw Object.assign(new Error(why.reason), { code: why.reason })
+      const screen = spec.screen || {}
+      const key = crypto
+        .createHash('sha256')
+        .update(JSON.stringify(['export', spec.kind, spec.lang || 'fr', screen.code, screen.name, screen.page, screen.fold, screen.w, screen.h, screen.caps || []]))
+        .digest('hex')
+      if (readExport(key)) return key
+      const run = photoQueue.then(async () => {
+        let context = null
+        const timer = setTimeout(() => void context?.close().catch(() => {}), EXPORT_TIMEOUT_MS)
+        timer.unref?.()
+        try {
+          const opened = await openPage(null, spec.lang === 'en' ? 'en-US' : 'fr-FR')
+          context = opened.context
+          await ready(opened.page)
+          const out = await opened.page.evaluate((x) => window.__mockyRunner.exportScreen(x), { screen, kind: spec.kind, lang: spec.lang })
+          const ext = String(out?.filename || '').split('.').pop()?.toLowerCase()
+          if (!EXPORT_TYPES[ext] || typeof out?.base64 !== 'string') throw new Error('the export made no file')
+          saveExport(key, ext, Buffer.from(out.base64, 'base64'), {
+            filename: String(out.filename).slice(0, 160),
+            pages: Number(out.pages) || 1,
+            notices: Array.isArray(out.notices) ? out.notices.map((n) => String(n).slice(0, 40)).slice(0, 20) : [],
+          })
+          return key
+        } finally {
+          clearTimeout(timer)
           await context?.close().catch(() => {})
           armIdle()
         }

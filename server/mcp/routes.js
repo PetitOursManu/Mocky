@@ -33,7 +33,7 @@ import { createKeyAuth } from './key-auth.js'
 import { KEY_LEVELS } from './levels.js'
 
 /** The paths that must not exist while the server is off (X1). */
-const MCP_PATHS = /^\/(?:mcp|mcp-shot|mcp-view|register|authorize|token|revoke)(?:\/|$)|^\/\.well-known\/oauth-(?:authorization-server|protected-resource)(?:\/|$)/
+const MCP_PATHS = /^\/(?:mcp|mcp-shot|mcp-view|mcp-export|register|authorize|token|revoke)(?:\/|$)|^\/\.well-known\/oauth-(?:authorization-server|protected-resource)(?:\/|$)/
 
 /** How long a picture link handed to an assistant works. */
 export const SHOT_LINK_TTL_MS = 24 * 60 * 60 * 1000
@@ -154,6 +154,22 @@ export function createMcpServerRoutes(d) {
     const exp = Date.now() + SHOT_LINK_TTL_MS
     return `${origin}/mcp-view/${hash}.html?e=${exp}&s=${sign(hash, exp)}`
   }
+  /**
+   * A file `export_screen` made (PNG, .pptx, PDF): the same kind of capability
+   * URL, signed over the hash AND the extension so a link to one format never
+   * opens another, for a day like the picture. The file itself carries its own
+   * name, so the browser saves "Post Semaine du goût - Canva.pptx".
+   */
+  function exportLink(hash, ext) {
+    const exp = Date.now() + SHOT_LINK_TTL_MS
+    return `${origin}/mcp-export/${hash}.${ext}?e=${exp}&s=${sign(`${hash}.${ext}`, exp)}`
+  }
+  function exportLinkValid(hash, ext, exp, sig) {
+    if (!/^[a-f0-9]{64}$/.test(hash) || !/^[a-z]{3,4}$/.test(ext) || !/^\d{10,16}$/.test(String(exp)) || Number(exp) < Date.now()) return false
+    const want = Buffer.from(sign(`${hash}.${ext}`, exp))
+    const got = Buffer.from(String(sig || ''))
+    return want.length === got.length && crypto.timingSafeEqual(want, got)
+  }
   function shotLinkValid(hash, exp, sig) {
     if (!/^[a-f0-9]{64}$/.test(hash) || !/^\d{10,16}$/.test(String(exp)) || Number(exp) < Date.now()) return false
     const want = Buffer.from(sign(hash, exp))
@@ -223,6 +239,12 @@ export function createMcpServerRoutes(d) {
         usesOwnText: d.usesOwnText,
         shotLink,
         viewLink,
+        exportLink,
+        // The account's project templates (server/templates.js): listed for the
+        // assistant, and read whole when a new project starts from one.
+        templates: d.templates
+          ? { list: () => d.templates.list(userId), get: (id) => d.templates.get(userId, id) }
+          : null,
         origin,
         pictures: d.pictures,
         // An OAuth connection reaches every tool, as it always has; a key, the
@@ -251,6 +273,19 @@ export function createMcpServerRoutes(d) {
       res.setHeader('Content-Type', 'image/jpeg')
       res.setHeader('Cache-Control', 'private, max-age=3600')
       res.end(jpeg)
+    })
+
+    app.get('/mcp-export/:file', (req, res) => {
+      const m = /^([a-f0-9]{64})\.([a-z]{3,4})$/.exec(req.params.file)
+      if (!m || !exportLinkValid(m[1], m[2], req.query.e, req.query.s)) return res.status(404).end()
+      const file = d.runner.readExport?.(m[1])
+      if (!file || file.ext !== m[2]) return res.status(404).end()
+      const ascii = file.filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_')
+      res.setHeader('Content-Type', file.mime)
+      res.setHeader('Content-Disposition', `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file.filename)}`)
+      res.setHeader('Cache-Control', 'private, max-age=3600')
+      res.setHeader('X-Content-Type-Options', 'nosniff')
+      res.end(file.bytes)
     })
 
     /*

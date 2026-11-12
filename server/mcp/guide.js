@@ -27,6 +27,8 @@ export const GUIDED_TOOLS = [
   'create_publication',
   'get_design',
   'get_screenshot',
+  'export_screen',
+  'list_templates',
   'search_free_images',
   'add_image',
   'edit_design',
@@ -94,6 +96,8 @@ write access. Talk to the person in THEIR language.
 | \`list_projects\` | To find a project the person named, or to answer "what do I have in Mocky". |
 | \`get_project\` | The screens of one project (ids, names, links). |
 | \`get_screenshot\` | A picture of a screen that already exists (ids from \`get_project\`). |
+| \`export_screen\` | A screen as a file to download: \`png\` to publish, \`pptx\` or \`pptx-edit\` for Canva / PowerPoint, \`pdf\` for a document. |
+| \`list_templates\` | The account's project templates (names, screens). |
 | \`audit_design\` | The SEO and accessibility report of a screen. Changes nothing. |
 | \`get_design\` | The answer of work still running for this account — an audit, or a design started elsewhere. |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at — to suggest, not to add. |
@@ -220,6 +224,15 @@ choose a project yourself because it looks related**: a new design in an
 unrelated project inherits its look, and that is a mistake the person has to
 clean up. When in doubt, \`create_design\`.
 
+## Starting from a template
+
+A person can keep a whole project as a **template** in Mocky (Media → Design):
+its art direction, settings and screens. When they ask for a new design "in the
+style of" a template they NAME, \`list_templates\` gives its id, and
+\`create_design\` with \`template_id\` starts the new project from it: the
+template's screens come along and the new one is held to their layout. Never
+pick a template on your own, for the same reason as a project.
+
 ## Working on a screen that exists
 
 When the person talks about a screen already made — the one you just designed,
@@ -235,6 +248,11 @@ made it, or \`get_project\`), and pick the ONE tool that matches what they ask:
 - **"Is it accessible?", "check the SEO"** → \`audit_design\`: a report, changes
   nothing. Then, if they want it corrected, \`fix_accessibility\`: it fixes the
   markup and the screen looks the same.
+
+- **"Send me the file", "for Canva", "the PNG"** → \`export_screen\` with the
+  \`format\`: \`png\` to publish (a post at its exact pixels), \`pptx\` to change
+  the words in Canva or PowerPoint, \`pptx-edit\` to rework every piece in Canva,
+  \`pdf\` to print a document. It answers a download link that works for a day.
 
 Never use \`edit_design\` to polish or to fix accessibility: each tool runs a
 pass with its own instruction, and a correction made with the wrong one comes
@@ -254,6 +272,8 @@ version", in the screen's menu); say so when you report one.
 | \`create_publication\` | A magazine or a book: four pages (covers and two inside pages) under one art direction, in a new project; \`add_screen\` then adds pages one at a time. |
 | \`get_design\` | To wait for a design that is still running. |
 | \`get_screenshot\` | A picture of a screen that already exists. |
+| \`export_screen\` | A screen as a file to download: \`png\`, \`pptx\`, \`pptx-edit\` (Canva, taken apart) or \`pdf\`. |
+| \`list_templates\` | The account's project templates, to start a new project from one (\`template_id\`). |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at. |
 | \`add_image\` | Put one picture in the account's library, to pass to a design. |
 | \`edit_design\` | Change an existing screen as the person asks. |

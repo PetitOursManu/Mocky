@@ -1317,6 +1317,8 @@ server/mcp/levels.js       read / write, and READ_TOOLS — a CLOSED list (X9)
 server/mcp/https.js        when it may exist at all: an HTTPS origin
 server/mcp/tools.js        the tools (create_design…) and what leaves — a whitelist (X4)
 server/mcp/runner.js       the headless runner: queue, Chromium, network rule (X6)
+                           + exportCode: a screen as a file (export_screen), the Download
+                           dialog's own exporters run in the page, kept a day in mcp-exports/
 server/mcp/runner-auth.js  the per-job token, and the few routes it opens
 server/mcp/images.js       pictures an assistant brings: free photos, files, addresses (SSRF-guarded)
 server/mcp/prefs.js        each person's engine: Mocky's model, or the assistant's ("client", phase 4 —
@@ -1326,7 +1328,8 @@ server/mcp/guide.js        the guide FOR THE ASSISTANT (mocky_guide, mocky://gui
 server/mcp/prompts.js      the prompts a person picks in their client's menu — starting messages
                            that name tools; `prompts.test.js` holds them to the real tool list
 server/mcp/skill.js        the downloadable Claude skill: the guide + the prompts as one SKILL.md
-src/runner/main.tsx        runner.html: runNewScreen, or one pass on an existing screen, + the preview (X5)
+src/runner/main.tsx        runner.html: runNewScreen (from a template when the job carries one), or one
+                           pass on an existing screen, + the preview (X5) and exportScreen
 server/mcp/view.js         the live view (MCP Apps): a frame around /mcp-view/<hash>.html, served
                            under `sandbox allow-scripts` (X7) — never the screen inlined in the view
 bridge/mocky-mcp.js        the LAN bridge: stdio for a local client, HTTPS to /mcp; its own package

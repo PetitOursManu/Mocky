@@ -9,6 +9,8 @@
  *   add_screen      a new screen in a project the person named    (write)
  *   get_design      a design being made: wait for it, get it      (read)
  *   get_screenshot  a picture of a screen that already exists     (read)
+ *   export_screen   a screen as a file: PNG, .pptx (Canva), PDF  (read)
+ *   list_templates  the account's project templates               (read)
  *   edit_design     change a screen as the person asks           (write)
  *   polish_design   the quality pass on a screen                  (write)
  *   audit_design    the SEO / accessibility report of a screen    (read)
@@ -719,6 +721,17 @@ export function buildMcpServer(deps) {
           : `Image "${stranger.image_id}" is not in this account's library: add it first with add_image.`,
       )
     }
+    // A new project started from one of the account's templates: read here, from
+    // the account's own store, and handed whole to the page — an id that is not
+    // this account's answers like one that does not exist (X4).
+    const template = !project && args.template_id ? deps.templates?.get(args.template_id) : null
+    if (!project && args.template_id && !template) {
+      return refuse(
+        lang === 'fr'
+          ? `Aucun modèle de ce compte ne porte l’identifiant « ${String(args.template_id).slice(0, 64)} » : list_templates donne les modèles.`
+          : `No template of this account has the id "${String(args.template_id).slice(0, 64)}": list_templates gives the templates.`,
+      )
+    }
     // The type the assistant chose, else the one the request names in words.
     const screenType = SCREEN_TYPES[args.screen_type] ? args.screen_type : inferScreenType(`${args.brief} ${args.kind || ''}`)
     const { job, existing } = runner.enqueue(user.id, {
@@ -737,8 +750,10 @@ export function buildMcpServer(deps) {
       // On by default for a new project, whose first screen sets the direction
       // every later one follows; off in an existing one, which has its own.
       // Left to the assistant, Muse almost never ran: ChatGPT does not ask for
-      // what is described as slower.
-      muse: project ? args.muse === true : args.muse !== false,
+      // what is described as slower. A project from a template has its
+      // direction already, like an existing one: Muse only when asked.
+      muse: project || template ? args.muse === true : args.muse !== false,
+      ...(template ? { template } : {}),
       engine,
       lang,
       ...(args.flows === true ? { flows: true } : {}),
@@ -892,10 +907,19 @@ export function buildMcpServer(deps) {
       inputSchema: {
         ...designFields,
         project_name: z.string().max(120).optional().describe('A short name for the new project.'),
+        template_id: z
+          .string()
+          .min(1)
+          .max(64)
+          .optional()
+          .describe(
+            'Start the NEW project from one of the account\'s project templates (ids from list_templates), as "New project from this template" does in Mocky: ' +
+              'its art direction, settings and screens come along, and the new screen follows them. Only when the person named the template, or an integration was set up with it.',
+          ),
         muse: z
           .boolean()
           .optional()
-          .describe('Mocky\'s art direction (Muse) designs the look first — on by default for a new project. Pass false only when the person wants it fast or gave a complete visual direction.'),
+          .describe('Mocky\'s art direction (Muse) designs the look first — on by default for a new project, off for one started from a template (it has its direction). Pass false only when the person wants it fast or gave a complete visual direction.'),
       },
       _meta: VIEW_META,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -1325,6 +1349,104 @@ export function buildMcpServer(deps) {
       } catch (err) {
         return refuse(`The picture could not be taken: ${String(err?.message || err).slice(0, 200)}`)
       }
+    },
+  )
+
+  /*
+   * A screen as a FILE — what the Download dialog in Mocky makes, for a person
+   * or an integration that publishes or finishes the design elsewhere (a
+   * calendar of posts that keeps the PNG, Canva for the .pptx). Read-only: the
+   * account does not change, no model is called, and the file lives a day
+   * behind a signed link, like the picture.
+   */
+  const EXPORT_FORMATS = {
+    png: 'the picture to publish: a post at its exact pixels, one PNG per page (zipped when there are several)',
+    pptx: 'PowerPoint / Google Slides / Canva: every text an editable text box over the design, every picture in a shape a frame',
+    'pptx-edit': 'Canva / PowerPoint with everything taken apart: each coloured shape, picture and text a separate element, to rework piece by piece (documents and posts)',
+    pdf: 'to print or send (documents only)',
+  }
+  server.registerTool(
+    'export_screen',
+    {
+      title: 'Download a screen as a file',
+      description:
+        'Exports a screen that already exists as a file, as the Download dialog in Mocky does, and returns a download link valid for one day. ' +
+        Object.entries(EXPORT_FORMATS).map(([id, what]) => `${id} = ${what}`).join('; ') +
+        '. Changes nothing in the account and calls no model. Read-only.',
+      inputSchema: {
+        ...screenFields,
+        format: z.enum(Object.keys(EXPORT_FORMATS)).describe('png, pptx, pptx-edit or pdf.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ project_id, screen_id, format }) => {
+      const p = findProject(project_id)
+      const s = p?.screens?.find((x) => x?.id === screen_id)
+      const lang = briefLanguage(s?.prompt || '')
+      const fr = lang === 'fr'
+      if (!s || typeof s.code !== 'string' || !s.code.trim()) return refuse(fr ? 'Aucun écran de ce compte ne porte cet identifiant.' : 'No such screen in this account.')
+      if (format === 'pdf' && !s.page) return refuse(fr ? 'Un écran web n’a pas d’export PDF : demande png ou pptx.' : 'A web screen has no PDF export: ask for png or pptx.')
+      if (!deps.exportLink || typeof runner.exportCode !== 'function') return refuse(fr ? 'Les exports ne sont pas disponibles sur ce Mocky.' : 'Exports are not available on this Mocky.')
+      const why = runner.availability()
+      if (!why.available) return refuse(fr ? `Les exports ne sont pas disponibles sur ce Mocky (${why.reason}).` : `Exports are not available on this Mocky (${why.reason}).`)
+      try {
+        // Only what the exporter reads: never the notes (I9), the history or a version.
+        const screen = {}
+        for (const k of ['id', 'name', 'prompt', 'code', 'componentName', 'caps', 'page', 'fold', 'theme', 'w', 'h', 'device']) if (s[k] !== undefined) screen[k] = s[k]
+        const hash = await runner.exportCode({ screen, kind: format, lang })
+        const file = runner.readExport(hash)
+        if (!file) throw new Error(fr ? 'le fichier n’a pas été gardé' : 'the file was not kept')
+        const download = deps.exportLink(hash, file.ext)
+        const notes = file.notices.length ? (fr ? ` Remarques de l’export : ${file.notices.join(', ')}.` : ` Export notes: ${file.notices.join(', ')}.`) : ''
+        return {
+          content: [
+            text(
+              fr
+                ? `${file.filename} (${file.pages} page${file.pages > 1 ? 's' : ''}, ${Math.ceil(file.bytes.length / 1024)} Ko) — à télécharger pendant 24 h : ${download}${notes}`
+                : `${file.filename} (${file.pages} page${file.pages > 1 ? 's' : ''}, ${Math.ceil(file.bytes.length / 1024)} KB) — download within 24 h: ${download}${notes}`,
+            ),
+          ],
+          structuredContent: {
+            projectId: p.id,
+            screenId: s.id,
+            format,
+            filename: file.filename,
+            mime: file.mime,
+            bytes: file.bytes.length,
+            pages: file.pages,
+            download,
+            notices: file.notices,
+          },
+        }
+      } catch (err) {
+        return refuse(fr ? `L’export a échoué : ${String(err?.message || err).slice(0, 200)}` : `The export failed: ${String(err?.message || err).slice(0, 200)}`)
+      }
+    },
+  )
+
+  server.registerTool(
+    'list_templates',
+    {
+      title: 'List my Mocky project templates',
+      description:
+        'Lists the project templates of the connected account (Media → Design in Mocky): name, number of screens, their names and the id. ' +
+        (canWrite ? 'A new project can start from one: pass its id as template_id to create_design. ' : '') +
+        'Read-only.',
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      // Never a template's code or its DESIGN.md: names and counts, as the Media page shows them.
+      const list = (deps.templates?.list() || []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        screens: t.screenCount || 0,
+        screenNames: Array.isArray(t.screenNames) ? t.screenNames : [],
+        updatedAt: t.updatedAt,
+      }))
+      const body = list.length
+        ? list.map((t) => `- ${t.name || '(untitled)'} — ${t.screens} screen(s)${t.screenNames.length ? ` (${t.screenNames.join(', ')})` : ''} — id ${t.id}`).join('\n')
+        : 'This account has no project templates. In Mocky, a project is saved as one from its card (the bookmark icon) or Export → Save as template.'
+      return { content: [text(body)], structuredContent: { templates: list } }
     },
   )
 
