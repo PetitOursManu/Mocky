@@ -1,5 +1,5 @@
 ---
-source_hash: a9d056d36db2
+source_hash: 6e96a840000f
 ---
 
 # Connecter un assistant (MCP)
@@ -31,6 +31,8 @@ clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
 | `list_projects` | Les projets du compte, chacun avec un lien. |
 | `get_project` | Les écrans d'un projet : nom, appareil, la demande qui l'a créé, un lien. |
 | `get_screenshot` | Une image d'un écran qui existe déjà. |
+| `export_screen` | Un écran en **fichier**, comme le fait la fenêtre Télécharger : `png` (pour publier — un post à ses pixels exacts), `pptx` (textes modifiables sur le design), `pptx-edit` (Canva / PowerPoint, chaque pièce séparée) ou `pdf` (documents). Rend un lien de téléchargement valable un jour ; ne change rien et n'appelle aucun modèle. |
+| `list_templates` | Les [modèles de projet](templates.md) du compte : noms et écrans, jamais leur code. |
 | `search_free_images` | Des photos libres des banques auxquelles ce Mocky est relié (Pexels, Pixabay), en miniatures que l'assistant regarde. |
 | `add_image` | Met une image dans la bibliothèque du compte pour un design : une photo libre choisie ci-dessus, une image de la conversation (générée par ChatGPT, ou jointe par la personne), ou une adresse publique. |
 | `edit_design` | Modifie un écran existant comme la personne le demande — « mets l'en-tête en sombre » — en gardant le reste. Rend une image et le lien. |
@@ -146,6 +148,22 @@ rien remplir, un prompt démarre quand même une conversation sensée.
   seul, signé, valable un jour, et caduc après un redémarrage.
 - **Le lien** ouvre le projet dans Mocky, centré sur le nouvel écran, pour une
   personne connectée à ce compte et personne d'autre.
+- **Les fichiers.** `export_screen` exécute les exports de la fenêtre
+  Télécharger (`lib/docExport`) dans la page de l'exécuteur — le même PNG, le
+  même `.pptx` et le même PDF qu'une personne télécharge, jamais un second
+  exporteur. Le fichier est gardé un jour dans `mcp-exports/` (cent au plus),
+  derrière un lien signé sur son empreinte et son extension, et un écran
+  inchangé demandé deux fois dans un même format n'est pas refait. Aucun modèle,
+  aucun quota, et une clé en lecture seule peut le demander : le compte ne
+  change pas.
+- **Depuis un modèle.** `create_design` avec `template_id` démarre le nouveau
+  projet depuis un des [modèles](templates.md) du compte, comme le fait
+  « Nouveau projet depuis ce modèle » : sa direction, ses réglages et ses
+  écrans, avec de nouveaux identifiants. Les écrans du modèle suivent exprès —
+  c'est la mise en page à laquelle le nouvel écran se tient — et Muse est
+  coupée sauf demande, le projet ayant sa direction. Le serveur lit le modèle
+  dans le stockage du compte ; un identifiant qui n'est pas à ce compte répond
+  comme un identifiant inexistant.
 - **Un seul design à la fois par compte** ; la maintenance refuse les nouveaux
   designs (les lectures restent possibles) ; le quota journalier facultatif les
   compte.
@@ -377,7 +395,7 @@ compte et son travail unique à la fois, la maintenance.
 
 | Niveau | Ce qu'il atteint |
 |---|---|
-| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `audit_design`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
+| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `list_templates`, `audit_design`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
 | **Lecture + écriture** | Tous les outils permis au compte, comme avec une connexion OAuth. |
 
 La liste de lecture est **fermée**, dans le code (`server/mcp/levels.js`) : un

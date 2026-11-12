@@ -2903,6 +2903,9 @@ const mcpServer = createMcpServerRoutes({
   }),
   dataDir: DATA_DIR,
   origin: MOCKY_ORIGIN,
+  // Read only: an assistant lists the account's templates and starts a new
+  // project from one; it never saves, renames or deletes one.
+  templates: { list: (userId) => templates.list(userId), get: (userId, id) => templates.get(userId, id) },
   findUser: (id) => loadUsers().find((u) => u.id === id),
   listUsers: () => loadUsers(),
   sessionUser,

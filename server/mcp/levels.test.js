@@ -81,7 +81,7 @@ describe('the levels', () => {
   })
 
   it('keep a closed, frozen list of read tools', () => {
-    expect([...READ_TOOLS].sort()).toEqual(['audit_design', 'get_design', 'get_project', 'get_screenshot', 'list_projects', 'mocky_guide', 'search_free_images'])
+    expect([...READ_TOOLS].sort()).toEqual(['audit_design', 'export_screen', 'get_design', 'get_project', 'get_screenshot', 'list_projects', 'list_templates', 'mocky_guide', 'search_free_images'])
     expect(Object.isFrozen(READ_TOOLS)).toBe(true)
     expect(Object.isFrozen(KEY_LEVELS)).toBe(true)
   })
@@ -107,7 +107,7 @@ describe('the levels', () => {
         /* refused: what is wanted */
       }
     }
-    expect([...READ_TOOLS].sort()).toEqual(['audit_design', 'get_design', 'get_project', 'get_screenshot', 'list_projects', 'mocky_guide', 'search_free_images'])
+    expect([...READ_TOOLS].sort()).toEqual(['audit_design', 'export_screen', 'get_design', 'get_project', 'get_screenshot', 'list_projects', 'list_templates', 'mocky_guide', 'search_free_images'])
     expect(isReadTool('create_design')).toBe(false)
     expect(toolAllowed('read', 'create_design')).toBe(false)
     expect((await toolsOf('read')).map((t) => t.name)).not.toContain('create_design')
