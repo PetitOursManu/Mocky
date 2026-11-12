@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 3ebe93e40f44
+source_hash: d2d365758d41
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -261,12 +261,12 @@ six boutons :
 
 | Bouton | Ce que vous obtenez | Pour |
 |---|---|---|
-| `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — à 500 dpi pour le papier, au triple pour une diapositive et au quadruple de ses pixels pour un post, pour rester nettes zoomées comme imprimées (sur iPhone ou iPad, aussi haut que Safari le permet, environ 350 dpi en A4) — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
-| `PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables` | Une diapositive par page : le dessin en une image sous tout le reste — l’arrière-plan de la diapositive quand la page a des images dans une forme, sinon une image que l’on peut sélectionner (Canva refusait cet arrière-plan sur une page qui n’en a aucune) — et chaque texte en zone de texte modifiable par-dessus — un titre composé sur plusieurs lignes est une seule zone, chaque ligne gardant sa taille et sa couleur. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Importez-le dans Canva, ou déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
-| `Canva / PowerPoint (.pptx) — tout en éléments séparés` | La même diapositive, démontée : chaque bloc de couleur, contour et dégradé simple est une forme que l’on peut recolorer, déplacer ou supprimer ; chaque photo, icône et effet qu’une forme ne sait pas dessiner (un flou, une ombre intérieure, un dégradé circulaire) est une petite image de cet élément seul ; les textes et les images dans une forme sont comme dans le fichier ci-dessus. Voir [Démonter la page](#démonter-la-page). | Retravailler le design pièce par pièce. |
+| `PDF` / `PDF à remplir` | Les pages telles que dessinées — à 500 dpi pour le papier, au triple pour une diapositive et au quadruple de ses pixels pour un post, pour rester nettes zoomées comme imprimées (sur iPhone ou iPad, aussi haut que Safari le permet, environ 350 dpi en A4) — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
+| `PowerPoint · Google Slides · Canva (.pptx)` → `Textes modifiables` | Une diapositive par page : le dessin en une image sous tout le reste — l’arrière-plan de la diapositive quand la page a des images dans une forme, sinon une image que l’on peut sélectionner (Canva refusait cet arrière-plan sur une page qui n’en a aucune) — et chaque texte en zone de texte modifiable par-dessus — un titre composé sur plusieurs lignes est une seule zone, chaque ligne gardant sa taille et sa couleur. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Importez-le dans Canva, ou déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
+| `PowerPoint · Google Slides · Canva (.pptx)` → `Tout en éléments séparés` | La même diapositive, démontée : chaque bloc de couleur, contour et dégradé simple est une forme que l’on peut recolorer, déplacer ou supprimer ; chaque photo, icône et effet qu’une forme ne sait pas dessiner (un flou, une ombre intérieure, un dégradé circulaire) est une petite image de cet élément seul ; les textes et les images dans une forme sont comme dans le fichier ci-dessus. Voir [Démonter la page](#démonter-la-page). | Retravailler le design pièce par pièce. |
 | `Images PNG` | Une image par page, dans un `.zip` quand il y en a plusieurs. Un post sort exactement aux pixels de son format. | Publier. |
-| `PSD — Photoshop, Photopea` | Un calque pour la page, puis un par image dans une forme, avec son contour, son ruban et son ombre en calques à part. Le texte fait partie de la page. | Terminer dans Photoshop. |
-| `SVG — Figma, Illustrator, Inkscape` | La page, et chaque image dans une forme comme un groupe-masque nommé qui la contient, avec son contour et son ruban par-dessus. Le texte fait partie de la page. | Terminer dans Figma ou Illustrator. |
+| `Logiciels de dessin` → `PSD` | Un calque pour la page, puis un par image dans une forme, avec son contour, son ruban et son ombre en calques à part. Le texte fait partie de la page. | Terminer dans Photoshop. |
+| `Logiciels de dessin` → `SVG` | La page, et chaque image dans une forme comme un groupe-masque nommé qui la contient, avec son contour et son ruban par-dessus. Le texte fait partie de la page. | Terminer dans Figma ou Illustrator. |
 
 Le fichier est fabriqué dans votre navigateur, page par page, et se télécharge
 tout seul. Un lien `Enregistrer « {file} »` reste dans la fenêtre, parce qu’un
@@ -291,7 +291,7 @@ supprimer un sticker. Le second rend chaque pièce du design en pièce, au prix 
 peu de fidélité là où une diapositive ne sait pas dire ce que le CSS a dessiné.
 :::
 
-`Canva / PowerPoint (.pptx) — tout en éléments séparés` parcourt la page élément
+`Tout en éléments séparés` (sous le titre .pptx) parcourt la page élément
 par élément, dans l’ordre où la page les peint :
 
 | Sur la page | Dans la diapositive |

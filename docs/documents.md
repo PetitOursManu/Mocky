@@ -250,12 +250,12 @@ A document's frame carries a `Download` pill, and the screen context menu a
 
 | Button | What you get | For |
 |---|---|---|
-| `PDF` / `PDF — fillable fields` | The pages as drawn — at 500 dpi for paper, three times for a slide and four times its pixels for a post, so it stays sharp zoomed in as well as printed (on an iPhone or an iPad, as high as Safari allows, about 350 dpi on A4) — with the text still selectable and every field fillable. | Printing, sending. |
-| `PowerPoint / Google Slides / Canva (.pptx) — editable text and frames` | One slide per page: the design as one picture under everything — the slide's background when the page has pictures in a shape, otherwise a picture you can select (Canva refused that background on a page without any) — and every run of text as an editable text box over it — a heading set on several lines is one box, each line keeping its own size and colour. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Import it into Canva, or upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
-| `Canva / PowerPoint (.pptx) — everything as separate elements` | The same slide, taken apart: every coloured box, outline and simple gradient is a shape you can recolour, move or delete; every photograph, icon and effect a shape cannot draw (a blur, an inner shadow, a radial gradient) is a small picture of that element alone; the text and the pictures in a shape are as in the file above. See [Taking the page apart](#taking-the-page-apart). | Reworking the design piece by piece. |
+| `PDF` / `Fillable PDF` | The pages as drawn — at 500 dpi for paper, three times for a slide and four times its pixels for a post, so it stays sharp zoomed in as well as printed (on an iPhone or an iPad, as high as Safari allows, about 350 dpi on A4) — with the text still selectable and every field fillable. | Printing, sending. |
+| `PowerPoint · Google Slides · Canva (.pptx)` → `Editable text` | One slide per page: the design as one picture under everything — the slide's background when the page has pictures in a shape, otherwise a picture you can select (Canva refused that background on a page without any) — and every run of text as an editable text box over it — a heading set on several lines is one box, each line keeping its own size and colour. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Import it into Canva, or upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
+| `PowerPoint · Google Slides · Canva (.pptx)` → `Everything as separate elements` | The same slide, taken apart: every coloured box, outline and simple gradient is a shape you can recolour, move or delete; every photograph, icon and effect a shape cannot draw (a blur, an inner shadow, a radial gradient) is a small picture of that element alone; the text and the pictures in a shape are as in the file above. See [Taking the page apart](#taking-the-page-apart). | Reworking the design piece by piece. |
 | `PNG images` | One image per page, in a `.zip` when there are several. A social post comes out at exactly its format's pixels. | Posting. |
-| `PSD — Photoshop, Photopea` | One layer for the page, then one per picture in a shape, with its outline, tape and shadow as layers of their own. The text is part of the page. | Finishing in Photoshop. |
-| `SVG — Figma, Illustrator, Inkscape` | The page, and each picture in a shape as a named mask group holding it, with its outline and tape over it. The text is part of the page. | Finishing in Figma or Illustrator. |
+| `Design tools` → `PSD` | One layer for the page, then one per picture in a shape, with its outline, tape and shadow as layers of their own. The text is part of the page. | Finishing in Photoshop. |
+| `Design tools` → `SVG` | The page, and each picture in a shape as a named mask group holding it, with its outline and tape over it. The text is part of the page. | Finishing in Figma or Illustrator. |
 
 The file is built in your browser, page by page, and downloads by itself. A
 `Save “{file}”` link stays in the dialog, because a browser may block a second
@@ -279,7 +279,7 @@ sticker. The second one gives every piece of the design back as a piece, at the
 cost of a little fidelity where a slide cannot say what CSS drew.
 :::
 
-`Canva / PowerPoint (.pptx) — everything as separate elements` walks the page
+`Everything as separate elements` (under the .pptx heading) walks the page
 element by element, in the order the page paints them:
 
 | On the page | In the slide |

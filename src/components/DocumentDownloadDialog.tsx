@@ -25,17 +25,37 @@ import { documentHasFields, startDownload } from '../lib/docExport/files'
  * and a failure is a sentence in the dialog — the canvas is never touched.
  */
 
-const KINDS: { kind: ExportKind; icon: IconName; title: string; help: string }[] = [
-  { kind: 'pdf', icon: 'download', title: 'docExport.pdf.title', help: 'docExport.pdf.help' },
-  { kind: 'pptx', icon: 'pencil', title: 'docExport.pptx.title', help: 'docExport.pptx.help' },
-  // A button of its own, not an option of the one above: the two files answer
-  // different wishes — the design as drawn with its words editable, or the
-  // design in pieces — and a choice hidden behind the first button is a choice
-  // nobody who wanted the second one finds.
-  { kind: 'pptx-edit', icon: 'grid', title: 'docExport.pptxEdit.title', help: 'docExport.pptxEdit.help' },
-  { kind: 'png', icon: 'image', title: 'docExport.png.title', help: 'docExport.png.help' },
-  { kind: 'psd', icon: 'grid', title: 'docExport.psd.title', help: 'docExport.psd.help' },
-  { kind: 'svg', icon: 'crop', title: 'docExport.svg.title', help: 'docExport.svg.help' },
+type KindDef = { kind: ExportKind; icon: IconName; title: string; help: string }
+
+/**
+ * The downloads, in families. One line of help each: the dialog used to explain
+ * every file in a paragraph, and the person asked for it lighter — what a file
+ * IS goes in docs/documents.md, the button only says what it is for.
+ *
+ * The two .pptx sit side by side under ONE heading that names PowerPoint, Google
+ * Slides and Canva once: they are the same kind of file answering two wishes —
+ * the design as drawn with its words editable, or the design in pieces — and,
+ * listed one under the other with the whole name repeated, they read as two
+ * unrelated choices. Still two buttons, never an option of one: a choice hidden
+ * behind the first is a choice nobody who wanted the second one finds.
+ */
+const GROUPS: { label?: string; kinds: KindDef[] }[] = [
+  { kinds: [{ kind: 'pdf', icon: 'download', title: 'docExport.pdf.title', help: 'docExport.pdf.help' }] },
+  {
+    label: 'docExport.group.pptx',
+    kinds: [
+      { kind: 'pptx', icon: 'pencil', title: 'docExport.pptx.title', help: 'docExport.pptx.help' },
+      { kind: 'pptx-edit', icon: 'grid', title: 'docExport.pptxEdit.title', help: 'docExport.pptxEdit.help' },
+    ],
+  },
+  { kinds: [{ kind: 'png', icon: 'image', title: 'docExport.png.title', help: 'docExport.png.help' }] },
+  {
+    label: 'docExport.group.layers',
+    kinds: [
+      { kind: 'psd', icon: 'grid', title: 'docExport.psd.title', help: 'docExport.psd.help' },
+      { kind: 'svg', icon: 'crop', title: 'docExport.svg.title', help: 'docExport.svg.help' },
+    ],
+  },
 ]
 
 type State =
@@ -186,7 +206,7 @@ export default function DocumentDownloadDialog({
   const running = state.step === 'running'
 
   /** One download, as a button whose help says what the file is for. */
-  function kindButton({ kind, icon, title: plainTitle, help: plainHelp }: { kind: ExportKind; icon: IconName; title: string; help: string }) {
+  function kindButton({ kind, icon, title: plainTitle, help: plainHelp }: KindDef) {
     const active = running && state.kind === kind
     const title = kind === 'pdf' && fields ? 'docExport.pdf.titleFields' : plainTitle
     const help = kind === 'pdf' && fields ? 'docExport.pdf.helpFields' : plainHelp
@@ -205,7 +225,7 @@ export default function DocumentDownloadDialog({
           disabled={empty}
           aria-disabled={running || undefined}
           aria-describedby={`doc-export-${kind}-help`}
-          className={`tap-target flex w-full items-start gap-3 border px-4 py-3 text-left transition motion-reduce:transition-none disabled:cursor-not-allowed aria-disabled:cursor-not-allowed ${
+          className={`tap-target flex h-full w-full items-start gap-3 border px-4 py-2.5 text-left transition motion-reduce:transition-none disabled:cursor-not-allowed aria-disabled:cursor-not-allowed ${
             active
               ? 'border-accent bg-surface'
               : 'border-line-soft hover:border-line disabled:opacity-50 aria-disabled:opacity-50 aria-disabled:hover:border-line-soft'
@@ -236,9 +256,22 @@ export default function DocumentDownloadDialog({
         </div>
       )}
 
-      <ul className="mt-4 flex flex-col gap-2">
-        {KINDS.map((k) => kindButton(k))}
-      </ul>
+      <div className="mt-4 flex flex-col gap-3">
+        {GROUPS.map((g, i) =>
+          g.label ? (
+            <section key={i} aria-labelledby={`doc-export-group-${i}`}>
+              <p id={`doc-export-group-${i}`} className="mb-1.5 text-body-sm font-medium text-ink-muted">
+                {t(g.label)}
+              </p>
+              <ul className="grid gap-2 sm:grid-cols-2">{g.kinds.map((k) => kindButton(k))}</ul>
+            </section>
+          ) : (
+            <ul key={i} className="flex flex-col gap-2">
+              {g.kinds.map((k) => kindButton(k))}
+            </ul>
+          ),
+        )}
+      </div>
 
       {/* One live region for every outcome, so a screen reader hears the progress and the result. */}
       <div className="mt-4" aria-live="polite">
