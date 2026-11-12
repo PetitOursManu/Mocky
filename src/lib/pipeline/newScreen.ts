@@ -28,12 +28,12 @@ import { CREATIVE_SECTION, CREATIVE_TEMPERATURE } from '../creative'
 import { askModel, creationsSection, inlineCreations, runCreationStage, type Creation } from '../creations/stage'
 import { listCreations, renderInSandbox, saveCreation } from '../creations/browser'
 import type { Settings } from '../settings'
-import { buildDocumentLayoutReference, buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
+import { buildDocumentInspirationReference, buildDocumentLayoutReference, buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Project, type Screen, type ScreenUltra } from '../project'
 import { filmMedia } from '../screenMedia'
 import { resolveDirection } from '../direction'
 import { getPreset } from '../presets'
-import { composerPageFormat, documentHint, documentPipeline, foldedSheet, ORNAMENTS_CAP, pickLayoutModel, pickReference } from '../documentMode'
+import { composerPageFormat, documentHint, documentPipeline, foldedSheet, ORNAMENTS_CAP, pickInspirations, pickLayoutModel, pickReference, type InspirationTemplate } from '../documentMode'
 import { documentSequenceSection } from '../docSequence'
 import type { FoldId } from '../folds'
 import { brandMuseLine, brandSection, type BrandIdentity } from '../brand'
@@ -131,6 +131,12 @@ export interface NewScreenRequest {
    * template through the MCP server; absent, nothing changes.
    */
   followLayout?: boolean
+  /**
+   * Saved templates given as EXAMPLES of the series (MCP `inspiration_ids`): a
+   * document of the same family, never a copy of one of them. A layout model
+   * (`followLayout`) wins over them when both apply.
+   */
+  inspirations?: InspirationTemplate[]
   /** Pictures for the model, annotations FIRST: their numbers are the ones the user wrote. */
   images: string[]
   /** How many of `images` are annotations — the site section counts its own from after them. */
@@ -466,8 +472,11 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // a redesign — pinning is the user's own statement — and never on a
     // reproduction, whose chrome is the screenshot's.
     const layoutModel = req.followLayout && pipe.document && !siteNew ? pickLayoutModel(req.screens, { page: runPage, theme: runTheme }) : undefined
+    const examples = !layoutModel && req.inspirations?.length && pipe.document && !siteNew ? pickInspirations(req.inspirations, { page: runPage, theme: runTheme }) : []
     const referencePreamble = layoutModel
       ? buildDocumentLayoutReference(layoutModel.screen.code, layoutModel.sameFormat)
+      : examples.length
+      ? buildDocumentInspirationReference(examples)
       : !siteNew
       ? identityOrLayoutReference(req.screens, project.referenceScreenId, undefined, pipe.document)
       : !reproducing && project.referenceScreenId

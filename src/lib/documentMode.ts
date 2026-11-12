@@ -333,6 +333,34 @@ export function pickLayoutModel<S extends { id: string; code: string; createdAt:
   return { screen: oldest(sameTheme.length ? sameTheme : docs), sameFormat: false }
 }
 
+/** A style example as the runner hands it over: one saved template, its document screens. */
+export interface InspirationTemplate {
+  name: string
+  screens: { code: string; page?: string; theme?: string }[]
+}
+
+/**
+ * One screen per example template — the closest to what is being made (same
+ * page, then same type, then its first document) — four at most. A template
+ * with no rendered document gives nothing: a web page is no example of a post.
+ */
+export function pickInspirations(
+  templates: readonly InspirationTemplate[],
+  opts: { page: PageFormatId | null | undefined; theme: string | null | undefined },
+): { name: string; code: string; sameFormat: boolean }[] {
+  const out: { name: string; code: string; sameFormat: boolean }[] = []
+  for (const t of templates) {
+    const docs = (Array.isArray(t?.screens) ? t.screens : []).filter((s) => typeof s?.code === 'string' && s.code.trim() && !!s.page && isPageFormat(s.page))
+    if (!docs.length) continue
+    const same = opts.page ? docs.filter((s) => s.page === opts.page) : []
+    const pool = same.length ? same : docs
+    const pick = pool.find((s) => !!opts.theme && s.theme === opts.theme) || pool[0]
+    out.push({ name: String(t.name || ''), code: pick.code, sameFormat: same.length > 0 })
+    if (out.length >= 4) break
+  }
+  return out
+}
+
 // ---- the pipeline --------------------------------------------------------------
 
 /**

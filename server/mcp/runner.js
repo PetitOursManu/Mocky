@@ -185,7 +185,7 @@ export function createRunner(d) {
       const tmp = `${journalFile}.${crypto.randomBytes(6).toString('hex')}.tmp`
       // Never the contract (tens of kilobytes of prompt) nor a template (every
       // screen's code, up to 6 MB): a restart fails the job anyway.
-      fs.writeFileSync(tmp, JSON.stringify(list, (k, v) => (k === 'contract' || k === 'template' ? undefined : v)), { mode: 0o600 })
+      fs.writeFileSync(tmp, JSON.stringify(list, (k, v) => (k === 'contract' || k === 'template' || k === 'inspirations' ? undefined : v)), { mode: 0o600 })
       fs.renameSync(tmp, journalFile)
     } catch (err) {
       console.error(`mocky: could not write the runner journal — ${err?.message || err}`)

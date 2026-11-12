@@ -149,7 +149,11 @@ a prompt still starts a sensible conversation.
   ornaments, only the content changes. Without it a document inherits only the
   identity of an earlier screen (its name and its mark), and a post made from a
   template came back in its colours and nothing else of it. `add_screen` takes
-  `follow_layout: true` to keep a project's posts alike. Muse is off unless
+  `follow_layout: true` to keep a project's posts alike. To make a post of the
+  same FAMILY as several posts without copying one, `inspiration_ids` gives up
+  to four templates as EXAMPLES instead of `template_id`: their documents travel
+  as style references (identity, palette, typography, kinds of blocks), the new
+  project takes the first one's direction and none of their screens. Muse is off unless
   asked, the project having its direction. The server reads the template from the account's own store; an id
   that is not the account's answers like one that does not exist.
 - **One design at a time per account**; maintenance refuses new designs (reads

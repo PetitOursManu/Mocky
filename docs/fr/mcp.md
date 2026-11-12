@@ -1,5 +1,5 @@
 ---
-source_hash: 10ab676d39c6
+source_hash: 4e301a655b63
 ---
 
 # Connecter un assistant (MCP)
@@ -166,7 +166,12 @@ rien remplir, un prompt démarre quand même une conversation sensée.
   seul le contenu change. Sans cela, un document n'hérite que de l'identité
   d'un écran précédent (son nom et sa marque), et un post fait depuis un modèle
   revenait dans ses couleurs et rien d'autre. `add_screen` accepte
-  `follow_layout: true` pour garder les posts d'un projet semblables. Muse est
+  `follow_layout: true` pour garder les posts d'un projet semblables. Pour un post
+  de la même FAMILLE que plusieurs posts sans en recopier un, `inspiration_ids`
+  donne jusqu'à quatre modèles comme EXEMPLES, à la place de `template_id` : leurs
+  documents servent de références de style (identité, palette, typographie,
+  types de blocs), le nouveau projet prend la direction du premier et aucun de
+  leurs écrans. Muse est
   coupée sauf demande, le projet ayant sa direction. Le serveur lit le modèle
   dans le stockage du compte ; un identifiant qui n'est pas à ce compte répond
   comme un identifiant inexistant.

@@ -575,6 +575,31 @@ export function buildLayoutReference(referenceCode: string): string {
  */
 const IDENTITY_REFERENCE_MAX = 4000
 
+/** Each style example is cut past this size: four whole posts would crowd out the request. */
+const INSPIRATION_EXAMPLE_MAX = 15000
+
+/**
+ * Several posts the person chose as EXAMPLES of their series (`inspirations`):
+ * the family to belong to, never one layout to copy — the other half of a model,
+ * `buildDocumentLayoutReference`, which copies one. A person who wants a post to
+ * be "one of ours" without being the same post again picks this.
+ */
+export function buildDocumentInspirationReference(examples: { name: string; code: string; sameFormat: boolean }[]): string {
+  return [
+    'STYLE EXAMPLES — the person chose these posts as examples of what their posts look like. Their sources are given below.',
+    'Make THIS document belong to the same family: the same identity (name, logo, signature elements), palette, typefaces and typographic hierarchy, the same kinds of blocks, ornaments and photo treatment, the same density and whitespace.',
+    'Do NOT copy one of them: compose a layout of your own that fits THIS request\'s content, as a designer would for a new post of the same series. Elements they all share (a contact block, the logo\'s place, a footer) stay as they are.',
+    ...examples.map((e, i) => {
+      const src = e.code.trim()
+      const clipped = src.length > INSPIRATION_EXAMPLE_MAX
+      return [
+        `Example ${i + 1} — ${e.name || 'untitled'}${e.sameFormat ? '' : ' (drawn for another format)'}:`,
+        clipped ? src.slice(0, INSPIRATION_EXAMPLE_MAX) + '\n/* … rest omitted … */' : src,
+      ].join('\n')
+    }),
+  ].join('\n')
+}
+
 /** A model's source is sent whole up to this size: its composition is the whole point, and the bottom of a post is half of it. */
 const LAYOUT_MODEL_MAX = 60000
 
