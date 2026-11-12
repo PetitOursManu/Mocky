@@ -127,6 +127,28 @@ describe('create_design from a template', () => {
     expect(runner.enqueue).not.toHaveBeenCalled()
   })
 
+  it('takes several templates as EXAMPLES: their documents only, the first direction, no copy, Muse off', async () => {
+    const { deps, runner, templates } = setup()
+    const autre = { ...TEMPLATE, id: 'tabcdefabcdefabcdefabcdef1', name: 'Portraits', design: undefined, screens: [{ id: 'y', code: 'PORTRAIT', page: 'social-square', theme: 'instagram' }, { id: 'w', code: 'WEB' }] }
+    templates.get.mockImplementation((id) => (id === TEMPLATE.id ? { ...TEMPLATE, screens: [{ id: 'x', code: 'SECRET TEMPLATE CODE', page: 'social-portrait' }] } : id === autre.id ? autre : null))
+    await call(deps, 'create_design', { brief, inspiration_ids: [TEMPLATE.id, autre.id] })
+    const request = runner.enqueue.mock.calls[0][1]
+    expect(request.template).toBeUndefined()
+    expect(request.followLayout).toBeUndefined()
+    expect(request.muse).toBe(false)
+    expect(request.inspirations).toEqual([
+      { name: 'Cuisine', design: '# DESIGN', screens: [{ code: 'SECRET TEMPLATE CODE', page: 'social-portrait' }] },
+      { name: 'Portraits', screens: [{ code: 'PORTRAIT', page: 'social-square', theme: 'instagram' }] },
+    ])
+  })
+
+  it('refuses examples AND a model, and an example of nobody', async () => {
+    const { deps, runner } = setup()
+    expect((await call(deps, 'create_design', { brief, template_id: TEMPLATE.id, inspiration_ids: [TEMPLATE.id] })).isError).toBe(true)
+    expect((await call(deps, 'create_design', { brief, inspiration_ids: ['tffffffffffffffffffffffff'] })).isError).toBe(true)
+    expect(runner.enqueue).not.toHaveBeenCalled()
+  })
+
   it('without a template, a new project still gets Muse by default', async () => {
     const { deps, runner } = setup()
     await call(deps, 'create_design', { brief })

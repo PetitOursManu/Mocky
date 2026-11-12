@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { pickLayoutModel } from './documentMode'
-import { buildDocumentLayoutReference } from './generate'
+import { pickInspirations, pickLayoutModel } from './documentMode'
+import { buildDocumentInspirationReference, buildDocumentLayoutReference } from './generate'
 
 /*
  * A post started from a template copies the template's composition
@@ -42,5 +42,41 @@ describe('buildDocumentLayoutReference', () => {
     expect(ref).toMatch(/Replace only the CONTENT/)
     expect(ref).toContain(code) // 10 000 characters: the identity reference would have cut it at 4 000
     expect(buildDocumentLayoutReference(code, false)).toMatch(/adapt the proportions/)
+  })
+})
+
+describe('style examples (inspiration_ids)', () => {
+  const doc = (code: string, page: string, theme?: string) => ({ code, page, ...(theme ? { theme } : {}) })
+
+  it('takes one screen per template, the closest, and never a web page', () => {
+    const picked = pickInspirations(
+      [
+        { name: 'Portraits', screens: [doc('LANDSCAPE', 'social-landscape', 'linkedin'), doc('SQUARE', 'social-square', 'instagram')] },
+        { name: 'Site', screens: [{ code: 'WEB' }] },
+        { name: 'Ateliers', screens: [doc('PORTRAIT', 'social-portrait', 'instagram')] },
+      ],
+      { page: 'social-square', theme: 'instagram' },
+    )
+    expect(picked).toEqual([
+      { name: 'Portraits', code: 'SQUARE', sameFormat: true },
+      { name: 'Ateliers', code: 'PORTRAIT', sameFormat: false },
+    ])
+  })
+
+  it('keeps four at most', () => {
+    const many = Array.from({ length: 6 }, (_, i) => ({ name: `T${i}`, screens: [doc(`C${i}`, 'social-square')] }))
+    expect(pickInspirations(many, { page: 'social-square', theme: null })).toHaveLength(4)
+  })
+
+  it('asks for the same family, never a copy, and says which example has another format', () => {
+    const ref = buildDocumentInspirationReference([
+      { name: 'Portraits', code: 'A', sameFormat: true },
+      { name: 'Ateliers', code: 'B', sameFormat: false },
+    ])
+    expect(ref).toMatch(/STYLE EXAMPLES/)
+    expect(ref).toMatch(/same family/)
+    expect(ref).toMatch(/Do NOT copy one of them/)
+    expect(ref).toContain('Example 1 — Portraits:\nA')
+    expect(ref).toContain('Example 2 — Ateliers (drawn for another format):\nB')
   })
 })

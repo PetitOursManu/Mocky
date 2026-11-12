@@ -725,6 +725,16 @@ export function buildMcpServer(deps) {
     // the account's own store, and handed whole to the page — an id that is not
     // this account's answers like one that does not exist (X4).
     const template = !project && args.template_id ? deps.templates?.get(args.template_id) : null
+    // Examples of the series: up to four of the account's templates, read whole here like a template.
+    const inspirationIds = Array.isArray(args.inspiration_ids) ? [...new Set(args.inspiration_ids)].slice(0, 4) : []
+    if (inspirationIds.length && args.template_id) {
+      return refuse(lang === 'fr' ? 'Donne soit template_id (un modèle à recopier), soit inspiration_ids (des exemples), pas les deux.' : 'Give template_id (a model to copy) or inspiration_ids (examples), not both.')
+    }
+    const examples = inspirationIds.map((id) => deps.templates?.get(id))
+    const unknown = inspirationIds.find((id, i) => !examples[i])
+    if (unknown) {
+      return refuse(lang === 'fr' ? `Aucun modèle de ce compte ne porte l’identifiant « ${String(unknown).slice(0, 64)} » : list_templates donne les modèles.` : `No template of this account has the id "${String(unknown).slice(0, 64)}": list_templates gives the templates.`)
+    }
     if (!project && args.template_id && !template) {
       return refuse(
         lang === 'fr'
@@ -752,7 +762,20 @@ export function buildMcpServer(deps) {
       // Left to the assistant, Muse almost never ran: ChatGPT does not ask for
       // what is described as slower. A project from a template has its
       // direction already, like an existing one: Muse only when asked.
-      muse: project || template ? args.muse === true : args.muse !== false,
+      muse: project || template || examples.length ? args.muse === true : args.muse !== false,
+      // The examples, with only what the page needs: their documents' code and the first one's direction.
+      ...(examples.length
+        ? {
+            inspirations: examples.map((t) => ({
+              name: String(t.name || ''),
+              ...(typeof t.design === 'string' && t.design.trim() ? { design: t.design } : {}),
+              screens: (Array.isArray(t.screens) ? t.screens : [])
+                .filter((s) => s && typeof s.code === 'string' && s.code.trim() && s.page)
+                .slice(0, 3)
+                .map((s) => ({ code: s.code, page: s.page, ...(s.theme ? { theme: s.theme } : {}) })),
+            })),
+          }
+        : {}),
       ...(template ? { template } : {}),
       // From a template, the template's posts ARE the layout: copied unless the
       // assistant says otherwise. Elsewhere only when asked (a second flyer in
@@ -871,6 +894,14 @@ export function buildMcpServer(deps) {
           'Pass true when the person asks for something original, daring, unconventional, "pas comme les autres". Never for a faithful reproduction. In an existing project (add_screen) the project\'s own setting decides and this is ignored.',
       ),
     device: z.enum(DEVICES).optional().describe('desktop (default), mobile or tablet.'),
+    inspiration_ids: z
+      .array(z.string().min(1).max(64))
+      .max(4)
+      .optional()
+      .describe(
+        'For a post or a printed document: up to four of the account\'s project templates (ids from list_templates) given as EXAMPLES of the series — the new document belongs to their family (identity, palette, typography, kinds of blocks) without copying one of them. ' +
+          'Not with template_id, which copies one model exactly.',
+      ),
     follow_layout: z
       .boolean()
       .optional()

@@ -131,6 +131,8 @@ export interface RunnerJob {
   template?: ProjectTemplate
   /** A document that copies the composition of one already in the project (`NewScreenRequest.followLayout`). */
   followLayout?: boolean
+  /** Saved templates given as examples of the series (`NewScreenRequest.inspirations`), read by the server. */
+  inspirations?: Array<{ name: string; design?: string; screens: { code: string; page?: string; theme?: string }[] }>
 }
 
 export interface RunnerResult {
@@ -254,9 +256,13 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     if (job.useBrand) project.useBrand = true
     if (job.creative) project.creative = true
   }
+  // From examples: a new project in the FIRST example's direction (its DESIGN.md: palette, typefaces), none of
+  // their screens — the examples are references for the model, not screens of this project.
+  const exampleDesign = !project && !job.template ? job.inspirations?.find((x) => typeof x?.design === 'string' && x.design.trim())?.design : undefined
   if (!project) {
     project = {
       id: newId(),
+      ...(exampleDesign ? { design: exampleDesign, ...(extractProductName(exampleDesign) ? { productName: extractProductName(exampleDesign) as string } : {}) } : {}),
       name: String(job.projectName || '').trim().slice(0, 120) || DEFAULT_PROJECT_NAME,
       createdAt: now,
       updatedAt: now,
@@ -325,6 +331,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     project: working,
     screens: working.screens,
     ...(job.followLayout === true ? { followLayout: true } : {}),
+    ...(Array.isArray(job.inspirations) && job.inspirations.length ? { inspirations: job.inspirations } : {}),
     images: [],
     annotationCount: 0,
     site: null,
