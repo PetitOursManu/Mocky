@@ -46,8 +46,10 @@ describe('DocumentDownloadDialog', () => {
   it('says the PowerPoint is the one for Canva, and offers no empty template any more', () => {
     const post = { ...screen, code: 'export default () => <Doc><Page><ShapeFrame shape="arch" src="/x" /></Page></Doc>' }
     const html = renderToStaticMarkup(<DocumentDownloadDialog screen={post} onClose={() => {}} />)
-    expect(partsFr['docExport.pptx.title']).toContain('Canva')
-    expect(partsEn['docExport.pptx.title']).toContain('Canva')
+    // Canva is named once, on the heading the two .pptx share.
+    expect(partsFr['docExport.group.pptx']).toContain('Canva')
+    expect(partsEn['docExport.group.pptx']).toContain('Canva')
+    expect(html).toContain(escapeHtml(partsFr['docExport.group.pptx']))
     // A frame you can refill left the empty one nothing to offer.
     expect(html).not.toContain('doc-export-frames')
     expect(html.match(/aria-describedby="doc-export-/g)).toHaveLength(6)
@@ -57,8 +59,11 @@ describe('DocumentDownloadDialog', () => {
     const html = renderToStaticMarkup(<DocumentDownloadDialog screen={screen} onClose={() => {}} />)
     expect(html.indexOf('doc-export-pptx-help')).toBeLessThan(html.indexOf('doc-export-pptx-edit-help'))
     expect(html.indexOf('doc-export-pptx-edit-help')).toBeLessThan(html.indexOf('doc-export-png-help'))
+    // Side by side under one heading: the same <ul>, nothing between the two buttons.
+    const between = html.slice(html.indexOf('doc-export-pptx-help'), html.indexOf('doc-export-pptx-edit-help'))
+    expect(between).not.toContain('</ul>')
+    expect(html.indexOf(escapeHtml(partsFr['docExport.group.pptx']))).toBeLessThan(html.indexOf('doc-export-pptx-help'))
     for (const parts of [partsFr, partsEn]) {
-      expect(parts['docExport.pptxEdit.title']).toContain('Canva')
       expect(parts['docExport.pptxEdit.help']).toBeTruthy()
       expect(parts['docExport.notice.frames']).toContain('{pages}')
       expect(parts['docExport.notice.whole']).toContain('{pages}')
@@ -80,6 +85,15 @@ describe('DocumentDownloadDialog', () => {
     const html = renderToStaticMarkup(<DocumentDownloadDialog screen={{ ...screen, code: '  ' }} onClose={() => {}} />)
     expect(html).toContain(partsFr['docExport.empty'])
     expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('keeps every help to one short line — the dialog was asked to be light', () => {
+    for (const parts of [partsFr, partsEn]) {
+      for (const key of ['pdf', 'pdf.helpFields', 'pptx', 'pptxEdit', 'png', 'psd', 'svg']) {
+        const k = key.includes('.') ? `docExport.${key}` : `docExport.${key}.help`
+        expect(parts[k].length, k).toBeLessThanOrEqual(60)
+      }
+    }
   })
 
   it('names every page format in both languages — the dialog reads them by id', () => {

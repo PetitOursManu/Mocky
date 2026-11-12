@@ -375,7 +375,7 @@ async function run(lang) {
         // in the other: it is the dialog's first paragraph either way.
         ['The format', dialog.locator('p').first()],
         ['PDF', dialog.getByText(t('docExport.pdf.title'), { exact: true })],
-        ['PowerPoint', dialog.getByText(t('docExport.pptx.title'), { exact: true })],
+        ['PowerPoint', dialog.getByText(t('docExport.group.pptx'), { exact: true })],
         ['PNG images', dialog.getByText(t('docExport.png.title'), { exact: true })],
         ['PSD', dialog.getByText(t('docExport.psd.title'), { exact: true })],
         ['SVG', dialog.getByText(t('docExport.svg.title'), { exact: true })],
