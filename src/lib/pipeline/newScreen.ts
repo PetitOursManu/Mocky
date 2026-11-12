@@ -28,12 +28,12 @@ import { CREATIVE_SECTION, CREATIVE_TEMPERATURE } from '../creative'
 import { askModel, creationsSection, inlineCreations, runCreationStage, type Creation } from '../creations/stage'
 import { listCreations, renderInSandbox, saveCreation } from '../creations/browser'
 import type { Settings } from '../settings'
-import { buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
+import { buildDocumentLayoutReference, buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Project, type Screen, type ScreenUltra } from '../project'
 import { filmMedia } from '../screenMedia'
 import { resolveDirection } from '../direction'
 import { getPreset } from '../presets'
-import { composerPageFormat, documentHint, documentPipeline, foldedSheet, ORNAMENTS_CAP, pickReference } from '../documentMode'
+import { composerPageFormat, documentHint, documentPipeline, foldedSheet, ORNAMENTS_CAP, pickLayoutModel, pickReference } from '../documentMode'
 import { documentSequenceSection } from '../docSequence'
 import type { FoldId } from '../folds'
 import { brandMuseLine, brandSection, type BrandIdentity } from '../brand'
@@ -124,6 +124,13 @@ export interface NewScreenRequest {
   project: Project
   /** The project's screens at the press (its identity reference, its first-screen naming). */
   screens: Screen[]
+  /**
+   * A DOCUMENT made as a new instance of one already in the project: its
+   * composition is copied, only the content changes (`pickLayoutModel`,
+   * `buildDocumentLayoutReference`). Asked for by a project started from a
+   * template through the MCP server; absent, nothing changes.
+   */
+  followLayout?: boolean
   /** Pictures for the model, annotations FIRST: their numbers are the ones the user wrote. */
   images: string[]
   /** How many of `images` are annotations — the site section counts its own from after them. */
@@ -458,7 +465,10 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // not the one an earlier screen invented. A PINNED layout still holds on
     // a redesign — pinning is the user's own statement — and never on a
     // reproduction, whose chrome is the screenshot's.
-    const referencePreamble = !siteNew
+    const layoutModel = req.followLayout && pipe.document && !siteNew ? pickLayoutModel(req.screens, { page: runPage, theme: runTheme }) : undefined
+    const referencePreamble = layoutModel
+      ? buildDocumentLayoutReference(layoutModel.screen.code, layoutModel.sameFormat)
+      : !siteNew
       ? identityOrLayoutReference(req.screens, project.referenceScreenId, undefined, pipe.document)
       : !reproducing && project.referenceScreenId
         ? identityOrLayoutReference(req.screens, project.referenceScreenId, undefined, pipe.document)

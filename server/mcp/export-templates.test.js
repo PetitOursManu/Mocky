@@ -114,6 +114,8 @@ describe('create_design from a template', () => {
     expect(request.projectId).toBeUndefined()
     expect(request.projectName).toBe('Post 12 octobre')
     expect(request.muse).toBe(false)
+    // From a template, the template's posts are the layout the new one copies.
+    expect(request.followLayout).toBe(true)
     await call(deps, 'create_design', { brief, template_id: TEMPLATE.id, muse: true })
     expect(runner.enqueue.mock.calls[1][1].muse).toBe(true)
   })
@@ -130,5 +132,15 @@ describe('create_design from a template', () => {
     await call(deps, 'create_design', { brief })
     expect(runner.enqueue.mock.calls[0][1].template).toBeUndefined()
     expect(runner.enqueue.mock.calls[0][1].muse).toBe(true)
+    expect(runner.enqueue.mock.calls[0][1].followLayout).toBeUndefined()
+  })
+
+  it('follow_layout: off when asked on a template, on when asked in an existing project', async () => {
+    const { deps, runner } = setup()
+    await call(deps, 'create_design', { brief, template_id: TEMPLATE.id, follow_layout: false })
+    expect(runner.enqueue.mock.calls[0][1].followLayout).toBeUndefined()
+    await call(deps, 'add_screen', { brief, project_id: 'p1', follow_layout: true })
+    expect(runner.enqueue.mock.calls[1][1].followLayout).toBe(true)
+    expect(runner.enqueue.mock.calls[1][1].projectId).toBe('p1')
   })
 })

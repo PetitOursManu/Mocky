@@ -575,6 +575,36 @@ export function buildLayoutReference(referenceCode: string): string {
  */
 const IDENTITY_REFERENCE_MAX = 4000
 
+/** A model's source is sent whole up to this size: its composition is the whole point, and the bottom of a post is half of it. */
+const LAYOUT_MODEL_MAX = 60000
+
+/**
+ * The composition of a MODEL, for a document that is a new instance of it.
+ *
+ * Not `buildLayoutReference`: that one is about a website's shared chrome (the
+ * nav, the sidebar) and "build the content in the main area" means nothing on a
+ * post. Not `buildIdentityReference` either, which is what a document got —
+ * the name and the mark, "everything else is yours to decide" — and why a post
+ * started from a template came back in the template's colours and nothing else
+ * of it: the person had chosen a model precisely so the layout would not be
+ * decided again. Only when the request asks for it (`followLayout`), so a
+ * second flyer in an ordinary project is still free to differ from the first.
+ */
+export function buildDocumentLayoutReference(modelCode: string, sameFormat: boolean): string {
+  const src = modelCode.trim()
+  const clipped = src.length > LAYOUT_MODEL_MAX
+  return [
+    'LAYOUT MODEL — this document is a new instance of a model the person chose. The model\'s source is given below.',
+    'Reproduce its COMPOSITION faithfully: the same structure of the page, the same blocks in the same places and the same proportions, the same typographic hierarchy (typefaces, sizes, weights, case), the same colours and backgrounds, the same shapes, ornaments and frames, and the same logo or wordmark in the same position.',
+    'Replace only the CONTENT with this request\'s: the texts, the facts and the picture. Keep about as many text blocks as the model has; when this request has more to say, shorten it rather than add blocks or change the layout.',
+    sameFormat
+      ? 'The model is drawn for this same format: keep its geometry.'
+      : 'The model was drawn for another format: keep its structure and its order, and adapt the proportions to this page.',
+    clipped ? 'Model source (opening part only):' : 'Model source:',
+    clipped ? src.slice(0, LAYOUT_MODEL_MAX) + '\n/* … rest of the model omitted … */' : src,
+  ].join('\n')
+}
+
 export function buildIdentityReference(referenceCode: string): string {
   const src = referenceCode.trim()
   const clipped = src.length > IDENTITY_REFERENCE_MAX

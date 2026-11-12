@@ -754,6 +754,10 @@ export function buildMcpServer(deps) {
       // direction already, like an existing one: Muse only when asked.
       muse: project || template ? args.muse === true : args.muse !== false,
       ...(template ? { template } : {}),
+      // From a template, the template's posts ARE the layout: copied unless the
+      // assistant says otherwise. Elsewhere only when asked (a second flyer in
+      // an ordinary project is free to differ from the first).
+      ...(args.follow_layout === true || (template && args.follow_layout !== false) ? { followLayout: true } : {}),
       engine,
       lang,
       ...(args.flows === true ? { flows: true } : {}),
@@ -867,6 +871,13 @@ export function buildMcpServer(deps) {
           'Pass true when the person asks for something original, daring, unconventional, "pas comme les autres". Never for a faithful reproduction. In an existing project (add_screen) the project\'s own setting decides and this is ignored.',
       ),
     device: z.enum(DEVICES).optional().describe('desktop (default), mobile or tablet.'),
+    follow_layout: z
+      .boolean()
+      .optional()
+      .describe(
+        'For a post or a printed document: make it a new instance of a document already in the project (with template_id, the template\'s) — the same composition, typography, colours and ornaments, only the content changes. ' +
+          'On by default with template_id; pass true on add_screen to keep a project\'s posts alike, false for a free layout.',
+      ),
     kind: z.string().max(200).optional().describe('The type of screen: home page, dashboard, sign-in, pricing…'),
     audience: z.string().max(300).optional().describe('Who it is for, and for which product or service.'),
     style: z.string().max(300).optional().describe('The visual tone, colours to keep, references.'),
