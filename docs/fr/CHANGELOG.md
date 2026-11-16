@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `règles` | retenir une correction comme règle, du projet ou de la marque | `743dc7d` |
 | `marque` | plusieurs marques par compte, avec règles et images | `241f82d` |
 | `écran` | verrouiller un élément contre les retouches de l'IA | `9aa5448` |
 | `écran` | champs à remplir, écrits à leur place sans modèle | `4f0987d` |
