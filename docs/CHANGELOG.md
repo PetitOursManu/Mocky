@@ -10,6 +10,10 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `campagne` | calendrier éditorial, exports .ics/.csv et envoi dans Calendy | `3c305c1` |
+| `écran` | traduire un écran en copie, sans toucher à la mise en page | `1efc32c` |
+| `direction` | proposer d'appliquer un token changé aux écrans existants | `d07dd2c` |
+| `canevas` | simulation de vision (daltonismes, achromatopsie, flou) | `550546b` |
 | `projets` | tri par dossier, cases de sélection et déplacement groupé | `63e81f4` |
 | — | arbre des dossiers, modèles de projet, export pptx pour Canva et déplacement d'éléments | `9b2b79d` |
 | — | dossiers imbriqués, miniatures synchronisées, suppression directe et créations du LLM | `b3d70a9` |
@@ -39,6 +43,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| — | vision, traduction, tokens propagés, calendrier éditorial et Calendy | `91c88b8` |
 | — | les modèles ont leur icône, le README présente les nouveautés | `a601f98` |
 | `fr` | interface marquée à jour après le rebase sur main | `ae9dbdb` |
 
