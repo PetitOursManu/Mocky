@@ -29,13 +29,19 @@ export interface DesignColorChange {
   to: string
 }
 
-/** Every colour utility Tailwind has, by its prefix: what a screen paints with. */
-const UTILITY_RE =
-  /\b(?:bg|text|border(?:-[trblxy])?|from|via|to|ring|ring-offset|fill|stroke|outline|decoration|divide|accent|caret|shadow|placeholder)-(?:([a-z]+)-(50|[1-9]00|950)|\[(#[0-9a-fA-F]{3,8})\])(?:\/\d{1,3})?/g
+/**
+ * Every colour utility Tailwind has, by its prefix: what a screen paints with.
+ *
+ * The shade is tried longest first and must END there: written `50|[1-9]00`,
+ * `bg-lime-500` matched as `bg-lime-50` — every 500 shade read as its palest
+ * neighbour, so an edit to or from a 500 was paired with the wrong colour.
+ */
+export const UTILITY_RE =
+  /\b(?:bg|text|border(?:-[trblxy])?|from|via|to|ring|ring-offset|fill|stroke|outline|decoration|divide|accent|caret|shadow|placeholder)-(?:([a-z]+)-(950|[1-9]00|50)(?![0-9])|\[(#[0-9a-fA-F]{3,8})\])(?:\/\d{1,3})?/g
 /** A hex literal anywhere else: an inline style, a prop, an SVG fill. */
 const HEX_RE = /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g
 
-const expand = (hex: string): string | null => {
+export const expand = (hex: string): string | null => {
   const h = hex.toLowerCase()
   if (/^#[0-9a-f]{6}$/.test(h)) return h
   if (/^#[0-9a-f]{3}$/.test(h)) return '#' + [...h.slice(1)].map((c) => c + c).join('')
@@ -146,7 +152,7 @@ function alignedPairs(a: Masked, b: Masked): [string, string][] {
 
 const rgb = (hex: string) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16))
 /** Close enough to be the same colour: a direction's hex against Tailwind's nearest shade. */
-function near(a: string, b: string): boolean {
+export function near(a: string, b: string): boolean {
   const [x, y] = [rgb(a), rgb(b)]
   return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) <= 28
 }

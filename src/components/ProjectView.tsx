@@ -48,6 +48,7 @@ import { type QualityFinding } from '../lib/quality'
 import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import { followRecolor } from '../lib/designFollow'
+import { planPropagation, propagateInto, tokenChanges, type PropagationPlan } from '../lib/tokenPropagate'
 import { downloadZip, downloadTsx } from '../lib/export'
 import { downloadBlob } from '../lib/docExport/files'
 import type { WebExportKind } from '../lib/docExport/web'
@@ -1154,6 +1155,15 @@ export default function ProjectView({
   }, [onBack, t])
   /** Neutral one-liner in the composer — the quality pass reporting back. */
   const [notice, setNotice] = useState<string | null>(null)
+  /**
+   * The direction changed a token that screens already on the board still
+   * paint (lib/tokenPropagate.ts). Offered, never applied on its own — decided
+   * with the user. `base` is the direction BEFORE the first unapplied change,
+   * so two recolours in a row offer the screens one move, old → newest, and
+   * not a second move from a colour no screen ever painted.
+   */
+  const [tokenOffer, setTokenOffer] = useState<{ base: string; plan: PropagationPlan } | null>(null)
+  const [applyingTokens, setApplyingTokens] = useState(false)
 
   function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
     setCapturing(true)
@@ -1259,6 +1269,33 @@ export default function ProjectView({
   )
   const designColors = useMemo(() => extractDesignColors(directionMd || '').slice(0, 10), [directionMd])
 
+  /*
+   * Every way the direction moves is a way the screens fall behind it: a
+   * swatch recoloured, the DESIGN.md edited, a screen's design adopted, an
+   * edit that recoloured one screen and took the direction with it — the
+   * OTHER screens are still in the old palette in each case. So this watches
+   * the direction itself rather than each of those paths. A restore moves the
+   * screens with it, and a plan that finds no screen still painting the old
+   * token offers nothing.
+   */
+  const lastDirectionRef = useRef<{ projectId: string; md: string | undefined }>({ projectId: project.id, md: directionMd ?? undefined })
+  useEffect(() => {
+    const last = lastDirectionRef.current
+    lastDirectionRef.current = { projectId: project.id, md: directionMd ?? undefined }
+    if (last.projectId !== project.id) {
+      setTokenOffer(null)
+      return
+    }
+    if (last.md === (directionMd ?? undefined)) return
+    setTokenOffer((offer) => {
+      const base = offer?.base ?? last.md
+      const changes = tokenChanges(base, directionMd)
+      if (!base || !changes.length) return null
+      const plan = planPropagation(screensRef.current, changes)
+      return plan.screenIds.length ? { base, plan } : null
+    })
+  }, [directionMd, project.id])
+
   /** "Améliorer le prompt" — one state for both composers, see usePromptEnhancer. */
   const enhancer = usePromptEnhancer(prompt, setPrompt)
   function startEnhance() {
@@ -1351,6 +1388,54 @@ export default function ProjectView({
         changes: out.changes.map((c) => t('project.designFollowedOne', { label: c.label, from: c.from, to: c.to })).join(', '),
       }),
     )
+  }
+
+  /**
+   * Rewrite the offered screens to the direction's new tokens — no model, one
+   * screen at a time, each with the conventions of every other write here: the
+   * code re-read just before writing (a screen changed meanwhile keeps its own
+   * change), `previousCode` so Revert undoes it, a note for its history. A
+   * screen a pass is working on is skipped rather than raced.
+   */
+  async function applyTokenOffer() {
+    const offer = tokenOffer
+    if (!offer || applyingTokens) return
+    setApplyingTokens(true)
+    let done = 0
+    let skipped = 0
+    try {
+      for (const id of offer.plan.screenIds) {
+        const screen = screensRef.current.find((x) => x.id === id)
+        if (!screen || generatingIds.has(id) || regeneratingIds.has(id) || fixingIds.has(id)) {
+          skipped++
+          continue
+        }
+        const codeAtStart = screen.code
+        const next = await propagateInto(codeAtStart, offer.plan.changes)
+        const now = screensRef.current.find((x) => x.id === id)
+        if (!next || !now || now.code !== codeAtStart) {
+          skipped++
+          continue
+        }
+        noteChange(id, t('versions.note.tokens'))
+        onUpdateScreen(id, { code: next, previousCode: codeAtStart })
+        done++
+      }
+    } finally {
+      setApplyingTokens(false)
+      setTokenOffer(null)
+    }
+    setNotice(skipped ? t('project.tokens.appliedSome', { n: done, skipped }) : t('project.tokens.applied', { n: done }))
+  }
+
+  /** What the offer says changed, in a line: "Accent #c6ff3d → #7a5cff, display Playfair Display → Fraunces". */
+  function tokenOfferText(plan: PropagationPlan): string {
+    const parts = plan.changes.map((c) =>
+      c.kind === 'color'
+        ? t('project.tokens.color', { label: c.label, from: c.from, to: c.to })
+        : t('project.tokens.font', { label: t(`project.tokens.role.${c.label}`), from: c.from.family, to: c.to.family }),
+    )
+    return t('project.tokens.offer', { n: plan.screenIds.length, changes: parts.join(', ') })
   }
 
   function recolorToken(token: DesignToken, newHex: string) {
@@ -4818,6 +4903,28 @@ export default function ProjectView({
               >
                 {t('common.close')}
               </button>
+            </div>
+          )}
+
+          {tokenOffer && !error && (
+            <div className="mb-2 rounded-lg border border-line bg-raised px-3 py-2 text-body-sm text-ink-muted" role="status">
+              <div className="flex items-start gap-2">
+                <Icon name="refresh" size={16} className="mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-ink">{tokenOfferText(tokenOffer.plan)}</p>
+                  {tokenOffer.plan.near > 0 && (
+                    <p className="mt-0.5 text-caption text-ink-faint">{t('project.tokens.near', { n: tokenOffer.plan.near })}</p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 flex justify-end gap-2">
+                <button type="button" className="btn-ghost px-2 py-1 text-body-sm" onClick={() => setTokenOffer(null)}>
+                  {t('project.tokens.dismiss')}
+                </button>
+                <Button variant="primary" size="sm" disabled={applyingTokens} onClick={() => void applyTokenOffer()}>
+                  {applyingTokens ? t('project.tokens.applying') : t('project.tokens.apply')}
+                </Button>
+              </div>
             </div>
           )}
 

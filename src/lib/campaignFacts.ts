@@ -24,63 +24,7 @@
  *   fact goes to the model as well, for that remaining place.
  */
 
-/** Attributes whose strings are machinery, not words. */
-const NOT_TEXT_ATTRS = new Set(['className', 'class', 'style', 'key', 'id', 'ref', 'role', 'type', 'name', 'htmlFor', 'shape', 'preset', 'variant'])
-
-interface TextRun {
-  /** Offsets of the editable text in the source, quotes excluded. */
-  start: number
-  end: number
-  kind: 'jsx' | 'string' | 'template'
-  /** The quote of a string literal. */
-  quote?: string
-}
-
-type Transform = (code: string, opts: Record<string, unknown>) => unknown
-
-async function loadTransform(): Promise<Transform | null> {
-  const Babel = await import('@babel/standalone')
-  const transform = (Babel as any).transform ?? (Babel as any).default?.transform
-  return typeof transform === 'function' ? transform : null
-}
-
-/** The runs of the source a reader sees as words, in source order. Null when the code does not parse. */
-async function textRuns(code: string, transform: Transform): Promise<TextRun[] | null> {
-  const runs: TextRun[] = []
-  const plugin = () => ({
-    visitor: {
-      JSXText(path: any) {
-        const n = path.node
-        if (typeof n.start === 'number' && n.value.trim()) runs.push({ start: n.start, end: n.end, kind: 'jsx' })
-      },
-      StringLiteral(path: any) {
-        const n = path.node
-        const parent = path.parent
-        if (typeof n.start !== 'number' || !n.value.trim()) return
-        // Imports, object keys and machinery attributes are not words.
-        if (parent?.type === 'ImportDeclaration' || parent?.type === 'ExportAllDeclaration' || parent?.type === 'ExportNamedDeclaration') return
-        if ((parent?.type === 'ObjectProperty' || parent?.type === 'ClassProperty') && parent.key === n) return
-        if (parent?.type === 'JSXAttribute' && NOT_TEXT_ATTRS.has(parent.name?.name)) return
-        // A string in a call such as classNames('…') or cn('…') is machinery too.
-        if (parent?.type === 'CallExpression' && parent.callee?.type === 'Identifier' && /^(cn|clsx|classNames|cx)$/.test(parent.callee.name)) return
-        const raw = code.slice(n.start, n.end)
-        const quote = raw[0]
-        if (quote !== '"' && quote !== "'") return
-        runs.push({ start: n.start + 1, end: n.end - 1, kind: 'string', quote })
-      },
-      TemplateElement(path: any) {
-        const n = path.node
-        if (typeof n.start === 'number' && n.value?.raw?.trim()) runs.push({ start: n.start, end: n.end, kind: 'template' })
-      },
-    },
-  })
-  try {
-    transform(code, { plugins: [plugin], parserOpts: { plugins: ['jsx'] }, code: false, filename: 'mocky-campaign.jsx' })
-  } catch {
-    return null
-  }
-  return runs.sort((a, b) => a.start - b.start)
-}
+import { escapeFor, loadTransform, textRuns, visibleText } from './sourceText'
 
 /**
  * A value as a pattern: escaped, any whitespace run matching any whitespace
@@ -97,21 +41,6 @@ function pattern(value: string): RegExp | null {
 function inCaseOf(found: string, next: string): string {
   const letters = found.replace(/[^\p{L}]/gu, '')
   return letters.length > 1 && letters === letters.toUpperCase() && letters !== letters.toLowerCase() ? next.toUpperCase() : next
-}
-
-/** The new value escaped for where it goes, or null when it cannot go there safely. */
-function escapeFor(run: TextRun, value: string): string | null {
-  if (run.kind === 'jsx') return /[{}<>]/.test(value) ? null : value
-  if (run.kind === 'string') {
-    if (/[\n\r]/.test(value)) return null
-    return value.replace(/\\/g, '\\\\').replace(new RegExp(run.quote as string, 'g'), `\\${run.quote}`)
-  }
-  return value.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
-}
-
-/** The words a reader sees, runs joined by a space and whitespace folded. */
-function visibleText(code: string, runs: TextRun[]): string {
-  return runs.map((r) => code.slice(r.start, r.end)).join(' ').replace(/\s+/g, ' ')
 }
 
 export interface FactReplacement {

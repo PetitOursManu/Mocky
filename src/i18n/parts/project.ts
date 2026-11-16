@@ -208,6 +208,18 @@ export const project = {
 
     // ---- Motion Ultra (réglage projet, pause dans le composer) ----
     'project.designFollowed': 'La direction suit la modification : {changes}. Le panneau Design System et les prochains écrans utilisent ces couleurs.',
+    // ---- token propagation (lib/tokenPropagate.ts) ----
+    'project.tokens.offer': '{n} écran(s) utilisent encore l’ancienne valeur : {changes}.',
+    'project.tokens.color': '{label} {from} → {to}',
+    'project.tokens.font': 'police {label} {from} → {to}',
+    'project.tokens.role.display': 'des titres',
+    'project.tokens.role.body': 'du texte',
+    'project.tokens.near': '{n} couleur(s) proches mais différentes resteront telles quelles : seule la valeur exacte est remplacée.',
+    'project.tokens.apply': 'Appliquer aux écrans',
+    'project.tokens.applying': 'Application…',
+    'project.tokens.dismiss': 'Ignorer',
+    'project.tokens.applied': '{n} écran(s) mis à jour. « Annuler » sur un écran revient à son état précédent.',
+    'project.tokens.appliedSome': '{n} écran(s) mis à jour, {skipped} laissé(s) tel(s) quel(s) : modifié(s) entre-temps, en cours de travail, ou réécriture illisible.',
     'project.designFollowedOne': '{label} {from} → {to}',
     'project.autoReverted': '« {name} » ne s’affichait plus après la dernière modification et la réparation automatique n’y est pas arrivée : l’écran a été remis à sa version précédente, sans appel supplémentaire. « Revenir à la version précédente » rouvre la version cassée si vous voulez repartir d’elle.',
     'project.ultraChip': 'Motion Ultra',
@@ -611,6 +623,18 @@ export const project = {
 
     // ---- Motion Ultra (project setting, paused from the composer) ----
     'project.designFollowed': 'The direction follows the change: {changes}. The Design System panel and the next screens use these colours.',
+    // ---- token propagation (lib/tokenPropagate.ts) ----
+    'project.tokens.offer': '{n} screen(s) still use the old value: {changes}.',
+    'project.tokens.color': '{label} {from} → {to}',
+    'project.tokens.font': '{label} font {from} → {to}',
+    'project.tokens.role.display': 'heading',
+    'project.tokens.role.body': 'body',
+    'project.tokens.near': '{n} close but different colour(s) will stay as they are: only the exact value is replaced.',
+    'project.tokens.apply': 'Apply to the screens',
+    'project.tokens.applying': 'Applying…',
+    'project.tokens.dismiss': 'Dismiss',
+    'project.tokens.applied': '{n} screen(s) updated. “Revert” on a screen goes back to its previous state.',
+    'project.tokens.appliedSome': '{n} screen(s) updated, {skipped} left as they were: changed meanwhile, being worked on, or the rewrite did not parse.',
     'project.designFollowedOne': '{label} {from} → {to}',
     'project.autoReverted': '“{name}” stopped rendering after the last change and the automatic repair could not fix it: the screen was put back to its previous version, at no extra cost. “Revert to the previous version” reopens the broken one if you want to work from it.',
     'project.ultraChip': 'Motion Ultra',
