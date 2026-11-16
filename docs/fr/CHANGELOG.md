@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `marque` | plusieurs marques par compte, avec règles et images | `241f82d` |
 | `écran` | verrouiller un élément contre les retouches de l'IA | `9aa5448` |
 | `écran` | champs à remplir, écrits à leur place sans modèle | `4f0987d` |
 | `campagne` | calendrier éditorial, exports .ics/.csv et envoi dans Calendy | `3c305c1` |
