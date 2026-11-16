@@ -47,6 +47,7 @@ import { readCampaignFacts, runCampaign } from '../lib/pipeline/campaign'
 import { addPublicationPage, planPublication, runPublication } from '../lib/pipeline/publication'
 import { flowScreenName } from '../lib/flows'
 import { isFoldId } from '../lib/folds'
+import { projectRulesSection } from '../lib/rules'
 import { brandByName, brandOfProject, brandSection, brandsOfDesign, defaultBrandId, type BrandIdentity } from '../lib/brand'
 import { composerPageFormat } from '../lib/documentMode'
 import { isCampaignFormatId, normalizeCampaign, sortFormats, type CampaignFormatId } from '../lib/campaign'
@@ -759,7 +760,8 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
   const projectDirection = designForProject(project, globalDesignFrom(data.design))
   const brand = brandFrom(data.design, project)
   const brandText = brand ? brandSection(brand, (h) => absoluteUrl(imageUrl(h))) : undefined
-  const designMd = brandText ? (projectDirection ? `${projectDirection}\n\n${brandText}` : brandText) : projectDirection
+  const rulesText = projectRulesSection(project.rules)
+  const designMd = [projectDirection, brandText, rulesText].filter(Boolean).join('\n\n') || undefined
   const settings = defaultSettings()
   const signal = new AbortController().signal
   const codeAtStart = screen.code

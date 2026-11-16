@@ -1,7 +1,7 @@
 ---
 description: Vos marques — logo, couleurs, polices, ton, règles et images — gardées une fois dans votre compte et appliquées à un projet d’un bouton ; et n’importe quel écran exporté en image ou en diapositives.
 badge: Nouveau
-source_hash: 670ade9145b5
+source_hash: cd8696068c13
 ---
 
 # Mes marques, et exporter un écran
@@ -51,6 +51,29 @@ Depuis un assistant ([MCP](mcp.md)), `use_brand: true` sur `create_design`,
 `create_campaign` ou `create_publication` crée le nouveau projet dans votre
 marque principale, et `brand: "Chez Elisa30"` dans celle-là. Un nom que Mocky ne
 connaît pas est refusé, avec la liste de vos marques.
+
+### Les règles retenues de vos corrections
+
+Une correction faite une fois ne devrait pas avoir à être refaite. Après une
+modification — le composeur sur un écran sélectionné, ou les mots tapés dans la
+carte de `Modifier` — Mocky propose, en haut du canevas, **Retenir cette
+correction pour les prochains écrans ?**, avec vos propres mots prêts à être
+raccourcis en règle (« Assiette entièrement visible »). Vous choisissez où elle
+va :
+
+- **Pour ce projet** — les règles du projet, dans les options du composeur sous
+  **Règles**, où vous pouvez aussi les relire, les changer ou les retirer ;
+- **Pour la marque** — quand le projet en utilise une : les règles de la marque,
+  dans Réglages → Mes marques, suivies par tous les projets de cette marque.
+
+Chaque règle est envoyée avec chaque nouvel écran et chaque retouche d’un écran
+existant (modification, réparation, polissage, correction d’accessibilité,
+ajustement à la page), et Muse écrit son dossier avec elles. Une demande précise
+l’emporte toujours sur une règle : une règle « aucun visage » ne vous empêche pas
+de demander un portrait sur une affiche. `Ne plus proposer` arrête la
+proposition dans ce navigateur ; la case de la fenêtre Règles la remet. Aucun
+modèle n’est appelé pour formuler la règle : elle est gardée telle que vous la
+laissez.
 
 ### Où elle est gardée
 

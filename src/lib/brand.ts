@@ -1,4 +1,7 @@
 import { fontByName } from './fonts'
+import { cleanRules } from './rules'
+
+export { RULES_MAX } from './rules'
 
 /**
  * A person's BRAND IDENTITY — their company's logo, name, colours, typefaces
@@ -83,21 +86,6 @@ const clip = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/\s
 export const FIRST_BRAND_ID = 'main'
 export const MAX_BRANDS = 12
 export const MAX_BRAND_MEDIA = 24
-export const RULES_MAX = 1200
-
-/** Rules keep their lines: one rule per line is how they are written and read. */
-function cleanRules(v: unknown): string | undefined {
-  if (typeof v !== 'string') return undefined
-  const lines = v
-    .replace(/\r/g, '')
-    .split('\n')
-    .map((l) => l.replace(/[ \t]+/g, ' ').trim())
-    .filter(Boolean)
-    .slice(0, 20)
-  const out = lines.join('\n').slice(0, RULES_MAX)
-  return out || undefined
-}
-
 /** A stored brand made safe, or none. */
 export function normalizeBrand(v: unknown): BrandIdentity | undefined {
   if (!v || typeof v !== 'object') return undefined

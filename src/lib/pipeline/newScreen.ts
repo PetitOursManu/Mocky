@@ -24,6 +24,7 @@
  * sends to a model. Checked by recording the provider's requests for the same
  * scenarios before and after the move: identical.
  */
+import { projectRulesSection, rulesMuseLine } from '../rules'
 import { CREATIVE_SECTION, CREATIVE_TEMPERATURE } from '../creative'
 import { askModel, creationsSection, inlineCreations, runCreationStage, type Creation } from '../creations/stage'
 import { listCreations, renderInSandbox, saveCreation } from '../creations/browser'
@@ -565,7 +566,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // The dossier is told WHAT it is dressing — a dashboard wants no hero
     // photograph — and nothing more: the layout is the page's business.
     const museThemeLine = screenThemeBriefLine(runTheme)
-    const museBrief = [museBriefBase, museThemeLine, req.brand ? brandMuseLine(req.brand) : undefined].filter(Boolean).join('\n\n')
+    const museBrief = [museBriefBase, museThemeLine, req.brand ? brandMuseLine(req.brand) : undefined, rulesMuseLine(req.project.rules) || undefined].filter(Boolean).join('\n\n')
     // A reproduction's direction is the screenshot: a dossier would be a
     // second, contradicting one, and a paid call to write it.
     if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {
@@ -935,12 +936,14 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // exact pre-Muse composition (M1). Both now carry the same direction.
     const dirPreamble = dir.markdown ? buildDesignPreamble(dir.markdown) : undefined
     const brandPreamble = req.brand ? brandSection(req.brand, (h) => absoluteUrl(imageUrl(h))) : undefined
+    // The project's own rules (lib/rules.ts), after the brand's: the narrower word.
+    const rulesPreamble = projectRulesSection(req.project.rules) || undefined
     // Créatif's section goes LAST: it asks for bolder layout inside the
     // direction above it, never for another direction (lib/creative.ts).
     const creativePreamble = creative ? CREATIVE_SECTION : undefined
     const extraSystem = musePreamble
-      ? joinSystem([musePreamble, brandPreamble, referencePreamble, formHint, creativePreamble])
-      : joinSystem([dirPreamble, brandPreamble, referencePreamble, formHint, creativePreamble])
+      ? joinSystem([musePreamble, brandPreamble, rulesPreamble, referencePreamble, formHint, creativePreamble])
+      : joinSystem([dirPreamble, brandPreamble, rulesPreamble, referencePreamble, formHint, creativePreamble])
 
     // Deterministic shortlist first — this is the guaranteed fallback.
     const shortlist = selectCapabilities(text, dir.markdown)

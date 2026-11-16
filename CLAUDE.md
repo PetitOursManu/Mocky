@@ -1532,6 +1532,15 @@ first one", which would move a client's project into another client's identity
 removing a brand later moves nothing. An assistant names one with `brand`
 (MCP); an unknown name fails with the list, in the runner (`brandIdFor`).
 
+## Rules kept from corrections
+
+`lib/rules.ts`: `Project.rules` and `BrandIdentity.rules`, one rule per line.
+After a composer edit or a typed Modify change, ProjectView offers "Retenir
+comme règle ?" prefilled with the person's own words (`suggestRule`, no
+model). `projectRulesSection` reaches new screens (newScreen.ts), every pass on
+an existing screen (`withBrand` in ProjectView, the runner's edits) and Muse.
+A request wins over a rule — say so in any new section that carries them.
+
 ## The editorial calendar and Calendy
 
 `ScreenCampaign.publish` (`date`, `time`, `calendyId`) is on the PIECE, like

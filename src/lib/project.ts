@@ -27,6 +27,7 @@ import {
   type ScreenPublication,
 } from './publication'
 import { normalizeFill, type FillField } from './fillFields'
+import { cleanRules } from './rules'
 import { normalizeCampaign, normalizeScreenCampaign, type Campaign, type ScreenCampaign } from './campaign'
 
 /** A link from an element (or region) of a screen to another screen. */
@@ -455,6 +456,12 @@ export interface Project {
    * when the brand is switched off, so switching it back on finds the same one.
    */
   brandId?: string
+  /**
+   * The project's standing rules (lib/rules.ts), one per line: what the person
+   * corrected once and kept for every screen of this project. Beside a brand's
+   * own rules, which hold for every project in that brand.
+   */
+  rules?: string
   /**
    * Créatif instead of Normal (lib/creative.ts): bolder layouts for new
    * screens, in Muse's dossier and in the generation. Absent is Normal, the
@@ -1392,6 +1399,20 @@ export function useProjects() {
     )
   }, [])
 
+  /** Replace one project's rules (lib/rules.ts); nothing worth keeping removes them. */
+  const setProjectRules = useCallback((projectId: string, rules: string | undefined) => {
+    const clean = cleanRules(rules)
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId || p.rules === clean) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (clean) next.rules = clean
+        else delete next.rules
+        return next
+      }),
+    )
+  }, [])
+
   /** Put one project in Créatif, or back to Normal. */
   const setProjectCreative = useCallback((projectId: string, on: boolean) => {
     setProjects((prev) =>
@@ -1471,5 +1492,6 @@ export function useProjects() {
     setProjectUseBrand,
     setProjectCreative,
     setProjectCreations,
+    setProjectRules,
   }
 }

@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
-import { buildDesignPreamble, isDesignActive, loadBrands, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
+import { buildDesignPreamble, isDesignActive, loadBrands, loadDesign, saveBrand, extractDesignColors, extractProductName } from '../lib/design'
 import { brandOfProject, brandSection, defaultBrandId, type BrandIdentity } from '../lib/brand'
 import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, buildElementsEditInstruction, tryDirectTextReplace, deriveDesignSystem, refreshDesignSystem, type AnimationLevel } from '../lib/generate'
 import { designSyncOf, isDesignFresh, type DesignSync } from '../lib/designRefresh'
@@ -53,6 +53,8 @@ import { LANG_NAMES, translateCode, type TranslateLang } from '../lib/translate'
 import TranslateDialog from './TranslateDialog'
 import FillDialog from './FillDialog'
 import BrandPicker from './BrandPicker'
+import RulesDialog, { ruleOfferOn, setRuleOfferOn } from './RulesDialog'
+import { appendRule, projectRulesSection, ruleList, suggestRule } from '../lib/rules'
 import { applyFill, type FillField, type FillRefusal } from '../lib/fillFields'
 import { downloadZip, downloadTsx } from '../lib/export'
 import { downloadBlob } from '../lib/docExport/files'
@@ -303,6 +305,7 @@ export default function ProjectView({
   onSetPublication,
   onSetUseBrand,
   onSetCreative,
+  onSetRules,
   onSetCreations,
   initialFocusScreenId,
   plan = 'standard',
@@ -340,6 +343,8 @@ export default function ProjectView({
   onSetUseBrand?: (on: boolean, brandId?: string) => void
   /** Créatif or Normal for this project (lib/creative.ts). */
   onSetCreative?: (on: boolean) => void
+  /** Replace the project's rules (lib/rules.ts). */
+  onSetRules?: (rules: string | undefined) => void
   /** The project may make what the kit lacks (lib/creations). */
   onSetCreations?: (on: boolean) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
@@ -544,6 +549,13 @@ export default function ProjectView({
   /** The screen whose "Traduire…" dialog is open, if any. */
   const [translateFor, setTranslateFor] = useState<string | null>(null)
   const [fillFor, setFillFor] = useState<string | null>(null)
+  /** The project's rules dialog (lib/rules.ts). */
+  const [rulesOpen, setRulesOpen] = useState(false)
+  /**
+   * "Retenir comme règle ?" after a correction: the rule as the person will
+   * keep it (prefilled with the correction's words) and where.
+   */
+  const [ruleOffer, setRuleOffer] = useState<{ text: string; target: 'project' | 'brand' } | null>(null)
   const [showVideoExport, setShowVideoExport] = useState(false)
   /**
    * The render this session last started, kept here rather than in the dialog.
@@ -1280,11 +1292,12 @@ export default function ProjectView({
   const withBrand = useCallback(
     (md: string | undefined): string | undefined => {
       const b = projectBrand()
-      if (!b) return md
-      const section = brandSection(b, (h) => absoluteUrl(imageUrl(h)))
-      return md ? `${md}\n\n${section}` : section
+      // The project's own rules (lib/rules.ts) after the brand's section: an
+      // edit or a repair keeps them as a new screen did.
+      const parts = [md, b ? brandSection(b, (h) => absoluteUrl(imageUrl(h))) : '', projectRulesSection(project.rules)].filter(Boolean)
+      return parts.length ? parts.join('\n\n') : undefined
     },
-    [projectBrand],
+    [projectBrand, project.rules],
   )
 
   const activeDirection = useCallback((): string | undefined => {
@@ -1385,6 +1398,7 @@ export default function ProjectView({
     onSetUltra(st.ultra ?? null)
     onSetUseBrand?.(!!st.useBrand, st.brandId)
     onSetCreative?.(!!st.creative)
+    onSetRules?.(st.rules)
     onSetCreations?.(!!st.creations)
   }
 
@@ -2108,6 +2122,7 @@ export default function ProjectView({
         setPrompt('')
         setAnnotations([])
         setSiteShots([])
+        offerRule(text)
       } else {
         // A new screen: the whole pipeline is lib/pipeline/newScreen.ts, so a
         // caller with no composer (the MCP runner) runs the same stages.
@@ -3195,6 +3210,8 @@ export default function ProjectView({
    */
   async function applyModify(screenId: string, info: PickInfo, change: string) {
     if (busy || !change.trim()) return
+    // Only the words typed in the card become a rule offer, not a swatch.
+    const typed = change.trim() === modifyText.trim()
     const screen = screens.find((s) => s.id === screenId)
     if (!screen || !screen.code.trim()) return
     const settings = loadSettings()
@@ -3239,6 +3256,7 @@ export default function ProjectView({
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
       followDesign(screenId, oldCode, res.code)
       if (res.locksRestored?.length) setNotice(t('lock.restored', { names: res.locksRestored.join(', '), name: screen.name }))
+      if (typed) offerRule(change)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
@@ -3468,6 +3486,33 @@ export default function ProjectView({
       abortRef.current = null
       setBusy(false)
     }
+  }
+
+  /**
+   * After a correction the person typed, offer to keep it as a rule — once,
+   * dismissible, and never after a swatch or a removal (those are not words a
+   * rule is made of). Into the project by default: the narrower home.
+   */
+  function offerRule(instruction: string) {
+    const text = suggestRule(instruction)
+    if (!text || !ruleOfferOn()) return
+    setRuleOffer({ text, target: 'project' })
+  }
+
+  function keepRule() {
+    if (!ruleOffer?.text.trim()) return
+    const brand = projectBrand()
+    if (ruleOffer.target === 'brand' && brand) {
+      if (!saveBrand({ ...brand, rules: appendRule(brand.rules, ruleOffer.text) })) {
+        setError(t('brand.saveFailed'))
+        return
+      }
+      setNotice(t('rules.keptBrand', { name: brand.name || brand.id }))
+    } else {
+      onSetRules?.(appendRule(project.rules, ruleOffer.text))
+      setNotice(t('rules.keptProject'))
+    }
+    setRuleOffer(null)
   }
 
   /**
@@ -3822,6 +3867,68 @@ export default function ProjectView({
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
         />
+      )}
+      {rulesOpen && (
+        <RulesDialog
+          rules={project.rules}
+          brandName={projectBrand()?.name || projectBrand()?.id}
+          brandRules={projectBrand()?.rules}
+          onSave={(rules) => onSetRules?.(rules)}
+          onClose={() => setRulesOpen(false)}
+        />
+      )}
+      {ruleOffer && !busy && (
+        <div
+          role="dialog"
+          aria-label={t('rules.offerTitle')}
+          className="absolute left-1/2 top-16 z-30 w-[min(34rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl border border-line bg-raised p-3 shadow-2xl"
+        >
+          <p className="mb-2 text-body-sm font-medium text-ink">{t('rules.offerTitle')}</p>
+          <input
+            className="input w-full text-body-sm"
+            value={ruleOffer.text}
+            aria-label={t('rules.offerRule')}
+            onChange={(e) => setRuleOffer({ ...ruleOffer, text: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                keepRule()
+              }
+            }}
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {projectBrand() ? (
+              <Select
+                className="text-body-sm"
+                aria-label={t('rules.offerWhere')}
+                value={ruleOffer.target}
+                onChange={(e) => setRuleOffer({ ...ruleOffer, target: (e.target as HTMLSelectElement).value === 'brand' ? 'brand' : 'project' })}
+              >
+                <option value="project">{t('rules.forProject')}</option>
+                <option value="brand">{t('rules.forBrand', { name: projectBrand()?.name || '' })}</option>
+              </Select>
+            ) : (
+              <span className="text-caption text-ink-faint">{t('rules.forProject')}</span>
+            )}
+            <span className="flex-1" />
+            <button
+              type="button"
+              className="btn-ghost text-caption"
+              onClick={() => {
+                setRuleOfferOn(false)
+                setRuleOffer(null)
+              }}
+            >
+              {t('rules.offerNever')}
+            </button>
+            <button type="button" className="btn-ghost text-body-sm" onClick={() => setRuleOffer(null)}>
+              {t('rules.offerNo')}
+            </button>
+            <button type="button" className="btn-primary text-body-sm" disabled={!ruleOffer.text.trim()} onClick={keepRule}>
+              {t('rules.offerKeep')}
+            </button>
+          </div>
+        </div>
       )}
       {fillFor && screens.some((x) => x.id === fillFor) && (
         <FillDialog
@@ -5512,6 +5619,17 @@ export default function ProjectView({
               </OptionGroup>
             )}
             <OptionGroup label={t('workspace.groupHelp')}>
+              {/* The project's rules (lib/rules.ts): for edits as much as for new screens. */}
+              {onSetRules && (
+                <OptionAction
+                  icon="list"
+                  label={t('rules.option')}
+                  hint={t('rules.optionHint')}
+                  status={ruleList(project.rules).length ? String(ruleList(project.rules).length) : undefined}
+                  lit={ruleList(project.rules).length > 0}
+                  onClick={() => setRulesOpen(true)}
+                />
+              )}
               {/* New screens only, like Motion Ultra: an edit keeps its screen's look. */}
               {!editing && onSetCreative && (
                 <OptionToggle

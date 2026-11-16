@@ -49,6 +49,26 @@ From an assistant ([MCP](mcp.md)), `use_brand: true` on `create_design`,
 brand, and `brand: "Chez Elisa30"` in that one. A name Mocky does not know is
 refused with the list of your brands.
 
+### Rules kept from your corrections
+
+A correction you make once should not have to be made again. After an edit —
+the composer on a selected screen, or the words typed in `Modify`'s card —
+Mocky offers, at the top of the canvas, **Keep this correction for the next
+screens?**, with your own words ready to shorten into a rule ("The plate fully
+visible"). You choose where it goes:
+
+- **For this project** — the project's rules, in the composer's options under
+  **Rules**, where you can also read, change or remove them;
+- **For the brand** — when the project is in one: the brand's rules, in
+  Settings → My brands, followed by every project in that brand.
+
+Every rule is sent with every new screen and every pass on an existing one
+(edit, repair, polish, accessibility fix, page fit), and Muse writes its dossier
+with them. A specific request still wins over a rule: a rule "no faces" does not
+stop you asking for a portrait on one poster. `Don't offer again` stops the
+offer in this browser; the box in the Rules window turns it back on. No model
+is called to word the rule: it is kept as you leave it.
+
 ### Where it is kept
 
 The brands travel with your account's DESIGN.md data, so they reach every

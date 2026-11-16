@@ -30,6 +30,7 @@
  * from every project that uses it.
  */
 import { extractProductName, loadDesign } from './design'
+import { cleanRules } from './rules'
 import { designForProject, newId, normalizeScreen, type Project, type ProjectUltra, type Screen } from './project'
 
 /** The screen fields a template keeps. server/templates.js keeps the same list. */
@@ -69,6 +70,8 @@ export interface TemplateSettings {
   creative?: boolean
   creations?: boolean
   ultra?: ProjectUltra
+  /** The project's rules (lib/rules.ts): what it IS as much as Créatif is. */
+  rules?: string
 }
 
 export interface ProjectTemplate {
@@ -114,6 +117,7 @@ export function templateFromProject(project: Project, name: string, globalDesign
   if (project.useBrand && project.brandId) settings.brandId = project.brandId
   if (project.creative) settings.creative = true
   if (project.creations) settings.creations = true
+  if (project.rules) settings.rules = project.rules
   if (project.ultra) settings.ultra = { count: project.ultra.count, ...(project.ultra.video ? { video: true } : {}) }
   const design = designForProject(project, globalDesign)
   const reference =
@@ -156,12 +160,13 @@ export function instantiateScreens(
 }
 
 /** The settings of a template as Project fields. */
-export function settingsAsProjectFields(settings: TemplateSettings): Pick<Project, 'useBrand' | 'brandId' | 'creative' | 'creations' | 'ultra'> {
+export function settingsAsProjectFields(settings: TemplateSettings): Pick<Project, 'useBrand' | 'brandId' | 'creative' | 'creations' | 'ultra' | 'rules'> {
   return {
     ...(settings.useBrand ? { useBrand: true } : {}),
     ...(settings.useBrand && settings.brandId ? { brandId: settings.brandId } : {}),
     ...(settings.creative ? { creative: true } : {}),
     ...(settings.creations ? { creations: true } : {}),
+    ...(cleanRules(settings.rules) ? { rules: cleanRules(settings.rules) } : {}),
     ...(settings.ultra ? { ultra: { count: settings.ultra.count === 6 ? 6 : 3, ...(settings.ultra.video ? { video: true } : {}) } } : {}),
   }
 }

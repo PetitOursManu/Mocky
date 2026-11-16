@@ -75,6 +75,7 @@ function cleanSettings(s) {
   if (s.useBrand === true && typeof s.brandId === 'string' && /^[\w-]{1,40}$/.test(s.brandId)) out.brandId = s.brandId
   if (s.creative === true) out.creative = true
   if (s.creations === true) out.creations = true
+  if (typeof s.rules === 'string' && s.rules.trim()) out.rules = s.rules.slice(0, 1200)
   if (s.ultra && typeof s.ultra === 'object') {
     out.ultra = { count: s.ultra.count === 6 ? 6 : 3, ...(s.ultra.video === true ? { video: true } : {}) }
   }
