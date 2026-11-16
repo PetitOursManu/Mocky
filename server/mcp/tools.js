@@ -786,6 +786,7 @@ export function buildMcpServer(deps) {
       ...(args.flows === true ? { flows: true } : {}),
       ...(FOLDS[args.fold] ? { fold: args.fold } : {}),
       ...(!project && args.use_brand === true ? { useBrand: true } : {}),
+      ...(!project && args.use_brand === true && typeof args.brand === 'string' && args.brand.trim() ? { brandName: args.brand.trim().slice(0, 80) } : {}),
       ...(!project && args.creative === true ? { creative: true } : {}),
     })
     const waited = await runner.wait(job.id, user.id, WAIT_MS)
@@ -883,8 +884,16 @@ export function buildMcpServer(deps) {
       .boolean()
       .optional()
       .describe(
-        'Make the NEW project in the person\'s own brand identity, kept in Mocky (Settings → My brand): their logo, colours, typefaces and tone. ' +
+        'Make the NEW project in one of the person\'s own brand identities, kept in Mocky (Settings → My brands): logo, colours, typefaces, tone, rules and pictures. ' +
           'Pass true when the person asks for "my logo", "my brand", "my company\'s colours". In an existing project (add_screen) the project\'s own setting decides and this is ignored.',
+      ),
+    brand: z
+      .string()
+      .max(80)
+      .optional()
+      .describe(
+        'With use_brand: WHICH of the person\'s brands, by its name as they say it ("Chez Elisa30"). Omit it to use their main brand. ' +
+          'A name Mocky does not know fails with the list of their brands — ask the person which one they meant rather than guessing.',
       ),
     creative: z
       .boolean()
@@ -1036,6 +1045,7 @@ export function buildMcpServer(deps) {
       engine: 'mocky',
       lang,
       ...(args.use_brand === true ? { useBrand: true } : {}),
+      ...(args.use_brand === true && typeof args.brand === 'string' && args.brand.trim() ? { brandName: args.brand.trim().slice(0, 80) } : {}),
       ...(args.creative === true ? { creative: true } : {}),
       ...extra,
     })
@@ -1062,6 +1072,7 @@ export function buildMcpServer(deps) {
     style: designFields.style,
     project_name: z.string().max(120).optional().describe('A short name for the new project.'),
     use_brand: designFields.use_brand,
+    brand: designFields.brand,
     creative: designFields.creative,
     muse: z
       .boolean()

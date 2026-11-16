@@ -21,9 +21,11 @@ export interface DesignConfig {
    */
   library?: DesignEntry[]
   /**
-   * The account's brand identity (lib/brand.ts) — inside this blob for the
+   * The account's brand identities (lib/brand.ts) — inside this blob for the
    * reason `library` is: it syncs with nothing new to teach the server.
    */
+  brands?: BrandIdentity[]
+  /** The single brand of before: read as the first of `brands`, never written again. */
   brand?: BrandIdentity
 }
 
@@ -42,7 +44,7 @@ export interface DesignEntry {
 }
 
 import { scheduleSync, reportStorageFailure } from './sync'
-import { normalizeBrand, type BrandIdentity } from './brand'
+import { brandsOfDesign, normalizeBrand, type BrandIdentity } from './brand'
 
 const STORAGE_KEY = 'mocky.design.v1'
 
@@ -75,9 +77,10 @@ export function saveDesign(d: DesignConfig): void {
    * removed in Settings a minute ago.
    */
   const next: DesignConfig = { ...d }
-  const stored = storedBrand()
-  if (stored) next.brand = stored
-  else delete next.brand
+  const stored = loadBrands()
+  delete next.brand
+  if (stored.length) next.brands = stored
+  else delete next.brands
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch (err) {
@@ -87,27 +90,34 @@ export function saveDesign(d: DesignConfig): void {
   scheduleSync()
 }
 
-function storedBrand(): BrandIdentity | undefined {
+/** The account's brand identities, in the order Settings lists them (the first is the default). */
+export function loadBrands(): BrandIdentity[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? normalizeBrand((JSON.parse(raw) as Partial<DesignConfig>).brand) : undefined
+    return raw ? brandsOfDesign(JSON.parse(raw) as Partial<DesignConfig>) : []
   } catch {
-    return undefined
+    return []
   }
 }
 
-/** The account's brand identity, or none. */
-export function loadBrand(): BrandIdentity | undefined {
-  return storedBrand()
-}
-
-/** Replace the account's brand identity (null removes it) — the one writer of `DesignConfig.brand`. */
-export function saveBrand(brand: BrandIdentity | null): boolean {
+/**
+ * Write one brand (added, or replacing the one with its id) or remove one
+ * (`remove`) — the one writer of `DesignConfig.brands`. The legacy `brand` is
+ * dropped on the way, since the list now holds it.
+ */
+export function saveBrand(brand: BrandIdentity | null, remove?: string): boolean {
   const d = loadDesign()
+  const list = loadBrands().filter((b) => b.id !== remove)
   const clean = brand ? normalizeBrand({ ...brand, updatedAt: Date.now() }) : undefined
+  if (clean) {
+    const at = list.findIndex((b) => b.id === clean.id)
+    if (at >= 0) list[at] = clean
+    else list.push(clean)
+  }
   const next: DesignConfig = { ...d }
-  if (clean) next.brand = clean
-  else delete next.brand
+  delete next.brand
+  if (list.length) next.brands = list
+  else delete next.brands
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch (err) {

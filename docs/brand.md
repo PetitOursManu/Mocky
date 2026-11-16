@@ -1,13 +1,15 @@
 ---
-description: Your logo, colours, typefaces and tone kept once in your account and applied to a project with one button — and any screen exported as a picture or as slides.
+description: Your brands — logo, colours, typefaces, tone, rules and pictures — kept once in your account and applied to a project with one button; and any screen exported as a picture or as slides.
 badge: New
 ---
 
-# My brand, and exporting a screen
+# My brands, and exporting a screen
 
-## My brand
+## My brands
 
-**Settings → My brand** keeps your company's identity once for your account:
+**Settings → My brands** keeps the identity of each brand you make visuals for —
+your organisation, its restaurant, a client — once for your account. One tab per
+brand, and `New brand` beside them; each has:
 
 | Field | What it is used for |
 |---|---|
@@ -16,6 +18,8 @@ badge: New
 | Colours | Primary, secondary, accent, text, background — each optional. |
 | Typefaces | A heading face and a body face, from Mocky's [font catalogue](fonts.md) (a name outside it is not kept). |
 | Tone | How the brand speaks: "warm, informal, short sentences". |
+| Rules | One per line, followed on every visual of the brand: "the plate fully visible", "no faces", "a plain, bright background". A specific request still wins over a rule. |
+| Brand pictures | Photos and visuals from the media library that belong to the brand. They are offered to every new screen made in it, to be used as they are. |
 
 :::why
 A person makes screens for their own company and for clients in the same
@@ -27,25 +31,32 @@ say so.
 ### Using it in a project
 
 In a project, the composer shows a **Brand** button beside **Flows** as soon as
-a brand exists. On, every new screen, document and post of the project — and
+a brand exists. With several brands, a list under it says **which one** this
+project is in. On, every new screen, document and post of the project — and
 every edit of an existing one — is told the brand: its logo by its address, its
-colours, its typefaces, its tone. Where the project's art direction disagrees on
+colours, its typefaces, its tone, its rules and its pictures. Where the project's art direction disagrees on
 a colour or a typeface, **the brand wins**. Muse, when it runs, writes its
 dossier around the brand rather than beside it.
 
-The setting belongs to the project and is remembered with it. Switching it off
-stops future generations from receiving the brand; screens already made keep
-what they were given.
+The setting belongs to the project and is remembered with it, brand included.
+Switching it off stops future generations from receiving the brand; screens
+already made keep what they were given. A project whose brand you **delete**
+receives no brand at all — never another one in its place — and its list says
+so until you pick another.
 
 From an assistant ([MCP](mcp.md)), `use_brand: true` on `create_design`,
-`create_campaign` or `create_publication` makes the new project in your brand.
+`create_campaign` or `create_publication` makes the new project in your main
+brand, and `brand: "Chez Elisa30"` in that one. A name Mocky does not know is
+refused with the list of your brands.
 
 ### Where it is kept
 
-The brand travels with your account's DESIGN.md data, so it reaches every
-device you sign in on. The logo is a picture of the image library like any
-upload: removing it from the brand does not delete it from the library, where
-screens may already show it.
+The brands travel with your account's DESIGN.md data, so they reach every
+device you sign in on. The single brand of earlier versions becomes the first
+of the list, and projects that used it keep it. The logo and the brand's
+pictures are pictures of the image library like any upload: taking one off a
+brand does not delete it from the library, where screens may already show it.
+An account keeps up to 12 brands, each with up to 24 pictures.
 
 ## Exporting a screen as a picture or slides
 

@@ -22,6 +22,7 @@ import type { ScreenThemeId } from '../lib/screenThemes'
 import type { PageFormatId } from '../lib/pageFormats'
 import type { FoldId } from '../lib/folds'
 import FoldControl from './FoldControl'
+import BrandPicker from './BrandPicker'
 import { OPTION_TILE, OptionTile, OptionTileAction, OptionTileChoice } from './ComposerOptions'
 import { FromMyDesigns } from './DesignModels'
 import type { ProjectTemplate } from '../lib/templates'
@@ -56,6 +57,10 @@ type Props = {
   /** The account's brand for this project (lib/brand.ts): drawn only when a brand exists. */
   brandOn?: boolean
   onToggleBrand?: () => void
+  /** The account's brands, when it has several: which one this project is in. */
+  brandChoices?: { id: string; name: string }[]
+  brandId?: string
+  onPickBrand?: (id: string) => void
   creativeOn?: boolean
   onToggleCreative?: () => void
   /** Open Campaign Studio: a brief made into several formats at once (lib/campaign.ts). */
@@ -137,6 +142,9 @@ export default function Welcome({
   onToggleFlows,
   brandOn,
   onToggleBrand,
+  brandChoices,
+  brandId,
+  onPickBrand,
   creativeOn,
   onToggleCreative,
   onOpenCampaign,
@@ -332,7 +340,11 @@ export default function Welcome({
                 on={!!brandOn}
                 onClick={onToggleBrand}
                 title={t(brandOn ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
-              />
+              >
+                {brandOn && brandChoices && onPickBrand ? (
+                  <BrandPicker className="mt-auto" brands={brandChoices} value={brandId} onChange={onPickBrand} />
+                ) : undefined}
+              </OptionTile>
             )}
             {onToggleCreative && (
               <OptionTile

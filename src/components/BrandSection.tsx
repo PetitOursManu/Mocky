@@ -1,22 +1,33 @@
 import { useRef, useState } from 'react'
 import { Banner, Button, Field, Icon, Input, Textarea } from '../ui'
 import { useT } from '../i18n'
-import { loadBrand, saveBrand } from '../lib/design'
-import { BRAND_COLOR_KEYS, hasBrand, normalizeBrand, type BrandColorKey, type BrandIdentity } from '../lib/brand'
+import { loadBrands, saveBrand } from '../lib/design'
+import {
+  BRAND_COLOR_KEYS,
+  hasBrand,
+  MAX_BRAND_MEDIA,
+  MAX_BRANDS,
+  newBrandId,
+  normalizeBrand,
+  RULES_MAX,
+  type BrandColorKey,
+  type BrandIdentity,
+} from '../lib/brand'
 import { imageUrl, uploadImage } from '../lib/imageLibrary'
 import { FONT_FAMILIES } from '../lib/fonts'
+import { ImagePicker } from './ImagePicker'
 
-const EMPTY: BrandIdentity = { name: '', colors: {}, fonts: {}, updatedAt: 0 }
+const empty = (id: string): BrandIdentity => ({ id, name: '', colors: {}, fonts: {}, updatedAt: 0 })
 
 /**
- * "Ma marque" — the account's brand identity (lib/brand.ts), in Settings.
+ * "Mes marques" — the account's brand identities (lib/brand.ts), in Settings.
  *
- * A form with an explicit Save rather than a save on every keystroke: a brand
- * half-typed is not a brand, and every generation of every project that uses
- * it reads what is saved here. The logo goes to the image library like any
- * upload, so a sandboxed preview can show it (M6); removing it here forgets it
- * for the brand and leaves the picture in the library, which other screens may
- * already show (M8).
+ * One tab per brand and one form, with an explicit Save rather than a save on
+ * every keystroke: a brand half-typed is not a brand, and every generation of
+ * every project in it reads what is saved here. The logo and the brand's
+ * pictures are pictures of the image library like any upload, so a sandboxed
+ * preview can show them (M6); taking one off a brand leaves it in the library,
+ * which screens may already show (M8).
  *
  * Typefaces are typed against the catalogue (a datalist of its names): a name
  * that is not in it is not saved, because a preview cannot draw a face Mocky
@@ -26,11 +37,15 @@ const EMPTY: BrandIdentity = { name: '', colors: {}, fonts: {}, updatedAt: 0 }
 export default function BrandSection() {
   const t = useT()
   const fileRef = useRef<HTMLInputElement>(null)
-  const [brand, setBrand] = useState<BrandIdentity>(() => loadBrand() ?? EMPTY)
+  const [brands, setBrands] = useState<BrandIdentity[]>(() => loadBrands())
+  const [brand, setBrand] = useState<BrandIdentity>(() => loadBrands()[0] ?? empty(newBrandId([])))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [picking, setPicking] = useState(false)
+
+  const stored = brands.find((b) => b.id === brand.id)
 
   const change = (patch: Partial<BrandIdentity>) => {
     setBrand((b) => ({ ...b, ...patch }))
@@ -38,6 +53,17 @@ export default function BrandSection() {
     setSaved(false)
   }
   const setColor = (k: BrandColorKey, v: string) => change({ colors: { ...brand.colors, [k]: v || undefined } })
+
+  /** Switch the form to another brand, or to a new one — not over unsaved changes without asking. */
+  function open(next: BrandIdentity) {
+    if (next.id === brand.id) return
+    if (dirty && !window.confirm(t('brand.discardConfirm'))) return
+    setBrand(next)
+    setDirty(false)
+    setSaved(false)
+    setError(null)
+    setPicking(false)
+  }
 
   async function pickLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -57,25 +83,35 @@ export default function BrandSection() {
 
   function save() {
     const clean = normalizeBrand({ ...brand, updatedAt: Date.now() })
-    // Nothing worth keeping (no name, no logo) is a removal, said as such.
-    if (!saveBrand(hasBrand(clean) ? clean : null)) {
+    if (!hasBrand(clean)) {
+      setError(t('brand.needName'))
+      return
+    }
+    if (!saveBrand(clean)) {
       setError(t('brand.saveFailed'))
       return
     }
-    setBrand(loadBrand() ?? EMPTY)
+    const list = loadBrands()
+    setBrands(list)
+    setBrand(list.find((b) => b.id === clean.id) ?? clean)
     setDirty(false)
     setSaved(true)
+    setError(null)
   }
 
   function remove() {
-    if (!window.confirm(t('brand.removeConfirm'))) return
-    saveBrand(null)
-    setBrand(EMPTY)
+    if (!stored) return
+    if (!window.confirm(t('brand.removeConfirm', { name: stored.name || stored.id }))) return
+    saveBrand(null, stored.id)
+    const list = loadBrands()
+    setBrands(list)
+    setBrand(list[0] ?? empty(newBrandId(list)))
     setDirty(false)
     setSaved(false)
   }
 
   const unknownFont = (name?: string) => !!name?.trim() && !FONT_FAMILIES.some((f) => f.family.toLowerCase() === name.trim().toLowerCase())
+  const media = brand.media ?? []
 
   return (
     <section className="lg:col-span-2">
@@ -83,6 +119,28 @@ export default function BrandSection() {
         <span className="kicker">{t('brand.title')}</span>
       </div>
       <p className="measure mb-4 text-body text-ink-muted">{t('brand.intro')}</p>
+
+      {/* One tab per brand, then "New brand". */}
+      <div role="tablist" aria-label={t('brand.title')} className="mb-4 flex flex-wrap gap-1.5">
+        {brands.map((b) => (
+          <Button key={b.id} size="sm" role="tab" aria-selected={b.id === brand.id} active={b.id === brand.id} onClick={() => open(b)}>
+            {b.logo ? <img src={imageUrl(b.logo.hash)} alt="" className="h-4 w-4 object-contain" /> : <Icon name="star" size={14} />}
+            {b.name || b.id}
+          </Button>
+        ))}
+        {!stored && brands.length > 0 && (
+          <Button size="sm" role="tab" aria-selected active>
+            <Icon name="plus" size={14} />
+            {brand.name || t('brand.newBrand')}
+          </Button>
+        )}
+        {stored && brands.length < MAX_BRANDS && (
+          <Button size="sm" variant="quiet" onClick={() => open(empty(newBrandId(brands)))}>
+            <Icon name="plus" size={14} />
+            {t('brand.newBrand')}
+          </Button>
+        )}
+      </div>
 
       {error && (
         <div className="mb-3">
@@ -174,15 +232,65 @@ export default function BrandSection() {
         <Field label={t('brand.tone')} className="md:col-span-2">
           {(p) => <Textarea {...p} rows={2} maxLength={300} value={brand.tone ?? ''} onChange={(e) => change({ tone: e.target.value || undefined })} placeholder={t('brand.tonePlaceholder')} />}
         </Field>
+
+        <Field label={t('brand.rules')} hint={t('brand.rulesHint')} className="md:col-span-2">
+          {(p) => <Textarea {...p} rows={4} maxLength={RULES_MAX} value={brand.rules ?? ''} onChange={(e) => change({ rules: e.target.value || undefined })} placeholder={t('brand.rulesPlaceholder')} />}
+        </Field>
+
+        {/* The brand's own pictures: offered to every new screen in the brand. */}
+        <fieldset className="min-w-0 md:col-span-2">
+          <legend className="mb-1 text-body-sm font-medium text-ink">{t('brand.media')}</legend>
+          <p className="measure mb-2 text-caption text-ink-faint">{t('brand.mediaHint')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {media.map((h) => (
+              <span key={h} className="relative">
+                <img src={imageUrl(h)} alt="" className="h-16 w-16 rounded border border-line-soft object-cover" />
+                <button
+                  type="button"
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-line bg-raised text-caption text-ink"
+                  aria-label={t('brand.mediaRemove')}
+                  title={t('brand.mediaRemove')}
+                  onClick={() => change({ media: media.filter((x) => x !== h) })}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {media.length < MAX_BRAND_MEDIA && (
+              <Button size="sm" variant="ghost" active={picking} onClick={() => setPicking((v) => !v)}>
+                <Icon name="plus" size={14} />
+                {t('brand.mediaAdd')}
+              </Button>
+            )}
+          </div>
+          {picking && (
+            <div className="mt-3">
+              <ImagePicker
+                heading={t('brand.mediaPick')}
+                selected={media}
+                compact
+                onPick={(hash) => {
+                  if (!media.includes(hash)) change({ media: [...media, hash].slice(0, MAX_BRAND_MEDIA) })
+                }}
+                onError={setError}
+              />
+            </div>
+          )}
+        </fieldset>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button variant="primary" size="sm" disabled={busy || !dirty} onClick={save}>
           {t('brand.save')}
         </Button>
-        {hasBrand(loadBrand()) && (
+        {stored && (
           <Button variant="quiet" size="sm" className="text-danger" disabled={busy} onClick={remove}>
             {t('brand.remove')}
+          </Button>
+        )}
+        {!stored && brands.length > 0 && (
+          <Button variant="quiet" size="sm" onClick={() => open(brands[0])}>
+            {t('common.cancel')}
           </Button>
         )}
         {saved && <span className="text-body-sm text-ink-muted">{t('brand.saved')}</span>}

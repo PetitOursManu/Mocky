@@ -47,7 +47,7 @@ import { readCampaignFacts, runCampaign } from '../lib/pipeline/campaign'
 import { addPublicationPage, planPublication, runPublication } from '../lib/pipeline/publication'
 import { flowScreenName } from '../lib/flows'
 import { isFoldId } from '../lib/folds'
-import { brandSection, hasBrand, normalizeBrand, type BrandIdentity } from '../lib/brand'
+import { brandByName, brandOfProject, brandSection, brandsOfDesign, defaultBrandId, type BrandIdentity } from '../lib/brand'
 import { composerPageFormat } from '../lib/documentMode'
 import { isCampaignFormatId, normalizeCampaign, sortFormats, type CampaignFormatId } from '../lib/campaign'
 import { isPublicationKind, latestPublication, upsertPublication, type Publication } from '../lib/publication'
@@ -120,6 +120,8 @@ export interface RunnerJob {
   formats?: string[]
   /** A NEW project made in the account's brand identity (`Project.useBrand`). */
   useBrand?: boolean
+  /** Which of the account's brands, by its name; absent is the first. */
+  brandName?: string
   /** A NEW project made in Créatif (`Project.creative`, lib/creative.ts). */
   creative?: boolean
   /**
@@ -222,15 +224,34 @@ function globalDesignFrom(raw: string | null | undefined): string | undefined {
   }
 }
 
-/** The account's brand, from its synced design blob (lib/brand.ts), or none. */
-function brandFrom(raw: string | null | undefined): BrandIdentity | undefined {
-  if (!raw) return undefined
+/** The account's brands, from its synced design blob (lib/brand.ts). */
+function brandsFrom(raw: string | null | undefined): BrandIdentity[] {
+  if (!raw) return []
   try {
-    const b = normalizeBrand((JSON.parse(raw) as { brand?: unknown }).brand)
-    return hasBrand(b) ? b : undefined
+    return brandsOfDesign(JSON.parse(raw) as { brands?: unknown; brand?: unknown })
   } catch {
-    return undefined
+    return []
   }
+}
+
+/** The brand a project is in, read off the account's design blob, or none. */
+function brandFrom(raw: string | null | undefined, project: { useBrand?: boolean; brandId?: string }): BrandIdentity | undefined {
+  return brandOfProject(project, brandsFrom(raw))
+}
+
+/**
+ * The brand an assistant NAMED for a new project, as the project's
+ * `brandId`. A name the account does not have is refused with the names it
+ * does have: a visual made in the wrong client's identity is worse than none.
+ */
+function brandIdFor(raw: string | null | undefined, name: string | undefined): string | undefined {
+  const wanted = typeof name === 'string' ? name.trim() : ''
+  const brands = brandsFrom(raw)
+  // No name: the brand the composer would choose, written down like the composer does.
+  if (!wanted) return defaultBrandId({}, brands)
+  const found = brandByName(brands, wanted)
+  if (!found) throw new Error(`unknown brand "${wanted.slice(0, 80)}" — this account's brands: ${brands.map((b) => b.name || b.id).join(', ') || 'none'}`)
+  return found.id
 }
 
 async function run(job: RunnerJob): Promise<RunnerResult> {
@@ -244,6 +265,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
   const data = await api.getData()
   const all = parseProjects(data.projects)
   const now = Date.now()
+  const brandId = job.useBrand ? brandIdFor(data.design, job.brandName) : undefined
   let project: Project | undefined = job.projectId ? all.find((p) => p.id === job.projectId && !p.deletedAt) : undefined
   // A project id that is not this account's reads as "no such project" (X4):
   // the server already refused it, and a new project is not what was asked.
@@ -254,6 +276,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     // starting from a template rather than from its DESIGN.md alone.
     project = projectFromTemplate(job.template, { name: String(job.projectName || '').trim().slice(0, 120) || job.template.name, now })
     if (job.useBrand) project.useBrand = true
+    if (brandId) project.brandId = brandId
     if (job.creative) project.creative = true
   }
   // From examples: a new project in the FIRST example's direction (its DESIGN.md: palette, typefaces), none of
@@ -270,6 +293,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       // The assistant asked for the person's brand: the new project keeps it on,
       // as the composer's "Marque" button would.
       ...(job.useBrand ? { useBrand: true } : {}),
+      ...(brandId ? { brandId } : {}),
       ...(job.creative ? { creative: true } : {}),
     }
   }
@@ -368,7 +392,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     ...(isFoldId(job.fold) ? { foldId: job.fold } : {}),
     // The account's brand, when this project uses it — read from the same
     // design blob the composer reads it from (lib/brand.ts).
-    ...(working.useBrand && brandFrom(data.design) ? { brand: brandFrom(data.design) } : {}),
+    ...(brandFrom(data.design, working) ? { brand: brandFrom(data.design, working) } : {}),
     // Créatif, when the project is in it — set in the composer or by `creative`
     // above. With the "client" engine only the PROMPT section reaches the
     // assistant's model: an MCP server cannot set another model's temperature.
@@ -733,8 +757,8 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
   setUsageProject(project.id)
   // A project in the account's brand keeps it through an edit, as in the composer.
   const projectDirection = designForProject(project, globalDesignFrom(data.design))
-  const brand = project.useBrand ? brandFrom(data.design) : undefined
-  const brandText = brand ? brandSection(brand, brand.logo ? absoluteUrl(imageUrl(brand.logo.hash)) : undefined) : undefined
+  const brand = brandFrom(data.design, project)
+  const brandText = brand ? brandSection(brand, (h) => absoluteUrl(imageUrl(h))) : undefined
   const designMd = brandText ? (projectDirection ? `${projectDirection}\n\n${brandText}` : brandText) : projectDirection
   const settings = defaultSettings()
   const signal = new AbortController().signal

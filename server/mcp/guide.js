@@ -308,9 +308,12 @@ ${client ? CLIENT_SECTION : ''}## Other options
 - \`screen_name\`, \`project_name\` — short names shown in Mocky.
 - \`flows\` — Mocky's "Parcours" (see "Several screens at once").
 - \`fold\` — a folded leaflet, for a flyer or a menu.
-- \`use_brand\` — a new project in the person's OWN brand (Settings → My brand
-  in Mocky): their logo, colours, typefaces and tone. Pass it when they say "my
-  logo", "my brand", "my company's colours"; never invent a logo instead.
+- \`use_brand\` — a new project in one of the person's OWN brands (Settings →
+  My brands in Mocky): logo, colours, typefaces, tone, rules and pictures. Pass
+  it when they say "my logo", "my brand", "my company's colours"; never invent
+  a logo instead. \`brand\` names WHICH brand ("Chez Elisa30") when they have
+  several; omitted, it is their main one. An unknown name fails with the list
+  of their brands: ask which one they meant.
 - \`creative\` — a new project in Mocky's Creative mode: bolder, less expected
   layouts. Pass it when they ask for something original or daring; never for a
   faithful reproduction of an existing site.

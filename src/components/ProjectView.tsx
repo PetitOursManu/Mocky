@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
-import { buildDesignPreamble, isDesignActive, loadBrand, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
-import { brandSection, hasBrand, type BrandIdentity } from '../lib/brand'
+import { buildDesignPreamble, isDesignActive, loadBrands, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
+import { brandOfProject, brandSection, defaultBrandId, type BrandIdentity } from '../lib/brand'
 import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, buildElementsEditInstruction, tryDirectTextReplace, deriveDesignSystem, refreshDesignSystem, type AnimationLevel } from '../lib/generate'
 import { designSyncOf, isDesignFresh, type DesignSync } from '../lib/designRefresh'
 import {
@@ -52,6 +52,7 @@ import { planPropagation, propagateInto, tokenChanges, type PropagationPlan } fr
 import { LANG_NAMES, translateCode, type TranslateLang } from '../lib/translate'
 import TranslateDialog from './TranslateDialog'
 import FillDialog from './FillDialog'
+import BrandPicker from './BrandPicker'
 import { applyFill, type FillField, type FillRefusal } from '../lib/fillFields'
 import { downloadZip, downloadTsx } from '../lib/export'
 import { downloadBlob } from '../lib/docExport/files'
@@ -336,7 +337,7 @@ export default function ProjectView({
   /** Add or replace one of this project's publications (lib/publication.ts). */
   onSetPublication?: (publication: Publication) => void
   /** Use the account's brand identity in this project, or stop (lib/brand.ts). */
-  onSetUseBrand?: (on: boolean) => void
+  onSetUseBrand?: (on: boolean, brandId?: string) => void
   /** Créatif or Normal for this project (lib/creative.ts). */
   onSetCreative?: (on: boolean) => void
   /** The project may make what the kit lacks (lib/creations). */
@@ -1254,12 +1255,23 @@ export default function ProjectView({
    * whenever the design blob changes (`designNonce`), so a brand saved in
    * Settings shows its button on the way back.
    */
-  const brandAvailable = useMemo(() => hasBrand(loadBrand()), [designNonce])
-  const projectBrand = useCallback((): BrandIdentity | undefined => {
-    if (!project.useBrand) return undefined
-    const b = loadBrand()
-    return hasBrand(b) ? b : undefined
-  }, [project.useBrand])
+  const brands = useMemo(() => loadBrands(), [designNonce])
+  const brandAvailable = brands.length > 0
+  const projectBrand = useCallback(
+    (): BrandIdentity | undefined => brandOfProject(project, loadBrands()),
+    [project.useBrand, project.brandId],
+  )
+  /**
+   * Which brand the composer shows as chosen, and the one switching the brand
+   * on writes down: every project switched on names its brand, so removing or
+   * adding a brand later never moves it to another one.
+   */
+  const chosenBrandId = project.brandId ?? defaultBrandId(project, brands)
+  const toggleBrand = useCallback(
+    () => onSetUseBrand?.(!project.useBrand, project.useBrand ? undefined : chosenBrandId),
+    [onSetUseBrand, project.useBrand, chosenBrandId],
+  )
+  const pickBrand = useCallback((id: string) => onSetUseBrand?.(true, id), [onSetUseBrand])
   /**
    * The direction an EXISTING screen is reworked under: the project's, and the
    * brand's section after it when the project uses one, so an edit or a repair
@@ -1269,7 +1281,7 @@ export default function ProjectView({
     (md: string | undefined): string | undefined => {
       const b = projectBrand()
       if (!b) return md
-      const section = brandSection(b, b.logo ? absoluteUrl(imageUrl(b.logo.hash)) : undefined)
+      const section = brandSection(b, (h) => absoluteUrl(imageUrl(h)))
       return md ? `${md}\n\n${section}` : section
     },
     [projectBrand],
@@ -1371,7 +1383,7 @@ export default function ProjectView({
     if (template.design) onSetDesign(template.design)
     const st = template.settings || {}
     onSetUltra(st.ultra ?? null)
-    onSetUseBrand?.(!!st.useBrand)
+    onSetUseBrand?.(!!st.useBrand, st.brandId)
     onSetCreative?.(!!st.creative)
     onSetCreations?.(!!st.creations)
   }
@@ -3954,7 +3966,10 @@ export default function ProjectView({
         flowsOn={flowsOn}
         onToggleFlows={toggleFlows}
         brandOn={!!project.useBrand}
-        onToggleBrand={brandAvailable && onSetUseBrand ? () => onSetUseBrand(!project.useBrand) : undefined}
+        onToggleBrand={brandAvailable && onSetUseBrand ? toggleBrand : undefined}
+        brandChoices={brands.length > 1 ? brands.map((b) => ({ id: b.id, name: b.name || b.id })) : undefined}
+        brandId={chosenBrandId}
+        onPickBrand={pickBrand}
         creativeOn={!!project.creative}
         onToggleCreative={onSetCreative ? () => onSetCreative(!project.creative) : undefined}
         onOpenCampaign={() => setRightSlot('campaign')}
@@ -5486,9 +5501,13 @@ export default function ProjectView({
                     label={t('brand.toggle')}
                     hint={t('workspace.hintBrand')}
                     on={!!project.useBrand}
-                    onClick={() => onSetUseBrand?.(!project.useBrand)}
+                    onClick={toggleBrand}
                     title={t(project.useBrand ? 'brand.toggleOnTitle' : 'brand.toggleOffTitle')}
                   />
+                )}
+                {/* Several brands: which one this project is in. */}
+                {brandAvailable && project.useBrand && brands.length > 1 && (
+                  <BrandPicker brands={brands.map((b) => ({ id: b.id, name: b.name || b.id }))} value={chosenBrandId} onChange={pickBrand} />
                 )}
               </OptionGroup>
             )}

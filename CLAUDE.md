@@ -1521,6 +1521,17 @@ src/lib/fillFields.ts      "Remplir…": fields the person picks, filled at pars
    A field an edit rewrote is reported missing, never guessed. The UI says
    "champs à remplir": a document's "Champs" are its PDF form fields.
 
+## Several brands
+
+`DesignConfig.brands` (lib/brand.ts), in the synced design blob; the single
+`brand` of before is read as the first, id `main`, and never written again.
+`Project.brandId` names a project's brand; absent means `main`. Two rules:
+a project whose brand was deleted gets NONE (`brandOfProject`) — never "the
+first one", which would move a client's project into another client's identity
+— and switching the brand on WRITES the id (`defaultBrandId`), so adding or
+removing a brand later moves nothing. An assistant names one with `brand`
+(MCP); an unknown name fails with the list, in the runner (`brandIdFor`).
+
 ## The editorial calendar and Calendy
 
 `ScreenCampaign.publish` (`date`, `time`, `calendyId`) is on the PIECE, like

@@ -65,6 +65,7 @@ export type TemplateScreen = Partial<Pick<Screen, (typeof TEMPLATE_SCREEN_KEYS)[
 
 export interface TemplateSettings {
   useBrand?: boolean
+  brandId?: string
   creative?: boolean
   creations?: boolean
   ultra?: ProjectUltra
@@ -110,6 +111,7 @@ export function templateFromProject(project: Project, name: string, globalDesign
   })
   const settings: TemplateSettings = {}
   if (project.useBrand) settings.useBrand = true
+  if (project.useBrand && project.brandId) settings.brandId = project.brandId
   if (project.creative) settings.creative = true
   if (project.creations) settings.creations = true
   if (project.ultra) settings.ultra = { count: project.ultra.count, ...(project.ultra.video ? { video: true } : {}) }
@@ -154,9 +156,10 @@ export function instantiateScreens(
 }
 
 /** The settings of a template as Project fields. */
-export function settingsAsProjectFields(settings: TemplateSettings): Pick<Project, 'useBrand' | 'creative' | 'creations' | 'ultra'> {
+export function settingsAsProjectFields(settings: TemplateSettings): Pick<Project, 'useBrand' | 'brandId' | 'creative' | 'creations' | 'ultra'> {
   return {
     ...(settings.useBrand ? { useBrand: true } : {}),
+    ...(settings.useBrand && settings.brandId ? { brandId: settings.brandId } : {}),
     ...(settings.creative ? { creative: true } : {}),
     ...(settings.creations ? { creations: true } : {}),
     ...(settings.ultra ? { ultra: { count: settings.ultra.count === 6 ? 6 : 3, ...(settings.ultra.video ? { video: true } : {}) } } : {}),

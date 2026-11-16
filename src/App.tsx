@@ -883,7 +883,7 @@ function MockyApp() {
             onSetScenarios={(scenarios) => setProjectScenarios(activeProject.id, scenarios)}
             onSetCampaign={(campaign) => setProjectCampaign(activeProject.id, campaign)}
             onSetPublication={(publication) => setProjectPublication(activeProject.id, publication)}
-            onSetUseBrand={(on) => setProjectUseBrand(activeProject.id, on)}
+            onSetUseBrand={(on, brandId) => setProjectUseBrand(activeProject.id, on, brandId)}
             onSetCreative={(on) => setProjectCreative(activeProject.id, on)}
             onSetCreations={(on) => setProjectCreations(activeProject.id, on)}
             initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}

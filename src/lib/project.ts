@@ -450,6 +450,12 @@ export interface Project {
    */
   useBrand?: boolean
   /**
+   * WHICH of the account's brands (`BrandIdentity.id`), when it has several.
+   * Absent is the first — every project from before there were several. Kept
+   * when the brand is switched off, so switching it back on finds the same one.
+   */
+  brandId?: string
+  /**
    * Créatif instead of Normal (lib/creative.ts): bolder layouts for new
    * screens, in Muse's dossier and in the generation. Absent is Normal, the
    * behaviour every project had before. On Project for the reason `folder` is.
@@ -1371,14 +1377,16 @@ export function useProjects() {
     )
   }, [])
 
-  /** Switch the account's brand identity on or off for one project. */
-  const setProjectUseBrand = useCallback((projectId: string, on: boolean) => {
+  /** Switch the account's brand identity on or off for one project, and say which brand. */
+  const setProjectUseBrand = useCallback((projectId: string, on: boolean, brandId?: string) => {
     setProjects((prev) =>
       prev.map((p) => {
-        if (p.id !== projectId || !!p.useBrand === on) return p
+        if (p.id !== projectId) return p
+        if (!!p.useBrand === on && (brandId === undefined || p.brandId === brandId)) return p
         const next = { ...p, updatedAt: Date.now() }
         if (on) next.useBrand = true
         else delete next.useBrand
+        if (brandId) next.brandId = brandId
         return next
       }),
     )

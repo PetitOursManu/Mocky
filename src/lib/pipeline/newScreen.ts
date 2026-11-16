@@ -934,7 +934,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // Muse's preamble supersedes DESIGN.md's when present; otherwise the
     // exact pre-Muse composition (M1). Both now carry the same direction.
     const dirPreamble = dir.markdown ? buildDesignPreamble(dir.markdown) : undefined
-    const brandPreamble = req.brand ? brandSection(req.brand, req.brand.logo ? absoluteUrl(imageUrl(req.brand.logo.hash)) : undefined) : undefined
+    const brandPreamble = req.brand ? brandSection(req.brand, (h) => absoluteUrl(imageUrl(h))) : undefined
     // Créatif's section goes LAST: it asks for bolder layout inside the
     // direction above it, never for another direction (lib/creative.ts).
     const creativePreamble = creative ? CREATIVE_SECTION : undefined

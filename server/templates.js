@@ -72,6 +72,7 @@ function cleanSettings(s) {
   const out = {}
   if (!s || typeof s !== 'object') return out
   if (s.useBrand === true) out.useBrand = true
+  if (s.useBrand === true && typeof s.brandId === 'string' && /^[\w-]{1,40}$/.test(s.brandId)) out.brandId = s.brandId
   if (s.creative === true) out.creative = true
   if (s.creations === true) out.creations = true
   if (s.ultra && typeof s.ultra === 'object') {

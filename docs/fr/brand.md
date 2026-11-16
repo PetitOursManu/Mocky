@@ -1,15 +1,16 @@
 ---
-description: Votre logo, vos couleurs, vos polices et votre ton gardés une fois dans votre compte et appliqués à un projet d’un bouton — et n’importe quel écran exporté en image ou en diapositives.
+description: Vos marques — logo, couleurs, polices, ton, règles et images — gardées une fois dans votre compte et appliquées à un projet d’un bouton ; et n’importe quel écran exporté en image ou en diapositives.
 badge: Nouveau
-source_hash: 72ee5f5037f5
+source_hash: 670ade9145b5
 ---
 
-# Ma marque, et exporter un écran
+# Mes marques, et exporter un écran
 
-## Ma marque
+## Mes marques
 
-**Réglages → Ma marque** garde l’identité de votre entreprise une fois pour votre
-compte :
+**Réglages → Mes marques** garde l’identité de chaque marque pour laquelle vous
+faites des visuels — votre structure, son restaurant, un client — une fois pour
+votre compte. Un onglet par marque, et `Nouvelle marque` à côté ; chacune a :
 
 | Champ | Ce qu’il sert à faire |
 |---|---|
@@ -18,6 +19,8 @@ compte :
 | Couleurs | Principale, secondaire, accent, texte, fond — chacune facultative. |
 | Polices | Une police de titres et une de texte, prises dans le [catalogue de polices](fonts.md) de Mocky (un nom hors catalogue n’est pas gardé). |
 | Ton | Comment parle la marque : « chaleureux, tutoiement, phrases courtes ». |
+| Règles | Une par ligne, suivies sur chaque visuel de la marque : « assiette entièrement visible », « aucun visage », « fond sobre et lumineux ». Une demande précise l’emporte toujours sur une règle. |
+| Images de la marque | Photos et visuels de la médiathèque qui appartiennent à la marque. Ils sont proposés à chaque nouvel écran fait dans cette marque, pour être utilisés tels quels. |
 
 :::why
 On fabrique dans le même compte des écrans pour sa propre entreprise et pour des
@@ -29,27 +32,35 @@ que vous ne le dites pas.
 ### L’utiliser dans un projet
 
 Dans un projet, le composeur montre un bouton **Marque** à côté de **Parcours**
-dès qu’une marque existe. Activé, chaque nouvel écran, document et post du
+dès qu’une marque existe. Avec plusieurs marques, une liste dessous dit
+**laquelle** utilise ce projet. Activé, chaque nouvel écran, document et post du
 projet — et chaque modification d’un écran existant — reçoit la marque : son
-logo par son adresse, ses couleurs, ses polices, son ton. Quand la direction
+logo par son adresse, ses couleurs, ses polices, son ton, ses règles et ses
+images. Quand la direction
 artistique du projet dit autre chose sur une couleur ou une police, **la marque
 l’emporte**. Muse, quand elle tourne, écrit son dossier autour de la marque
 plutôt qu’à côté.
 
-Le réglage appartient au projet et reste avec lui. L’éteindre arrête d’envoyer
-la marque aux prochaines générations ; les écrans déjà faits gardent ce qu’ils
-ont reçu.
+Le réglage appartient au projet et reste avec lui, marque comprise. L’éteindre
+arrête d’envoyer la marque aux prochaines générations ; les écrans déjà faits
+gardent ce qu’ils ont reçu. Un projet dont vous **supprimez** la marque ne reçoit
+plus aucune marque — jamais une autre à sa place — et sa liste le signale tant
+que vous n’en choisissez pas une autre.
 
 Depuis un assistant ([MCP](mcp.md)), `use_brand: true` sur `create_design`,
 `create_campaign` ou `create_publication` crée le nouveau projet dans votre
-marque.
+marque principale, et `brand: "Chez Elisa30"` dans celle-là. Un nom que Mocky ne
+connaît pas est refusé, avec la liste de vos marques.
 
 ### Où elle est gardée
 
-La marque voyage avec les données DESIGN.md de votre compte : elle vous suit sur
-chaque appareil où vous vous connectez. Le logo est une image de la
-bibliothèque comme n’importe quel import : le retirer de la marque ne le
-supprime pas de la bibliothèque, où des écrans l’affichent peut-être déjà.
+Les marques voyagent avec les données DESIGN.md de votre compte : elles vous
+suivent sur chaque appareil où vous vous connectez. La marque unique des
+versions précédentes devient la première de la liste, et les projets qui
+l’utilisaient la gardent. Le logo et les images de la marque sont des images de
+la bibliothèque comme n’importe quel import : en retirer une d’une marque ne la
+supprime pas de la bibliothèque, où des écrans l’affichent peut-être déjà. Un
+compte garde jusqu’à 12 marques, chacune avec jusqu’à 24 images.
 
 ## Exporter un écran en image ou en diapositives
 
