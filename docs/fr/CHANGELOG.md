@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `écran` | champs à remplir, écrits à leur place sans modèle | `4f0987d` |
 | `campagne` | calendrier éditorial, exports .ics/.csv et envoi dans Calendy | `3c305c1` |
 | `écran` | traduire un écran en copie, sans toucher à la mise en page | `1efc32c` |
 | `direction` | proposer d'appliquer un token changé aux écrans existants | `d07dd2c` |
