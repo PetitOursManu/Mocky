@@ -1,3 +1,4 @@
+import { enforceLocks, lockRule, LockedElementError } from './locks'
 import type { Settings } from './settings'
 import { proxyFetch, truncate } from './proxy'
 import type { Capability } from './capabilities/types'
@@ -79,6 +80,26 @@ export interface GeneratedComponent {
   componentName: string
   /** True when the model hit its output-token cap, so the code is cut off. */
   truncated?: boolean
+  /** Locked elements the pass had changed and that were written back as they were (lib/locks.ts). */
+  locksRestored?: string[]
+}
+
+/**
+ * The locks of `before`, kept in `code` (lib/locks.ts): a locked element the
+ * pass changed is written back, one it removed refuses the pass. Run on every
+ * pass that rewrites an EXISTING screen — edit, repair, polish, accessibility
+ * fix, page fit — right where its complete source first exists.
+ */
+async function keepLocks(before: string, code: string): Promise<{ code: string; locksRestored?: string[] }> {
+  const out = await enforceLocks(before, code)
+  if (out.lost.length) throw new LockedElementError(out.lost)
+  return out.restored.length ? { code: out.code, locksRestored: out.restored } : { code: out.code }
+}
+
+/** The lock sentence as a paragraph of a user turn, or nothing. */
+async function lockLines(code: string): Promise<string[]> {
+  const rule = await lockRule(code)
+  return rule ? ['', rule] : []
 }
 
 /** Out-param so chat() can report why the response ended. */
@@ -834,6 +855,7 @@ export async function editComponent(
     '',
     'Requested change:',
     withImageNote(instruction, images),
+    ...(await lockLines(existingCode)),
   ].join('\n')
   const meta: ChatMeta = {}
   const content = await chat(
@@ -847,9 +869,8 @@ export async function editComponent(
     meta,
     'edit',
   )
-  const code = await guardMotion(extractCode(content))
-  const componentName = detectComponentName(code)
-  return { raw: content, code, componentName, truncated: meta.truncated }
+  const kept = await keepLocks(existingCode, await guardMotion(extractCode(content)))
+  return { raw: content, ...kept, componentName: detectComponentName(kept.code), truncated: meta.truncated }
 }
 
 const SENTINEL_OPEN = '<<<MOCKY>>>'
@@ -1055,13 +1076,14 @@ export async function fixComponent(
     `Error: ${errorMessage}`,
     '',
     'Fix the error and return the COMPLETE corrected component. Do not change anything that is not broken.',
+    ...(await lockLines(brokenCode)),
   ].join('\n')
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: user },
   ], signal, undefined, undefined, 'fix')
-  const code = await guardMotion(extractCode(content))
-  return { raw: content, code, componentName: detectComponentName(code) }
+  const kept = await keepLocks(brokenCode, await guardMotion(extractCode(content)))
+  return { raw: content, ...kept, componentName: detectComponentName(kept.code) }
 }
 
 const POLISH_PROMPT = `You are correcting specific, named design problems in a React component that runs inside a sandbox. React, its hooks, and a FIXED set of helper globals are provided — nothing can be imported.
@@ -1119,13 +1141,14 @@ export async function polishComponent(
     findingsBlock,
     '',
     'Return the COMPLETE corrected component. Fix every finding above and change nothing else.',
+    ...(await lockLines(code)),
   ].join('\n')
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: user },
   ], signal, undefined, undefined, 'polish')
-  const fixed = await guardMotion(extractCode(content))
-  return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
+  const kept = await keepLocks(code, await guardMotion(extractCode(content)))
+  return { raw: content, ...kept, componentName: detectComponentName(kept.code) }
 }
 
 const AUDIT_FIX_PROMPT = `You are correcting named accessibility and SEO problems in the MARKUP of a React component that runs inside a sandbox. React, its hooks, and a FIXED set of helper globals are provided — nothing can be imported.
@@ -1180,13 +1203,14 @@ export async function auditFixComponent(
     findingsBlock,
     '',
     'Return the COMPLETE corrected component. Fix every finding above, and leave the screen looking exactly as it does now.',
+    ...(await lockLines(code)),
   ].join('\n')
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: user },
   ], signal, undefined, undefined, 'audit-fix')
-  const fixed = await guardMotion(extractCode(content))
-  return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
+  const kept = await keepLocks(code, await guardMotion(extractCode(content)))
+  return { raw: content, ...kept, componentName: detectComponentName(kept.code) }
 }
 
 const FIT_PROMPT = `You are making a printed document fit its pages. It is a React component that runs inside a sandbox, laid out with a page kit: <Doc format> holds <Page> elements, and the kit gives every <Page> its exact size and clips it. React, its hooks, and a FIXED set of helper globals are provided — nothing can be imported.
@@ -1238,13 +1262,14 @@ export async function fitComponent(
     findings,
     '',
     'Return the COMPLETE corrected component. Every page must fit, and the design must stay the same.',
+    ...(await lockLines(code)),
   ].join('\n')
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: user },
   ], signal, undefined, undefined, 'fit')
-  const fixed = await guardMotion(extractCode(content))
-  return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
+  const kept = await keepLocks(code, await guardMotion(extractCode(content)))
+  return { raw: content, ...kept, componentName: detectComponentName(kept.code) }
 }
 
 const DESIGN_EXTRACT_PROMPT = `You are a design systems analyst. Given the source of ONE React + Tailwind screen, you write the DESIGN.md that this screen appears to have been built from.

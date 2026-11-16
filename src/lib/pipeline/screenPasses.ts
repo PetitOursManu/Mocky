@@ -44,6 +44,8 @@ export interface EditedScreen {
   caps: string[]
   /** What a Motion Ultra screen lost to the edit (U5) — said, never undone. */
   loss: ReturnType<typeof ultraLoss> | null
+  /** Locked elements the edit had changed, written back as they were (lib/locks.ts). */
+  locksRestored?: string[]
 }
 
 /**
@@ -70,6 +72,7 @@ export async function editScreen(req: {
     componentName: res.componentName,
     caps: capabilitiesFor(capIds, res.code),
     loss: screen.ultra ? ultraLoss(screen.code, res.code, screen.ultra) : null,
+    locksRestored: res.locksRestored,
   }
 }
 

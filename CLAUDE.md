@@ -142,6 +142,14 @@ same for Mocky's own screens, through the same copy (`lib/stillCopy.ts`): the li
 frame is `allow-scripts`, the frame the exports walk is `allow-same-origin`, and
 no frame is ever both.
 
+**Locked elements** (`lib/locks.ts`): a lock is the attribute
+`data-mocky-lock` IN the code, so copies, versions, templates and direct
+writes carry it with no bookkeeping. `keepLocks` in `generate.ts` runs in the
+five passes that rewrite an existing screen (edit, fix, polish, audit fix, fit):
+a locked element the pass changed is written back, one it removed refuses the
+pass (`LockedElementError`). A new pass that rewrites a screen calls it too.
+Enforced after the model, never trusted to it.
+
 There are four independent correction passes, and they are not interchangeable:
 
 | | Trigger | Prompt | Budget |

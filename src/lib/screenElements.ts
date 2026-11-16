@@ -110,7 +110,7 @@ export function readMoveRequest(raw: unknown): MoveRequest | undefined {
 }
 
 /** Every JSX element of the source as a Babel path, in the plugin's order; null when it does not parse. */
-async function elementsOf(source: string): Promise<any[] | null> {
+export async function elementsOf(source: string): Promise<any[] | null> {
   try {
     const Babel = await import('@babel/standalone')
     const transform = Babel.transform ?? (Babel as any).default?.transform

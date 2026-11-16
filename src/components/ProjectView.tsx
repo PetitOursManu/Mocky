@@ -188,7 +188,8 @@ import type { Campaign, CampaignFormatId } from '../lib/campaign'
 import CampaignPanel, { type PieceResult } from './CampaignPanel'
 import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
-import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
+import { Banner, Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
+import { isLocked, setLocks } from '../lib/locks'
 
 /** Translation keys per animation state — resolved at render, like every label. */
 /** Fixed viewport formats offered in the screen context menu. */
@@ -675,6 +676,24 @@ export default function ProjectView({
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo; group?: PickInfo[] } | null>(null)
   /** Elements gathered with Shift or Ctrl in Modify mode, all on one screen. */
   const [pickedElements, setPickedElements] = useState<{ screenId: string; items: PickInfo[] } | null>(null)
+  /** Whether the element(s) open in the Modify popup are locked (lib/locks.ts): null while it is read. */
+  const [pendingLocked, setPendingLocked] = useState<boolean | null>(null)
+  // The Modify popup shows a locked element as locked: what it offers there
+  // would be written back by the next pass anyway (lib/locks.ts).
+  useEffect(() => {
+    if (!pendingModify) {
+      setPendingLocked(null)
+      return
+    }
+    const code = screensRef.current.find((s) => s.id === pendingModify.screenId)?.code ?? ''
+    const items = pendingModify.group ?? [pendingModify.info]
+    let live = true
+    void Promise.all(items.map((i) => isLocked(code, i.source))).then((all) => live && setPendingLocked(all.length > 0 && all.every(Boolean)))
+    return () => {
+      live = false
+    }
+  }, [pendingModify])
+
   /** Alt+Arrow with the focus outside the frame: the frame knows the neighbours, so it is asked. */
   const [pickStep, setPickStep] = useState<{ screenId: string; delta: -1 | 1; nonce: number } | null>(null)
   /** A removal that needs an answer first: the element is drawn several times. */
@@ -2059,6 +2078,7 @@ export default function ProjectView({
               ].filter(Boolean).join(t('project.ultraLossAnd'))
               setNotice(t('project.ultraEditLoss', { what, name: sc.name }))
             }
+            if (res.locksRestored?.length) setNotice(t('lock.restored', { names: res.locksRestored.join(', '), name: sc.name }))
           } catch (err) {
             // Put the screen back the way we found it. A half-written component
             // is worse than no change at all.
@@ -3103,6 +3123,30 @@ export default function ProjectView({
     return true
   }
 
+  /**
+   * Lock or unlock picked elements: one attribute written at parser offsets,
+   * no model. A plain write with Revert, like a removal.
+   */
+  async function toggleLocks(screenId: string, items: PickInfo[], on: boolean) {
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen) return
+    const code = screen.code
+    const next = await setLocks(code, items.map((i) => i.source), on)
+    if (next === null) {
+      setError(t('lock.failed'))
+      return
+    }
+    const now = screensRef.current.find((s) => s.id === screenId)
+    if (!now || now.code !== code) return
+    if (next !== code) {
+      noteChange(screenId, t(on ? 'versions.note.lock' : 'versions.note.unlock'))
+      onUpdateScreen(screenId, { code: next, componentName: detectComponentName(next), previousCode: code })
+    }
+    setNotice(t(on ? 'lock.done' : 'lock.undone', { n: items.length }))
+    setPendingModify(null)
+    setPickedElements(null)
+  }
+
   async function removeElements(screenId: string, items: PickInfo[]) {
     if (busy) return
     const code = screensRef.current.find((s) => s.id === screenId)?.code
@@ -3182,6 +3226,7 @@ export default function ProjectView({
       noteChange(screenId, info.label ? t('versions.note.modify', { element: info.label.slice(0, 60), change }) : change)
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
       followDesign(screenId, oldCode, res.code)
+      if (res.locksRestored?.length) setNotice(t('lock.restored', { names: res.locksRestored.join(', '), name: screen.name }))
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
@@ -5769,6 +5814,25 @@ export default function ProjectView({
                 </div>
               )}
             </div>
+            {pendingLocked ? (
+              <>
+                <Banner tone="info">{t('lock.lockedHere')}</Banner>
+                <div className="mt-3 flex items-center justify-end gap-2">
+                  <button type="button" className="btn-ghost text-body-sm" onClick={() => setPendingModify(null)}>
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary text-body-sm"
+                    disabled={busy}
+                    onClick={() => void toggleLocks(pendingModify.screenId, pendingModify.group ?? [pendingModify.info], false)}
+                  >
+                    {t('lock.unlock')}
+                  </button>
+                </div>
+              </>
+            ) : (
+            <>
             {/* Quick text edit — deterministic in-place swap when unambiguous */}
             {pendingModify.info.label && (
               <div className="mb-3">
@@ -5892,6 +5956,15 @@ export default function ProjectView({
               >
                 {t('project.removeElement')}
               </button>
+              <button
+                type="button"
+                className="btn-ghost text-body-sm"
+                disabled={busy || pendingLocked === null}
+                title={t('lock.lockHint')}
+                onClick={() => void toggleLocks(pendingModify.screenId, pendingModify.group ?? [pendingModify.info], true)}
+              >
+                {t('lock.lock')}
+              </button>
               <button type="button" className="btn-ghost text-body-sm" onClick={() => setPendingModify(null)}>
                 {t('common.cancel')}
               </button>
@@ -5905,6 +5978,8 @@ export default function ProjectView({
               </button>
             </div>
             <p className="measure mt-2 text-caption text-ink-faint">{t('project.modifyNote')}</p>
+            </>
+            )}
           </div>
         </div>
       )}
