@@ -26,6 +26,7 @@ import {
   type Publication,
   type ScreenPublication,
 } from './publication'
+import { normalizeFill, type FillField } from './fillFields'
 import { normalizeCampaign, normalizeScreenCampaign, type Campaign, type ScreenCampaign } from './campaign'
 
 /** A link from an element (or region) of a screen to another screen. */
@@ -212,6 +213,13 @@ export interface Screen {
    * reason `campaign` is. Absent on every screen that is not a sheet.
    */
   publication?: ScreenPublication
+  /**
+   * The fields a person fills on this screen (lib/fillFields.ts): which runs of
+   * text and which pictures change from one copy to the next — a weekly menu's
+   * dishes, a poster's date. Each holds the value the code says NOW, so a filled
+   * copy fills from its own words. Absent on every screen nobody set up.
+   */
+  fill?: FillField[]
 }
 
 /**
@@ -861,6 +869,7 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     route: typeof s.route === 'string' && slugRoute(s.route) ? slugRoute(s.route) : undefined,
     campaign: normalizeScreenCampaign(s.campaign),
     publication: normalizeScreenPublication(s.publication),
+    fill: normalizeFill(s.fill),
   }
 }
 

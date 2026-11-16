@@ -67,6 +67,33 @@ An empty project's first composer shows, under the style presets, a row
   settings. It is offered only while the project is empty: a template is a
   starting point, not something merged into existing work.
 
+## Screens to fill in
+
+A weekly menu, an event poster, a price list: the same design every time, with a
+few words and a picture that change. Right-click the screen → **Fill in…**.
+
+1. **Choose the fields**, once. The window lists every text a reader sees and
+   every picture from the media library, in the order the page says them. Tick
+   the ones that change — a dish, a date, a price, a photo — and give each a
+   name ("Monday's dish"). The same words written twice are two places: tick
+   the one you mean.
+2. **Fill in**, every time. The form asks for each field by its name, already
+   holding what the screen says now; a picture is chosen from the library.
+   - `Create a filled copy` adds the result to the right of the screen, which
+     does not change. Next week, fill in from that copy.
+   - `Fill this screen` writes into the screen itself; Revert undoes it.
+
+The values are written in place in the code, **with no model call**: nothing
+else on the page moves, and it costs nothing, including on the free plan. A
+value that cannot go where it is asked (empty, or a `{ } < >` inside a text) is
+not written, and the notice names it. A much longer text may overflow: a
+document reports its overflowing pages, and `Fit to page` corrects them.
+
+A field is found again by what it says. If an edit or a polish rewrites its
+words, the field is reported **not found** rather than guessed: open
+`Choose the fields` and tick it again. The fields travel with the screen into a
+template, so a project template of a menu is filled in as soon as it is made.
+
 ## Limits
 
 An account keeps up to 30 templates. A template holds at most 80 screens, each

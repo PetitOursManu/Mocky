@@ -51,6 +51,8 @@ import { followRecolor } from '../lib/designFollow'
 import { planPropagation, propagateInto, tokenChanges, type PropagationPlan } from '../lib/tokenPropagate'
 import { LANG_NAMES, translateCode, type TranslateLang } from '../lib/translate'
 import TranslateDialog from './TranslateDialog'
+import FillDialog from './FillDialog'
+import { applyFill, type FillField, type FillRefusal } from '../lib/fillFields'
 import { downloadZip, downloadTsx } from '../lib/export'
 import { downloadBlob } from '../lib/docExport/files'
 import type { WebExportKind } from '../lib/docExport/web'
@@ -539,6 +541,7 @@ export default function ProjectView({
   const [framesForScreen, setFramesForScreen] = useState<string | null>(null)
   /** The screen whose "Traduire…" dialog is open, if any. */
   const [translateFor, setTranslateFor] = useState<string | null>(null)
+  const [fillFor, setFillFor] = useState<string | null>(null)
   const [showVideoExport, setShowVideoExport] = useState(false)
   /**
    * The render this session last started, kept here rather than in the dialog.
@@ -3410,6 +3413,94 @@ export default function ProjectView({
     }
   }
 
+  /**
+   * "Remplir…" (lib/fillFields.ts). Choosing the fields writes only
+   * `Screen.fill`; filling writes the code at parser-vouched offsets, no model.
+   * Into the screen itself it follows the conventions of every write (the code
+   * re-checked against the snapshot, `previousCode` for Revert, a version
+   * note); into a COPY it is the translation's path: the original is never
+   * written, and the copy carries the filled fields so it fills from its own
+   * words next time.
+   */
+  function saveFillFields(screenId: string, fields: FillField[] | undefined) {
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen) return
+    onUpdateScreen(screenId, { fill: fields })
+    setNotice(fields ? t('fill.fieldsSaved', { n: fields.length, name: screen.name }) : t('fill.fieldsCleared', { name: screen.name }))
+  }
+
+  async function fillScreen(screenId: string, values: Record<string, string>, into: 'copy' | 'here') {
+    if (busy) return
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen?.fill?.length) return
+    const codeAtStart = screen.code
+    setError(null)
+    try {
+      const res = await applyFill(codeAtStart, screen.fill, values, window.location.origin)
+      const reasons: Record<FillRefusal, string> = {
+        missing: t('fill.reason.missing'),
+        empty: t('fill.reason.empty'),
+        unsafe: t('fill.reason.unsafe'),
+        notImage: t('fill.reason.notImage'),
+      }
+      const labelOf = (id: string) => screen.fill?.find((f) => f.id === id)?.label ?? id
+      const refused = res.refused.length
+        ? ` ${t('fill.refused', { names: res.refused.map((r) => `${labelOf(r.id)} (${reasons[r.reason]})`).join(', ') })}`
+        : ''
+      if (!res.written.length) {
+        setNotice(`${t('fill.nothing')}${refused}`)
+        return
+      }
+      if (into === 'here') {
+        const now = screensRef.current.find((s) => s.id === screenId)
+        if (!now || now.code !== codeAtStart) return
+        noteChange(screenId, t('versions.note.fill'))
+        onUpdateScreen(screenId, {
+          code: res.code,
+          componentName: detectComponentName(res.code),
+          previousCode: now.code,
+          fill: res.fields,
+        })
+        setNotice(`${t('fill.done', { name: screen.name, n: res.written.length })}${refused}`)
+        return
+      }
+      // What the screen IS travels; what was said ABOUT it stays, as for a
+      // translated copy — and a campaign or publication place is the
+      // original's, not the copy's.
+      const {
+        id: _id,
+        x: _x,
+        y: _y,
+        links: _links,
+        userNotes: _notes,
+        route: _route,
+        quality: _quality,
+        campaign: _campaign,
+        publication: _publication,
+        previousCode: _prev,
+        ...rest
+      } = screen
+      const first = res.fields.find((f) => f.kind === 'text' && res.written.includes(f.id))
+      const value = first ? (first.value.length > 32 ? `${first.value.slice(0, 31)}…` : first.value) : t('fill.picture')
+      addScreenAndShow(
+        {
+          ...rest,
+          id: newId(),
+          name: t('fill.copyName', { name: screen.name, value }),
+          code: res.code,
+          createdAt: Date.now(),
+          links: [],
+          fill: res.fields,
+        },
+        { beside: screen.id },
+      )
+      setNotice(`${t('fill.doneCopy', { name: screen.name, n: res.written.length })}${refused}`)
+    } catch (err) {
+      const msg = err instanceof Error && /^unparsable/.test(err.message) ? t('fill.unparsable') : err instanceof Error ? err.message : String(err)
+      setError(t('fill.failed', { name: screen.name, error: msg }))
+    }
+  }
+
   function writeScreenFrames(screenId: string, nextCode: string) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
@@ -3673,6 +3764,17 @@ export default function ProjectView({
           onReplace={(code, sequence, swap) => swapScreenImages(imageSwapScreen.id, code, sequence, swap)}
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
+        />
+      )}
+      {fillFor && screens.some((x) => x.id === fillFor) && (
+        <FillDialog
+          screenName={screens.find((x) => x.id === fillFor)?.name ?? ''}
+          code={screens.find((x) => x.id === fillFor)?.code ?? ''}
+          fields={screens.find((x) => x.id === fillFor)?.fill ?? []}
+          projectId={project.id}
+          onSaveFields={(fields) => saveFillFields(fillFor, fields)}
+          onFill={(values, into) => void fillScreen(fillFor, values, into)}
+          onClose={() => setFillFor(null)}
         />
       )}
       {translateFor && screens.some((x) => x.id === translateFor) && (
@@ -5900,6 +6002,7 @@ export default function ProjectView({
                       <MenuItem icon="library" label={t('project.changeImages')} onClick={() => { close(); setImagesForScreen(s.id) }} />
                       <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
                       <MenuItem icon="translate" label={t('translate.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setTranslateFor(s.id) }} />
+                      <MenuItem icon="list" label={t('fill.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setFillFor(s.id) }} />
                       {/* A page does not move: animations mean nothing on a document. */}
                       {!s.page && (
                         <SubMenu icon="pulse" label={t('project.menuAnimations')}>

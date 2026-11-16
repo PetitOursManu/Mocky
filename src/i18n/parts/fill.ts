@@ -1,0 +1,78 @@
+/**
+ * Translations for "Remplir…" (`components/FillDialog.tsx`, `lib/fillFields.ts`).
+ * Same rules as every area: `fr` and `en` carry the same keys, placeholders are
+ * `{name}`. Called "champs à remplir", never "champs" alone: a document's
+ * "Champs" are the fillable PDF form fields (docs/documents.md).
+ */
+export const fill = {
+  fr: {
+    'fill.menu': 'Remplir…',
+    'fill.title': 'Remplir « {name} »',
+    'fill.tabFill': 'Remplir',
+    'fill.tabSetup': 'Choisir les champs',
+    'fill.setupHelp':
+      'Coche les textes et les images qui changent d’une fois sur l’autre (un plat, une date, un prix, une photo) et donne-leur un nom. Le reste du design ne bouge jamais.',
+    'fill.saveFields': 'Enregistrer les champs',
+    'fill.picture': 'Photo',
+    'fill.labelOf': 'Nom du champ « {text} »',
+    'fill.labelPlaceholder': 'Nom du champ (ex. Plat du lundi)',
+    'fill.noCandidates': 'Cet écran n’a ni texte ni image de la médiathèque à remplir.',
+    'fill.noFields': 'Cet écran n’a pas encore de champs à remplir.',
+    'fill.lost': 'Introuvables depuis une modification : {names}. Coche-les à nouveau s’ils doivent rester des champs.',
+    'fill.fillHelp':
+      'Les valeurs sont écrites à leur place dans le code, sans appel au modèle : la mise en page ne change pas. Un texte beaucoup plus long peut déborder ; un document le signale, et « Ajuster à la page » le corrige.',
+    'fill.missing': 'Introuvable : ce texte a été modifié depuis. Choisis à nouveau les champs.',
+    'fill.changePicture': 'Changer',
+    'fill.pickFor': 'Image pour « {label} »',
+    'fill.copy': 'Créer une copie remplie',
+    'fill.here': 'Remplir cet écran',
+    'fill.copyName': '{name} · {value}',
+    'fill.fieldsSaved': '{n} champ(s) à remplir enregistré(s) sur « {name} ».',
+    'fill.fieldsCleared': 'Les champs à remplir de « {name} » sont retirés.',
+    'fill.done': '« {name} » rempli : {n} champ(s) écrit(s).',
+    'fill.doneCopy': 'Copie remplie de « {name} » ajoutée à droite : {n} champ(s) écrit(s).',
+    'fill.nothing': 'Aucune valeur n’a changé : rien n’est écrit.',
+    'fill.refused': 'Non écrits : {names}.',
+    'fill.reason.missing': 'introuvable',
+    'fill.reason.empty': 'vide',
+    'fill.reason.unsafe': 'caractère { } < > impossible à cet endroit',
+    'fill.reason.notImage': 'image invalide',
+    'fill.failed': 'Le remplissage de « {name} » a échoué : {error}',
+    'fill.unparsable': 'Le code de l’écran ne peut pas être lu.',
+  },
+  en: {
+    'fill.menu': 'Fill in…',
+    'fill.title': 'Fill in “{name}”',
+    'fill.tabFill': 'Fill in',
+    'fill.tabSetup': 'Choose the fields',
+    'fill.setupHelp':
+      'Tick the texts and pictures that change from one time to the next (a dish, a date, a price, a photo) and give them a name. The rest of the design never moves.',
+    'fill.saveFields': 'Save the fields',
+    'fill.picture': 'Photo',
+    'fill.labelOf': 'Name of the field “{text}”',
+    'fill.labelPlaceholder': 'Field name (e.g. Monday’s dish)',
+    'fill.noCandidates': 'This screen has no text and no library picture to fill in.',
+    'fill.noFields': 'This screen has no fields to fill in yet.',
+    'fill.lost': 'Not found since an edit: {names}. Tick them again if they should stay fields.',
+    'fill.fillHelp':
+      'The values are written in place in the code, with no model call: the layout does not change. A much longer text may overflow; a document reports it, and “Fit to page” corrects it.',
+    'fill.missing': 'Not found: this text was changed since. Choose the fields again.',
+    'fill.changePicture': 'Change',
+    'fill.pickFor': 'Picture for “{label}”',
+    'fill.copy': 'Create a filled copy',
+    'fill.here': 'Fill this screen',
+    'fill.copyName': '{name} · {value}',
+    'fill.fieldsSaved': '{n} field(s) to fill saved on “{name}”.',
+    'fill.fieldsCleared': 'The fields to fill of “{name}” are removed.',
+    'fill.done': '“{name}” filled in: {n} field(s) written.',
+    'fill.doneCopy': 'Filled copy of “{name}” added on the right: {n} field(s) written.',
+    'fill.nothing': 'No value changed: nothing is written.',
+    'fill.refused': 'Not written: {names}.',
+    'fill.reason.missing': 'not found',
+    'fill.reason.empty': 'empty',
+    'fill.reason.unsafe': 'a { } < > character cannot go there',
+    'fill.reason.notImage': 'invalid picture',
+    'fill.failed': 'Filling in “{name}” failed: {error}',
+    'fill.unparsable': 'The screen’s code cannot be read.',
+  },
+}

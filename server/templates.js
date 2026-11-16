@@ -60,6 +60,7 @@ export const TEMPLATE_SCREEN_KEYS = [
   'device',
   'links',
   'route',
+  'fill',
 ]
 
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode })

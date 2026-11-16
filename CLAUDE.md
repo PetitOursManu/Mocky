@@ -1482,14 +1482,15 @@ Three things that will bite you:
 
 ## Rewrites without a model: translation, tokens, vision
 
-Three features share one rule: what a model laid out is not laid out again to
-change a language, a colour or a way of looking.
+Four features share one rule: what a model laid out is not laid out again to
+change a language, a colour, a way of looking or this week's dishes.
 
 ```
 src/lib/sourceText.ts      the parser's reading of a screen's words (I1), shared
 src/lib/translate.ts       "Traduire…": words out as numbered DATA, answers written at offsets
 src/lib/tokenPropagate.ts  a direction token changed → the screens still painting it
 src/lib/vision.ts          the canvas seen with a dichromacy, achromatopsia or blur
+src/lib/fillFields.ts      "Remplir…": fields the person picks, filled at parser offsets
 ```
 
 1. **Translation makes a COPY beside the screen** (decided with the user) and
@@ -1506,6 +1507,11 @@ src/lib/vision.ts          the canvas seen with a dichromacy, achromatopsia or b
 4. **The vision filter is on the `<iframe>` ELEMENT, from outside** — never in
    the srcDoc: no rebuild (I5), nothing the generated code can undo, and no
    capture or export sees it. Per browser, never on `Screen`.
+5. **A field to fill is ONE place, found again by what it says** (`lib/fillFields.ts`,
+   "Remplir…"): kind + value + `nth` occurrence, never an offset (an edit
+   shifts them all) and never matched everywhere (that is a campaign FACT).
+   A field an edit rewrote is reported missing, never guessed. The UI says
+   "champs à remplir": a document's "Champs" are its PDF form fields.
 
 ## The editorial calendar and Calendy
 

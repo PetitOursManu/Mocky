@@ -58,6 +58,7 @@ export const TEMPLATE_SCREEN_KEYS = [
   'device',
   'links',
   'route',
+  'fill',
 ] as const satisfies readonly (keyof Screen)[]
 
 export type TemplateScreen = Partial<Pick<Screen, (typeof TEMPLATE_SCREEN_KEYS)[number]>> & { id: string; code: string }

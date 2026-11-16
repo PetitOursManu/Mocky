@@ -1,7 +1,7 @@
 ---
 description: Démarrer un nouveau projet depuis une direction gardée, ou depuis un projet entier gardé comme modèle. Les deux sont dans Média, sous Design.
 badge: Nouveau
-source_hash: a70ed68637c7
+source_hash: 45eae4760427
 ---
 
 # Directions et modèles
@@ -68,6 +68,35 @@ rangée **Depuis mes designs** avec vos modèles et vos directions :
 - un **modèle** remplit ce projet avec ses écrans, sa direction et ses réglages.
   Il n’est proposé que tant que le projet est vide : un modèle est un point de
   départ, pas quelque chose qu’on fusionne dans un travail existant.
+
+## Écrans à remplir
+
+Un menu de la semaine, une affiche d’événement, une liste de prix : le même design
+à chaque fois, avec quelques mots et une photo qui changent. Clic droit sur
+l’écran → **Remplir…**.
+
+1. **Choisir les champs**, une fois. La fenêtre liste chaque texte qu’un lecteur
+   voit et chaque image de la médiathèque, dans l’ordre où la page les dit.
+   Cochez ceux qui changent — un plat, une date, un prix, une photo — et
+   donnez un nom à chacun (« Plat du lundi »). Les mêmes mots écrits deux fois
+   sont deux endroits : cochez celui que vous voulez.
+2. **Remplir**, à chaque fois. Le formulaire demande chaque champ par son nom,
+   déjà rempli de ce que dit l’écran ; une image se choisit dans la médiathèque.
+   - `Créer une copie remplie` ajoute le résultat à droite de l’écran, qui ne
+     change pas. La semaine suivante, remplissez depuis cette copie.
+   - `Remplir cet écran` écrit dans l’écran lui-même ; Annuler le défait.
+
+Les valeurs sont écrites à leur place dans le code, **sans appel au modèle** :
+rien d’autre ne bouge sur la page, et cela ne coûte rien, y compris avec l’offre
+gratuite. Une valeur qui ne peut pas aller là où on la demande (vide, ou un
+`{ } < >` dans un texte) n’est pas écrite, et l’avis la nomme. Un texte beaucoup
+plus long peut déborder : un document signale ses pages qui débordent, et
+`Ajuster à la page` les corrige.
+
+Un champ est retrouvé par ce qu’il dit. Si une modification ou un polissage
+réécrit ses mots, le champ est signalé **introuvable** plutôt que deviné :
+ouvrez `Choisir les champs` et cochez-le à nouveau. Les champs suivent l’écran
+dans un modèle : un modèle de projet de menu se remplit dès qu’il est créé.
 
 ## Limites
 
