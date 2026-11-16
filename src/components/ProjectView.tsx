@@ -49,6 +49,8 @@ import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/sc
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import { followRecolor } from '../lib/designFollow'
 import { planPropagation, propagateInto, tokenChanges, type PropagationPlan } from '../lib/tokenPropagate'
+import { LANG_NAMES, translateCode, type TranslateLang } from '../lib/translate'
+import TranslateDialog from './TranslateDialog'
 import { downloadZip, downloadTsx } from '../lib/export'
 import { downloadBlob } from '../lib/docExport/files'
 import type { WebExportKind } from '../lib/docExport/web'
@@ -535,6 +537,8 @@ export default function ProjectView({
    *  dialog must follow the record as it is rewritten, not a stale copy. */
   const [imagesForScreen, setImagesForScreen] = useState<string | null>(null)
   const [framesForScreen, setFramesForScreen] = useState<string | null>(null)
+  /** The screen whose "Traduire…" dialog is open, if any. */
+  const [translateFor, setTranslateFor] = useState<string | null>(null)
   const [showVideoExport, setShowVideoExport] = useState(false)
   /**
    * The render this session last started, kept here rather than in the dialog.
@@ -3332,6 +3336,80 @@ export default function ProjectView({
    * picture in a frame is the first `<ShapeFrame>` a screen may ever name, and a
    * screen that names a component its prelude does not define crashes.
    */
+  /**
+   * "Traduire…": a translated COPY beside the screen (lib/translate.ts). The
+   * original is never written, so there is no `codeAtStart` to re-check — the
+   * copy is made from the code as it was when the click happened, and says so
+   * by being a new screen. The usual AbortController, so Stop stops it. A
+   * document's copy reports its own overflowing pages, like any document, and
+   * "Ajuster à la page" is one right-click away: nothing automatic here.
+   */
+  async function translateScreen(screenId: string, lang: TranslateLang) {
+    if (busy) return
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen || !screen.code.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(t('translate.working', { name: screen.name, lang: LANG_NAMES[lang] }))
+    try {
+      const res = await translateCode(settings, screen.code, lang, ac.signal)
+      if (!res.total) {
+        setNotice(t('translate.nothing', { name: screen.name }))
+        return
+      }
+      // Everything the screen IS travels; what was said ABOUT it stays: its
+      // links and route drive the original's demo, its notes and quality report
+      // were written about other words, and a campaign piece's facts are in the
+      // original language — a copy that claimed them would read as out of date.
+      const {
+        id: _id,
+        x: _x,
+        y: _y,
+        links: _links,
+        userNotes: _notes,
+        route: _route,
+        quality: _quality,
+        campaign: _campaign,
+        previousCode: _prev,
+        ...rest
+      } = screen
+      addScreenAndShow(
+        {
+          ...rest,
+          id: newId(),
+          name: t('translate.copyName', { name: screen.name, code: lang.toUpperCase() }),
+          code: res.code,
+          createdAt: Date.now(),
+          links: [],
+        },
+        { beside: screen.id },
+      )
+      setNotice(
+        res.kept
+          ? t('translate.donePartial', { name: screen.name, lang: LANG_NAMES[lang], n: res.written, total: res.total, kept: res.kept })
+          : t('translate.done', { name: screen.name, lang: LANG_NAMES[lang], n: res.written }),
+      )
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setNotice(null)
+        return
+      }
+      const msg = err instanceof Error && /^unparsable/.test(err.message) ? t('translate.unparsable') : err instanceof Error ? err.message : String(err)
+      setNotice(null)
+      setError(t('translate.failed', { name: screen.name, error: msg }))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+    }
+  }
+
   function writeScreenFrames(screenId: string, nextCode: string) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
@@ -3595,6 +3673,13 @@ export default function ProjectView({
           onReplace={(code, sequence, swap) => swapScreenImages(imageSwapScreen.id, code, sequence, swap)}
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
+        />
+      )}
+      {translateFor && screens.some((x) => x.id === translateFor) && (
+        <TranslateDialog
+          screenName={screens.find((x) => x.id === translateFor)?.name ?? ''}
+          onTranslate={(lang) => void translateScreen(translateFor, lang)}
+          onClose={() => setTranslateFor(null)}
         />
       )}
       {framesScreen && (
@@ -5805,6 +5890,7 @@ export default function ProjectView({
                       <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                       <MenuItem icon="library" label={t('project.changeImages')} onClick={() => { close(); setImagesForScreen(s.id) }} />
                       <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
+                      <MenuItem icon="translate" label={t('translate.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setTranslateFor(s.id) }} />
                       {/* A page does not move: animations mean nothing on a document. */}
                       {!s.page && (
                         <SubMenu icon="pulse" label={t('project.menuAnimations')}>

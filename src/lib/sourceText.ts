@@ -54,12 +54,23 @@ const NOT_TRANSLATED_ATTRS = new Set([
   'pattern',
 ])
 
+/**
+ * Keys of a data object whose values are machinery: `{ id: 'pro', href: '/pro' }`.
+ * Not `name` or `title`: in a data array those are what a card prints.
+ */
+const MACHINERY_KEYS = /^(id|key|slug|url|path|href|src|img|image|photo|icon|class|className|cls|bg|color|tone|variant|type|kind|route|to|value|format|lang)$/i
+
 export interface TextRun {
   /** Offsets of the editable text in the source, quotes excluded. */
   start: number
   end: number
-  kind: 'jsx' | 'string' | 'template'
-  /** The quote of a string literal. */
+  /**
+   * `attr` is a JSX attribute's string, which is NOT a JavaScript string: it
+   * has no backslash escapes — `title='l\'équipe'` does not parse — and takes
+   * entities instead.
+   */
+  kind: 'jsx' | 'string' | 'template' | 'attr'
+  /** The quote of a string literal or an attribute. */
   quote?: string
 }
 
@@ -74,8 +85,9 @@ export async function loadTransform(): Promise<Transform | null> {
 export interface RunOptions {
   /**
    * Read for a translation: the attributes above are machinery too, a template
-   * chunk inside a `className` is a class list, and a string a reader could not
-   * pronounce — an address, a hex colour, a run with no letter — is not a word.
+   * chunk inside a `className` is a class list, a string a reader could not
+   * pronounce — an address, a hex colour, a run with no letter — is not a
+   * word, and a value the code COMPARES against is logic (see `logic` below).
    */
   translation?: boolean
 }
@@ -92,7 +104,7 @@ function machineryString(value: string): boolean {
   return false
 }
 
-/** Inside a `className={…}` (or `class`): what a template chunk there spells is classes. */
+/** Inside a `className={…}` (or `class`, `style`): what a template chunk there spells is not words. */
 function inClassAttribute(path: any): boolean {
   for (let p = path.parentPath; p; p = p.parentPath) {
     if (p.node?.type === 'JSXAttribute') return /^(className|class|style)$/.test(p.node.name?.name ?? '')
@@ -101,28 +113,38 @@ function inClassAttribute(path: any): boolean {
   return false
 }
 
+type ValuedRun = TextRun & { value?: string }
+
 /** The runs of the source a reader sees as words, in source order. Null when the code does not parse. */
 export async function textRuns(code: string, transform: Transform, opts: RunOptions = {}): Promise<TextRun[] | null> {
-  const runs: TextRun[] = []
+  const runs: ValuedRun[] = []
   const strict = !!opts.translation
-  const attrName = (parent: any): string | undefined => {
+  /**
+   * Values the code compares against or keys data by. `useState('Mensuel')`
+   * and `tab === 'Mensuel'` are one value in two places, and translating the
+   * first without the second breaks the screen's logic while every word on it
+   * reads right. So a value that appears anywhere as logic is translated
+   * nowhere — a tab label left in the original language is a cosmetic miss,
+   * a dead tab is a broken page.
+   */
+  const logic = new Set<string>()
+  const attrName = (parent: any): string => {
     const n = parent?.name
-    if (!n) return undefined
-    return n.type === 'JSXNamespacedName' ? `${n.namespace?.name}:${n.name?.name}` : n.name
+    if (!n) return ''
+    return n.type === 'JSXNamespacedName' ? `${n.namespace?.name}:${n.name?.name}` : n.name ?? ''
   }
   const skippedAttr = (parent: any) => {
     if (parent?.type !== 'JSXAttribute') return false
-    const name = attrName(parent) ?? ''
+    const name = attrName(parent)
     return NOT_TEXT_ATTRS.has(name) || (strict && (NOT_TRANSLATED_ATTRS.has(name) || /^on[A-Z]/.test(name)))
   }
   const plugin = () => ({
     visitor: {
       JSXText(path: any) {
         const n = path.node
-        if (typeof n.start === 'number' && n.value.trim()) {
-          if (strict && !/\p{L}/u.test(n.value)) return
-          runs.push({ start: n.start, end: n.end, kind: 'jsx' })
-        }
+        if (typeof n.start !== 'number' || !n.value.trim()) return
+        if (strict && !/\p{L}/u.test(n.value)) return
+        runs.push({ start: n.start, end: n.end, kind: 'jsx' })
       },
       StringLiteral(path: any) {
         const n = path.node
@@ -135,20 +157,24 @@ export async function textRuns(code: string, transform: Transform, opts: RunOpti
         // A string in a call such as classNames('…') or cn('…') is machinery too.
         if (parent?.type === 'CallExpression' && parent.callee?.type === 'Identifier' && /^(cn|clsx|classNames|cx)$/.test(parent.callee.name)) return
         if (strict) {
-          if (machineryString(n.value)) return
-          // `{ className: '…' }`, `{ href: '…' }` in a data array: keyed by a machinery name.
+          if (parent?.type === 'BinaryExpression' || parent?.type === 'SwitchCase' || parent?.type === 'MemberExpression') {
+            logic.add(n.value)
+            return
+          }
           if (parent?.type === 'ObjectProperty' && parent.value === n) {
             const key = parent.key?.name ?? parent.key?.value
-            if (typeof key === 'string' && (NOT_TEXT_ATTRS.has(key) || NOT_TRANSLATED_ATTRS.has(key) || /^(id|slug|url|path|img|photo|class|cls|bg|tone|variant)$/i.test(key))) return
+            if (typeof key === 'string' && MACHINERY_KEYS.test(key)) {
+              logic.add(n.value)
+              return
+            }
           }
-          // A comparison or a switch case is logic: `status === 'Payé'` must keep its spelling.
-          if (parent?.type === 'BinaryExpression' || parent?.type === 'SwitchCase' || parent?.type === 'MemberExpression') return
-          if (parent?.type === 'JSXExpressionContainer' && skippedAttr(path.parentPath?.parent)) return
+          if (machineryString(n.value)) return
         }
         const raw = code.slice(n.start, n.end)
         const quote = raw[0]
         if (quote !== '"' && quote !== "'") return
-        runs.push({ start: n.start + 1, end: n.end - 1, kind: 'string', quote })
+        const kind = parent?.type === 'JSXAttribute' ? 'attr' : 'string'
+        runs.push({ start: n.start + 1, end: n.end - 1, kind, quote, value: n.value })
       },
       TemplateElement(path: any) {
         const n = path.node
@@ -163,7 +189,10 @@ export async function textRuns(code: string, transform: Transform, opts: RunOpti
   } catch {
     return null
   }
-  return runs.sort((a, b) => a.start - b.start)
+  return runs
+    .filter((r) => !(strict && r.value !== undefined && logic.has(r.value)))
+    .map(({ value: _value, ...r }) => r)
+    .sort((a, b) => a.start - b.start)
 }
 
 /** Whether the code still parses as a screen does. */
@@ -181,10 +210,9 @@ export async function parses(code: string, transform?: Transform | null): Promis
 /** A new value escaped for where it goes, or null when it cannot go there safely. */
 export function escapeFor(run: TextRun, value: string): string | null {
   if (run.kind === 'jsx') return /[{}<>]/.test(value) ? null : value
-  if (run.kind === 'string') {
-    if (/[\n\r]/.test(value)) return null
-    return value.replace(/\\/g, '\\\\').replace(new RegExp(run.quote as string, 'g'), `\\${run.quote}`)
-  }
+  if (/[\n\r]/.test(value) && run.kind !== 'template') return null
+  if (run.kind === 'attr') return value.replace(new RegExp(run.quote as string, 'g'), run.quote === '"' ? '&quot;' : '&apos;')
+  if (run.kind === 'string') return value.replace(/\\/g, '\\\\').replace(new RegExp(run.quote as string, 'g'), `\\${run.quote}`)
   return value.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
 }
 

@@ -141,7 +141,7 @@ function emptyAnswer(info: { reasoned?: number; error?: string; truncated?: bool
   return new Error('The model returned an empty response.')
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   role: string
   content: string
   /** base64 image data (no data-URL prefix) for vision-capable models. */
@@ -163,7 +163,7 @@ export function stripDataUrl(dataUrl: string): string {
  * polishing a screen" rather than "Alice called the model"; nothing else changes
  * with it, and the header is never forwarded to the provider.
  */
-export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan' | 'creation-propose' | 'creation-review'
+export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan' | 'creation-propose' | 'creation-review' | 'translate'
 
 export async function chat(
   s: Settings,
