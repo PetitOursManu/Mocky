@@ -31,6 +31,7 @@ import {
   paidRefusal,
 } from './plan.js'
 import { cleanOwnText, ownKeysAllowed, ownTextView, usesOwnText } from './own-text.js'
+import { CalendyStore, calendyRouter } from './calendy.js'
 import { cleanProjectId, costOf, createSpendLedger, dayOf, priceKey } from './admin/spend.js'
 import { fetchPrices } from './admin/prices.js'
 import { createLockout } from './auth-lockout.js'
@@ -255,6 +256,8 @@ const thumbs = createThumbStore(DATA_DIR, { budget: diskBudget })
 const creations = createCreationStore(DATA_DIR, { budget: diskBudget })
 const templates = createTemplateStore(DATA_DIR, { budget: diskBudget })
 const reviews = createReviewStore(DATA_DIR)
+// Each account's link to its Calendy (server/calendy.js): the token stays here.
+const calendy = new CalendyStore(DATA_DIR)
 const dataEvents = createDataEvents()
 const runnerAuth = createRunnerAuth()
 
@@ -1995,6 +1998,7 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   for (const t of Object.keys(sessions)) if (sessions[t].u === id) delete sessions[t]
   saveSessions(sessions)
   presence.forget(id)
+  calendy.forget(id)
   const gone = users.find((u) => u.id === id)
   audit.record({ action: 'user.delete', actor: auditActor(req.user), target: auditActor(gone), ip: clientIp(req) })
   // Their share links go too. A capability URL outlives the account that minted
@@ -2377,6 +2381,9 @@ app.get('/api/data/events', (req, res) => {
 // The guard is attached to the two subpaths the router actually serves rather
 // than to the router's '/api' mount: mounting it on '/api' made it run for every
 // later /api/* route too, which silently put the public image bytes behind auth.
+// Campaign pieces sent to Calendy as ideas (server/calendy.js). Server-side
+// because Calendy refuses a browser's foreign Origin, and the token stays here.
+app.use('/api/calendy', calendyRouter({ store: calendy, requireUser }))
 app.use('/api/mcp', requireUser)
 app.use('/api/muse', requireUser)
 // A dossier is the most expensive verb in the app — up to six page fetches, a

@@ -3767,6 +3767,15 @@ export default function ProjectView({
         setFocus({ screenId: id, nonce: Date.now() })
       }}
       onFit={(id) => void fitDocument(id)}
+      onPublish={(id, publish) => {
+        // Only the piece's record moves: no code, so no previousCode and no
+        // note — a date is not a version of the design.
+        const s = screensRef.current.find((x) => x.id === id)
+        if (!s?.campaign) return
+        const { publish: _was, ...rest } = s.campaign
+        onUpdateScreen(id, { campaign: publish ? { ...rest, publish } : rest })
+      }}
+      screenOf={(id) => screensRef.current.find((x) => x.id === id)}
       onClose={() => setRightSlot((sl) => closeSlot(sl, 'campaign'))}
     />
   ) : null

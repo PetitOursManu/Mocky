@@ -106,11 +106,43 @@ export interface Campaign {
   formats: CampaignFormatId[]
 }
 
+/**
+ * When a piece goes out (lib/campaignSchedule.ts). On the PIECE, like its
+ * facts, so a reverted screen or a restored version carries its own date.
+ */
+export interface CampaignPublish {
+  /** `YYYY-MM-DD`, a calendar day — no time zone: the person means their own day. */
+  date: string
+  /** `HH:MM`, 24 h, when the hour matters; absent means "that day". */
+  time?: string
+  /**
+   * The post this piece became in Calendy, once sent. Calendy keeps no
+   * external id, so this is what makes a second send update the same post
+   * instead of creating a twin.
+   */
+  calendyId?: string
+}
+
 /** What a piece records about itself: `Screen.campaign`. */
 export interface ScreenCampaign {
   format: CampaignFormatId
   /** fact id → the value the piece was written with. */
   facts: Record<string, string>
+  publish?: CampaignPublish
+}
+
+const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** A stored publication record, validated, or undefined. */
+export function normalizePublish(p: unknown): CampaignPublish | undefined {
+  if (!p || typeof p !== 'object') return undefined
+  const raw = p as Partial<CampaignPublish>
+  if (typeof raw.date !== 'string' || !DATE_RE.test(raw.date)) return undefined
+  const out: CampaignPublish = { date: raw.date }
+  if (typeof raw.time === 'string' && TIME_RE.test(raw.time)) out.time = raw.time
+  if (typeof raw.calendyId === 'string' && /^[\w-]{1,64}$/.test(raw.calendyId)) out.calendyId = raw.calendyId
+  return out
 }
 
 export const BRIEF_MAX = 4000
@@ -157,7 +189,8 @@ export function normalizeScreenCampaign(c: unknown): ScreenCampaign | undefined 
   if (raw.facts && typeof raw.facts === 'object') {
     for (const [k, v] of Object.entries(raw.facts)) if (typeof v === 'string') facts[k.slice(0, 40)] = v.slice(0, FACT_VALUE_MAX)
   }
-  return { format: raw.format, facts }
+  const publish = normalizePublish(raw.publish)
+  return publish ? { format: raw.format, facts, publish } : { format: raw.format, facts }
 }
 
 /** The formats in the catalogue's order, which is the order they are made in. */

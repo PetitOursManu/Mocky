@@ -44,8 +44,10 @@ export async function updateCampaignPiece(req: {
   // The record keeps the facts the piece was written with, plus the new
   // values of the ones that changed — a fact added to the brief since is
   // still not one this piece says.
+  // Spread, not rebuilt: anything else the piece records (its publication
+  // date, the Calendy post it became) is not a fact and must survive an update.
   const campaign: ScreenCampaign = {
-    format: screen.campaign.format,
+    ...screen.campaign,
     facts: { ...screen.campaign.facts },
   }
   const now = factSnapshot(req.facts)

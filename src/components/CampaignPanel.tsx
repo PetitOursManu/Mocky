@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Banner, Button, Icon, IconButton, Panel, Spinner, Textarea } from '../ui'
 import { useT } from '../i18n'
 import { DocumentImageControl } from './ImageSourceControl'
+import CampaignCalendar from './CampaignCalendar'
 import type { DocumentImageChoice } from '../lib/documentPictures'
 import type { Project, Screen } from '../lib/project'
 import {
@@ -17,6 +18,7 @@ import {
   type Campaign,
   type CampaignFact,
   type CampaignFormatId,
+  type CampaignPublish,
 } from '../lib/campaign'
 
 /** How a piece came out of the last update. */
@@ -55,6 +57,8 @@ export default function CampaignPanel({
   onUpdate,
   onFocus,
   onFit,
+  onPublish,
+  screenOf,
   onClose,
 }: {
   project: Project
@@ -72,6 +76,10 @@ export default function CampaignPanel({
   onUpdate: (campaign: Campaign, screenIds: string[]) => void
   onFocus: (screenId: string) => void
   onFit: (screenId: string) => void
+  /** A piece's publication date set, moved or cleared (CampaignCalendar). */
+  onPublish: (screenId: string, publish: CampaignPublish | undefined) => void
+  /** A screen as it is NOW — a send outlives the render it started from. */
+  screenOf: (screenId: string) => Screen | undefined
   onClose: () => void
 }) {
   const t = useT()
@@ -375,6 +383,17 @@ export default function CampaignPanel({
               </>
             )}
           </section>
+        )}
+
+        {pieces.length > 0 && (
+          <CampaignCalendar
+            campaignName={project.name}
+            pieces={pieces}
+            locked={locked}
+            onPublish={onPublish}
+            onFocus={onFocus}
+            screenOf={screenOf}
+          />
         )}
       </div>
     </Panel>
