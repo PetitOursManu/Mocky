@@ -75,6 +75,9 @@ export type IconName =
   | 'template'
   | 'sortAsc'
   | 'sortDesc'
+  | 'eye'
+  | 'calendar'
+  | 'translate'
 
 /** Path data only — every icon shares the same 24×24 box and stroke settings. */
 const PATHS: Record<IconName, string> = {
@@ -177,6 +180,13 @@ const PATHS: Record<IconName, string> = {
   // letters, because the same button reverses a date and a screen count too.
   sortAsc: 'M4 6h6M4 12h9M4 18h12M19 19V5m0 0-3 3m3-3 3 3',
   sortDesc: 'M4 6h12M4 12h9M4 18h6M19 5v14m0 0-3-3m3 3 3-3',
+  // The canvas's vision simulation: an eye, because the control changes how
+  // the board is LOOKED at and nothing in the screens.
+  eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z',
+  calendar: 'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6ZM4 10h16M8 2v4M16 2v4',
+  // Two scripts and the arrow of a translation: a Latin A and a stroke for the
+  // other alphabet. `globe` already means "the web" in the composer.
+  translate: 'M3 5h8M7 3v2M5 5c0 4 3 7 6 8M10 5c0 4-3 8-7 9M13 21l4-10 4 10M14.5 17.5h5',
 }
 
 /** Icons whose shape reads better filled than stroked. */

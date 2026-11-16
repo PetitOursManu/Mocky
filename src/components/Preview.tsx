@@ -833,6 +833,7 @@ export default function Preview({
   generating,
   caps,
   animations,
+  visionFilter,
   onContentHeight,
   onDocPages,
   flow,
@@ -886,6 +887,12 @@ export default function Preview({
   caps?: string[]
   /** false = "Sans animation": already-generated screens hold still too. */
   animations?: boolean
+  /**
+   * A CSS `filter` laid on the iframe ELEMENT — the canvas's vision simulation
+   * (lib/vision.ts). Never part of the srcDoc: from outside it rebuilds
+   * nothing, the generated code cannot undo it, and no capture sees it.
+   */
+  visionFilter?: string
   /** Reports the rendered content height (px) — used by the "Full height" format. */
   onContentHeight?: (height: number) => void
   /**
@@ -1257,7 +1264,7 @@ export default function Preview({
           sandbox="allow-scripts"
           srcDoc={srcDoc}
           onLoad={handleFrameLoad}
-          style={{ borderRadius: radius }}
+          style={{ borderRadius: radius, filter: visionFilter }}
         />
       )}
       {(generating || (!ready && !error)) && (

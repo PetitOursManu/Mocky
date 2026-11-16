@@ -25,6 +25,7 @@ import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import CableLayer from './CableLayer'
 import CableConnect from './CableConnect'
 import { cullWindow, linksOf, readShowCables, routeCables, writeShowCables, type Cable } from '../lib/cables'
+import { DICHROMACY, feColorMatrixValues, readVision, VISION_MODES, visionFilterCss, visionFilterId, writeVision, type VisionMode } from '../lib/vision'
 import { Icon, IconButton } from '../ui'
 import { useT } from '../i18n'
 import { canvasScale, getPageFormat, isPageFormat, PAGE_GAP_PX } from '../lib/pageFormats'
@@ -384,6 +385,14 @@ export default function Canvas({
   const [annotateRect, setAnnotateRect] = useState<Box | null>(null)
   /** The quiet map of cables outside link mode — per browser, see `readShowCables`. */
   const [showCables, setShowCables] = useState(readShowCables)
+  const [vision, setVisionState] = useState<VisionMode>(readVision)
+  const [visionOpen, setVisionOpen] = useState(false)
+  const visionCss = visionFilterCss(vision)
+  const setVision = (mode: VisionMode) => {
+    setVisionState(mode)
+    writeVision(mode)
+    setVisionOpen(false)
+  }
   /** A cable whose socket was grabbed to plug it into another screen. */
   const [retargeting, setRetargeting] = useState<Cable | null>(null)
 
@@ -1366,6 +1375,7 @@ export default function Canvas({
                       retrying={fixingIds?.has(s.id)}
                       caps={s.caps}
                       animations={s.animations ?? animations}
+                      visionFilter={visionCss}
                       gl={glGranted.has(s.id)}
                       onContentHeight={(h) => onContentHeight?.(s.id, h)}
                     />
@@ -1405,6 +1415,7 @@ export default function Canvas({
                     retrying={fixingIds?.has(s.id)}
                     caps={s.caps}
                     animations={s.animations ?? animations}
+                    visionFilter={visionCss}
                     gl={glGranted.has(s.id)}
                   />
                   </div>
@@ -1693,7 +1704,64 @@ export default function Canvas({
         >
           <Icon name="cable" size={16} />
         </IconButton>
+        {/* The vision simulation (lib/vision.ts). From md only: under md this
+            bar floats over the canvas and its budget (above) is spent, and a
+            simulation of how a page reads is a desk tool, not a phone one. */}
+        <div className="relative hidden md:block">
+          <IconButton
+            variant="toolbar"
+            label={vision === 'none' ? t('canvas.vision') : t('canvas.visionOn', { mode: t(`canvas.vision.${vision}`) })}
+            active={vision !== 'none' || visionOpen}
+            aria-haspopup="menu"
+            aria-expanded={visionOpen}
+            onClick={() => setVisionOpen((v) => !v)}
+          >
+            <Icon name="eye" size={16} />
+          </IconButton>
+          {visionOpen && (
+            <>
+              <div className="fixed inset-0 z-menu" onClick={() => setVisionOpen(false)} />
+              <div
+                role="menu"
+                // Fixed width, hints wrapping: the canvas clips its children
+                // and a side panel may stand a third of a screen to the right.
+                className="menu-in absolute bottom-full left-0 z-menu mb-2 w-64 rounded-lg border border-line bg-raised p-1 shadow-2xl"
+                style={{ transformOrigin: 'bottom left' }}
+              >
+                <div className="kicker px-2.5 pb-1 pt-1">{t('canvas.vision')}</div>
+                {VISION_MODES.map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={vision === mode}
+                    onClick={() => setVision(mode)}
+                    className="flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left text-body-sm text-ink transition hover:bg-ink/5"
+                  >
+                    <Icon name="check" size={14} className={`mt-0.5 ${vision === mode ? 'text-accent-ink' : 'opacity-0'}`} />
+                    <span className="min-w-0">
+                      <span className="block font-medium">{t(`canvas.vision.${mode}`)}</span>
+                      {mode !== 'none' && <span className="block text-caption text-ink-faint">{t(`canvas.visionHint.${mode}`)}</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* The dichromacy filters the vision view points at, once for the whole
+          board. Mocky's own document, never a srcDoc: see lib/vision.ts. */}
+      <svg width="0" height="0" aria-hidden="true" focusable="false" className="pointer-events-none absolute">
+        <defs>
+          {(Object.keys(DICHROMACY) as (keyof typeof DICHROMACY)[]).map((mode) => (
+            <filter key={mode} id={visionFilterId(mode)} colorInterpolationFilters="linearRGB">
+              <feColorMatrix type="matrix" values={feColorMatrixValues(DICHROMACY[mode])} />
+            </filter>
+          ))}
+        </defs>
+      </svg>
 
       {/* Hint */}
       <div
