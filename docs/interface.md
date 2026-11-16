@@ -318,6 +318,7 @@ the product came to be invisible on a laptop.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM12 2v3M12 19v3M2 12h3M19 12h3M13.4 12a1.4 1.4 0 1 0-2.8 0a1.4 1.4 0 1 0 2.8 0"/></svg> | `Zoom to the latest screen` | Frames the most recent screen. Disabled when there is none. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Arrange` | Repacks the board, respecting each screen's real size — a mobile screen does not get a desktop-sized cell — then fits the result. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Show the cables between screens` / `Hide the cables between screens` | The map of the prototype, outside link mode — see below. Remembered by the browser. In link mode the cables are always drawn. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg> | `Vision` | Shows the canvas as seen with protanopia, deuteranopia, tritanopia or achromatopsia, or with blurred vision. A filter laid on the frames from outside: the screens, their thumbnails and every export are unchanged, and nothing is rebuilt. Remembered by the browser; from `md` up only. | free |
 
 ### What the mouse does
 
@@ -537,6 +538,7 @@ The menu of a document, which opens on its own two items:
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Edit DESIGN.md` | The full-page editor. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Change the media…` | Lists the images actually present in the code and swaps them, one place or everywhere. Sources: the library, an upload, or a fresh generation. | free / image |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Frames…` | Changes the shape, picture, framing or shadow of each picture in a shape on the screen, or puts one of its pictures in a frame. Rewrites the source with no model call; `Revert` undoes it. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h8M7 3v2M5 5c0 4 3 7 6 8M10 5c0 4-3 8-7 9M13 21l4-10 4 10M14.5 17.5h5"/></svg> | `Translate…` | Adds a translated **copy** to the right of the screen, in the language you pick; the original does not change. Only the words go to the model, as numbered data, and each answer is written back where its words were — the layout, the pictures and the code are identical. A value the code compares against (a tab's state) is never translated. On a document, the copy reports its own overflowing pages, and `Fit to page` is one right-click away. | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Delete screen` | One confirmation. | free |
 
 ### The submenus
@@ -765,8 +767,20 @@ other.
 | Control | What it does | Cost |
 |---|---|---|
 | A swatch | Selects the token. The panel then offers a hex field and `Apply`. | free |
-| `Apply` | **Rewrites that one token in DESIGN.md.** Every future generation follows the change; nothing already on the canvas moves. | free |
+| `Apply` | **Rewrites that one token in DESIGN.md.** Every future generation follows the change. Screens already on the canvas move only if you say so — see below. | free |
 | `Edit` | `Open the full DESIGN.md editor`. | free |
+
+**When the direction moves, the screens can follow.** Whatever moved it — a
+swatch, the DESIGN.md editor, `Use this design`, an edit that recoloured one
+screen — a notice above the composer counts the screens that still paint the
+old value (`2 screen(s) still use the old value: Accent #c6ff3d → #7a5cff`) and
+offers `Apply to the screens`. That rewrites those screens' code with no model
+call: the exact hex wherever it is written, and a heading or body font wherever
+it is named as a font. A Tailwind shade or a hex merely close to it is left
+alone and counted (`2 close but different colour(s) will stay as they are`): an
+approximation rewritten in silence would be a decision nobody made. Each screen
+gets `Revert`; a screen being worked on, or changed meanwhile, is skipped and
+said. `Dismiss` leaves everything as it is.
 
 ### Audit
 
@@ -972,6 +986,7 @@ actually made.
 | `Share this screen` | `Share (QR code)` | A lifetime of `1 hour`, `24 hours` or `7 days`, a QR code, and `Revoke`. | server |
 | `Media in “{name}”` | `Change the media…` | **Two sections, never one list.** `Images in the screen’s code`: per image, `Replace`, or `Everywhere ({n})` when the same file appears several times, or one slot at a time — this **rewrites the source**, and `Revert` undoes it. `Media attached to the screen (not in the code)`: a cut or a sequence to hang on the canvas card, and `Detach` — this **leaves the code alone**. `Upload a file` is free; `Generate` calls the image provider. | free / image |
 | `Frames — {name}` | `Frames…` | `The screen’s frames`: per frame, `Shape` opens the 73 shapes by family and the 3 × 3 `Framing` grid, `Picture` the image picker, `Shadow` a checkbox. `Pictures to put in a frame`: each `<img>` with a written address, and `Put in a frame`. A frame repeated in a list changes for every item, and its picture, which the code computes, is left to the model. | free |
+| `Translate “{name}”` | `Translate…` | `Language of the copy`: eleven languages that need no new script. `Translate` closes the dialog and runs; the notice says how many texts were translated and how many stayed in the original language. | model |
 
 The `Element` card, opened by clicking something in `Modify` mode, is the one
 place where three costs sit in one dialog:
@@ -1068,6 +1083,7 @@ this is the complete list.
 | `Polish (detect and correct)` | Screen context menu | The check itself calls a model for the rules a regex cannot settle, then up to two corrections. |
 | `Add animations` — `Subtle` / `Moderate` / `Rich` | Screen context menu | |
 | `Fit to page` | A document's context menu | One call, and two off-screen renders to measure before and after. |
+| `Translate…` | Screen context menu | One call for a normal screen (a long page is sent in batches); counts as a generation on the free plan. |
 | `Make this screen my DESIGN.md` | Screen context menu | |
 | `Derive a DESIGN.md` | Style panel, `Selected screen` block | |
 | `Text` → `Update` | Element card | **Only** when the text is not a unique verbatim match. Otherwise free and instant. |
@@ -1084,4 +1100,5 @@ this is the complete list.
 And the notable absences — things that look expensive and are not:
 `Evaluate` in the audit panel with `Deep analysis` off, `Suggest links`, `Use this design`, `Export`,
 `Download .tsx`, a document's `Download` (the PDF, the `.pptx` and the PNGs are all built in your browser), `Duplicate`, `Arrange`, the whole `System` panel, opening the
-`Motion Ultra` panel, and every format, frame and playback toggle in the product.
+`Motion Ultra` panel, `Apply to the screens` after a token change, the `Vision` view, a campaign's `.ics` and `.csv`, `Send to Calendy`
+(pictures rendered in your browser, no model), and every format, frame and playback toggle in the product.

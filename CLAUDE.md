@@ -1480,6 +1480,45 @@ Three things that will bite you:
    that is what lets `replaceFacts` work. Loosen that sentence in
    `campaignSection` and every update becomes a model call.
 
+## Rewrites without a model: translation, tokens, vision
+
+Three features share one rule: what a model laid out is not laid out again to
+change a language, a colour or a way of looking.
+
+```
+src/lib/sourceText.ts      the parser's reading of a screen's words (I1), shared
+src/lib/translate.ts       "Traduire…": words out as numbered DATA, answers written at offsets
+src/lib/tokenPropagate.ts  a direction token changed → the screens still painting it
+src/lib/vision.ts          the canvas seen with a dichromacy, achromatopsia or blur
+```
+
+1. **Translation makes a COPY beside the screen** (decided with the user) and
+   the model never sees the code. A string the code COMPARES against
+   (`tab === 'Mensuel'`) or keys data by is translated nowhere — `textRuns`'
+   `logic` set — or the copy's tabs die while every word reads right.
+2. **A JSX attribute's string takes entities, not backslashes.** `title='l'x'`
+   does not parse; `escapeFor` has an `attr` kind for it (`&apos;`).
+3. **Token propagation is OFFERED, never automatic, and exact only.** The offer
+   watches the direction itself (`lastDirectionRef` in ProjectView), so every
+   path that moves it is covered; a Tailwind shade or a near hex is counted,
+   never rewritten. `UTILITY_RE` matches `950|[1-9]00|50` in that order — the
+   other order read `bg-lime-500` as `lime-50`.
+4. **The vision filter is on the `<iframe>` ELEMENT, from outside** — never in
+   the srcDoc: no rebuild (I5), nothing the generated code can undo, and no
+   capture or export sees it. Per browser, never on `Screen`.
+
+## The editorial calendar and Calendy
+
+`ScreenCampaign.publish` (`date`, `time`, `calendyId`) is on the PIECE, like
+its facts. `updateCampaignPiece` spreads the record — rebuilding it erased the
+date on every fact update. `server/calendy.js` makes every call to Calendy:
+Calendy refuses a foreign `Origin` (403), so a browser cannot, and the token is
+per account in `calendy.json` and never sent back. It is NOT an SSRF bypass —
+Calendy is a public site — and no redirect is followed. Everything sent is an
+idea (`statut: "idee"`): never validate, schedule or publish for the person.
+One post per piece: Calendy's Instagram + Facebook visual is ONE shared
+carousel, and a campaign's 4:5 post and 1.91:1 Facebook visual are two pictures.
+
 ## Conventions
 
 - **Comments explain why, not what.** The house style is unusually discursive:

@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: c09a2d5af021
+source_hash: f1737a4c6474
 ---
 
 # L’interface
@@ -333,6 +333,7 @@ produit était devenu invisible sur un portable.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM12 2v3M12 19v3M2 12h3M19 12h3M13.4 12a1.4 1.4 0 1 0-2.8 0a1.4 1.4 0 1 0 2.8 0"/></svg> | `Zoomer sur le dernier écran` | Cadre l’écran le plus récent. Désactivé quand il n’y en a pas. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Réorganiser` | Range le plateau en respectant la taille réelle de chaque écran — un écran mobile n’obtient pas une case de bureau — puis cadre le résultat. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Afficher les câbles entre les écrans` / `Masquer les câbles entre les écrans` | La carte du prototype, hors du mode liens — voir plus bas. Retenu par le navigateur. En mode liens, les câbles sont toujours dessinés. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg> | `Vision` | Montre le canevas tel que le voit une personne protanope, deutéranope, tritanope ou achromate, ou avec une vision floue. Un filtre posé sur les frames de l’extérieur : les écrans, leurs vignettes et tous les exports sont inchangés, et rien n’est reconstruit. Retenu par le navigateur ; à partir de `md` seulement. | libre |
 
 ### Ce que fait la souris
 
@@ -565,6 +566,7 @@ Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Modifier DESIGN.md` | L’éditeur pleine page. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Changer les médias…` | Liste les images réellement présentes dans le code et les remplace, à un endroit ou partout. Sources : la bibliothèque, un import, ou une génération. | libre / image |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Cadres…` | Change la forme, l’image, le cadrage ou l’ombre de chaque image en forme de l’écran, ou met l’une de ses images dans un cadre. Réécrit la source sans appel au modèle ; `Revenir à la version précédente` l’annule. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h8M7 3v2M5 5c0 4 3 7 6 8M10 5c0 4-3 8-7 9M13 21l4-10 4 10M14.5 17.5h5"/></svg> | `Traduire…` | Ajoute une **copie** traduite à droite de l’écran, dans la langue choisie ; l’original ne change pas. Seuls les mots partent au modèle, numérotés, comme des données, et chaque réponse est réécrite à la place de ses mots — la mise en page, les images et le code sont identiques. Une valeur que le code compare (l’état d’un onglet) n’est jamais traduite. Sur un document, la copie signale elle-même ses pages qui débordent, et `Ajuster à la page` est à un clic droit. | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Supprimer l’écran` | Une confirmation. | libre |
 
 ### Les sous-menus
@@ -806,8 +808,22 @@ les confond.
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|
 | Une pastille de couleur | Sélectionne le token. Le panneau propose alors un champ hexadécimal et `Appliquer`. | libre |
-| `Appliquer` | **Réécrit ce token dans le DESIGN.md.** Toutes les générations suivantes suivent le changement ; rien de ce qui est déjà sur le canevas ne bouge. | libre |
+| `Appliquer` | **Réécrit ce token dans le DESIGN.md.** Toutes les générations suivantes suivent le changement. Les écrans déjà sur le canevas ne bougent que si vous le demandez — voir plus bas. | libre |
 | `Modifier` | `Ouvrir l’éditeur complet du DESIGN.md`. | libre |
+
+**Quand la direction bouge, les écrans peuvent suivre.** Quoi qui l’ait fait
+bouger — une pastille, l’éditeur du DESIGN.md, `Reprendre ce design`, une
+modification qui a recoloré un écran — un avis au-dessus du compositeur compte
+les écrans qui peignent encore l’ancienne valeur (`2 écran(s) utilisent encore
+l’ancienne valeur : Accent #c6ff3d → #7a5cff`) et propose `Appliquer aux
+écrans`. Cela réécrit le code de ces écrans sans appel au modèle : l’hex exact
+partout où il est écrit, et une police de titres ou de texte partout où elle
+est nommée comme police. Une nuance Tailwind ou un hex seulement proche est
+laissé tel quel et compté (`2 couleur(s) proches mais différentes resteront
+telles quelles`) : une approximation réécrite en silence serait une décision
+que personne n’a prise. Chaque écran garde `Revenir à la version précédente` ;
+un écran en cours de travail, ou modifié entre-temps, est sauté et l’avis le
+dit. `Ignorer` laisse tout comme avant.
 
 ### Audit
 
@@ -1022,6 +1038,7 @@ fait réellement.
 | `Partager cet écran` | `Partager (QR code)` | Une durée de `1 heure`, `24 heures` ou `7 jours`, un QR code, et `Révoquer`. | serveur |
 | `Médias de « {name} »` | `Changer les médias…` | **Deux sections, jamais une liste.** `Images dans le code de l’écran` : par image, `Remplacer`, ou `Partout ({n})` quand le même fichier apparaît plusieurs fois, ou un emplacement à la fois — cela **réécrit la source**, et `Revenir à la version précédente` l’annule. `Média attaché à l’écran (hors du code)` : un montage ou une séquence à poser sur la carte du canevas, et `Détacher` — cela **ne touche pas au code**. `Importer un fichier` est libre ; `Générer` appelle le fournisseur d’images. | libre / image |
 | `Cadres — {name}` | `Cadres…` | `Les cadres de l’écran` : par cadre, `Forme` ouvre les 73 formes par famille et la grille 3 × 3 du `Cadrage`, `Image` le sélecteur d’images, `Ombre` une case à cocher. `Les images à mettre dans un cadre` : chaque `<img>` à l’adresse écrite, et `Mettre dans un cadre`. Un cadre répété dans une liste change pour tous les éléments, et son image, que le code calcule, reste l’affaire du modèle. | libre |
+| `Traduire « {name} »` | `Traduire…` | `Langue de la copie` : onze langues qui ne demandent pas d’autre écriture. `Traduire` ferme la fenêtre et lance ; l’avis dit combien de textes ont été traduits et combien sont restés dans la langue d’origine. | modèle |
 
 La carte `Élément`, ouverte en cliquant quelque chose en mode `Modifier`, est le
 seul endroit où trois coûts cohabitent dans un même dialogue :
@@ -1124,6 +1141,7 @@ ci-dessous est un clic, et la liste est complète.
 | `Peaufiner (détecter et corriger)` | Menu contextuel d’un écran | La vérification elle-même appelle un modèle pour les règles qu’une expression régulière ne tranche pas, puis jusqu’à deux corrections. |
 | `Ajouter des animations` — `Subtiles` / `Modérées` / `Riches` | Menu contextuel d’un écran | |
 | `Ajuster à la page` | Menu contextuel d’un document | Un appel, et deux rendus hors écran pour mesurer avant et après. |
+| `Traduire…` | Menu contextuel d’un écran | Un appel pour un écran ordinaire (une longue page part en plusieurs lots) ; compte comme une génération sur l’offre gratuite. |
 | `Faire de cet écran mon DESIGN.md` | Menu contextuel d’un écran | |
 | `En déduire un DESIGN.md` | Panneau Style, bloc `Écran sélectionné` | |
 | `Texte` → `Mettre à jour` | Carte Élément | **Seulement** quand le texte ne correspond pas à une occurrence unique et littérale. Sinon, libre et immédiat. |
@@ -1141,5 +1159,6 @@ Et les absences notables — ce qui a l’air cher et ne l’est pas : `Évaluer
 le panneau Audit avec `Analyse approfondie` décochée, `Proposer des liens`,
 `Reprendre ce design`, `Exporter`,
 `Télécharger le .tsx`, le `Télécharger` d’un document (le PDF, le `.pptx` et les PNG sont tous fabriqués dans votre navigateur), `Dupliquer`, `Réorganiser`, tout le panneau `Système`,
-l’ouverture du panneau `Motion Ultra`, et chacune des bascules de format, de cadre et de
+l’ouverture du panneau `Motion Ultra`, `Appliquer aux écrans` après un changement de token, la vue `Vision`, le `.ics` et le `.csv`
+d’une campagne, `Envoyer dans Calendy` (images rendues dans votre navigateur, sans modèle), et chacune des bascules de format, de cadre et de
 lecture du produit.

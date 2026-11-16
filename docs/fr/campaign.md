@@ -1,7 +1,7 @@
 ---
 description: Un brief décliné en affiche, flyer, post et story — chaque création composée pour son format, avec les mêmes infos, la même direction artistique et les mêmes images.
 badge: Nouveau
-source_hash: 04f76e446fde
+source_hash: 9812f73c63aa
 ---
 
 # Campagne
@@ -131,6 +131,43 @@ direction du projet, et reprend les images de la campagne.
 
 ---
 
+## Calendrier éditorial
+
+:::why
+Une campagne est une suite autant qu’un ensemble : l’affiche part un mois
+avant, le post une semaine avant, la story le jour même. Une date gardée sur la
+création — pas dans un planning à part — voyage avec elle : un écran annulé ou
+une version restaurée porte sa propre date, et le calendrier n’est jamais en
+décalage avec les créations.
+:::
+
+Sous les créations, le panneau donne à chacune une **date** et, quand elle
+compte, une **heure**, et montre le mois avec une pastille par création
+(cliquez dessus pour voir la création).
+
+- `.ics` — un événement par création pour n’importe quel agenda (Google,
+  Outlook, Apple). L’heure est celle de Paris ; une création sans heure est un
+  événement sur la journée. Réimporter le fichier met les événements à jour au
+  lieu de les doubler.
+- `.csv` — la même liste pour un tableur, séparée par des points-virgules pour
+  qu’Excel l’ouvre telle quelle. Ses colonnes portent les noms des champs de
+  Calendy.
+- `Envoyer dans Calendy` — relie votre Calendy une fois (son adresse et un
+  jeton d’accès), puis envoie chaque **création sociale datée** comme **idée à
+  valider**, avec ses pages en images : post et story Instagram vers Instagram,
+  Facebook vers Facebook, LinkedIn vers LinkedIn. Les affiches et les flyers
+  n’ont pas de réseau et restent dans Mocky. Un nouvel envoi met à jour la même
+  idée — sa date, son heure et ses images — et ne touche jamais au texte écrit
+  dans Calendy entre-temps.
+
+:::why
+Mocky ne valide, ne programme et ne publie jamais à votre place : c’est l’onglet
+`À valider` de Calendy qui en décide. Les appels sont faits par le serveur de
+Mocky, pas par votre navigateur — Calendy refuse une requête venue d’un autre
+site, et le jeton, qui peut modifier votre calendrier, reste sur le serveur ; le
+navigateur sait seulement quel Calendy est relié.
+:::
+
 ## Depuis un assistant
 
 `create_campaign` fabrique la même campagne depuis Claude ou ChatGPT
@@ -155,3 +192,6 @@ panneau de savoir quelles créations un changement laisse en arrière — lu, ja
 stocké comme un drapeau, donc une version restaurée ou un écran annulé porte sa
 propre réponse. La page de validation d’un client montre les créations comme
 des écrans, et rien du brief.
+La date de publication d’une création et l’idée Calendy
+qu’elle est devenue sont gardées sur la création aussi ; le jeton de Calendy
+est gardé sur le serveur, par compte, et n’est jamais renvoyé au navigateur.

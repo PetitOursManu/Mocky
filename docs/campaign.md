@@ -124,6 +124,38 @@ reuses the campaign's pictures.
 
 ---
 
+## Editorial calendar
+
+:::why
+A campaign is a sequence as much as a set: the poster goes up a month before,
+the post a week before, the story on the day. A date kept on the piece — not in
+a separate planner — travels with it: a reverted screen or a restored version
+carries its own date, and the calendar is never out of step with the pieces.
+:::
+
+Under the pieces, the panel gives each one a **date** and, when it matters, an
+**hour**, and shows the month with a mark per piece (click it to see the piece).
+
+- `.ics` — one event per piece for any calendar (Google, Outlook, Apple). An
+  hour is Paris time; a piece with no hour is an all-day event. Importing the
+  file again updates the events instead of doubling them.
+- `.csv` — the same list for a spreadsheet, semicolon-separated so Excel opens
+  it as it is. Its columns are named after Calendy's fields.
+- `Send to Calendy` — links your Calendy once (its address and an access
+  token), then sends every **dated social piece** as an **idea to validate**,
+  with its pages as pictures: Instagram post and story to Instagram, Facebook to
+  Facebook, LinkedIn to LinkedIn. Posters and flyers have no network and stay in
+  Mocky. Sending again updates the same idea — its date, its hour and its
+  pictures — and never touches the text written in Calendy since.
+
+:::why
+Mocky never validates, schedules or publishes on your behalf: Calendy's own
+`To validate` tab is where that is decided. The calls are made by Mocky's
+server, not your browser — Calendy refuses a request from another site, and the
+token, which can change your calendar, stays on the server; the browser is only
+told which Calendy is linked.
+:::
+
 ## From an assistant
 
 `create_campaign` makes the same campaign from Claude or ChatGPT
@@ -147,3 +179,6 @@ keeps the values it was written with, which is how the panel knows which pieces
 a change leaves behind — read, never stored as a flag, so a version restored or
 a screen reverted carries its own answer. A client's approval page shows the
 pieces as screens and nothing of the brief.
+A piece's publication date and the Calendy idea it became
+are kept on the piece too; the Calendy token is kept on the server, per
+account, and is never sent back to the browser.
