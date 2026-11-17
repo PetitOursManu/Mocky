@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `campagne` | importer un PDF comme source du brief, des infos et des images | `eeec133` |
 | `campagne` | pack de publication, avec légendes par réseau, textes alternatifs et export complet | `0d42da1` |
 | `responsive` | comparer un écran sur mobile, tablette et bureau, et corriger les débordements en une fois | `69776cc` |
 | `blocs` | bibliothèque de blocs réutilisables, avec propagation des modifications | `4b3e528` |
