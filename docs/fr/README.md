@@ -1,5 +1,5 @@
 ---
-source_hash: 311dda7f11fa
+source_hash: 0e2284870c0f
 ---
 
 # Mocky
@@ -74,7 +74,8 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 - [Documents et posts pour les réseaux sociaux](documents.md) Faire un flyer, un rapport, un CV ou un post, et le télécharger en PDF, en présentation ou en images.
 - [Polices](fonts.md) Environ 200 polices que tout écran peut nommer, servies par Mocky lui-même.
 - [Ma marque, et exporter un écran](brand.md) Votre logo et votre identité appliqués à un projet ; un écran web en PNG ou en PowerPoint.
-- [Campagne](campaign.md) Décliner un brief en affiche, flyer, post et story ; changer une date et mettre à jour les créations qui la disent.
+- [Campagne](campaign.md) Décliner un brief — tapé, ou importé d’un PDF — en affiche, flyer, post et story ; changer une date et mettre à jour les créations qui la disent ; les dater, les envoyer dans Calendy, et télécharger le pack de publication avec ses légendes.
+- [Modèles, champs et blocs](templates.md) Partir d’un design gardé, remplir ses champs ou toute une série depuis un CSV, et réutiliser un en-tête ou un pied de page d’un écran à l’autre.
 - [Vue d'ensemble de Muse](muse/overview.md) Voir ce que Muse ajoute à une génération.
 - [Moteur d'inspiration](muse/inspiration-engine.md) Suivre Discover, Distill et Dossier en détail.
 - [Animations](muse/animations.md) Comprendre le système d'animations.

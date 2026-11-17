@@ -64,7 +64,8 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 - [Documents and social posts](documents.md) Make a flyer, a report, a résumé or a post, and download it as a PDF, a deck or images.
 - [Fonts](fonts.md) About 200 typefaces any screen can name, served by Mocky itself.
 - [My brand, and exporting a screen](brand.md) Your logo and identity applied to a project; a web screen as a PNG or a PowerPoint.
-- [Campaign Studio](campaign.md) Turn one brief into a poster, a flyer, a post and a story; change a date and update the pieces that say it.
+- [Campaign Studio](campaign.md) Turn one brief — typed, or imported from a PDF — into a poster, a flyer, a post and a story; change a date and update the pieces that say it; date them, send them to Calendy, and download the publication pack with its captions.
+- [Templates, fields and blocks](templates.md) Start from a saved design, fill its fields or a whole series from a CSV, and reuse a header or a footer across screens.
 - [Muse overview](muse/overview.md) See what Muse adds to a generation.
 - [Inspiration engine](muse/inspiration-engine.md) Follow Discover, Distill and Dossier in detail.
 - [Animations](muse/animations.md) Understand the animation system.
