@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `export` | contrôler le document avant de l'exporter | `be50690` |
 | `remplir` | créer une série de copies depuis un tableau CSV | `7a71b72` |
 | `règles` | retenir une correction comme règle, du projet ou de la marque | `743dc7d` |
 | `marque` | plusieurs marques par compte, avec règles et images | `241f82d` |
