@@ -1499,6 +1499,7 @@ src/lib/translate.ts       "Traduire…": words out as numbered DATA, answers wr
 src/lib/tokenPropagate.ts  a direction token changed → the screens still painting it
 src/lib/vision.ts          the canvas seen with a dichromacy, achromatopsia or blur
 src/lib/fillFields.ts      "Remplir…": fields the person picks, filled at parser offsets
+src/lib/fillSeries.ts      the "Série" tab: a CSV in, one filled copy per row out
 ```
 
 1. **Translation makes a COPY beside the screen** (decided with the user) and
@@ -1520,6 +1521,11 @@ src/lib/fillFields.ts      "Remplir…": fields the person picks, filled at pars
    shifts them all) and never matched everywhere (that is a campaign FACT).
    A field an edit rewrote is reported missing, never guessed. The UI says
    "champs à remplir": a document's "Champs" are its PDF form fields.
+6. **A series fills every copy from the ORIGINAL** (`fillSeries` in
+   ProjectView), never from the copy before: an empty cell means "the
+   screen's value", and chaining would turn it into "the previous row's". A
+   picture cell names a picture already in the library (hash, address, or the
+   imported file's name); a cell is never fetched as a URL.
 
 ## Several brands
 

@@ -3566,41 +3566,88 @@ export default function ProjectView({
         setNotice(`${t('fill.done', { name: screen.name, n: res.written.length })}${refused}`)
         return
       }
-      // What the screen IS travels; what was said ABOUT it stays, as for a
-      // translated copy — and a campaign or publication place is the
-      // original's, not the copy's.
-      const {
-        id: _id,
-        x: _x,
-        y: _y,
-        links: _links,
-        userNotes: _notes,
-        route: _route,
-        quality: _quality,
-        campaign: _campaign,
-        publication: _publication,
-        previousCode: _prev,
-        ...rest
-      } = screen
       const first = res.fields.find((f) => f.kind === 'text' && res.written.includes(f.id))
-      const value = first ? (first.value.length > 32 ? `${first.value.slice(0, 31)}…` : first.value) : t('fill.picture')
-      addScreenAndShow(
-        {
-          ...rest,
-          id: newId(),
-          name: t('fill.copyName', { name: screen.name, value }),
-          code: res.code,
-          createdAt: Date.now(),
-          links: [],
-          fill: res.fields,
-        },
-        { beside: screen.id },
-      )
+      addScreenAndShow(filledCopy(screen, res, first ? first.value : t('fill.picture')), { beside: screen.id })
       setNotice(`${t('fill.doneCopy', { name: screen.name, n: res.written.length })}${refused}`)
     } catch (err) {
       const msg = err instanceof Error && /^unparsable/.test(err.message) ? t('fill.unparsable') : err instanceof Error ? err.message : String(err)
       setError(t('fill.failed', { name: screen.name, error: msg }))
     }
+  }
+
+  /**
+   * A filled copy of a screen. What the screen IS travels; what was said ABOUT
+   * it stays, as for a translated copy — and a campaign or publication place is
+   * the original's, not the copy's. The copy carries its own filled fields, so
+   * it fills from its own words next time.
+   */
+  function filledCopy(screen: Screen, res: { code: string; fields: FillField[] }, label: string): Omit<Screen, 'x' | 'y'> {
+    const {
+      id: _id,
+      x: _x,
+      y: _y,
+      links: _links,
+      userNotes: _notes,
+      route: _route,
+      quality: _quality,
+      campaign: _campaign,
+      publication: _publication,
+      previousCode: _prev,
+      ...rest
+    } = screen
+    const value = label.length > 32 ? `${label.slice(0, 31)}…` : label
+    return {
+      ...rest,
+      id: newId(),
+      name: t('fill.copyName', { name: screen.name, value }),
+      code: res.code,
+      createdAt: Date.now(),
+      links: [],
+      fill: res.fields,
+    }
+  }
+
+  /**
+   * A series (lib/fillSeries.ts): one filled copy per row of a table, each
+   * from the ORIGINAL's code — never from the previous copy, or a row that left
+   * a cell empty would inherit the row before it instead of the screen's value.
+   * Each copy lands right of the one before, so the series reads as a row. A
+   * row that writes nothing makes nothing; refusals are reported by row.
+   */
+  async function fillSeries(screenId: string, rows: { label: string; values: Record<string, string> }[]) {
+    if (busy) return
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen?.fill?.length || !rows.length) return
+    const fields = screen.fill
+    setError(null)
+    const reasons: Record<FillRefusal, string> = {
+      missing: t('fill.reason.missing'),
+      empty: t('fill.reason.empty'),
+      unsafe: t('fill.reason.unsafe'),
+      notImage: t('fill.reason.notImage'),
+    }
+    const labelOf = (id: string) => fields.find((f) => f.id === id)?.label ?? id
+    const copies: Omit<Screen, 'x' | 'y'>[] = []
+    const problems: string[] = []
+    try {
+      for (const row of rows) {
+        const res = await applyFill(screen.code, fields, row.values, window.location.origin)
+        if (res.refused.length) problems.push(`${row.label} : ${res.refused.map((r) => `${labelOf(r.id)} (${reasons[r.reason]})`).join(', ')}`)
+        if (res.written.length) copies.push(filledCopy(screen, res, row.label))
+      }
+    } catch (err) {
+      const msg = err instanceof Error && /^unparsable/.test(err.message) ? t('fill.unparsable') : err instanceof Error ? err.message : String(err)
+      setError(t('fill.failed', { name: screen.name, error: msg }))
+      return
+    }
+    let anchor = screen.id
+    for (const copy of copies) {
+      onAddScreen(copy, { beside: anchor })
+      anchor = copy.id
+    }
+    if (copies.length) setFocus({ screenId: copies[0].id, nonce: Date.now() })
+    const refused = problems.length ? ` ${t('fill.refused', { names: problems.slice(0, 5).join(' ; ') + (problems.length > 5 ? '…' : '') })}` : ''
+    setNotice(copies.length ? `${t('fill.series.done', { n: copies.length, name: screen.name })}${refused}` : `${t('fill.nothing')}${refused}`)
   }
 
   function writeScreenFrames(screenId: string, nextCode: string) {
@@ -3938,6 +3985,7 @@ export default function ProjectView({
           projectId={project.id}
           onSaveFields={(fields) => saveFillFields(fillFor, fields)}
           onFill={(values, into) => void fillScreen(fillFor, values, into)}
+          onSeries={(rows) => void fillSeries(fillFor, rows)}
           onClose={() => setFillFor(null)}
         />
       )}

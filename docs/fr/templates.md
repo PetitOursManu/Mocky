@@ -1,7 +1,7 @@
 ---
 description: Démarrer un nouveau projet depuis une direction gardée, ou depuis un projet entier gardé comme modèle. Les deux sont dans Média, sous Design.
 badge: Nouveau
-source_hash: 45eae4760427
+source_hash: 28b89180a526
 ---
 
 # Directions et modèles
@@ -97,6 +97,31 @@ Un champ est retrouvé par ce qu’il dit. Si une modification ou un polissage
 réécrit ses mots, le champ est signalé **introuvable** plutôt que deviné :
 ouvrez `Choisir les champs` et cochez-le à nouveau. Les champs suivent l’écran
 dans un modèle : un modèle de projet de menu se remplit dès qu’il est créé.
+
+### Une série depuis un tableau
+
+Fiches produits, invitations nominatives, un mois de menus : une ligne du
+tableau, une copie de l’écran. Dans **Remplir…**, ouvrez l’onglet `Série`.
+
+1. `Télécharger le tableau modèle (.csv)` donne un fichier avec une colonne par
+   champ, à son nom, et une ligne avec ce que dit l’écran aujourd’hui.
+   Remplissez-le dans un tableur, une ligne par copie.
+2. Importez-le avec `Importer un CSV`, ou collez les lignes copiées du tableur,
+   ligne de titres comprise. Points-virgules, virgules et tabulations sont lus.
+3. Vérifiez quelle colonne remplit quel champ : Mocky les associe par leur nom,
+   et vous pouvez changer chacune ou garder la valeur de l’écran pour un champ.
+   `Nom des copies` choisit la colonne qui nomme les copies.
+4. La fenêtre liste les copies qu’elle va créer. `Créer les copies` les ajoute
+   en rang à droite de l’écran, qui ne change pas.
+
+Chaque copie est remplie depuis l’original, sans appel au modèle, et garde ses
+champs : elle se remplit ensuite toute seule. Une **case vide garde la valeur
+de l’écran** ; une ligne qui ne change rien ne crée pas de copie. Une photo se
+désigne par le nom du fichier importé dans la médiathèque (avec ou sans son
+extension), ou par son adresse dans la médiathèque : importez d’abord les
+photos, puis écrivez leur nom dans la colonne. Une photo que la médiathèque ne
+connaît pas est laissée telle quelle, et la fenêtre la nomme. Au plus 50 copies
+à la fois.
 
 ## Limites
 

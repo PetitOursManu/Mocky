@@ -5,8 +5,9 @@ import { defaultLabel, fillCandidates, locate, type FillCandidate, type FillFiel
 import { imageUrl } from '../lib/imageLibrary'
 import { newId } from '../lib/project'
 import { ImagePicker } from './ImagePicker'
+import FillSeries, { SERIES_FORM } from './FillSeries'
 
-type Tab = 'fill' | 'setup'
+type Tab = 'fill' | 'setup' | 'series'
 
 /**
  * "Remplir…" from a screen's menu (lib/fillFields.ts). Two tabs, because they
@@ -25,6 +26,7 @@ export default function FillDialog({
   projectId,
   onSaveFields,
   onFill,
+  onSeries,
   onClose,
 }: {
   screenName: string
@@ -33,6 +35,7 @@ export default function FillDialog({
   projectId: string
   onSaveFields: (fields: FillField[] | undefined) => void
   onFill: (values: Record<string, string>, into: 'copy' | 'here') => void
+  onSeries: (rows: { label: string; values: Record<string, string> }[]) => void
   onClose: () => void
 }) {
   const t = useT()
@@ -57,6 +60,8 @@ export default function FillDialog({
         cands ? (
           tab === 'setup' ? (
             <SetupFooter onCancel={onClose} />
+          ) : tab === 'series' ? (
+            <SeriesFooter onCancel={onClose} />
           ) : (
             <FillFooter onCancel={onClose} />
           )
@@ -71,6 +76,7 @@ export default function FillDialog({
           options={[
             { value: 'fill', label: t('fill.tabFill') },
             { value: 'setup', label: t('fill.tabSetup') },
+            { value: 'series', label: t('fill.series.tab') },
           ]}
         />
       </div>
@@ -79,6 +85,17 @@ export default function FillDialog({
         <Spinner className="h-5 w-5" />
       ) : cands === null ? (
         <Banner tone="warn">{t('fill.unparsable')}</Banner>
+      ) : tab === 'series' ? (
+        <FillSeries
+          cands={cands}
+          fields={fields}
+          screenName={screenName}
+          onSetup={() => setTab('setup')}
+          onSeries={(rows) => {
+            onSeries(rows)
+            onClose()
+          }}
+        />
       ) : tab === 'setup' ? (
         <Setup
           cands={cands}
@@ -139,6 +156,21 @@ function FillFooter({ onCancel }: { onCancel: () => void }) {
       <Button variant="primary" type="submit" form={FILL_FORM} name="into" value="copy">
         <Icon name="copy" size={16} />
         {t('fill.copy')}
+      </Button>
+    </>
+  )
+}
+
+function SeriesFooter({ onCancel }: { onCancel: () => void }) {
+  const t = useT()
+  return (
+    <>
+      <Button variant="ghost" onClick={onCancel}>
+        {t('common.cancel')}
+      </Button>
+      <Button variant="primary" type="submit" form={SERIES_FORM}>
+        <Icon name="copy" size={16} />
+        {t('fill.series.create')}
       </Button>
     </>
   )
