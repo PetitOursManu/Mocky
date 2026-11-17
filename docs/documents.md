@@ -270,6 +270,31 @@ pictures, so add them to the library and put them in the document. A picture in
 a shape that could not be read back is said too: it stays in the page's picture,
 right but not a frame of its own.
 
+### Checking before you export
+
+:::why
+The audit reads the code and the export's notices arrive with the file. Neither
+says that a photo will print at 90 dpi, that a phone number sits 1 mm from the
+cut, or that a badge will reach Canva as a picture: those are facts of the
+rendered page, and the time to hear them is before the file exists.
+:::
+
+At the top of the dialog, `Pre-export check` → `Check` opens the document the
+way the export does and measures it, without making a file and without a model
+call. One line per question:
+
+| Check | What it measures |
+|---|---|
+| `Photos` | Each photo's real resolution where it is drawn — a photo covering a box is judged by the axis it is stretched most on. On paper in dpi: under 150 it will be blurred, 150 to 220 sharp only from a distance. On a post or a slide, as a share of the pixels the file needs. A picture loaded from another site is named too: it is missing from every file. |
+| `Margins` | On paper, text less than 3 mm from the edge, which the guillotine may take. On a story, text under the bands Instagram covers at the top and bottom (250 px each). Other formats have no such zone. |
+| `Bleed` | Paper only: a background or a picture that runs to the edge. The PDF stops at the exact format, with no bleed, so a print shop will ask for 3 mm more — or a thin white line may show after cutting. Said as information: a design that runs to the edge is not a mistake. |
+| `Cut text` | Text past the page's edge (with `Fit to page` right there), and text hidden by its own box: past an `overflow-hidden`, behind an ellipsis or a line limit. |
+| `QR codes` | A box labelled "QR" with no picture in it — the placeholder a generation leaves — and a real code's printed size: under 2 cm, a phone struggles. Mocky does not decode the code itself, so scan it once. |
+| `File for Canva` | How many elements the `Everything as separate elements` file will carry as pictures because no shape draws them (shadows, blurs, effects), and the tilted or scaled words that stay in the page's picture in both .pptx files. |
+
+The report remembers the version it was made from: after a fit or an edit, it
+asks to be run again rather than describing a page that has changed.
+
 ### Taking the page apart
 
 :::why

@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: d2d365758d41
+source_hash: 36f512c90dcd
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -281,6 +281,32 @@ voyagent jamais : un export n’emporte que les images de Mocky ; ajoutez-les à
 bibliothèque et placez-les dans le document. Une image dans une forme qui n’a pas
 pu être relue est signalée aussi : elle reste dans l’image de la page, juste, mais
 pas en cadre à part.
+
+### Contrôler avant d’exporter
+
+:::why
+L’audit lit le code, et les avis de l’export arrivent avec le fichier. Aucun des
+deux ne dit qu’une photo sortira à 90 dpi, qu’un numéro de téléphone est à 1 mm
+de la coupe ou qu’un badge arrivera dans Canva en image : ce sont des faits de la
+page rendue, et c’est avant que le fichier existe qu’il faut les connaître.
+:::
+
+En haut de la fenêtre, `Contrôle avant export` → `Contrôler` ouvre le document
+comme le fait l’export et le mesure, sans créer de fichier ni appeler le modèle.
+Une ligne par question :
+
+| Contrôle | Ce qu’il mesure |
+|---|---|
+| `Photos` | La résolution réelle de chaque photo là où elle est dessinée — une photo qui couvre un cadre est jugée sur l’axe où elle est le plus agrandie. Sur papier en dpi : sous 150 elle sera floue, de 150 à 220 nette de loin seulement. Sur un post ou une diapositive, en part des pixels dont le fichier a besoin. Une image chargée depuis un autre site est nommée aussi : elle manque dans tous les fichiers. |
+| `Marges` | Sur papier, le texte à moins de 3 mm du bord, que le massicot peut emporter. Sur une story, le texte sous les bandeaux qu’Instagram affiche en haut et en bas (250 px chacun). Les autres formats n’ont pas de telle zone. |
+| `Fonds perdus` | Papier seulement : un fond ou une image qui va jusqu’au bord. Le PDF s’arrête au format exact, sans fond perdu : un imprimeur demandera 3 mm de plus, sinon un fin liseré blanc peut apparaître à la coupe. C’est une information : un design qui va jusqu’au bord n’est pas une erreur. |
+| `Texte coupé` | Le texte qui dépasse de la page (avec `Ajuster à la page` juste à côté), et le texte caché par son propre cadre : au-delà d’un `overflow-hidden`, derrière des points de suspension ou une limite de lignes. |
+| `QR codes` | Une case marquée « QR » sans image dedans — l’emplacement que laisse une génération — et la taille imprimée d’un vrai code : sous 2 cm, un téléphone peine. Mocky ne lit pas le code lui-même : scannez-le une fois. |
+| `Fichier pour Canva` | Le nombre d’éléments que le fichier `Tout en éléments séparés` portera en image faute de forme pour les dessiner (ombres, flous, effets), et les mots penchés ou agrandis qui restent dans l’image de la page dans les deux fichiers .pptx. |
+
+Le rapport retient la version dont il parle : après un ajustement ou une
+modification, il demande à être relancé plutôt que de décrire une page qui a
+changé.
 
 ### Démonter la page
 

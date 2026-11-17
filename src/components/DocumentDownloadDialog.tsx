@@ -5,6 +5,7 @@ import type { Screen } from '../lib/project'
 import { DEFAULT_PAGE_FORMAT, getPageFormat } from '../lib/pageFormats'
 import { exportDocument, type ExportKind, type ExportProgress, type RenderNotice } from '../lib/docExport'
 import { documentHasFields, startDownload } from '../lib/docExport/files'
+import DocumentPreflight from './DocumentPreflight'
 
 /**
  * Downloading a DOCUMENT screen (lib/pageFormats.ts): PDF with fillable
@@ -85,6 +86,8 @@ export default function DocumentDownloadDialog({
   const t = useT()
   const [lang] = useLang()
   const [state, setState] = useState<State>({ step: 'idle' })
+  // The pre-export check holds its own offscreen frame: one frame at a time.
+  const [checking, setChecking] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   // The run still unwinding after a cancel. A cancel disposes the offscreen
   // frame at once and the export races every step against the signal, so this
@@ -121,7 +124,7 @@ export default function DocumentDownloadDialog({
   }
 
   async function run(kind: ExportKind) {
-    if (running || empty) return
+    if (running || checking || empty) return
     abortRef.current?.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
@@ -223,7 +226,7 @@ export default function DocumentDownloadDialog({
           type="button"
           onClick={() => run(kind)}
           disabled={empty}
-          aria-disabled={running || undefined}
+          aria-disabled={running || checking || undefined}
           aria-describedby={`doc-export-${kind}-help`}
           className={`tap-target flex h-full w-full items-start gap-3 border px-4 py-2.5 text-left transition motion-reduce:transition-none disabled:cursor-not-allowed aria-disabled:cursor-not-allowed ${
             active
@@ -253,6 +256,12 @@ export default function DocumentDownloadDialog({
       {empty && (
         <div className="mt-3">
           <Banner tone="warn">{t('docExport.empty')}</Banner>
+        </div>
+      )}
+
+      {!empty && (
+        <div className="mt-4">
+          <DocumentPreflight screen={screen} disabled={running} onBusy={setChecking} onFit={onFit} />
         </div>
       )}
 

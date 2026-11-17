@@ -1128,6 +1128,18 @@ things that will bite you:
    switch to the webfont. Muse's dossier picks from the list and
    `settleTypography` (server/fonts) maps anything else onto it.
 
+## The pre-export check
+
+`lib/docExport/preflight.ts`, at the top of the download dialog
+(`DocumentPreflight.tsx`): the document opened by `openSettledDocument`, like
+the fit, and measured — photo resolution, safe zone, bleed, cut text, QR codes,
+what the Canva .pptx flattens. Two rules: the walk (`inspectPage`) only REPORTS
+numbers and every threshold is in `preflightChecks`, the pure half the tests
+reach; and it never makes a file or calls a model. In the in-app browser of
+the desktop app the offscreen document does not render (Local Network Access
+refuses `/vendor` to the opaque frame), so check the walk by calling
+`inspectPage` on a same-origin frame, as the export's own walks were.
+
 ## Folded leaflets, document Parcours, publications
 
 User doc: `docs/documents.md` ("Flyers: sizes and folds", "Several pages in a
