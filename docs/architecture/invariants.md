@@ -764,7 +764,7 @@ they paid for.
 
 ### U5. What Motion Ultra built is not taken away by another pass
 
-**The rule.** Three passes could undo a Motion Ultra screen, and none may:
+**The rule.** Four passes could undo a Motion Ultra screen, and none may:
 
 - **Polish.** On a Motion Ultra screen, `ULTRA_TREATMENTS` in
   `quality/policy.js` demotes glass, gradient type, halos, the spotlight, tight
@@ -778,6 +778,10 @@ they paid for.
 - **An edit.** Every correction path receives the kit's vocabulary through the
   screen's persisted capabilities, and `ultraLoss` reports an edit that dropped
   pictures or the kit, with "Revert" one click away.
+- **The size fix.** `Fix for all three sizes` rewrites the classes of the whole
+  screen, so an answer that lost the kit or a picture of the series is REFUSED
+  (`ultraLoss` in `correctResponsive`), not merely reported: that pass is told
+  to change nothing but breakpoints, so a loss there is a failure, not a choice.
 
 **What it protects.** A real run: a hero film placed over a storyboarded hero
 deleted its picture and its `<h1>`, and the user saw an empty hero on a page

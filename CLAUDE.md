@@ -76,15 +76,17 @@ prompt → [direction] → [Muse dossier] → [planner] → generateComponent()
 
 - `src/lib/generate.ts` — prompts, `chat()`, extraction. The complete generated
   source first exists at `guardMotion(extractCode(content))`, which appears in
-  **six** places: `generateComponent`, `editComponent`, `fixComponent`,
-  `polishComponent`, `auditFixComponent`, `fitComponent`. A post-generation
+  **seven** places: `generateComponent`, `editComponent`, `fixComponent`,
+  `polishComponent`, `auditFixComponent`, `fitComponent`,
+  `responsiveComponent`. A post-generation
   check that only hooks the first one misses edits, repairs, polishes,
-  accessibility corrections and page fits. In `generateComponent` it is now
+  accessibility corrections, page fits and size fixes. In `generateComponent` it is now
   `finishGeneratedCode`, which the MCP "client" engine also calls on code an
-  assistant's model wrote — a seventh entry, through the first. This note said "three" for an hour
+  assistant's model wrote — an eighth entry, through the first. This note said "three" for an hour
   after `polishComponent` was added — by the person who had just written the
   note — "four" until `auditFixComponent` arrived and "five" until
-  `fitComponent`. Count them with grep before trusting the number.
+  `fitComponent`, "six" until `responsiveComponent`. Count them with grep
+  before trusting the number.
 - `src/lib/plan.ts` — the optional planner. Runs only when `usePlanner` is on
   **and** Muse did not run. Also decides the screen's *mode*.
 - `src/components/Preview.tsx` — builds the sandboxed `srcDoc`. Invariant-dense;
@@ -145,12 +147,13 @@ no frame is ever both.
 **Locked elements** (`lib/locks.ts`): a lock is the attribute
 `data-mocky-lock` IN the code, so copies, versions, templates and direct
 writes carry it with no bookkeeping. `keepLocks` in `generate.ts` runs in the
-five passes that rewrite an existing screen (edit, fix, polish, audit fix, fit):
+six passes that rewrite an existing screen (edit, fix, polish, audit fix, fit,
+responsive):
 a locked element the pass changed is written back, one it removed refuses the
 pass (`LockedElementError`). A new pass that rewrites a screen calls it too.
 Enforced after the model, never trusted to it.
 
-There are four independent correction passes, and they are not interchangeable:
+There are five independent correction passes, and they are not interchangeable:
 
 | | Trigger | Prompt | Budget |
 |---|---|---|---|
@@ -158,6 +161,7 @@ There are four independent correction passes, and they are not interchangeable:
 | **Polish** | The user asks for it | `POLISH_PROMPT` — "fix these named findings, change nothing else" | `DEFAULT_MAX_ITERATIONS = 2` |
 | **Audit fix** | The user asks for it, from the SEO/a11y panel | `AUDIT_FIX_PROMPT` — "fix the markup, the screen must look identical" | `DEFAULT_MAX_ITERATIONS = 2` |
 | **Fit** | The user asks for it, from a document's right-click menu (or the download dialog's overflow notice) | `FIT_PROMPT` — "win back the measured pixels, same design, same pages" | one call per click, measured before AND after (`lib/docExport/fit.ts`) |
+| **Responsive** | The user asks for it, from the size comparison (`Compare phone, tablet, desktop…`) | `RESPONSIVE_PROMPT` — "hold at these three measured widths with breakpoints, desktop unchanged" | one call per click, measured at three widths before AND after (`lib/responsive.ts`) |
 
 They share the transport, `runPolishLoop` and the write-back conventions, and
 nothing else (Fit does not use `runPolishLoop`: its progress is pixels, not rule
@@ -247,7 +251,8 @@ Four things that will bite you:
 2. **The storyboard decides the mode, not `inferMode`.** The keyword guess is
    biased to `operate`, and on `operate` only app recipes are allowed — a
    product page came back as an app shell before this.
-3. **Three passes must not undo a Motion Ultra screen** (U5): Polish
+3. **Four passes must not undo a Motion Ultra screen** (U5): the size fix
+   (`correctResponsive` REFUSES an answer with an `ultraLoss`), Polish
    (`ULTRA_TREATMENTS` in `policy.js`), a film (there is no automatic film any
    more; the video background folds a full-bleed picture of its section UNDER
    the film, `filmSlot.ts`), and an edit (`ultraLoss`). A new pass that rewrites screens joins this list.
@@ -1538,6 +1543,28 @@ src/lib/fillSeries.ts      the "Série" tab: a CSV in, one filled copy per row o
    screen's value", and chaining would turn it into "the previous row's". A
    picture cell names a picture already in the library (hash, address, or the
    imported file's name); a cell is never fetched as a URL.
+
+## The size comparison
+
+`Compare phone, tablet, desktop…` (`ResponsiveCompare.tsx`, `lib/responsive.ts`,
+user doc `docs/interface.md`, "The size comparison"): the screen in three live
+previews at the presets' widths, what overflows outlined, one correction
+measured before it is kept. Three things:
+
+1. **The measurement runs IN the preview frame**, because the outlines
+   (`pickMarks`) are drawn there with the same `cssPath`. Preview inlines
+   `measureOverflowIn.toString()` into the frame script, so that function stays
+   self-contained (no import, no module constant) and backtick-free; the test
+   runs it from its own source.
+2. **A measurement is asked only of a document built from the CURRENT code**
+   (`readyFor` in Preview). When the code changes, `ready` stays true for a
+   commit and the srcDoc is rebuilt half a second later: the first version asked
+   in between, the previous document answered, and every correction was judged
+   on the screen it replaced — "rejected", always. Same reason the dialog derives
+   its round DURING render, not in an effect.
+3. **Scrolling follows an element, not a pixel**: the frame under a line 30% down
+   the viewport, by `cssPath`, which names the same element at every width
+   because it is the same code.
 
 ## Reusable blocks
 

@@ -1,5 +1,5 @@
 ---
-source_hash: 51d612f90a8d
+source_hash: 8c202bbd54eb
 ---
 
 # Invariants
@@ -816,7 +816,7 @@ l'utilisateur dans ce qu'il a payé.
 
 ### U5. Ce que Motion Ultra a construit n'est pas défait par une autre passe
 
-**La règle.** Trois passes pourraient défaire un écran Motion Ultra, et aucune
+**La règle.** Quatre passes pourraient défaire un écran Motion Ultra, et aucune
 n'en a le droit :
 
 - **Polish.** Sur un écran Motion Ultra, `ULTRA_TREATMENTS` dans
@@ -831,6 +831,11 @@ n'en a le droit :
 - **Une retouche.** Chaque chemin de correction reçoit le vocabulaire du kit par
   les capacités enregistrées de l'écran, et `ultraLoss` signale une retouche qui a
   retiré des images ou le kit, avec « Revenir » à un clic.
+- **La correction des tailles.** `Corriger pour les trois tailles` réécrit les
+  classes de tout l'écran : une réponse qui a perdu le kit ou une image de la
+  série est donc REFUSÉE (`ultraLoss` dans `correctResponsive`), pas seulement
+  signalée. Cette passe n'a le droit de changer que des points de rupture, une
+  perte y est un échec, pas un choix.
 
 **Ce que ça protège.** Un vrai essai : un film héros placé sur un héros
 storyboardé a supprimé son image et son `<h1>`, et l'utilisateur a vu un héros

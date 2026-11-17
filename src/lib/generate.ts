@@ -184,7 +184,7 @@ export function stripDataUrl(dataUrl: string): string {
  * polishing a screen" rather than "Alice called the model"; nothing else changes
  * with it, and the header is never forwarded to the provider.
  */
-export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan' | 'creation-propose' | 'creation-review' | 'translate'
+export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan' | 'creation-propose' | 'creation-review' | 'translate' | 'responsive'
 
 export async function chat(
   s: Settings,
@@ -1268,6 +1268,68 @@ export async function fitComponent(
     { role: 'system', content: system },
     { role: 'user', content: user },
   ], signal, undefined, undefined, 'fit')
+  const kept = await keepLocks(code, await guardMotion(extractCode(content)))
+  return { raw: content, ...kept, componentName: detectComponentName(kept.code) }
+}
+
+const RESPONSIVE_PROMPT = `You are making a web screen hold at every width. It is a React component styled with Tailwind CSS v3 that runs inside a sandbox. React, its hooks, and a FIXED set of helper globals are provided — nothing can be imported.
+
+You will be given the component and a measurement taken at three viewport widths — a phone, a tablet and a desktop — listing every element that runs past the edge of the viewport or whose text is cut inside its own box, by how many pixels, with its tag, its classes and its text. ONE component serves all three widths: fix it once, so that it holds at every one of them, and change NOTHING else about the design.
+
+Rules:
+- Use Tailwind's responsive prefixes (sm: md: lg: xl:), mobile-first: the unprefixed class is the PHONE's, and a prefix restores the wider layout. At the desktop width the screen must look exactly as it does now.
+- The usual causes, and their fixes: a fixed width (w-[720px], min-w-[...]) → w-full with a max-w-; a row that cannot wrap → flex-wrap, or flex-col that becomes md:flex-row; a grid with too many columns → grid-cols-1 sm:grid-cols-2 lg:grid-cols-N; display type too large for a phone → a smaller size with the current one behind md: or lg:; a long word or URL → break-words; large horizontal padding or gaps → smaller ones on the phone; a decoration that bleeds → overflow-hidden on its section.
+- Keep every section, every heading, every picture and every line of copy, in the same order, with the same palette and typefaces. Never hide content to make it fit, unless an equivalent is already shown at that width (a desktop menu replaced by an existing mobile one).
+- A container that is MEANT to scroll sideways (a carousel, a table in an overflow-x-auto wrapper) is not a finding: leave it.
+- If a listed element is genuinely fine, leave it alone rather than inventing a change.
+
+Return the COMPLETE corrected component in a single fenced jsx code block. No prose.`
+
+/**
+ * Asks the model to make a screen hold at a phone's, a tablet's and a
+ * desktop's width at once, given what overflows at each.
+ *
+ * A fifth sibling of the correction passes, separate for their reason: the
+ * instruction is the feature. FIT_PROMPT spends vertical space on a fixed page
+ * and forbids touching the page's size; this one spends nothing and adds
+ * breakpoints to a page whose width is the variable. AUDIT_FIX_PROMPT forbids
+ * changing a class, and a class is exactly what a breakpoint is. The caller
+ * (ResponsiveCompare) renders the answer at the three widths and measures it
+ * again BEFORE it is written back.
+ *
+ * Unlike the fit, this one can run on a Motion Ultra screen, so it is one of
+ * the passes U5 protects: ProjectView refuses an answer that lost the kit or a
+ * picture of the series (`ultraLoss`).
+ *
+ * The SEVENTH place the complete generated source first exists as
+ * `guardMotion(extractCode(content))`.
+ */
+export async function responsiveComponent(
+  s: Settings,
+  code: string,
+  findings: string,
+  signal?: AbortSignal,
+  caps?: Capability[],
+): Promise<GeneratedComponent> {
+  const capsPrompt = caps && caps.length ? buildCapabilitiesPrompt(caps) : ''
+  const system = capsPrompt ? `${RESPONSIVE_PROMPT}\n${capsPrompt}` : RESPONSIVE_PROMPT
+  const user = [
+    'Make this screen hold at every width.',
+    '',
+    '```jsx',
+    code,
+    '```',
+    '',
+    'Measurement:',
+    findings,
+    '',
+    'Return the COMPLETE corrected component. Nothing may run past the viewport at any of the three widths, and the desktop must look the same.',
+    ...(await lockLines(code)),
+  ].join('\n')
+  const content = await chat(s, [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ], signal, undefined, undefined, 'responsive')
   const kept = await keepLocks(code, await guardMotion(extractCode(content)))
   return { raw: content, ...kept, componentName: detectComponentName(kept.code) }
 }

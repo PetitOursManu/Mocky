@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 5782e195ec83
+source_hash: 39003f6cdf51
 ---
 
 # L’interface
@@ -589,6 +589,7 @@ Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h8M7 3v2M5 5c0 4 3 7 6 8M10 5c0 4-3 8-7 9M13 21l4-10 4 10M14.5 17.5h5"/></svg> | `Traduire…` | Ajoute une **copie** traduite à droite de l’écran, dans la langue choisie ; l’original ne change pas. Seuls les mots partent au modèle, numérotés, comme des données, et chaque réponse est réécrite à la place de ses mots — la mise en page, les images et le code sont identiques. Une valeur que le code compare (l’état d’un onglet) n’est jamais traduite. Sur un document, la copie signale elle-même ses pages qui débordent, et `Ajuster à la page` est à un clic droit. | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z"/></svg> | `Remplir…` | Les **champs à remplir** de l’écran : on coche une fois les textes et les images qui changent (un plat, une date, une photo) et on les nomme, puis on remplit une copie à côté de l’écran ou l’écran lui-même. Écrit à sa place, sans modèle. Voir [Écrans à remplir](templates.md#ecrans-a-remplir). | gratuit |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4V3ZM12 7v6M9 10h6"/></svg> | `Insérer un bloc…` | Place un **bloc** enregistré — un en-tête, un bandeau, une carte, un pied de page — à la fin de l’écran, ou sur la dernière page d’un document. Écrit à sa place, sans modèle. Voir [Blocs réutilisables](templates.md#blocs-reutilisables). | gratuit |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Comparer mobile, tablette, bureau…` | Un écran ordinaire seulement : l’ouvre à 390, 820 et 1440 px côte à côte, qui défilent ensemble. Ce qui dépasse à chaque largeur est entouré dans l’aperçu et listé avec son dépassement en pixels. `Corriger pour les trois tailles` demande une seule correction avec des points de rupture, gardée seulement si elle mesure mieux. Voir [La comparaison des tailles](#la-comparaison-des-tailles). | gratuit ; modèle pour la correction |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Supprimer l’écran` | Une confirmation. | libre |
 
 ### Les sous-menus
@@ -1061,6 +1062,7 @@ fait réellement.
 | `Médias de « {name} »` | `Changer les médias…` | **Deux sections, jamais une liste.** `Images dans le code de l’écran` : par image, `Remplacer`, ou `Partout ({n})` quand le même fichier apparaît plusieurs fois, ou un emplacement à la fois — cela **réécrit la source**, et `Revenir à la version précédente` l’annule. `Média attaché à l’écran (hors du code)` : un montage ou une séquence à poser sur la carte du canevas, et `Détacher` — cela **ne touche pas au code**. `Importer un fichier` est libre ; `Générer` appelle le fournisseur d’images. | libre / image |
 | `Cadres — {name}` | `Cadres…` | `Les cadres de l’écran` : par cadre, `Forme` ouvre les 73 formes par famille et la grille 3 × 3 du `Cadrage`, `Image` le sélecteur d’images, `Ombre` une case à cocher. `Les images à mettre dans un cadre` : chaque `<img>` à l’adresse écrite, et `Mettre dans un cadre`. Un cadre répété dans une liste change pour tous les éléments, et son image, que le code calcule, reste l’affaire du modèle. | libre |
 | `Traduire « {name} »` | `Traduire…` | `Langue de la copie` : onze langues qui ne demandent pas d’autre écriture. `Traduire` ferme la fenêtre et lance ; l’avis dit combien de textes ont été traduits et combien sont restés dans la langue d’origine. | modèle |
+| `Tailles d’écran — {name}` | `Comparer mobile, tablette, bureau…` | Trois aperçus vivants, animations coupées, avec `Défilement synchronisé`. Chaque colonne dit `Rien ne dépasse` ou `{n} débordement(s)`. | gratuit ; modèle pour la correction |
 
 La carte `Élément`, ouverte en cliquant quelque chose en mode `Modifier`, est le
 seul endroit où trois coûts cohabitent dans un même dialogue :
@@ -1111,19 +1113,19 @@ Deux écrans sont sélectionnés, et vous appuyez sur le bouton principal du com
 > Avec une sélection, le bouton devient `Mettre à jour (2)` et modifie ces écrans. `tout désélectionner`, à côté des puces, vide la sélection pour que la demande suivante crée un écran.
 :::
 
-### Les quatre passes de correction
+### Les cinq passes de correction
 
-Mocky peut réécrire un écran pour quatre raisons différentes, et les quatre ne
+Mocky peut réécrire un écran pour cinq raisons différentes, et les cinq ne
 sont pas interchangeables. Les fusionner est la refonte tentante, et elle les
 casse toutes.
 
-| | Réparation | `Peaufiner (détecter et corriger)` | `Corriger` / `Tout corriger` | `Ajuster à la page` |
-|---|---|---|---|---|
-| **Où** | Nulle part — aucun bouton | Menu contextuel d’un écran | Le panneau `Audit` | Menu contextuel d’un document |
-| **Déclencheur** | L’iframe d’aperçu signale une erreur d’affichage ou de compilation | Vous le demandez | Vous le demandez | Vous le demandez |
+| | Réparation | `Peaufiner (détecter et corriger)` | `Corriger` / `Tout corriger` | `Ajuster à la page` | `Corriger pour les trois tailles` |
+|---|---|---|---|---|---|
+| **Où** | Nulle part — aucun bouton | Menu contextuel d’un écran | Le panneau `Audit` | Menu contextuel d’un document | La fenêtre `Tailles d’écran` |
+| **Déclencheur** | L’iframe d’aperçu signale une erreur d’affichage ou de compilation | Vous le demandez | Vous le demandez | Vous le demandez | Vous le demandez |
 | **Ce qu’on lui dit** | Corrige *seulement* l’erreur, ne restyle rien | Corrige ces points nommés, ne change rien d’autre | Corrige le balisage ; l’écran doit être identique ensuite | Regagne ces pixels mesurés ; même design, mêmes pages |
-| **Budget** | 2 tentatives | 2 itérations | 2 itérations | 1 appel par clic, mesuré avant et après |
-| **Coût** | modèle, automatique | modèle | modèle | modèle |
+| **Budget** | 2 tentatives | 2 itérations | 2 itérations | 1 appel par clic, mesuré avant et après | 1 appel par clic, mesuré aux trois largeurs avant et après |
+| **Coût** | modèle, automatique | modèle | modèle | modèle | modèle |
 
 Relisez la ligne du milieu : chaque consigne est mortelle pour les autres.
 
@@ -1144,7 +1146,47 @@ est `runPolishLoop`, et elle est générique sur son type de rapport préciséme
 pour cela : les règles d’arrêt méritent d’être écrites une fois, et les
 vérifications qui les alimentent ne sont pas la même vérification. `Ajuster à la
 page` mesure le progrès en pixels plutôt qu’en identifiants de règle, et garde
-donc son étape unique.
+donc son étape unique, comme `Corriger pour les trois tailles`, en pixels à trois
+largeurs. Sa consigne est l’inverse de celle de l’ajustement : l’ajustement prend
+de la place en hauteur sur une page de taille fixe, celle-ci ajoute des points de
+rupture à une page dont la largeur varie, et doit laisser le bureau tel qu’il
+était.
+
+### La comparaison des tailles
+
+:::why
+Un écran est conçu à une largeur, et le canevas le montre à cette largeur. La
+version téléphone se découvre sur le téléphone d’un client.
+:::
+
+`Comparer mobile, tablette, bureau…` affiche le même code trois fois, aux
+largeurs des préréglages du compositeur (390, 820 et 1440 px), et chaque aperçu
+se mesure lui-même :
+
+- **contenu coupé** : un texte, une image ou une commande qui franchit le bord de
+  l’écran, ou d’un bloc qui masque ce qui dépasse. Seul le contenu coupé
+  **en partie** compte : un élément entièrement au-delà d’un bord y est placé
+  exprès (un bandeau défilant, un tiroir fermé).
+- **défilement sur le côté** : les blocs qui rendent la page entière plus large
+  que l’écran — souvent une décoration qui déborde d’une section qui ne la masque
+  pas.
+
+Ne comptent pas : un conteneur fait pour défiler sur le côté (un carrousel), un
+texte qui finit par des points de suspension, un libellé pour lecteur d’écran.
+Les animations sont coupées dans les trois aperçus, pour qu’un élément qui entre
+par le côté ne soit pas mesuré en plein glissement. `Défilement synchronisé`
+garde les trois sur la même SECTION plutôt qu’au même pixel, une page de
+téléphone étant bien plus haute.
+
+`Corriger pour les trois tailles` envoie la mesure au modèle — par largeur, la
+balise de chaque élément, ses classes, son texte et son dépassement en pixels —
+et demande une seule correction avec les préfixes responsive de Tailwind, le
+bureau inchangé. La réponse s’affiche dans les trois aperçus sous une étiquette
+`Proposition` et est mesurée à nouveau ; elle n’est écrite dans l’écran que si
+elle déborde moins, à aucune largeur qui ne débordait pas avant. Sinon l’écran
+reste tel quel, et la fenêtre dit pourquoi. `Revenir à la version précédente`
+annule une correction gardée. Un élément verrouillé, ainsi que les images et le
+kit d’un écran Motion Ultra, sont protégés comme dans toute autre passe.
 
 ---
 
@@ -1163,6 +1205,7 @@ ci-dessous est un clic, et la liste est complète.
 | `Peaufiner (détecter et corriger)` | Menu contextuel d’un écran | La vérification elle-même appelle un modèle pour les règles qu’une expression régulière ne tranche pas, puis jusqu’à deux corrections. |
 | `Ajouter des animations` — `Subtiles` / `Modérées` / `Riches` | Menu contextuel d’un écran | |
 | `Ajuster à la page` | Menu contextuel d’un document | Un appel, et deux rendus hors écran pour mesurer avant et après. |
+| `Corriger pour les trois tailles` | Fenêtre `Tailles d’écran` | Un appel ; les mesures avant et après sont faites par les trois aperçus, sans coût. Compte comme une génération dans l’offre gratuite. |
 | `Traduire…` | Menu contextuel d’un écran | Un appel pour un écran ordinaire (une longue page part en plusieurs lots) ; compte comme une génération sur l’offre gratuite. |
 | `Faire de cet écran mon DESIGN.md` | Menu contextuel d’un écran | |
 | `En déduire un DESIGN.md` | Panneau Style, bloc `Écran sélectionné` | |

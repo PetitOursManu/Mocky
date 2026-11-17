@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadBrands, loadDesign, saveBrand, extractDesignColors, extractProductName } from '../lib/design'
 import { brandOfProject, brandSection, defaultBrandId, type BrandIdentity } from '../lib/brand'
-import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, buildElementsEditInstruction, tryDirectTextReplace, deriveDesignSystem, refreshDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, fitComponent, responsiveComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, buildElementsEditInstruction, tryDirectTextReplace, deriveDesignSystem, refreshDesignSystem, type AnimationLevel } from '../lib/generate'
 import { designSyncOf, isDesignFresh, type DesignSync } from '../lib/designRefresh'
 import {
   applyCuts,
@@ -45,7 +45,8 @@ import { withAnimations } from '../lib/animations'
 import UltraControl from './UltraControl'
 import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { type QualityFinding } from '../lib/quality'
-import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
+import { editScreen, fixScreenAudit, polishScreenCode, screenCapabilities } from '../lib/pipeline/screenPasses'
+import { ultraLoss } from '../lib/ultra/check'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import { followRecolor } from '../lib/designFollow'
 import { planPropagation, propagateInto, tokenChanges, type PropagationPlan } from '../lib/tokenPropagate'
@@ -211,6 +212,7 @@ import {
   type Extraction,
 } from '../lib/blocks'
 import { BlockLibraryDialog, BlockSaveDialog } from './BlockDialogs'
+import ResponsiveCompare, { type CorrectResult } from './ResponsiveCompare'
 
 /** Translation keys per animation state — resolved at render, like every label. */
 /** Fixed viewport formats offered in the screen context menu. */
@@ -572,6 +574,8 @@ export default function ProjectView({
   const [framesForScreen, setFramesForScreen] = useState<string | null>(null)
   /** The screen whose "Traduire…" dialog is open, if any. */
   const [translateFor, setTranslateFor] = useState<string | null>(null)
+  // The size comparison's screen (ResponsiveCompare).
+  const [responsiveFor, setResponsiveFor] = useState<string | null>(null)
   const [fillFor, setFillFor] = useState<string | null>(null)
   /** The project's rules dialog (lib/rules.ts). */
   const [rulesOpen, setRulesOpen] = useState(false)
@@ -2577,6 +2581,49 @@ export default function ProjectView({
       setBusy(false)
       setRegeneratingIds(new Set())
     }
+  }
+
+  /**
+   * The size comparison's correction (ResponsiveCompare): one model call, its
+   * answer handed back to the dialog, which renders it at the three widths and
+   * measures it before `applyResponsive` writes anything. The call holds the
+   * screen like any pass — `busy`, the screen marked as being worked on — and
+   * refuses an answer that undid a Motion Ultra screen (U5) or a locked element.
+   */
+  async function correctResponsive(screenId: string, code: string, findings: string, signal: AbortSignal): Promise<CorrectResult> {
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen) return { refused: t('responsive.moved') }
+    const settings = loadSettings()
+    if (!settings.model.trim()) return { refused: t('project.noModel') }
+    setBusy(true)
+    setRegeneratingIds(new Set([screenId]))
+    try {
+      const { caps } = screenCapabilities(screen, screen.prompt, activeDirection())
+      const res = await responsiveComponent(settings, code, findings, signal, caps)
+      if (screen.ultra && ultraLoss(code, res.code, screen.ultra)) return { refused: t('responsive.ultraLoss') }
+      return { code: res.code }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'LockedElementError') return { refused: err.message }
+      throw err
+    } finally {
+      setBusy(false)
+      setRegeneratingIds(new Set())
+    }
+  }
+
+  /** Write a measured correction back, unless the screen moved meanwhile: theirs stands. */
+  function applyResponsive(screenId: string, codeAtStart: string, code: string): boolean {
+    const now = screensRef.current.find((s) => s.id === screenId)
+    if (!now || now.code !== codeAtStart) return false
+    const { capIds } = screenCapabilities(now, now.prompt, activeDirection())
+    noteChange(screenId, t('responsive.note'))
+    onUpdateScreen(screenId, {
+      code,
+      componentName: detectComponentName(code),
+      previousCode: codeAtStart,
+      caps: capabilitiesFor(capIds, code),
+    })
+    return true
   }
 
   /** Read the brief's key facts: one small model call (lib/pipeline/campaign.ts). */
@@ -6651,6 +6698,21 @@ export default function ProjectView({
         ) : null
       })()}
 
+      {responsiveFor &&
+        (() => {
+          const s = screens.find((x) => x.id === responsiveFor)
+          if (!s) return null
+          return (
+            <ResponsiveCompare
+              screen={s}
+              busy={busy}
+              onCorrect={(code, findings, signal) => correctResponsive(s.id, code, findings, signal)}
+              onApply={(codeAtStart, code) => applyResponsive(s.id, codeAtStart, code)}
+              onClose={() => setResponsiveFor(null)}
+            />
+          )
+        })()}
+
       {/* Per-screen context menu (right-click or ⋯) */}
       {menu &&
         (() => {
@@ -6708,6 +6770,10 @@ export default function ProjectView({
                       <MenuItem icon="translate" label={t('translate.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setTranslateFor(s.id) }} />
                       <MenuItem icon="list" label={t('fill.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setFillFor(s.id) }} />
                       <MenuItem icon="template" label={t('blocks.insertMenu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setBlockInsert({ screenId: s.id }) }} />
+                      {/* A web screen only: a document's width is its paper's. */}
+                      {!s.page && (
+                        <MenuItem icon="phone" label={t('responsive.menu')} disabled={busy || !s.code.trim() || writing} onClick={() => { close(); setResponsiveFor(s.id) }} />
+                      )}
                       {/* A page does not move: animations mean nothing on a document. */}
                       {!s.page && (
                         <SubMenu icon="pulse" label={t('project.menuAnimations')}>

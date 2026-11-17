@@ -559,6 +559,7 @@ The menu of a document, which opens on its own two items:
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h8M7 3v2M5 5c0 4 3 7 6 8M10 5c0 4-3 8-7 9M13 21l4-10 4 10M14.5 17.5h5"/></svg> | `Translate…` | Adds a translated **copy** to the right of the screen, in the language you pick; the original does not change. Only the words go to the model, as numbered data, and each answer is written back where its words were — the layout, the pictures and the code are identical. A value the code compares against (a tab's state) is never translated. On a document, the copy reports its own overflowing pages, and `Fit to page` is one right-click away. | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z"/></svg> | `Fill in…` | The screen's **fields to fill**: tick once the texts and pictures that change (a dish, a date, a photo) and name them, then fill a copy beside the screen or the screen itself. Written in place, no model. See [Screens to fill in](templates.md#screens-to-fill-in). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4V3ZM12 7v6M9 10h6"/></svg> | `Insert a block…` | Puts a saved **block** — a header, a band, a card, a footer — at the end of the screen, or on the last page of a document. Written in place, no model. See [Reusable blocks](templates.md#reusable-blocks). | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Compare phone, tablet, desktop…` | An ordinary screen only: opens it at 390, 820 and 1440 px side by side, scrolling together. What runs past the edge at each width is outlined in the preview and listed with its overshoot in pixels. `Fix for all three sizes` asks for one correction with breakpoints, kept only if it measures better. See [The size comparison](#the-size-comparison). | free; model for the fix |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Delete screen` | One confirmation. | free |
 
 ### The submenus
@@ -1007,6 +1008,7 @@ actually made.
 | `Media in “{name}”` | `Change the media…` | **Two sections, never one list.** `Images in the screen’s code`: per image, `Replace`, or `Everywhere ({n})` when the same file appears several times, or one slot at a time — this **rewrites the source**, and `Revert` undoes it. `Media attached to the screen (not in the code)`: a cut or a sequence to hang on the canvas card, and `Detach` — this **leaves the code alone**. `Upload a file` is free; `Generate` calls the image provider. | free / image |
 | `Frames — {name}` | `Frames…` | `The screen’s frames`: per frame, `Shape` opens the 73 shapes by family and the 3 × 3 `Framing` grid, `Picture` the image picker, `Shadow` a checkbox. `Pictures to put in a frame`: each `<img>` with a written address, and `Put in a frame`. A frame repeated in a list changes for every item, and its picture, which the code computes, is left to the model. | free |
 | `Translate “{name}”` | `Translate…` | `Language of the copy`: eleven languages that need no new script. `Translate` closes the dialog and runs; the notice says how many texts were translated and how many stayed in the original language. | model |
+| `Screen sizes — {name}` | `Compare phone, tablet, desktop…` | Three live previews, animations off, with `Synchronised scrolling`. Each column says `Nothing overflows` or `{n} overflow(s)`. | free; model for the fix |
 
 The `Element` card, opened by clicking something in `Modify` mode, is the one
 place where three costs sit in one dialog:
@@ -1055,18 +1057,18 @@ Two screens are selected, and you press the composer's main button. What happens
 > With a selection, the button reads `Update (2)` and edits those screens. `clear`, beside the chips, empties the selection so the next prompt creates a screen.
 :::
 
-### The four correction passes
+### The five correction passes
 
-Mocky can rewrite a screen for four different reasons, and the four are not
+Mocky can rewrite a screen for five different reasons, and the five are not
 interchangeable. Merging them is the tempting refactor, and it breaks all of them.
 
-| | Repair | `Polish (detect and correct)` | `Fix` / `Fix all` | `Fit to page` |
-|---|---|---|---|---|
-| **Where** | Nowhere — no button | Screen context menu | The `Audit` panel | A document's context menu |
-| **Trigger** | The preview iframe reports a render or compile error | You ask for it | You ask for it | You ask for it |
+| | Repair | `Polish (detect and correct)` | `Fix` / `Fix all` | `Fit to page` | `Fix for all three sizes` |
+|---|---|---|---|---|---|
+| **Where** | Nowhere — no button | Screen context menu | The `Audit` panel | A document's context menu | The `Screen sizes` dialog |
+| **Trigger** | The preview iframe reports a render or compile error | You ask for it | You ask for it | You ask for it | You ask for it |
 | **What it is told** | Fix *only* the error, do not restyle | Fix these named findings, change nothing else | Fix the markup; the screen must look identical afterwards | Win back these measured pixels; same design, same pages |
-| **Budget** | 2 attempts | 2 iterations | 2 iterations | 1 call per click, measured before and after |
-| **Cost** | model, automatic | model | model | model |
+| **Budget** | 2 attempts | 2 iterations | 2 iterations | 1 call per click, measured before and after | 1 call per click, measured at three widths before and after |
+| **Cost** | model, automatic | model | model | model | model |
 
 Read the middle row again: each instruction is fatal to the others.
 
@@ -1084,7 +1086,43 @@ loop with its four stop conditions. That loop is
 `runPolishLoop`, and it is generic over its report type for exactly this reason:
 the stopping rules are worth having once, and the checks that feed them are not
 the same check. `Fit to page` measures progress in pixels rather than in rule
-ids, so it keeps its own single step.
+ids, so it keeps its own single step, and so does `Fix for all three sizes`, in
+pixels at three widths. Its instruction is the opposite of the fit's: the fit
+spends vertical space on a page whose size is fixed, this one adds breakpoints to
+a page whose width is the variable, and must leave the desktop as it was.
+
+### The size comparison
+
+:::why
+A screen is designed at one width, and the canvas shows it at that width. The
+phone version is seen for the first time on a client's phone.
+:::
+
+`Compare phone, tablet, desktop…` renders the same code three times, at the
+widths of the composer's presets (390, 820 and 1440 px), and each preview
+measures itself:
+
+- **cut content**: a run of text, a picture or a control that crosses the edge
+  of the screen, or of a box that hides what overflows. Only content cut
+  **partly** counts: an item lying wholly past an edge is placed there on
+  purpose (a ticker, a closed drawer).
+- **sideways scroll**: the boxes that make the whole page wider than the screen
+  — often a decoration that bleeds out of a section that does not hide it.
+
+Not counted: a container meant to scroll sideways (a carousel), a text that ends
+in an ellipsis, a label for screen readers. Animations are off in the three
+previews, so an element sliding in from the side is not measured mid-slide.
+`Synchronised scrolling` keeps the three on the same SECTION rather than at the
+same pixel, since a phone page is far taller.
+
+`Fix for all three sizes` sends the measurement to the model — per width, each
+element's tag, classes, text and overshoot in pixels — and asks for one
+correction with Tailwind's responsive prefixes, the desktop unchanged. The
+answer appears in the three previews under a `Proposal` badge and is measured
+again; it is written to the screen only if it overflows less, at no width that
+was clear before. Otherwise the screen stays as it was, and the dialog says why.
+`Revert to the previous version` undoes a kept correction. A locked element, and
+a Motion Ultra screen's pictures and kit, are protected as in every other pass.
 
 ---
 
@@ -1103,6 +1141,7 @@ this is the complete list.
 | `Polish (detect and correct)` | Screen context menu | The check itself calls a model for the rules a regex cannot settle, then up to two corrections. |
 | `Add animations` — `Subtle` / `Moderate` / `Rich` | Screen context menu | |
 | `Fit to page` | A document's context menu | One call, and two off-screen renders to measure before and after. |
+| `Fix for all three sizes` | `Screen sizes` dialog | One call; the measurements before and after are made by the three previews, at no cost. Counts as a generation on the free plan. |
 | `Translate…` | Screen context menu | One call for a normal screen (a long page is sent in batches); counts as a generation on the free plan. |
 | `Make this screen my DESIGN.md` | Screen context menu | |
 | `Derive a DESIGN.md` | Style panel, `Selected screen` block | |

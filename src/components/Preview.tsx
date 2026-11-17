@@ -9,6 +9,7 @@ import { DOC_PAGES_MESSAGE } from '../lib/pageFormats'
 import { flowStateScript } from '../lib/flows'
 import { fontFaceCssFor } from '../lib/fonts'
 import { PICK_SOURCE_PLUGIN, readMoveRequest, readPickedSource, type MoveRequest, type PickedSource } from '../lib/screenElements'
+import { measureOverflowIn } from '../lib/responsive'
 
 export interface PickInfo {
   selector: string
@@ -34,6 +35,14 @@ export interface DemoLink {
  * possible at all: the model wrote `<a href="/tarifs">`, and that is it saying
  * where the link goes.
  */
+/** Where a frame is scrolled to, as an element and how far into it (the size comparison). */
+export interface ScrollAnchor {
+  selector: string
+  ratio: number
+  /** At the very top: sent as such, so the others go to 0 rather than to the first section. */
+  top: boolean
+}
+
 export interface SweptElement {
   selector: string
   label: string
@@ -767,6 +776,53 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       e.preventDefault();
       if (validates(t.form)) fireSubmit(t.form);
     });
+    /*
+     * The size comparison (ResponsiveCompare): what overflows at this width,
+     * measured where the outlines are drawn. The function is lib/responsive.ts's
+     * own source, inlined, so the tests can run the same code on a real layout.
+     */
+    var mockyMeasureOverflow = (${measureOverflowIn.toString()});
+    /*
+     * And the scroll, followed across the three widths. A ratio of the page
+     * height would land each frame in a different section — a phone page is
+     * three times as tall — so what travels is the ELEMENT under a line 30% down
+     * the viewport and how far into it that line is. The same code renders the
+     * same tree, so its cssPath names the same element in the other frames; one
+     * hidden at that width gives way to its parent.
+     */
+    var syncOn = false, syncQuiet = 0, syncTimer = null;
+    function syncAnchor() {
+      var vw = document.documentElement.clientWidth || window.innerWidth, probe = window.innerHeight * 0.3;
+      var el = document.elementFromPoint(vw / 2, probe);
+      while (el && el.parentElement && el.id !== 'root' && el.getBoundingClientRect().height < 40) el = el.parentElement;
+      if (!el || el.id === 'root' || el === document.body || el === document.documentElement) return null;
+      var r = el.getBoundingClientRect();
+      return { selector: cssPath(el), ratio: r.height > 0 ? Math.max(0, Math.min(1, (probe - r.top) / r.height)) : 0 };
+    }
+    window.addEventListener('scroll', function () {
+      if (!syncOn || Date.now() < syncQuiet || syncTimer) return;
+      syncTimer = setTimeout(function () {
+        syncTimer = null;
+        var a = syncAnchor();
+        post('scrolled', { selector: a ? a.selector : '', ratio: a ? a.ratio : 0, top: (window.scrollY || 0) <= 0 });
+      }, 60);
+    }, { passive: true });
+    function syncTo(d) {
+      syncQuiet = Date.now() + 300;
+      if (d.top) { window.scrollTo(0, 0); return; }
+      var sel = String(d.selector || ''), el = null;
+      while (sel) {
+        try { el = document.querySelector(sel); } catch (_) { el = null; }
+        if (el && el.getBoundingClientRect().height > 0) break;
+        el = null;
+        var cut = sel.lastIndexOf(' > ');
+        if (cut < 0) break;
+        sel = sel.slice(0, cut);
+      }
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      window.scrollBy(0, r.top + (Number(d.ratio) || 0) * r.height - window.innerHeight * 0.3);
+    }
     function markLinks() { for (var i = 0; i < links.length; i++) { var el = null; try { el = document.querySelector(links[i].selector); } catch (_) {} if (el) el.style.cursor = 'pointer'; } }
     window.addEventListener('message', function (e) {
       // Only Mocky itself may command this frame. parent.frames[i] is reachable
@@ -795,6 +851,17 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       // Read-only, and it changes no mode: a sweep must not disturb whatever the
       // user is doing in the screen at the time.
       if (d.__mockyCmd === 'sweep') { post('swept', { id: d.id, elements: sweepLinkables() }); }
+      // Read-only too. A beat late, because Tailwind's runtime writes a class's
+      // CSS a task after the render that used it.
+      if (d.__mockyCmd === 'overflow') {
+        setTimeout(function () {
+          var rep = null;
+          try { rep = mockyMeasureOverflow(document, window, cssPath); } catch (_) {}
+          post('overflow', { id: d.id, report: rep });
+        }, 400);
+      }
+      if (d.__mockyCmd === 'scroll-sync') { syncOn = !!d.on; }
+      if (d.__mockyCmd === 'scroll-to') { syncTo(d); }
     });
   })();
 </script>
@@ -837,6 +904,11 @@ export default function Preview({
   onContentHeight,
   onDocPages,
   flow,
+  overflowRequest,
+  onOverflow,
+  scrollSync,
+  onScrolled,
+  scrollTo,
 }: {
   code: string
   pickMode?: boolean
@@ -878,6 +950,13 @@ export default function Preview({
   /** Bumped to ask the frame to list every element one could link FROM. */
   sweepRequest?: number | null
   onSwept?: (elements: SweptElement[]) => void
+  /** A nonce: ask the frame what overflows at its width (lib/responsive.ts). The answer is raw — read it with `readViewOverflow`. */
+  overflowRequest?: number | null
+  onOverflow?: (report: unknown, id: unknown) => void
+  /** Report this frame's scroll as an element anchor, and follow `scrollTo` (the size comparison). */
+  scrollSync?: boolean
+  onScrolled?: (anchor: ScrollAnchor) => void
+  scrollTo?: (ScrollAnchor & { nonce: number }) | null
   onCaptureRect?: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
   /** Called when the iframe reports a compile or runtime error (only when not generating). */
   onError?: (error: string) => void
@@ -920,6 +999,8 @@ export default function Preview({
   const t = useT()
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  // The code of the document that last said 'ok': what a measurement would read.
+  const [readyFor, setReadyFor] = useState<string | null>(null)
   /** True for ~3s after the frame tried to leave the mockup and was put back. */
   const [navBlocked, setNavBlocked] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -941,6 +1022,8 @@ export default function Preview({
   const onErrorRef = useRef(onError)
   const onContentHeightRef = useRef(onContentHeight)
   const onSweptRef = useRef(onSwept)
+  const onOverflowRef = useRef(onOverflow)
+  const onScrolledRef = useRef(onScrolled)
   const onDocPagesRef = useRef(onDocPages)
   const flowRef = useRef(flow)
   const lastDocPagesRef = useRef<{ count: unknown; overflow: unknown; format: unknown; fold?: unknown } | null>(null)
@@ -974,6 +1057,8 @@ export default function Preview({
   onErrorRef.current = onError
   onContentHeightRef.current = onContentHeight
   onSweptRef.current = onSwept
+  onOverflowRef.current = onOverflow
+  onScrolledRef.current = onScrolled
   onDocPagesRef.current = onDocPages
   flowRef.current = flow
   generatingRef.current = generating
@@ -1062,6 +1147,7 @@ export default function Preview({
     // The restored document has to announce itself again before it can be told
     // about pick/demo mode, so drop `ready` and let the "ok" message raise it.
     setReady(false)
+    setReadyFor(null)
     setNavBlocked(true)
     if (navNoticeRef.current) window.clearTimeout(navNoticeRef.current)
     navNoticeRef.current = window.setTimeout(() => setNavBlocked(false), 3000)
@@ -1074,6 +1160,7 @@ export default function Preview({
     if (!srcDoc) return
     setError(null)
     setReady(false)
+    setReadyFor(null)
     // A new document reports its own pages; the last one's must not be replayed.
     lastDocPagesRef.current = null
     let timeoutHit = false
@@ -1110,6 +1197,7 @@ export default function Preview({
         clearTimeout(timeout)
         setError(null)
         setReady(true)
+        setReadyFor(srcCodeRef.current)
       }
       if (d.type === 'size' && typeof d.height === 'number') onContentHeightRef.current?.(d.height)
       // A frame may only report a pick while pick mode is actually on, and may
@@ -1140,6 +1228,10 @@ export default function Preview({
         )
       if (d.type === 'navigate' && demoLinksRef.current && demoLinksRef.current.length > 0) onNavRef.current?.(d.target)
       if (d.type === 'swept' && Array.isArray(d.elements)) onSweptRef.current?.(d.elements)
+      if (d.type === 'overflow') onOverflowRef.current?.(d.report, d.id)
+      if (d.type === 'scrolled') {
+        onScrolledRef.current?.({ selector: typeof d.selector === 'string' ? d.selector.slice(0, 600) : '', ratio: Number(d.ratio) || 0, top: d.top === true })
+      }
       // A working prototype's requests, honoured only by a holder that asked
       // for them (the demo, the review page) — on the canvas a screen's code
       // must not be able to steer anything outside its frame.
@@ -1201,6 +1293,27 @@ export default function Preview({
     if (!win) return
     win.postMessage({ __mockyCmd: 'sweep', id: sweepRequest }, '*')
   }, [sweepRequest, ready])
+
+  // Same shape as the sweep: a nonce, sent once the frame has rendered — and
+  // only once the document that said so was built from the CURRENT code. When
+  // the code changes, `ready` stays true for a commit and the srcDoc is rebuilt
+  // half a second later; a request sent in between was answered by the previous
+  // document, so a correction was judged on the measurement of the screen it
+  // replaced.
+  useEffect(() => {
+    if (!overflowRequest || !ready || readyFor !== code) return
+    iframeRef.current?.contentWindow?.postMessage({ __mockyCmd: 'overflow', id: overflowRequest }, '*')
+  }, [overflowRequest, ready, readyFor, code])
+
+  useEffect(() => {
+    if (!ready) return
+    iframeRef.current?.contentWindow?.postMessage({ __mockyCmd: 'scroll-sync', on: !!scrollSync }, '*')
+  }, [scrollSync, ready])
+
+  useEffect(() => {
+    if (!scrollTo || !ready) return
+    iframeRef.current?.contentWindow?.postMessage({ __mockyCmd: 'scroll-to', selector: scrollTo.selector, ratio: scrollTo.ratio, top: scrollTo.top }, '*')
+  }, [scrollTo, ready])
 
   // The page count the kit reported while the model was still writing, handed
   // over once it has stopped. When the final code equals the last streamed

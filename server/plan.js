@@ -94,7 +94,7 @@ export function mergeFreePlanSettings(current, patch) {
  * or one new screen would cost four generations and nobody could predict their
  * own day. The purposes are the closed list of server/admin/activity.js.
  */
-export const COUNTED_PURPOSES = new Set(['generate', 'edit', 'polish', 'audit-fix', 'fit', 'translate'])
+export const COUNTED_PURPOSES = new Set(['generate', 'edit', 'polish', 'audit-fix', 'fit', 'translate', 'responsive'])
 
 /**
  * Every call made on the shared free model counts against a second, hidden
