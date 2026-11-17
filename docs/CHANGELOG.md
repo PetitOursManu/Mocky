@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `blocs` | bibliothèque de blocs réutilisables, avec propagation des modifications | `4b3e528` |
 | `export` | contrôler le document avant de l'exporter | `be50690` |
 | `remplir` | créer une série de copies depuis un tableau CSV | `7a71b72` |
 | `règles` | retenir une correction comme règle, du projet ou de la marque | `743dc7d` |
