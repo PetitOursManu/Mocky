@@ -83,6 +83,8 @@ export interface ProjectTemplate {
   settings: TemplateSettings
   referenceScreenId?: string
   screens: TemplateScreen[]
+  /** The section it is kept under (Media → Design); absent, it stands alone. */
+  section?: string
 }
 
 /** What the list returns: no code. */
@@ -95,6 +97,9 @@ export interface TemplateSummary {
   settings: TemplateSettings
   screenCount: number
   screenNames: string[]
+  section?: string
+  /** Screens with a picture kept (`templateThumbUrl`), the reference first. Absent on an older server. */
+  thumbs?: string[]
 }
 
 export type TemplateDraft = Omit<ProjectTemplate, 'id' | 'createdAt' | 'updatedAt'>
@@ -231,4 +236,93 @@ export async function renameTemplate(id: string, name: string): Promise<Template
 
 export async function deleteTemplate(id: string): Promise<void> {
   await call(`/api/templates/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export async function setTemplateSection(id: string, section: string): Promise<TemplateSummary> {
+  return (await call<{ template: TemplateSummary }>(`/api/templates/${encodeURIComponent(id)}`, json('PATCH', { section }))).template
+}
+
+/** Renames a section on every template that carries it; `to: ''` dissolves it. */
+export async function renameTemplateSection(from: string, to: string): Promise<number> {
+  return (await call<{ moved: number }>('/api/templates/sections/rename', json('POST', { from, to }))).moved
+}
+
+/** Keeps the pictures of a template's screens (base64 JPEG, without the `data:` prefix). */
+export async function putTemplateThumbs(id: string, thumbs: Record<string, string>): Promise<TemplateSummary> {
+  return (await call<{ template: TemplateSummary }>(`/api/templates/${encodeURIComponent(id)}/thumbs`, json('PUT', { thumbs }))).template
+}
+
+/** Where a template screen's picture is read; `v` changes the address when the template does. */
+export function templateThumbUrl(id: string, screenId: string, v?: number): string {
+  return `/api/templates/${encodeURIComponent(id)}/thumbs/${encodeURIComponent(screenId)}${v ? `?v=${v}` : ''}`
+}
+
+export interface TemplateSection {
+  name: string
+  templates: TemplateSummary[]
+}
+
+/**
+ * The templates by section, sections in alphabetical order and each one's
+ * templates newest first (the list's own order); the ones in no section come
+ * last, under `loose`.
+ */
+export function templateSections(list: TemplateSummary[]): { sections: TemplateSection[]; loose: TemplateSummary[] } {
+  const by = new Map<string, TemplateSummary[]>()
+  const loose: TemplateSummary[] = []
+  for (const t of list) {
+    const name = t.section?.trim()
+    if (!name) loose.push(t)
+    else by.set(name, [...(by.get(name) ?? []), t])
+  }
+  const sections = [...by.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+    .map(([name, templates]) => ({ name, templates }))
+  return { sections, loose }
+}
+
+/** Space left between two templates' screens when a section is laid out on one canvas. */
+export const SECTION_GAP = 240
+
+/**
+ * A whole section as ONE template, to fill a project with all of it.
+ *
+ * Each template's screens keep their places relative to one another and the
+ * templates are laid side by side, left to right in the section's order, so
+ * nothing lands on top of anything. The direction, the settings and the
+ * reference screen are the FIRST template's: a project has one of each, and the
+ * first is the one the person sees first in the section. Screen ids are made
+ * unique per template, because two templates saved from copies of one project
+ * share them, and a link stays inside its own template.
+ */
+export function mergeTemplates(templates: ProjectTemplate[], name: string): ProjectTemplate {
+  const first = templates[0]
+  const screens: TemplateScreen[] = []
+  let left = 0
+  templates.forEach((tpl, k) => {
+    const prefix = `k${k}-`
+    const xs = tpl.screens.map((s) => s.x ?? 0)
+    const minX = xs.length ? Math.min(...xs) : 0
+    const maxX = tpl.screens.length ? Math.max(...tpl.screens.map((s) => (s.x ?? 0) + (s.w ?? 1440))) : 0
+    for (const s of tpl.screens) {
+      screens.push({
+        ...s,
+        id: prefix + s.id,
+        x: (s.x ?? 0) - minX + left,
+        ...(s.links ? { links: s.links.map((l) => ({ ...l, target: prefix + l.target })) } : {}),
+      })
+    }
+    left += maxX - minX + SECTION_GAP
+  })
+  const now = Date.now()
+  return {
+    id: first?.id ?? 'section',
+    name,
+    createdAt: now,
+    updatedAt: now,
+    ...(first?.design ? { design: first.design } : {}),
+    settings: first?.settings ?? {},
+    ...(first?.referenceScreenId ? { referenceScreenId: `k0-${first.referenceScreenId}` } : {}),
+    screens,
+  }
 }

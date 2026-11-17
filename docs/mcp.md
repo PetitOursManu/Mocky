@@ -26,7 +26,7 @@ account makes for itself, read-only or read and write.
 | `get_project` | One project's screens: name, device, the request that made it, a link. |
 | `get_screenshot` | A picture of a screen that already exists. |
 | `export_screen` | A screen as a **file**, as the Download dialog makes it: `png` (to publish — a post at its exact pixels), `pptx` (texts editable over the design), `pptx-edit` (Canva / PowerPoint with every piece taken apart) or `pdf` (documents). Answers a download link that works for a day; changes nothing and calls no model. |
-| `list_templates` | The account's [project templates](templates.md): names and screens, never their code. |
+| `list_templates` | The account's [project templates](templates.md): names, sections and screens, never their code. |
 | `search_free_images` | Free photos from the libraries this Mocky is connected to (Pexels, Pixabay), as thumbnails the assistant looks at. |
 | `add_image` | Puts one picture in the account's library for a design: a free photo chosen above, a picture from the conversation (one ChatGPT generated, or one the person attached), or a public address. |
 | `edit_design` | Changes an existing screen as the person asks — "make the header dark" — keeping the rest. Returns a picture and the link. |

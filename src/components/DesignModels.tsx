@@ -1,20 +1,27 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { deleteDesignEntry, listDesigns, renameDesignEntry, type DesignEntry } from '../lib/design'
 import {
   activeGlobalDesign,
   deleteTemplate,
   getTemplate,
   listTemplates,
+  mergeTemplates,
   renameTemplate,
+  renameTemplateSection,
   saveTemplate,
+  setTemplateSection,
   templateFromProject,
+  templateSections,
+  templateThumbUrl,
   type ProjectTemplate,
+  type TemplateSection,
   type TemplateSummary,
 } from '../lib/templates'
+import { backfillTemplateThumbs, saveTemplateThumbs } from '../lib/templateThumbs'
 import type { Project } from '../lib/project'
 import { previewFromMarkdown } from './DesignLibrary'
 import { ScaledMockup } from './DesignMockup'
-import { Banner, Button, Field, Icon, IconButton, Input, Modal, Spinner } from '../ui'
+import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select, Spinner } from '../ui'
 import { useT } from '../i18n'
 
 /**
@@ -63,6 +70,33 @@ function Swatch({ markdown, name }: { markdown?: string; name: string }) {
   ) : (
     <div className="flex h-24 items-center justify-center bg-sunken text-body-sm text-ink-faint">{t('design.noPreview')}</div>
   )
+}
+
+/**
+ * What a template LOOKS like: the pictures of its screens, the reference one
+ * large. A template saved before pictures were kept shows its direction's
+ * swatch until its pictures are taken (`backfillTemplateThumbs`).
+ */
+function TemplatePreview({ tpl, height = 'h-32' }: { tpl: TemplateSummary; height?: string }) {
+  const thumbs = tpl.thumbs ?? []
+  if (!thumbs.length) return <Swatch markdown={tpl.design} name={tpl.name} />
+  const img = (sid: string, cls: string) => (
+    <img key={sid} src={templateThumbUrl(tpl.id, sid, tpl.updatedAt)} alt="" loading="lazy" className={`h-full w-full object-cover object-top ${cls}`} />
+  )
+  if (thumbs.length === 1) return <div className={`${height} overflow-hidden bg-sunken`}>{img(thumbs[0], '')}</div>
+  return (
+    <div className={`${height} grid grid-cols-3 gap-0.5 overflow-hidden bg-sunken`}>
+      <div className="col-span-2 min-h-0">{img(thumbs[0], '')}</div>
+      <div className="grid min-h-0 grid-rows-2 gap-0.5">{thumbs.slice(1, 3).map((sid) => <div key={sid} className="min-h-0">{img(sid, '')}</div>)}</div>
+    </div>
+  )
+}
+
+/** Every template of a section, loaded and laid side by side as one (lib/templates.ts, `mergeTemplates`). */
+async function loadSection(section: TemplateSection): Promise<ProjectTemplate> {
+  const full: ProjectTemplate[] = []
+  for (const s of section.templates) full.push(await getTemplate(s.id))
+  return mergeTemplates(full, section.name)
 }
 
 /** A name edited in place: Enter or leaving the field keeps it, Escape does not. */
@@ -119,9 +153,56 @@ export function DesignModelsTab({
   const t = useT()
   const directions = useMemo(() => listDesigns(), [directionsVersion])
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [renamingSection, setRenamingSection] = useState<string | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const cols = wide ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
+  const { sections, loose } = useMemo(() => templateSections(templates), [templates])
+  // The list as it is NOW, for answers that land after it changed.
+  const latest = useRef(templates)
+  latest.current = templates
+  const replace = (next: TemplateSummary) => onTemplatesChange(latest.current.map((x) => (x.id === next.id ? next : x)))
+
+  // Templates saved before pictures were kept get theirs, once, in the background.
+  useEffect(() => {
+    backfillTemplateThumbs(templates, replace)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates])
+
+  async function openSection(section: TemplateSection) {
+    if (!onNewProjectFromTemplate) return
+    setOpening(`section:${section.name}`)
+    setError(null)
+    try {
+      onNewProjectFromTemplate(await loadSection(section))
+    } catch (e) {
+      setError(t('templates.openFailed', { reason: e instanceof Error ? e.message : String(e) }))
+    } finally {
+      setOpening(null)
+    }
+  }
+
+  async function moveTo(tpl: TemplateSummary, value: string) {
+    let section = value
+    if (value === '__new') {
+      section = (prompt(t('templates.section.newPrompt')) ?? '').trim()
+      if (!section) return
+    }
+    try {
+      replace(await setTemplateSection(tpl.id, section))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function renameSection(from: string, to: string) {
+    try {
+      await renameTemplateSection(from, to)
+      onTemplatesChange(latest.current.map((x) => (x.section === from ? { ...x, ...(to ? { section: to } : { section: undefined }) } : x)))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   async function open(summary: TemplateSummary) {
     if (!onNewProjectFromTemplate) return
@@ -135,6 +216,74 @@ export function DesignModelsTab({
       setOpening(null)
     }
   }
+
+  const sectionNames = sections.map((x) => x.name)
+
+  const card = (tpl: TemplateSummary) => (
+    <article key={tpl.id} className="overflow-hidden rounded-xl border border-line-soft bg-surface">
+      <TemplatePreview tpl={tpl} />
+      <div className="px-3 py-2.5">
+        {renaming === tpl.id ? (
+          <InlineName
+            initial={tpl.name}
+            onDone={(name) => {
+              setRenaming(null)
+              if (!name) return
+              renameTemplate(tpl.id, name).then(replace, (e) => setError(e instanceof Error ? e.message : String(e)))
+            }}
+          />
+        ) : (
+          <div className="truncate text-body font-medium text-ink" title={tpl.name}>
+            {tpl.name}
+          </div>
+        )}
+        <div className="mt-0.5 truncate text-caption text-ink-faint" title={tpl.screenNames.join(', ')}>
+          <span className="font-mono text-accent-ink">{screensLabel(t, tpl.screenCount)}</span>
+          {tpl.screenNames.length > 0 && ` · ${tpl.screenNames.join(', ')}`}
+        </div>
+        <Select
+          className="mt-2 !py-1 text-caption"
+          aria-label={t('templates.section.move', { name: tpl.name })}
+          value={tpl.section ?? ''}
+          onChange={(e) => void moveTo(tpl, e.currentTarget.value)}
+        >
+          <option value="">{t('templates.section.none')}</option>
+          {sectionNames.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+          <option value="__new">{t('templates.section.new')}</option>
+        </Select>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {onNewProjectFromTemplate && (
+            <Button variant="ghost" size="sm" disabled={opening !== null} onClick={() => void open(tpl)}>
+              {opening === tpl.id ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="plus" size={14} />}
+              {t('templates.newProjectFrom')}
+            </Button>
+          )}
+          <span className="ml-auto flex items-center">
+            <IconButton label={t('templates.rename')} variant="quiet" onClick={() => setRenaming(tpl.id)}>
+              <Icon name="pencil" size={14} />
+            </IconButton>
+            <IconButton
+              label={t('templates.delete')}
+              variant="quiet"
+              onClick={() => {
+                if (!confirm(t('templates.deleteConfirm', { name: tpl.name }))) return
+                deleteTemplate(tpl.id).then(
+                  () => onTemplatesChange(latest.current.filter((x) => x.id !== tpl.id)),
+                  (e) => setError(e instanceof Error ? e.message : String(e)),
+                )
+              }}
+            >
+              <Icon name="trash" size={14} />
+            </IconButton>
+          </span>
+        </div>
+      </div>
+    </article>
+  )
 
   return (
     <div className="space-y-8">
@@ -223,6 +372,7 @@ export function DesignModelsTab({
             {t('templates.templates')} <span className="text-ink-faint">({templates.length})</span>
           </div>
           <p className="mt-1 text-body-sm text-ink-faint">{t('templates.templatesHint')}</p>
+          <p className="mt-1 text-body-sm text-ink-faint">{t('templates.section.hint')}</p>
         </div>
         {templatesFailed ? (
           <Banner tone="warn">{t('templates.loadFailed')}</Banner>
@@ -231,61 +381,55 @@ export function DesignModelsTab({
             {t('templates.templatesEmpty')}
           </p>
         ) : (
-          <div className={`grid gap-3 ${cols}`}>
-            {templates.map((tpl) => (
-              <article key={tpl.id} className="overflow-hidden rounded-xl border border-line-soft bg-surface">
-                <Swatch markdown={tpl.design} name={tpl.name} />
-                <div className="px-3 py-2.5">
-                  {renaming === tpl.id ? (
+          <div className="space-y-6">
+            {sections.map((sec) => (
+              <div key={sec.name} className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2 border-b border-line-soft pb-1.5">
+                  <Icon name="folder" size={14} className="text-accent-ink" />
+                  {renamingSection === sec.name ? (
                     <InlineName
-                      initial={tpl.name}
+                      initial={sec.name}
                       onDone={(name) => {
-                        setRenaming(null)
-                        if (!name) return
-                        renameTemplate(tpl.id, name).then(
-                          (next) => onTemplatesChange(templates.map((x) => (x.id === tpl.id ? next : x))),
-                          (e) => setError(e instanceof Error ? e.message : String(e)),
-                        )
+                        setRenamingSection(null)
+                        if (name) void renameSection(sec.name, name)
                       }}
                     />
                   ) : (
-                    <div className="truncate text-body font-medium text-ink" title={tpl.name}>
-                      {tpl.name}
-                    </div>
+                    <span className="text-body font-medium text-ink">{sec.name}</span>
                   )}
-                  <div className="mt-0.5 truncate text-caption text-ink-faint" title={tpl.screenNames.join(', ')}>
-                    <span className="font-mono text-accent-ink">{screensLabel(t, tpl.screenCount)}</span>
-                    {tpl.screenNames.length > 0 && ` · ${tpl.screenNames.join(', ')}`}
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-caption text-ink-faint">
+                    {t('templates.section.count', { count: sec.templates.length, screens: sec.templates.reduce((n, x) => n + x.screenCount, 0) })}
+                  </span>
+                  <span className="ml-auto flex items-center gap-1">
                     {onNewProjectFromTemplate && (
-                      <Button variant="ghost" size="sm" disabled={opening !== null} onClick={() => void open(tpl)}>
-                        {opening === tpl.id ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="plus" size={14} />}
-                        {t('templates.newProjectFrom')}
+                      <Button variant="ghost" size="sm" disabled={opening !== null} onClick={() => void openSection(sec)}>
+                        {opening === `section:${sec.name}` ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="plus" size={14} />}
+                        {t('templates.section.newProject')}
                       </Button>
                     )}
-                    <span className="ml-auto flex items-center">
-                      <IconButton label={t('templates.rename')} variant="quiet" onClick={() => setRenaming(tpl.id)}>
-                        <Icon name="pencil" size={14} />
-                      </IconButton>
-                      <IconButton
-                        label={t('templates.delete')}
-                        variant="quiet"
-                        onClick={() => {
-                          if (!confirm(t('templates.deleteConfirm', { name: tpl.name }))) return
-                          deleteTemplate(tpl.id).then(
-                            () => onTemplatesChange(templates.filter((x) => x.id !== tpl.id)),
-                            (e) => setError(e instanceof Error ? e.message : String(e)),
-                          )
-                        }}
-                      >
-                        <Icon name="trash" size={14} />
-                      </IconButton>
-                    </span>
-                  </div>
+                    <IconButton label={t('templates.section.rename')} variant="quiet" onClick={() => setRenamingSection(sec.name)}>
+                      <Icon name="pencil" size={14} />
+                    </IconButton>
+                    <IconButton
+                      label={t('templates.section.ungroup')}
+                      variant="quiet"
+                      onClick={() => {
+                        if (confirm(t('templates.section.ungroupConfirm', { name: sec.name }))) void renameSection(sec.name, '')
+                      }}
+                    >
+                      <Icon name="close" size={14} />
+                    </IconButton>
+                  </span>
                 </div>
-              </article>
+                <div className={`grid gap-3 ${cols}`}>{sec.templates.map((tpl) => card(tpl))}</div>
+              </div>
             ))}
+            {loose.length > 0 && (
+              <div className="space-y-2">
+                {sections.length > 0 && <div className="border-b border-line-soft pb-1.5 text-caption text-ink-faint">{t('templates.section.loose')}</div>}
+                <div className={`grid gap-3 ${cols}`}>{loose.map((tpl) => card(tpl))}</div>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -310,6 +454,9 @@ export function SaveTemplateDialog({
 }) {
   const t = useT()
   const [name, setName] = useState(project.name)
+  const [section, setSection] = useState('')
+  const { list: existing } = useTemplates()
+  const sectionNames = useMemo(() => templateSections(existing).sections.map((x) => x.name), [existing])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<TemplateSummary | null>(null)
@@ -319,9 +466,12 @@ export function SaveTemplateDialog({
     setBusy(true)
     setError(null)
     try {
-      const out = await saveTemplate(templateFromProject(project, name, activeGlobalDesign()))
+      const draft = { ...templateFromProject(project, name, activeGlobalDesign()), ...(section.trim() ? { section: section.trim() } : {}) }
+      const out = await saveTemplate(draft)
       setSaved(out)
       onSaved?.(out)
+      // The pictures, after: a template is kept even when a screen cannot be photographed.
+      void saveTemplateThumbs(out.id, { ...draft, id: out.id, createdAt: out.createdAt, updatedAt: out.updatedAt })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -361,6 +511,20 @@ export function SaveTemplateDialog({
               />
             )}
           </Field>
+          <div className="mt-3">
+            <Field label={t('templates.sectionField')} hint={t('templates.sectionFieldHint')}>
+              {(p) => (
+                <>
+                  <Input {...p} list="mocky-template-sections" value={section} onChange={(e) => setSection(e.currentTarget.value)} />
+                  <datalist id="mocky-template-sections">
+                    {sectionNames.map((n) => (
+                      <option key={n} value={n} />
+                    ))}
+                  </datalist>
+                </>
+              )}
+            </Field>
+          </div>
           <div className="mt-4 flex gap-2">
             <Button variant="primary" onClick={() => void save()} disabled={busy || !name.trim()}>
               {busy ? t('templates.saving') : t('common.save')}
@@ -393,10 +557,23 @@ export function FromMyDesigns({
   const t = useT()
   const directions = useMemo(() => listDesigns(), [])
   const { list: templates } = useTemplates()
+  const { sections } = useMemo(() => templateSections(templates), [templates])
   const [opening, setOpening] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   if (directions.length === 0 && templates.length === 0) return null
+
+  async function pickSection(section: TemplateSection) {
+    setOpening(`section:${section.name}`)
+    setError(null)
+    try {
+      onTemplate(await loadSection(section))
+    } catch (e) {
+      setError(t('templates.openFailed', { reason: e instanceof Error ? e.message : String(e) }))
+    } finally {
+      setOpening(null)
+    }
+  }
 
   async function pickTemplate(summary: TemplateSummary) {
     setOpening(summary.id)
@@ -423,6 +600,26 @@ export function FromMyDesigns({
         </div>
       )}
       <div className="flex gap-2 overflow-x-auto pb-1">
+        {sections.map((sec) => (
+          <button
+            key={`section:${sec.name}`}
+            type="button"
+            disabled={disabled || opening !== null}
+            onClick={() => void pickSection(sec)}
+            title={t('templates.section.useTitle', { count: sec.templates.length, name: sec.name })}
+            className={tile}
+            style={{ width: 168 }}
+          >
+            <TileImage tpl={sec.templates[0]} />
+            <div className="mt-1.5 flex items-center gap-1 text-caption font-medium text-ink-muted transition group-hover:text-accent-ink">
+              {opening === `section:${sec.name}` ? <Spinner className="h-3 w-3" /> : <Icon name="folder" size={12} />}
+              <span className="truncate">{sec.name}</span>
+            </div>
+            <div className="truncate text-caption text-ink-faint">
+              {t('templates.section.kind')} · {t('templates.section.count', { count: sec.templates.length, screens: sec.templates.reduce((n, x) => n + x.screenCount, 0) })}
+            </div>
+          </button>
+        ))}
         {templates.map((tpl) => (
           <button
             key={tpl.id}
@@ -433,7 +630,7 @@ export function FromMyDesigns({
             className={tile}
             style={{ width: 148 }}
           >
-            <MiniPalette markdown={tpl.design} />
+            <TileImage tpl={tpl} />
             <div className="mt-1.5 flex items-center gap-1 text-caption font-medium text-ink-muted transition group-hover:text-accent-ink">
               {opening === tpl.id ? <Spinner className="h-3 w-3" /> : <Icon name="grid" size={12} />}
               <span className="truncate">{tpl.name}</span>
@@ -461,6 +658,13 @@ export function FromMyDesigns({
       </div>
     </div>
   )
+}
+
+/** A template's first picture in a composer tile, or its direction's colours. */
+function TileImage({ tpl }: { tpl?: TemplateSummary }) {
+  const sid = tpl?.thumbs?.[0]
+  if (!tpl || !sid) return <MiniPalette markdown={tpl?.design} />
+  return <img src={templateThumbUrl(tpl.id, sid, tpl.updatedAt)} alt="" loading="lazy" className="h-10 w-full rounded-md bg-sunken object-cover object-top" />
 }
 
 /** Four bands of a direction's colours, like the style presets beside it. */

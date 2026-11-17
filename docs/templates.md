@@ -58,6 +58,31 @@ identifiers for every screen and link, in the folder the projects page was
 showing, and opens it. Editing the new project never touches the template, and
 the reverse.
 
+Each template's card shows **the pictures of its screens** — the layout reference
+large, up to three more beside it — taken in your browser when it is saved. A
+template saved before pictures were kept gets them the first time Media shows it.
+
+### Sections
+
+:::why
+Templates that are used together — a post, its story and its LinkedIn visual —
+were a list of loose cards to pick one by one, every time.
+:::
+
+A **section** is a name several templates share. On a template's card, the
+`Section` list moves it into an existing section, into a `New section…` you name,
+or out of any (`No section`); when saving a template, the `Section` field does
+the same. Media shows each section under its name with the number of templates
+and screens it holds, the templates in no section after them.
+
+- `New project from the section` makes one project from all its templates (see
+  below what it holds).
+- The pencil renames the section on every template in it.
+- The cross ungroups it: the templates stay, in no section.
+
+A section is nothing but that name: it exists while a template carries it, and
+deleting its last template ends it.
+
 ## From the first composer
 
 An empty project's first composer shows, under the style presets, a row
@@ -66,7 +91,14 @@ An empty project's first composer shows, under the style presets, a row
 - a **direction** becomes this project's direction;
 - a **template** fills this project with its screens, its direction and its
   settings. It is offered only while the project is empty: a template is a
-  starting point, not something merged into existing work.
+  starting point, not something merged into existing work;
+- a **section**, first in the row, fills it with **all** its templates at once:
+  each template's screens keep their places relative to one another, the
+  templates are laid side by side, left to right, and the project takes the
+  direction and the settings of the section's first template.
+
+The tiles show each template's first picture, so a template is recognised by
+what it looks like rather than by its name.
 
 ## Screens to fill in
 
@@ -167,7 +199,8 @@ An account keeps up to 30 templates. A template holds at most 80 screens, each
 under 512 KB of code, and 6 MB in all. Templates count against the instance's
 disk budget like versions and the media library, and they are deleted with the
 account. Making a project from a template calls no model and costs nothing,
-including on the free plan.
+including on the free plan. Each template keeps the pictures of up to four
+screens, about 10 kB each, beside it.
 
 An account keeps up to 100 blocks, each under 128 KB. They count against the
 same disk budget, are deleted with the account, and inserting or updating one

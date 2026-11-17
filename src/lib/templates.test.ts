@@ -116,3 +116,60 @@ describe('a project from a template', () => {
     expect(screens[0].links).toEqual([])
   })
 })
+
+describe('sections', () => {
+  const summary = (id: string, section?: string) => ({
+    id,
+    name: id,
+    createdAt: 1,
+    updatedAt: 1,
+    settings: {},
+    screenCount: 1,
+    screenNames: [],
+    ...(section ? { section } : {}),
+  })
+
+  it('groups templates by section, sections in alphabetical order, the loose ones apart', async () => {
+    const { templateSections } = await import('./templates')
+    const out = templateSections([summary('a', 'Réseaux'), summary('b'), summary('c', 'Affiches'), summary('d', 'Réseaux'), summary('e', '  ')])
+    expect(out.sections.map((s) => [s.name, s.templates.map((t) => t.id)])).toEqual([
+      ['Affiches', ['c']],
+      ['Réseaux', ['a', 'd']],
+    ])
+    expect(out.loose.map((t) => t.id)).toEqual(['b', 'e'])
+  })
+
+  it('lays a section out as one template: side by side, ids made unique, links kept inside each template', async () => {
+    const { mergeTemplates, instantiateScreens, SECTION_GAP } = await import('./templates')
+    const tpl = (id: string, design: string, screens: ProjectTemplate['screens'], referenceScreenId?: string): ProjectTemplate => ({
+      id,
+      name: id,
+      createdAt: 1,
+      updatedAt: 1,
+      design,
+      settings: { creative: id === 'p' },
+      ...(referenceScreenId ? { referenceScreenId } : {}),
+      screens,
+    })
+    const post = tpl('p', '# Post', [
+      { id: 's1', code: 'a', x: 100, y: 0, w: 1080, links: [{ id: 'l1', selector: 'button', target: 's2', x: 0, y: 0, w: 1, h: 1 }] },
+      { id: 's2', code: 'b', x: 1300, y: 0, w: 1080 },
+    ], 's1')
+    // Saved from a copy of the same project: the same screen id.
+    const story = tpl('st', '# Story', [{ id: 's1', code: 'c', x: 500, y: 40, w: 1080 }])
+    const merged = mergeTemplates([post, story], 'Réseaux')
+    expect(merged).toMatchObject({ name: 'Réseaux', design: '# Post', settings: { creative: true }, referenceScreenId: 'k0-s1' })
+    expect(merged.screens.map((s) => [s.id, s.x, s.y])).toEqual([
+      ['k0-s1', 0, 0],
+      ['k0-s2', 1200, 0],
+      ['k1-s1', 2280 + SECTION_GAP, 40],
+    ])
+    expect(merged.screens[0].links?.[0].target).toBe('k0-s2')
+    // And it fills a project like any template: fresh ids, the link followed.
+    let n = 0
+    const made = instantiateScreens(merged, () => `n${++n}`)
+    expect(made.screens.map((s) => s.code)).toEqual(['a', 'b', 'c'])
+    expect(made.screens[0].links[0].target).toBe(made.screens[1].id)
+    expect(made.referenceScreenId).toBe(made.screens[0].id)
+  })
+})

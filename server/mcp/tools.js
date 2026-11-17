@@ -1494,10 +1494,12 @@ export function buildMcpServer(deps) {
         name: t.name,
         screens: t.screenCount || 0,
         screenNames: Array.isArray(t.screenNames) ? t.screenNames : [],
+        // The person's own grouping (Media → Design): templates meant to go together.
+        ...(t.section ? { section: t.section } : {}),
         updatedAt: t.updatedAt,
       }))
       const body = list.length
-        ? list.map((t) => `- ${t.name || '(untitled)'} — ${t.screens} screen(s)${t.screenNames.length ? ` (${t.screenNames.join(', ')})` : ''} — id ${t.id}`).join('\n')
+        ? list.map((t) => `- ${t.name || '(untitled)'}${t.section ? ` [section: ${t.section}]` : ''} — ${t.screens} screen(s)${t.screenNames.length ? ` (${t.screenNames.join(', ')})` : ''} — id ${t.id}`).join('\n')
         : 'This account has no project templates. In Mocky, a project is saved as one from its card (the bookmark icon) or Export → Save as template.'
       return { content: [text(body)], structuredContent: { templates: list } }
     },

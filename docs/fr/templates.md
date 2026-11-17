@@ -1,7 +1,7 @@
 ---
 description: Démarrer un nouveau projet depuis une direction gardée, ou depuis un projet entier gardé comme modèle. Les deux sont dans Média, sous Design.
 badge: Nouveau
-source_hash: 75b622b52229
+source_hash: aaeca332d136
 ---
 
 # Directions et modèles
@@ -60,6 +60,33 @@ identifiants pour chaque écran et chaque lien, dans le dossier qu’affichait l
 page des projets, et l’ouvre. Modifier le nouveau projet ne touche jamais au
 modèle, et inversement.
 
+La carte de chaque modèle montre **les images de ses écrans** — la référence de
+mise en page en grand, jusqu’à trois autres à côté — prises dans votre navigateur
+à l’enregistrement. Un modèle enregistré avant que les images soient gardées les
+reçoit la première fois que Média l’affiche.
+
+### Sections
+
+:::why
+Les modèles qui servent ensemble — un post, sa story et son visuel LinkedIn —
+étaient une liste de cartes séparées, à choisir une par une, à chaque fois.
+:::
+
+Une **section** est un nom que plusieurs modèles partagent. Sur la carte d’un
+modèle, la liste `Section` le range dans une section existante, dans une
+`Nouvelle section…` que vous nommez, ou hors de toute section (`Aucune section`) ;
+à l’enregistrement d’un modèle, le champ `Section` fait de même. Média montre
+chaque section sous son nom avec le nombre de modèles et d’écrans qu’elle
+contient, les modèles hors section ensuite.
+
+- `Nouveau projet depuis la section` fait un seul projet avec tous ses modèles
+  (voir plus bas ce qu’il contient).
+- Le crayon renomme la section sur tous ses modèles.
+- La croix défait la section : les modèles restent, hors section.
+
+Une section n’est rien d’autre que ce nom : elle existe tant qu’un modèle le
+porte, et supprimer son dernier modèle la fait disparaître.
+
 ## Depuis le premier composeur
 
 Le premier composeur d’un projet vide montre, sous les styles prédéfinis, une
@@ -68,7 +95,14 @@ rangée **Depuis mes designs** avec vos modèles et vos directions :
 - une **direction** devient la direction de ce projet ;
 - un **modèle** remplit ce projet avec ses écrans, sa direction et ses réglages.
   Il n’est proposé que tant que le projet est vide : un modèle est un point de
-  départ, pas quelque chose qu’on fusionne dans un travail existant.
+  départ, pas quelque chose qu’on fusionne dans un travail existant ;
+- une **section**, en tête de rangée, le remplit avec **tous** ses modèles d’un
+  coup : les écrans de chaque modèle gardent leurs places les uns par rapport aux
+  autres, les modèles sont posés côte à côte, de gauche à droite, et le projet
+  prend la direction et les réglages du premier modèle de la section.
+
+Les vignettes montrent la première image de chaque modèle : un modèle se
+reconnaît à ce à quoi il ressemble plutôt qu’à son nom.
 
 ## Écrans à remplir
 
@@ -174,7 +208,8 @@ Un compte garde jusqu’à 30 modèles. Un modèle contient au plus 80 écrans, 
 sous 512 Ko de code, et 6 Mo en tout. Les modèles comptent dans le budget disque
 de l’instance comme les versions et la médiathèque, et ils sont supprimés avec le
 compte. Créer un projet depuis un modèle n’appelle aucun modèle d’IA et ne coûte
-rien, y compris sur l’offre gratuite.
+rien, y compris sur l’offre gratuite. Chaque modèle garde à côté de lui les images
+de quatre écrans au plus, environ 10 Ko chacune.
 
 Un compte garde jusqu’à 100 blocs, chacun sous 128 Ko. Ils comptent dans le même
 budget disque, sont supprimés avec le compte, et insérer ou mettre à jour un bloc

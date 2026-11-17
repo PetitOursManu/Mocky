@@ -2153,14 +2153,51 @@ app.post('/api/templates', requireUser, authRateLimit(30, 60_000, 'templates'), 
   }
 })
 
+// A section is renamed (or dissolved, `to: ''`) on every template that carries it.
+app.post('/api/templates/sections/rename', requireUser, (req, res) => {
+  try {
+    res.json({ moved: templates.renameSection(req.user.id, req.body?.from, req.body?.to) })
+  } catch (err) {
+    templateError(res, err)
+  }
+})
+
 app.patch('/api/templates/:id', requireUser, (req, res) => {
   try {
-    const template = templates.rename(req.user.id, req.params.id, req.body?.name)
+    const patch = {}
+    if (req.body && 'name' in req.body) patch.name = req.body.name
+    if (req.body && 'section' in req.body) patch.section = req.body.section
+    const template = templates.update(req.user.id, req.params.id, patch)
     if (!template) return res.status(404).json({ error: 'Template not found.' })
     res.json({ template })
   } catch (err) {
     templateError(res, err)
   }
+})
+
+// The pictures of a template's screens, taken in the browser like every
+// thumbnail (server/thumbs.js says why) and kept beside the template.
+app.put('/api/templates/:id/thumbs', requireUser, authRateLimit(60, 60_000, 'templates'), (req, res) => {
+  try {
+    const template = templates.putThumbs(req.user.id, req.params.id, req.body?.thumbs)
+    if (!template) return res.status(404).json({ error: 'Template not found.' })
+    res.json({ template })
+  } catch (err) {
+    templateError(res, err)
+  }
+})
+
+// `sessionUser`: a page showing its pictures is not somebody working (D5).
+app.get('/api/templates/:id/thumbs/:screenId', (req, res) => {
+  const user = sessionUser(req)
+  if (!user) return res.status(401).json({ error: 'Not signed in.' })
+  const bytes = templates.readThumb(user.id, req.params.id, req.params.screenId)
+  if (!bytes) return res.status(404).end()
+  res.setHeader('Content-Type', 'image/jpeg')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  // The address does not change when the picture does (a re-save), so short.
+  res.setHeader('Cache-Control', 'private, max-age=300')
+  res.end(bytes)
 })
 
 app.delete('/api/templates/:id', requireUser, (req, res) => {

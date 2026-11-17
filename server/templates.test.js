@@ -100,8 +100,43 @@ describe('the template store', () => {
   })
 
   it('forgets an account', () => {
-    store.add('u1', input())
+    const t = store.add('u1', input())
+    store.putThumbs('u1', t.id, { s1: JPEG })
     store.removeAllFor('u1')
     expect(store.list('u1')).toEqual([])
+    expect(fs.existsSync(path.join(dir, 'templates', 'u1'))).toBe(false)
+  })
+
+  it('keeps templates together under a section name, renamed or dissolved at once', () => {
+    const a = store.add('u1', input({ name: 'Post', section: '  Posts   Elisa30 ' }))
+    const b = store.add('u1', input({ name: 'Story' }))
+    expect(store.list('u1').find((x) => x.id === a.id).section).toBe('Posts Elisa30')
+    expect(store.update('u1', b.id, { section: 'Posts Elisa30' }).section).toBe('Posts Elisa30')
+    expect(store.renameSection('u1', 'Posts Elisa30', 'Réseaux')).toBe(2)
+    expect(store.list('u1').map((x) => x.section)).toEqual(['Réseaux', 'Réseaux'])
+    expect(store.update('u1', a.id, { section: '' })).not.toHaveProperty('section')
+    expect(store.renameSection('u1', 'Réseaux', '')).toBe(1)
+    expect(store.list('u1').every((x) => !x.section)).toBe(true)
+    expect(() => store.update('u1', a.id, { section: 3 })).toThrow()
+    expect(store.update('u2', a.id, { section: 'x' })).toBeNull()
+  })
+
+  it('keeps JPEG pictures of its own screens beside it, reference first, and drops them with it', () => {
+    const t = store.add('u1', input({ screens: [screen('s1'), screen('s2'), screen('s3')], referenceScreenId: 's2' }))
+    expect(store.list('u1')[0].thumbs).toEqual([])
+    expect(() => store.putThumbs('u1', t.id, { s1: Buffer.from('not a jpeg').toString('base64') })).toThrow(/JPEG/)
+    const out = store.putThumbs('u1', t.id, { s1: JPEG, s2: JPEG, nope: JPEG })
+    expect(out.thumbs).toEqual(['s2', 's1'])
+    expect(store.readThumb('u1', t.id, 's2')[0]).toBe(0xff)
+    expect(store.readThumb('u2', t.id, 's2')).toBeNull()
+    expect(store.readThumb('u1', t.id, '../s2')).toBeNull()
+    // A second call replaces the set.
+    expect(store.putThumbs('u1', t.id, { s3: JPEG }).thumbs).toEqual(['s3'])
+    // The list still reads names only, not pictures.
+    expect(store.list('u1')[0]).toMatchObject({ name: 'Landing kit', thumbs: ['s3'] })
+    expect(store.remove('u1', t.id)).toBe(true)
+    expect(fs.readdirSync(path.join(dir, 'templates', 'u1'))).toEqual([])
   })
 })
+
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46]).toString('base64')

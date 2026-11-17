@@ -1592,6 +1592,19 @@ measured before it is kept. Three things:
    the viewport, by `cssPath`, which names the same element at every width
    because it is the same code.
 
+## Template sections and pictures
+
+`lib/templates.ts` (`templateSections`, `mergeTemplates`), `lib/templateThumbs.ts`,
+`server/templates.js`; user doc `docs/templates.md`, "Sections". Two rules. A
+section is a NAME on the template (`section`), never a record of its own: renaming
+one is `renameSection` over the files, and it ends with its last template. And a
+template's pictures live BESIDE its file (`<id>.thumbs/<screen>.jpg`, JPEG only,
+four at most), never in the JSON — the list parses every template file to show
+names. They are taken in the browser (`captureThumb`) on save, and backfilled
+once per page load for templates saved before; a section picked in the composer
+is `mergeTemplates`: ids prefixed per template (two templates saved from copies
+share screen ids), laid side by side, the first template's direction.
+
 ## Reusable blocks
 
 `lib/blocks.ts`, `server/blocks.js` (per account, like templates), user doc

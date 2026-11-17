@@ -1,5 +1,5 @@
 ---
-source_hash: 4e301a655b63
+source_hash: 72a2074c20c2
 ---
 
 # Connecter un assistant (MCP)
@@ -32,7 +32,7 @@ clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
 | `get_project` | Les écrans d'un projet : nom, appareil, la demande qui l'a créé, un lien. |
 | `get_screenshot` | Une image d'un écran qui existe déjà. |
 | `export_screen` | Un écran en **fichier**, comme le fait la fenêtre Télécharger : `png` (pour publier — un post à ses pixels exacts), `pptx` (textes modifiables sur le design), `pptx-edit` (Canva / PowerPoint, chaque pièce séparée) ou `pdf` (documents). Rend un lien de téléchargement valable un jour ; ne change rien et n'appelle aucun modèle. |
-| `list_templates` | Les [modèles de projet](templates.md) du compte : noms et écrans, jamais leur code. |
+| `list_templates` | Les [modèles de projet](templates.md) du compte : noms, sections et écrans, jamais leur code. |
 | `search_free_images` | Des photos libres des banques auxquelles ce Mocky est relié (Pexels, Pixabay), en miniatures que l'assistant regarde. |
 | `add_image` | Met une image dans la bibliothèque du compte pour un design : une photo libre choisie ci-dessus, une image de la conversation (générée par ChatGPT, ou jointe par la personne), ou une adresse publique. |
 | `edit_design` | Modifie un écran existant comme la personne le demande — « mets l'en-tête en sombre » — en gardant le reste. Rend une image et le lien. |
