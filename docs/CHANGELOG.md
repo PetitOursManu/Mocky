@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `responsive` | comparer un écran sur mobile, tablette et bureau, et corriger les débordements en une fois | `69776cc` |
 | `blocs` | bibliothèque de blocs réutilisables, avec propagation des modifications | `4b3e528` |
 | `export` | contrôler le document avant de l'exporter | `be50690` |
 | `remplir` | créer une série de copies depuis un tableau CSV | `7a71b72` |
