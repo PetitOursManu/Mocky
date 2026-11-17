@@ -1505,6 +1505,20 @@ Three things that will bite you:
    that is what lets `replaceFacts` work. Loosen that sentence in
    `campaignSection` and every update becomes a model call.
 
+### Importing a PDF
+
+`lib/pdfImport.ts`, `PdfImportDialog.tsx`, the `Import a PDF…` button over the
+campaign brief; user doc `docs/campaign.md`, "Starting from a PDF". Read in the
+BROWSER with pdf.js (`pdfjs-dist`, a devDependency: Vite bundles it, so the
+runtime image never installs it nor its optional native canvas), imported on
+first use with its worker as a `?url` asset; `isEvalSupported: false`, no XFA.
+Nothing leaves the browser before the review: the text becomes the brief (then
+read for facts as usual), embedded pictures are uploaded and PINNED like a
+composer pick (`insert`), and a ticked page goes as a style reference
+(`inspire`), never placed. `pageText` rebuilds paragraphs from the vertical gap
+— pdf.js closes every line with an empty flagged run, so trusting the flag put
+a blank line between every dish.
+
 ### The publication pack
 
 `lib/publicationPack.ts` (pure), `lib/publicationPackExport.ts` (the .zip),

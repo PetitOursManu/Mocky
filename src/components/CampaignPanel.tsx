@@ -4,6 +4,7 @@ import { useT } from '../i18n'
 import { DocumentImageControl } from './ImageSourceControl'
 import CampaignCalendar from './CampaignCalendar'
 import CampaignPack from './CampaignPack'
+import PdfImportDialog, { type PdfImportResult } from './PdfImportDialog'
 import type { PackCaption, PackNetwork, PieceAlt } from '../lib/publicationPack'
 import type { DocumentImageChoice } from '../lib/documentPictures'
 import type { Project, Screen } from '../lib/project'
@@ -63,6 +64,7 @@ export default function CampaignPanel({
   onPublish,
   onWritePack,
   onAlt,
+  onImportPictures,
   screenOf,
   onClose,
 }: {
@@ -87,6 +89,8 @@ export default function CampaignPanel({
   onWritePack: (campaign: Campaign) => Promise<Partial<Record<PackNetwork, PackCaption>>>
   /** A piece's text alternative, edited. */
   onAlt: (screenId: string, alt: PieceAlt | undefined) => void
+  /** A PDF's pictures, kept by the person: into the library, and chosen for the pieces. */
+  onImportPictures: (r: PdfImportResult) => Promise<{ added: number; failed: number; error?: string }>
   /** A screen as it is NOW — a send outlives the render it started from. */
   screenOf: (screenId: string) => Screen | undefined
   onClose: () => void
@@ -95,6 +99,8 @@ export default function CampaignPanel({
   const [draft, setDraft] = useState<Campaign>(() => project.campaign ?? { brief: '', facts: [], formats: [...CAMPAIGN_FORMAT_IDS] })
   const [reading, setReading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [pdfOpen, setPdfOpen] = useState(false)
   /** Out-of-date pieces the person unticked; everything else out of date is ticked. */
   const [skipped, setSkipped] = useState<Set<string>>(new Set())
 
@@ -141,12 +147,12 @@ export default function CampaignPanel({
   const setFact = (id: string, patch: Partial<CampaignFact>) =>
     setFacts(draft.facts.map((f) => (f.id === id ? { ...f, ...patch } : f)))
 
-  async function readFacts(): Promise<CampaignFact[] | null> {
-    if (!draft.brief.trim()) return null
+  async function readFacts(brief = draft.brief): Promise<CampaignFact[] | null> {
+    if (!brief.trim()) return null
     setReading(true)
     setError(null)
     try {
-      const read = await onReadFacts(draft.brief)
+      const read = await onReadFacts(brief)
       if (!read) return null
       // Merged by label: a fact the brief still states keeps its id, so the
       // pieces written with it see a new VALUE rather than a new fact.
@@ -165,6 +171,29 @@ export default function CampaignPanel({
     } finally {
       setReading(false)
     }
+  }
+
+  /**
+   * What the person kept of a PDF (PdfImportDialog): the text becomes the brief
+   * and is read for its facts at once — the facts list is where the
+   * "informations" are checked — and the pictures go to the library, chosen
+   * for the pieces like a pin in the composer.
+   */
+  async function usePdf(r: PdfImportResult) {
+    setPdfOpen(false)
+    setNotice(null)
+    const lines = [t('campaign.pdf.used', { name: r.name })]
+    if (r.text.trim()) {
+      setDraft((d) => ({ ...d, brief: r.text }))
+      void readFacts(r.text)
+    }
+    if (r.pictures.length) {
+      const res = await onImportPictures(r)
+      if (res.added) lines.push(t('campaign.pdf.picturesAdded', { n: res.added }))
+      if (res.failed) lines.push(t('campaign.pdf.picturesFailed', { n: res.failed, error: res.error ?? '' }))
+    }
+    for (const p of r.pictures) URL.revokeObjectURL(p.picture.url)
+    setNotice(lines.join(' '))
   }
 
   async function create() {
@@ -187,6 +216,7 @@ export default function CampaignPanel({
       <div className="min-h-0 space-y-3 overflow-y-auto px-3 py-3">
         <p className="text-body-sm text-ink-muted">{t('campaign.intro')}</p>
         {error && <Banner tone="warn">{error}</Banner>}
+        {notice && <Banner tone="ok">{notice}</Banner>}
         {progress && (
           <div className="flex items-center gap-2 text-body-sm text-ink" role="status">
             <Spinner className="h-4 w-4" />
@@ -196,9 +226,15 @@ export default function CampaignPanel({
 
         {/* The brief */}
         <section className="space-y-2">
-          <label htmlFor="campaign-brief" className="kicker">
-            {t('campaign.brief')}
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="campaign-brief" className="kicker">
+              {t('campaign.brief')}
+            </label>
+            <Button size="sm" variant="quiet" disabled={locked} title={t('campaign.pdf.importTitle')} onClick={() => setPdfOpen(true)}>
+              <Icon name="upload" size={14} />
+              {t('campaign.pdf.import')}
+            </Button>
+          </div>
           <Textarea
             id="campaign-brief"
             rows={4}
@@ -422,6 +458,7 @@ export default function CampaignPanel({
           />
         )}
       </div>
+      {pdfOpen && <PdfImportDialog hasBrief={!!draft.brief.trim()} onUse={(r) => void usePdf(r)} onClose={() => setPdfOpen(false)} />}
     </Panel>
   )
 }

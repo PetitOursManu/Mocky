@@ -1,7 +1,7 @@
 ---
 description: Un brief décliné en affiche, flyer, post et story — chaque création composée pour son format, avec les mêmes infos, la même direction artistique et les mêmes images.
 badge: Nouveau
-source_hash: 42f5f7b9f789
+source_hash: f327a8b8c989
 ---
 
 # Campagne
@@ -40,6 +40,37 @@ la page`, les versions, l’envoi en validation — marche sur elles.
 
 Si vous appuyez sur `Créer` avant d’avoir lu les infos, elles sont lues
 d’abord : les créations en ont besoin pour les écrire de la même façon.
+
+### Partir d’un PDF
+
+:::why
+Le contenu existe souvent déjà — le menu de la semaine, un programme, l’affiche
+de l’an dernier — en PDF. Le retaper, c’est là qu’un prix ou une date se trompe.
+:::
+
+`Importer un PDF…`, au-dessus du brief, lit un PDF **dans votre navigateur**
+(25 Mo au plus, les 20 premières pages) et montre ce qu’il a lu avant que rien
+ne soit envoyé :
+
+- **le texte**, reconstruit en lignes et en paragraphes, modifiable — il devient
+  le brief. Corrigez-le, raccourcissez-le, retirez ce qui ne doit pas paraître ;
+- **les images** que contient le PDF (photos, grand logo), cochées : elles vont
+  dans les créations. Les icônes et tout ce qui fait moins de 150 px sont
+  écartés ;
+- **chaque page**, décochée : cochez-en une pour montrer au modèle à quoi
+  ressemblait le document. Une page est une référence de style, jamais placée
+  telle quelle.
+
+`Utiliser pour la campagne` remplace le brief, en lit tout de suite les infos
+clés — vérifiez-les dans la liste, comme pour un brief tapé — et ajoute les
+images cochées à la bibliothèque, choisies pour les prochaines créations comme
+si vous les aviez prises dans le compositeur. Cochez ensuite les formats (un
+post et une story, pour un menu de la semaine) et créez ; le
+[pack de publication](#pack-de-publication) écrit leurs légendes.
+
+Un PDF scanné n’a pas de texte à lire (il n’y a pas d’OCR) : la fenêtre le dit,
+et ses pages peuvent encore servir de référence. Un PDF protégé par un mot de
+passe est refusé ; enregistrez-en une copie sans protection.
 
 ---
 

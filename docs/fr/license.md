@@ -1,6 +1,6 @@
 ---
 description: Mocky est sous AGPL-3.0-or-later, avec deux exceptions — l’usage de Remotion par le worker vidéo, et tout ce que Mocky produit pour vous.
-source_hash: d8f55cbf9b9e
+source_hash: eb0e1a2862d3
 ---
 
 # Licence
@@ -121,6 +121,7 @@ supposée compatible.
 | Dépendances npm de Mocky (382 paquets dans `package-lock.json`) | MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, CC0-1.0, MIT AND Zlib ; CC-BY-4.0 pour un paquet de données ; MPL-2.0 pour `lightningcss`, un outil de compilation | Oui |
 | Bundles navigateur de `public/vendor/` | React, ReactDOM, Babel standalone, html2canvas, Tailwind, daisyUI, Motion, three.js — tous MIT | Oui |
 | Détection de qualité | `impeccable`, Apache-2.0 | Oui : du code Apache-2.0 peut entrer dans une œuvre GPLv3 |
+| Lecture d’un PDF importé | `pdfjs-dist` (pdf.js de Mozilla), Apache-2.0, intégré à l’application et chargé au premier import | Oui, pour la même raison |
 | Polices servies aux écrans générés (`public/fonts/`, [Polices](fonts.md)) | Environ 200 familles de `@fontsource` : OFL-1.1, quelques Apache-2.0, une sous Ubuntu Font Licence — lues dans chaque paquet, toute autre refusée. Livrées comme fichiers de police séparés, non modifiés, avec chaque licence dans `fonts/LICENSES.txt` | Oui : une police n’est pas combinée au programme, et les trois licences permettent de la livrer avec un logiciel |
 | Worker vidéo | `three`, `@react-three/fiber`, `express`, `lottie-web`, `react-useanimations` : MIT. Polices de `@fontsource` : OFL-1.1, livrées comme fichiers de police séparés | Oui |
 | Worker vidéo | `remotion`, `@remotion/*` | Non — couvert par [la permission de la section 7](#remotion) |

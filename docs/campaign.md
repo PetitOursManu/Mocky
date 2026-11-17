@@ -39,6 +39,33 @@ sending for approval — works on them.
 If you press `Create` before reading the facts, they are read first: the pieces
 need them to write them the same way.
 
+### Starting from a PDF
+
+:::why
+The content often exists already — the weekly menu, a programme, last year's
+poster — as a PDF. Retyping it is where a price or a date goes wrong.
+:::
+
+`Import a PDF…`, above the brief, reads a PDF **in your browser** (up to 25 MB,
+the first 20 pages) and shows what it read before anything is sent:
+
+- **the text**, rebuilt into lines and paragraphs, editable — it becomes the
+  brief. Correct it, shorten it, remove what must not appear;
+- **the pictures** the PDF contains (photos, a large logo), ticked: they go into
+  the pieces. Icons and anything under 150 px are left out;
+- **each page**, unticked: tick one to show the model what the document looked
+  like. A page is a style reference and is never placed as it is.
+
+`Use for the campaign` replaces the brief, reads its key facts at once — check
+them in the list, like a typed brief's — and adds the ticked pictures to the
+library, chosen for the next pieces as if you had picked them in the composer.
+Then tick the formats (a post and a story, for a weekly menu) and create; the
+[publication pack](#publication-pack) writes their captions.
+
+A scanned PDF has no text to read (there is no OCR): the dialog says so, and its
+pages can still serve as a reference. A password-protected PDF is refused; save
+an unprotected copy.
+
 ---
 
 ## The formats

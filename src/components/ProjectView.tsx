@@ -160,7 +160,8 @@ import {
   type GeneratedSlotImage,
   type MuseVideoAvailability,
 } from '../lib/muse'
-import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
+import { imageUrl, listLibrary, uploadImage, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
+import type { PdfImportResult } from './PdfImportDialog'
 import { videoPosterUrl, type PinnedVideo } from '../lib/videoLibrary'
 import {
   fetchVideoAccess,
@@ -2654,6 +2655,31 @@ export default function ProjectView({
     return res.captions
   }
 
+  /**
+   * A PDF's pictures, kept in its review (PdfImportDialog): into the library,
+   * then chosen like a pin — a picture to place, or a page as a style reference
+   * — so the campaign's next pieces are made with them. One failed upload
+   * does not stop the others.
+   */
+  async function importPdfPictures(r: PdfImportResult): Promise<{ added: number; failed: number; error?: string }> {
+    const base = r.name.replace(/\.pdf$/i, '').slice(0, 40) || 'pdf'
+    const pins: PinnedImage[] = []
+    let failed = 0
+    let error: string | undefined
+    for (const [i, { picture, use }] of r.pictures.entries()) {
+      try {
+        const file = new File([picture.blob], `${base}-p${picture.page}-${i + 1}.jpg`, { type: picture.blob.type || 'image/jpeg' })
+        const img = await uploadImage(file, { project: project.id })
+        pins.push({ hash: img.hash, url: imageUrl(img.hash), label: `${base} p.${picture.page}`, insert: use === 'insert', inspire: use === 'inspire' })
+      } catch (err) {
+        failed++
+        error = err instanceof Error ? err.message : String(err)
+      }
+    }
+    setPinnedImages((arr) => [...arr.filter((p) => !pins.some((n) => n.hash === p.hash)), ...pins])
+    return { added: pins.length, failed, error }
+  }
+
   /** Read the brief's key facts: one small model call (lib/pipeline/campaign.ts). */
   async function readFactsForCampaign(brief: string) {
     const settings = loadSettings()
@@ -4519,6 +4545,7 @@ export default function ProjectView({
         onUpdateScreen(id, { campaign: publish ? { ...rest, publish } : rest })
       }}
       onWritePack={writePackForCampaign}
+      onImportPictures={importPdfPictures}
       onAlt={(id, alt) => {
         // The piece's record only, like a date: no code moves.
         const s = screensRef.current.find((x) => x.id === id)
