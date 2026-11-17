@@ -1505,6 +1505,18 @@ Three things that will bite you:
    that is what lets `replaceFacts` work. Loosen that sentence in
    `campaignSection` and every update becomes a model call.
 
+### The publication pack
+
+`lib/publicationPack.ts` (pure), `lib/publicationPackExport.ts` (the .zip),
+`CampaignPack.tsx`; user doc `docs/campaign.md`, "Publication pack". Three rules:
+the captions are the CAMPAIGN's (`Campaign.pack`, with the facts they were
+written with) and travel through the panel's DRAFT — the view hands them back,
+it never writes `project.campaign` itself, or the panel's next autosave puts the
+old ones back; a text alternative is the PIECE's (`ScreenCampaign.alt`, with
+`codeDigest` of the code it describes), so stale is read, never stored; and
+Calendy gets a caption only on a NEW idea (`server/calendy.js`), never over the
+text of one that exists.
+
 ## Rewrites without a model: translation, tokens, vision
 
 Four features share one rule: what a model laid out is not laid out again to

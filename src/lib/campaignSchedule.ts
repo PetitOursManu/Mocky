@@ -1,4 +1,5 @@
 import type { CampaignFormatId, CampaignPublish } from './campaign'
+import { FORMAT_NETWORK, type PackCaption, type PackNetwork } from './publicationPack'
 
 /**
  * A campaign's editorial calendar: when each piece goes out, as a month to
@@ -56,6 +57,9 @@ export interface CalendyPostDraft {
   slot: 'meta' | 'linkedin'
   imageIdee: string
   calendyId?: string
+  /** The caption and the hashtags of the piece's network, from the publication pack. */
+  description?: string
+  hashtags?: string
 }
 
 /** The Calendy posts a set of pieces becomes, and the pieces that have no network. */
@@ -63,6 +67,7 @@ export function calendyDrafts(
   pieces: ScheduledPiece[],
   campaign: string,
   formatLabel: (f: CampaignFormatId) => string,
+  captions: Partial<Record<PackNetwork, PackCaption>> = {},
 ): { posts: CalendyPostDraft[]; skipped: ScheduledPiece[] } {
   const posts: CalendyPostDraft[] = []
   const skipped: ScheduledPiece[] = []
@@ -72,6 +77,8 @@ export function calendyDrafts(
       skipped.push(p)
       continue
     }
+    const net = FORMAT_NETWORK[p.format]
+    const caption = net ? captions[net] : undefined
     posts.push({
       screenId: p.screenId,
       date: p.publish.date,
@@ -81,6 +88,7 @@ export function calendyDrafts(
       slot: target.slot,
       imageIdee: p.name,
       ...(p.publish.calendyId ? { calendyId: p.publish.calendyId } : {}),
+      ...(caption ? { description: caption.text, hashtags: caption.hashtags.join(' ') } : {}),
     })
   }
   return { posts, skipped }

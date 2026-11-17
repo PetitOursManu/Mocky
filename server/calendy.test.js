@@ -138,6 +138,15 @@ describe('the Calendy link', () => {
     expect(fake.posts).toHaveLength(1)
   })
 
+  it('writes the caption into a NEW idea only, never over the text of one that exists', async () => {
+    const post = { date: '2026-12-04', titre: 'Campagne · Visuel LinkedIn', plateformes: ['LinkedIn'], description: 'Portes ouvertes le 4.', hashtags: '#Nimes  #ESAT' }
+    const first = await json('POST', '/api/calendy/posts', post)
+    expect(fake.posts.at(-1)).toMatchObject({ description: 'Portes ouvertes le 4.', hashtags: '#Nimes #ESAT' })
+    fake.posts.at(-1).description = 'Texte retouché dans Calendy'
+    await json('POST', '/api/calendy/posts', { ...post, description: 'Autre', calendyId: first.body.id })
+    expect(fake.posts.find((p) => p.id === first.body.id).description).toBe('Texte retouché dans Calendy')
+  })
+
   it('sends pictures as raw bodies, replacing the visual on the first', async () => {
     const id = fake.posts[0].id
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])

@@ -79,6 +79,8 @@ export async function pushToCalendy(
           plateformes: d.plateformes,
           imageIdee: d.imageIdee,
           calendyId: d.calendyId,
+          description: d.description,
+          hashtags: d.hashtags,
         }),
         signal: opts.signal,
       })

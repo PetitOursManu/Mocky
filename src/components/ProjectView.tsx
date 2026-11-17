@@ -186,9 +186,10 @@ import {
   type NewScreenRequest,
 } from '../lib/pipeline/newScreen'
 import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
-import { readCampaignFacts, runCampaign } from '../lib/pipeline/campaign'
+import { readCampaignFacts, runCampaign, writePublicationPack } from '../lib/pipeline/campaign'
 import { updateCampaignPiece } from '../lib/pipeline/campaignUpdate'
-import type { Campaign, CampaignFormatId } from '../lib/campaign'
+import { CAMPAIGN_FORMAT_IDS, type Campaign, type CampaignFormatId } from '../lib/campaign'
+import type { PackCaption, PackNetwork } from '../lib/publicationPack'
 import CampaignPanel, { type PieceResult } from './CampaignPanel'
 import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
@@ -2626,6 +2627,33 @@ export default function ProjectView({
     return true
   }
 
+  /**
+   * The publication pack's words (lib/publicationPack.ts): one model call over
+   * the campaign's pieces as they are now. The text alternatives land on the
+   * pieces here — each with the digest of the code it describes — and the
+   * captions go back to the panel, whose draft saves them.
+   */
+  async function writePackForCampaign(campaign: Campaign): Promise<Partial<Record<PackNetwork, PackCaption>>> {
+    const settings = loadSettings()
+    if (!settings.model.trim()) throw new Error(t('project.noModel'))
+    const pieces = screensRef.current
+      .filter((s): s is Screen & { campaign: NonNullable<Screen['campaign']> } => !!s.campaign && !!s.code.trim())
+      .sort((a, b) => CAMPAIGN_FORMAT_IDS.indexOf(a.campaign.format) - CAMPAIGN_FORMAT_IDS.indexOf(b.campaign.format) || a.createdAt - b.createdAt)
+    const res = await writePublicationPack(
+      settings,
+      campaign,
+      pieces.map((p) => ({ id: p.id, code: p.code, format: p.campaign.format, formatLabel: t(`campaign.format.${p.campaign.format}`) })),
+      project.name,
+    )
+    if (!Object.keys(res.captions).length) throw new Error(t('campaign.pack.empty'))
+    for (const [id, text] of Object.entries(res.alts)) {
+      const s = screensRef.current.find((x) => x.id === id)
+      if (!s?.campaign) continue
+      onUpdateScreen(id, { campaign: { ...s.campaign, alt: { text, of: res.digests[id] } } })
+    }
+    return res.captions
+  }
+
   /** Read the brief's key facts: one small model call (lib/pipeline/campaign.ts). */
   async function readFactsForCampaign(brief: string) {
     const settings = loadSettings()
@@ -4489,6 +4517,14 @@ export default function ProjectView({
         if (!s?.campaign) return
         const { publish: _was, ...rest } = s.campaign
         onUpdateScreen(id, { campaign: publish ? { ...rest, publish } : rest })
+      }}
+      onWritePack={writePackForCampaign}
+      onAlt={(id, alt) => {
+        // The piece's record only, like a date: no code moves.
+        const s = screensRef.current.find((x) => x.id === id)
+        if (!s?.campaign) return
+        const { alt: _was, ...rest } = s.campaign
+        onUpdateScreen(id, { campaign: alt ? { ...rest, alt } : rest })
       }}
       screenOf={(id) => screensRef.current.find((x) => x.id === id)}
       onClose={() => setRightSlot((sl) => closeSlot(sl, 'campaign'))}

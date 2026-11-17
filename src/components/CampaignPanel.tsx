@@ -3,6 +3,8 @@ import { Banner, Button, Icon, IconButton, Panel, Spinner, Textarea } from '../u
 import { useT } from '../i18n'
 import { DocumentImageControl } from './ImageSourceControl'
 import CampaignCalendar from './CampaignCalendar'
+import CampaignPack from './CampaignPack'
+import type { PackCaption, PackNetwork, PieceAlt } from '../lib/publicationPack'
 import type { DocumentImageChoice } from '../lib/documentPictures'
 import type { Project, Screen } from '../lib/project'
 import {
@@ -13,6 +15,7 @@ import {
   FACT_VALUE_MAX,
   FACTS_MAX,
   factChanges,
+  factSnapshot,
   newFactId,
   sortFormats,
   type Campaign,
@@ -58,6 +61,8 @@ export default function CampaignPanel({
   onFocus,
   onFit,
   onPublish,
+  onWritePack,
+  onAlt,
   screenOf,
   onClose,
 }: {
@@ -78,6 +83,10 @@ export default function CampaignPanel({
   onFit: (screenId: string) => void
   /** A piece's publication date set, moved or cleared (CampaignCalendar). */
   onPublish: (screenId: string, publish: CampaignPublish | undefined) => void
+  /** Write the publication pack (one model call); the view puts the text alternatives on the pieces and hands back the captions. */
+  onWritePack: (campaign: Campaign) => Promise<Partial<Record<PackNetwork, PackCaption>>>
+  /** A piece's text alternative, edited. */
+  onAlt: (screenId: string, alt: PieceAlt | undefined) => void
   /** A screen as it is NOW — a send outlives the render it started from. */
   screenOf: (screenId: string) => Screen | undefined
   onClose: () => void
@@ -393,6 +402,23 @@ export default function CampaignPanel({
             onPublish={onPublish}
             onFocus={onFocus}
             screenOf={screenOf}
+            captions={draft.pack?.captions}
+          />
+        )}
+
+        {pieces.length > 0 && (
+          <CampaignPack
+            campaignName={project.name}
+            campaign={draft}
+            pieces={pieces}
+            locked={locked}
+            onWrite={async () => {
+              const captions = await onWritePack(draft)
+              // Into the draft, which saves it: the facts it was written with go along.
+              setDraft((d) => ({ ...d, pack: { captions, facts: factSnapshot(d.facts) } }))
+            }}
+            onCaptions={(captions) => setDraft((d) => (d.pack ? { ...d, pack: { ...d.pack, captions } } : d))}
+            onAlt={onAlt}
           />
         )}
       </div>

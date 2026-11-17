@@ -21,6 +21,7 @@
  */
 import type { PageFormatId } from './pageFormats'
 import type { ScreenThemeId } from './screenThemes'
+import { normalizeAlt, normalizePack, type CampaignPack, type PieceAlt } from './publicationPack'
 
 export type CampaignFormatId = 'poster' | 'flyer' | 'instagram' | 'story' | 'linkedin' | 'facebook'
 
@@ -104,6 +105,8 @@ export interface Campaign {
   facts: CampaignFact[]
   /** The formats ticked — the ones made, and the ones to make next. */
   formats: CampaignFormatId[]
+  /** The captions per network (lib/publicationPack.ts), once written. */
+  pack?: CampaignPack
 }
 
 /**
@@ -129,6 +132,8 @@ export interface ScreenCampaign {
   /** fact id → the value the piece was written with. */
   facts: Record<string, string>
   publish?: CampaignPublish
+  /** This visual's text alternative (lib/publicationPack.ts), and the code it describes. */
+  alt?: PieceAlt
 }
 
 const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
@@ -177,7 +182,9 @@ export function normalizeCampaign(c: unknown): Campaign | undefined {
   const formats = [...new Set(Array.isArray(raw.formats) ? raw.formats.filter(isCampaignFormatId) : [])]
   if (!brief.trim() && !facts.length) return undefined
   // No list at all means every format; an EMPTY list is a choice, and stays one.
-  return { brief, facts, formats: Array.isArray(raw.formats) ? sortFormats(formats) : [...CAMPAIGN_FORMAT_IDS] }
+  const out: Campaign = { brief, facts, formats: Array.isArray(raw.formats) ? sortFormats(formats) : [...CAMPAIGN_FORMAT_IDS] }
+  const pack = normalizePack(raw.pack)
+  return pack ? { ...out, pack } : out
 }
 
 /** A stored piece record, validated, or undefined. */
@@ -190,7 +197,8 @@ export function normalizeScreenCampaign(c: unknown): ScreenCampaign | undefined 
     for (const [k, v] of Object.entries(raw.facts)) if (typeof v === 'string') facts[k.slice(0, 40)] = v.slice(0, FACT_VALUE_MAX)
   }
   const publish = normalizePublish(raw.publish)
-  return publish ? { format: raw.format, facts, publish } : { format: raw.format, facts }
+  const alt = normalizeAlt(raw.alt)
+  return { format: raw.format, facts, ...(publish ? { publish } : {}), ...(alt ? { alt } : {}) }
 }
 
 /** The formats in the catalogue's order, which is the order they are made in. */

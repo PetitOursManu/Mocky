@@ -119,7 +119,11 @@ export function cleanPost(body) {
   if (!plateformes.length) throw new Error('At least one network is required.')
   const imageIdee = String(body?.imageIdee || '').slice(0, 1000)
   const calendyId = body?.calendyId && ID_RE.test(String(body.calendyId)) ? String(body.calendyId) : null
-  return { date, time, titre, plateformes, imageIdee, calendyId }
+  // The publication pack's caption, sent with a NEW idea only: once the post
+  // exists, its text is the person's, written in Calendy.
+  const description = typeof body?.description === 'string' ? body.description.slice(0, 5000) : ''
+  const hashtags = typeof body?.hashtags === 'string' ? body.hashtags.replace(/\s+/g, ' ').trim().slice(0, 1000) : ''
+  return { date, time, titre, plateformes, imageIdee, calendyId, description, hashtags }
 }
 
 const samePlatforms = (a, b) => a.length === b.length && a.every((p) => b.includes(p))
@@ -232,6 +236,8 @@ export function calendyRouter({ store, requireUser, assertTarget = assertSafeTar
           heure: post.time,
           plateformes: post.plateformes,
           imageIdee: post.imageIdee,
+          ...(post.description ? { description: post.description } : {}),
+          ...(post.hashtags ? { hashtags: post.hashtags } : {}),
           statut: 'idee',
         },
       })

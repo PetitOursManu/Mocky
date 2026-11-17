@@ -14,6 +14,8 @@ import {
   type CampaignFormatId,
 } from '../campaign'
 import type { Project } from '../project'
+import { codeDigest, PACK_SYSTEM, packUserMessage, parsePack, pieceDigest, type PackAnswer, type PackPiece } from '../publicationPack'
+import { loadTransform } from '../sourceText'
 import { runNewScreen, type NewScreenHooks, type NewScreenRequest } from './newScreen'
 
 /** Ask the model for the brief's key facts. Throws on a provider error; an unreadable answer is an empty list. */
@@ -126,4 +128,41 @@ export async function runCampaign(
     made.push({ format: id, screenId: outcome.screenId })
   }
   return made
+}
+
+/**
+ * Write the publication pack's words (lib/publicationPack.ts): the three
+ * captions and a text alternative per piece, in ONE call — the captions and the
+ * alternatives describe the same campaign, and two calls would describe it
+ * twice, differently. Each piece is read with the parser first (what it says,
+ * what its pictures are), so the model describes the visuals that exist rather
+ * than the brief's idea of them. Throws on a provider error; an unreadable
+ * answer is empty, and the caller says so.
+ */
+export async function writePublicationPack(
+  settings: Settings,
+  campaign: Pick<Campaign, 'brief' | 'facts'>,
+  pieces: { id: string; code: string; format: CampaignFormatId; formatLabel: string }[],
+  projectName: string,
+  signal?: AbortSignal,
+): Promise<PackAnswer & { digests: Record<string, string> }> {
+  const transform = await loadTransform().catch(() => null)
+  const read: PackPiece[] = []
+  const digests: Record<string, string> = {}
+  for (const p of pieces) {
+    read.push({ id: p.id, format: p.format, formatLabel: p.formatLabel, digest: await pieceDigest(p.code, transform) })
+    digests[p.id] = codeDigest(p.code)
+  }
+  const content = await chat(
+    settings,
+    [
+      { role: 'system', content: PACK_SYSTEM },
+      { role: 'user', content: packUserMessage(campaign, read, projectName) },
+    ],
+    signal,
+    undefined,
+    undefined,
+    'publication-pack',
+  )
+  return { ...parsePack(content, read.map((p) => p.id)), digests }
 }

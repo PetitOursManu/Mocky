@@ -4,6 +4,7 @@ import { useT } from '../i18n'
 import type { CampaignFormatId, CampaignPublish } from '../lib/campaign'
 import type { Screen } from '../lib/project'
 import { calendyDrafts, monthGrid, monthOf, scheduledPieces, shiftMonth, toCsv, toIcs } from '../lib/campaignSchedule'
+import type { PackCaption, PackNetwork } from '../lib/publicationPack'
 import { connectCalendy, disconnectCalendy, getCalendyLink, pushToCalendy, type CalendyLink } from '../lib/calendyClient'
 import { downloadBlob, fileBaseName } from '../lib/docExport/files'
 
@@ -25,6 +26,7 @@ export default function CampaignCalendar({
   onPublish,
   onFocus,
   screenOf,
+  captions,
 }: {
   campaignName: string
   pieces: Piece[]
@@ -33,6 +35,8 @@ export default function CampaignCalendar({
   onPublish: (screenId: string, publish: CampaignPublish | undefined) => void
   onFocus: (screenId: string) => void
   screenOf: (id: string) => Screen | undefined
+  /** The publication pack's captions: a NEW Calendy idea carries its network's. */
+  captions?: Partial<Record<PackNetwork, PackCaption>>
 }) {
   const t = useT()
   const label = (f: CampaignFormatId) => t(`campaign.format.${f}`)
@@ -98,7 +102,7 @@ export default function CampaignCalendar({
   }
 
   async function send() {
-    const { posts, skipped } = calendyDrafts(scheduled, campaignName, label)
+    const { posts, skipped } = calendyDrafts(scheduled, campaignName, label, captions)
     if (!posts.length) return
     const ac = new AbortController()
     abort.current = ac

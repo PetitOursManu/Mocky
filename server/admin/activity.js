@@ -45,6 +45,7 @@ export const PURPOSES = new Set([
   'creation-review',
   'translate',
   'responsive',
+  'publication-pack',
 ])
 
 /** POST routes that are work, mapped to what they are. Everything else is not tracked. */

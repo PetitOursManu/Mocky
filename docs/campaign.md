@@ -156,6 +156,54 @@ token, which can change your calendar, stays on the server; the browser is only
 told which Calendy is linked.
 :::
 
+## Publication pack
+
+:::why
+A visual is not posted alone: it goes out with a caption written for its
+network and a text alternative for people who cannot see it. Written from the
+same brief in another tool, those words drift from the pictures — a date in the
+caption that the visual no longer says.
+:::
+
+At the bottom of the panel, `Write the captions and text alternatives` makes
+one model call that reads the brief, the key facts and, with the parser, what
+each piece **displays** — its words, and its pictures as their own description
+says. It writes:
+
+- **three captions**, each for its network: Instagram opens on a hook and ends
+  on a call to action, with 8 to 12 hashtags; Facebook is a little more
+  practical, with at most 4; LinkedIn is professional, with 3 to 5. Facts are
+  copied as they are written in the panel, and nothing is invented that the
+  brief does not say. Each caption shows its length against the network's
+  ceiling (2,200 characters, 3,000 for LinkedIn).
+- **a text alternative per piece**, one or two sentences saying what the visual
+  shows.
+
+Everything is editable in place and has a `Copy` button that copies the caption
+with its hashtags, ready to paste. `Rewrite` writes them all again, replacing
+your edits.
+
+- When a fact changes after the captions were written, the panel names it: the
+  captions still say the old value.
+- When a piece changes after its text alternative was written (an edit, an
+  update), the alternative says it describes an earlier version.
+
+`Download the pack (.zip)` builds one archive:
+
+| In the archive | What it is |
+|---|---|
+| `visuels/` | Each piece, numbered in the campaign's order: the poster and the flyer as their print PDF, every social piece as one PNG per page (a carousel gives several). The same renders as the download dialog. |
+| `legendes/instagram.txt`, `facebook.txt`, `linkedin.txt` | Each caption followed by its hashtags. |
+| `textes-alternatifs.txt` | Each file's name and its text alternative. |
+| `pack.csv` | One line per file: format, network, publication date and hour, text alternative and caption — semicolon-separated, for Excel. |
+
+A piece that cannot be rendered is left out of the archive and named; the rest
+still downloads.
+
+With the captions written, `Send to Calendy` gives each **new** idea its
+network's caption and hashtags (the Instagram one for a post or a story). An
+idea that already exists keeps the text written in Calendy.
+
 ## From an assistant
 
 `create_campaign` makes the same campaign from Claude or ChatGPT
@@ -169,6 +217,7 @@ told which Calendy is linked.
 | Each piece | One generation, like any new screen. |
 | Pictures | One at most, made by the first piece, following `Image`. |
 | An update | Free when direct; one edit per piece that needs the model. Measuring the page after it calls no model. |
+| The publication pack | One model call for the three captions and every text alternative, when you ask for it. The .zip calls no model. |
 
 ---
 
@@ -180,5 +229,7 @@ a change leaves behind — read, never stored as a flag, so a version restored o
 a screen reverted carries its own answer. A client's approval page shows the
 pieces as screens and nothing of the brief.
 A piece's publication date and the Calendy idea it became
-are kept on the piece too; the Calendy token is kept on the server, per
+are kept on the piece too, and so is its text alternative, with a fingerprint of
+the code it describes; the captions are kept on the campaign, with the facts
+they were written with. The Calendy token is kept on the server, per
 account, and is never sent back to the browser.
