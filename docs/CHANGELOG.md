@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `modèles` | sections nommées, choisies d'un coup dans le composeur, et aperçus des écrans | `99c81e3` |
 | `campagne` | importer un PDF comme source du brief, des infos et des images | `eeec133` |
 | `campagne` | pack de publication, avec légendes par réseau, textes alternatifs et export complet | `0d42da1` |
 | `responsive` | comparer un écran sur mobile, tablette et bureau, et corriger les débordements en une fois | `69776cc` |
@@ -53,6 +54,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `readme` | présenter les fonctionnalités ajoutées depuis novembre | `11728f3` |
 | — | vision, traduction, tokens propagés, calendrier éditorial et Calendy | `91c88b8` |
 | — | les modèles ont leur icône, le README présente les nouveautés | `a601f98` |
 | `fr` | interface marquée à jour après le rebase sur main | `ae9dbdb` |
