@@ -1539,6 +1539,21 @@ src/lib/fillSeries.ts      the "Série" tab: a CSV in, one filled copy per row o
    picture cell names a picture already in the library (hash, address, or the
    imported file's name); a cell is never fetched as a URL.
 
+## Reusable blocks
+
+`lib/blocks.ts`, `server/blocks.js` (per account, like templates), user doc
+`docs/templates.md` ("Reusable blocks"). A block is an element's SOURCE plus
+the top-level declarations it reads, gathered with the parser's scopes; a local
+`const` of plain data is lifted, anything bound to state (a hook, a prop, a
+loop's item) refuses the save by name. A copy is the attribute
+`data-mocky-block="<id>:<jsxHash>.<declsHash>"` — like a lock, no bookkeeping.
+Three rules: the hash is taken on collapsed whitespace without lock or block
+attributes, or re-indenting a copy reads as a hand edit; an update replaces
+each copy at its offsets and drops top-level declarations only the old copies
+read, renaming the block's names that the screen already uses; and an update
+is OFFERED (this project, other projects through `onUpdateScreenIn`, and again
+when a project opens), never applied unasked, and never over a lock.
+
 ## Several brands
 
 `DesignConfig.brands` (lib/brand.ts), in the synced design blob; the single

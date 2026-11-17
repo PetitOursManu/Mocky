@@ -888,6 +888,8 @@ function MockyApp() {
             onSetCreative={(on) => setProjectCreative(activeProject.id, on)}
             onSetCreations={(on) => setProjectCreations(activeProject.id, on)}
             onSetRules={(rules) => setProjectRules(activeProject.id, rules)}
+            allProjects={projects}
+            onUpdateScreenIn={updateScreen}
             initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}
           />
           </ErrorBoundary>

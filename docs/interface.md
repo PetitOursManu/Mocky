@@ -377,6 +377,12 @@ around it, which a pass may still change. A locked element opens on `Unlock`.
 code (`data-mocky-lock`), so it follows the screen into a copy, a version or a
 template.
 
+**Blocks.** The `Element` card's `Reusable block` row saves the clicked element
+as a block (`Save as a block`) or puts a saved block right after it
+(`Insert a block here`). On a copy of a block, it says which one and offers
+`Save into the block`, and `Update this copy` when the library has a newer
+version. See [Reusable blocks](templates.md#reusable-blocks).
+
 ### Cables between screens
 
 Every link is drawn as a **[[cable|cable]]**, like a mind map: it leaves the element it
@@ -552,6 +558,7 @@ The menu of a document, which opens on its own two items:
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Frames…` | Changes the shape, picture, framing or shadow of each picture in a shape on the screen, or puts one of its pictures in a frame. Rewrites the source with no model call; `Revert` undoes it. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h8M7 3v2M5 5c0 4 3 7 6 8M10 5c0 4-3 8-7 9M13 21l4-10 4 10M14.5 17.5h5"/></svg> | `Translate…` | Adds a translated **copy** to the right of the screen, in the language you pick; the original does not change. Only the words go to the model, as numbered data, and each answer is written back where its words were — the layout, the pictures and the code are identical. A value the code compares against (a tab's state) is never translated. On a document, the copy reports its own overflowing pages, and `Fit to page` is one right-click away. | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z"/></svg> | `Fill in…` | The screen's **fields to fill**: tick once the texts and pictures that change (a dish, a date, a photo) and name them, then fill a copy beside the screen or the screen itself. Written in place, no model. See [Screens to fill in](templates.md#screens-to-fill-in). | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4V3ZM12 7v6M9 10h6"/></svg> | `Insert a block…` | Puts a saved **block** — a header, a band, a card, a footer — at the end of the screen, or on the last page of a document. Written in place, no model. See [Reusable blocks](templates.md#reusable-blocks). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Delete screen` | One confirmation. | free |
 
 ### The submenus

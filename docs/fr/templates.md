@@ -1,7 +1,7 @@
 ---
 description: Démarrer un nouveau projet depuis une direction gardée, ou depuis un projet entier gardé comme modèle. Les deux sont dans Média, sous Design.
 badge: Nouveau
-source_hash: 28b89180a526
+source_hash: 75b622b52229
 ---
 
 # Directions et modèles
@@ -12,6 +12,7 @@ Deux sortes de point de départ se réutilisent, et elles ne font pas la même c
 |---|---|---|
 | **Direction** | Un DESIGN.md gardé dans votre bibliothèque de design | L’apparence de ses prochains écrans. Aucun écran. |
 | **Modèle** | Un projet entier, gardé comme point de départ | Ses écrans et leur code, sa direction et ses réglages. |
+| **Bloc** | Un élément d’un écran — un en-tête, un bandeau, une carte, un pied de page | Cet élément dans n’importe quel écran, identique, et ses modifications suivantes. Voir [Blocs réutilisables](#blocs-reutilisables). |
 
 Les deux sont listés dans **Média → Design**, en deux sections.
 
@@ -123,6 +124,50 @@ photos, puis écrivez leur nom dans la colonne. Une photo que la médiathèque n
 connaît pas est laissée telle quelle, et la fenêtre la nomme. Au plus 50 copies
 à la fois.
 
+## Blocs réutilisables
+
+:::why
+Un en-tête avec le logo, un bandeau de partenaires, une carte de contact, un
+pied de page : le même morceau revient de post en post. Le redemander au modèle
+donne quelque chose qui lui ressemble ; le copier à la main oblige à changer
+chaque copie quand le numéro de téléphone change.
+:::
+
+Un **bloc** est un élément d’un écran gardé à part — son code tel que l’écran
+l’a écrit, avec ce qu’il utilise (un composant de logo, une liste de partenaires
+déclarée au-dessus de la page). Il se réinsère dans d’autres écrans sans appel
+au modèle, donc il arrive identique, et une modification enregistrée dans le
+bloc peut être portée à tous ses exemplaires.
+
+1. **Enregistrer.** En mode `Modifier`, cliquez l’élément, puis
+   `Enregistrer comme bloc` dans la carte `Élément`. Donnez-lui un nom et un
+   type (en-tête, bandeau, carte, pied de page, autre). L’élément cliqué devient
+   le premier exemplaire du bloc.
+2. **Insérer.** `Insérer un bloc ici`, dans la même carte, place le bloc choisi
+   juste après l’élément cliqué. Clic droit sur un écran → `Insérer un bloc…` le
+   place à la fin de l’écran, ou sur la dernière page d’un document. La
+   bibliothèque liste tous les blocs du compte, avec leur origine et le nombre
+   d’exemplaires dans ce projet ; on y renomme et supprime aussi les blocs.
+3. **Modifier partout.** Changez un exemplaire comme n’importe quel élément (à la
+   main, par `Modifier`, avec `Remplir…`), cliquez-le, puis
+   `Enregistrer dans le bloc`. Mocky liste les autres écrans qui en ont une
+   ancienne version — dans ce projet et dans vos autres projets — et
+   `Mettre à jour` les réécrit. Un exemplaire modifié à la main est compté, car
+   la mise à jour remplace ces changements ; un exemplaire qui contient un
+   élément verrouillé est laissé tel quel. Ouvrir un projet dont des
+   exemplaires sont en retard propose la même mise à jour. Rien n’est mis à jour
+   sans le clic, et `Annuler` sur un écran revient en arrière.
+
+Ce qui ne peut pas être un bloc, et l’avis dit pourquoi : l’écran entier, un
+élément d’une liste que le code répète (enregistrez l’élément qui contient la
+liste), et un élément qui lit l’état de l’écran — un menu qui s’ouvre, une
+valeur qu’un champ change. Un nom utilisé par le bloc que l’écran donne déjà à
+autre chose est renommé dans l’exemplaire, pour que les deux ne se confondent
+jamais. Un exemplaire est marqué dans le code (`data-mocky-block`), comme un
+verrou : il suit l’écran dans une copie, une version ou un modèle, et une
+retouche qui le réécrit en fait simplement du code ordinaire. Supprimer un bloc
+laisse ses exemplaires en place ; ils ne sont plus mis à jour.
+
 ## Limites
 
 Un compte garde jusqu’à 30 modèles. Un modèle contient au plus 80 écrans, chacun
@@ -130,3 +175,7 @@ sous 512 Ko de code, et 6 Mo en tout. Les modèles comptent dans le budget disqu
 de l’instance comme les versions et la médiathèque, et ils sont supprimés avec le
 compte. Créer un projet depuis un modèle n’appelle aucun modèle d’IA et ne coûte
 rien, y compris sur l’offre gratuite.
+
+Un compte garde jusqu’à 100 blocs, chacun sous 128 Ko. Ils comptent dans le même
+budget disque, sont supprimés avec le compte, et insérer ou mettre à jour un bloc
+n’appelle aucun modèle.

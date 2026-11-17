@@ -11,6 +11,7 @@ Two kinds of starting point can be reused, and they do different things:
 |---|---|---|
 | **Direction** | A DESIGN.md kept in your design library | How its next screens look. No screen. |
 | **Template** | A whole project, kept as a starting point | Its screens and their code, its direction and its settings. |
+| **Block** | One element of a screen — a header, a band, a card, a footer | That element in any screen, identical, and its later changes. See [Reusable blocks](#reusable-blocks). |
 
 Both are listed in **Media → Design**, in two sections.
 
@@ -118,6 +119,48 @@ its extension), or by its library address: import the photos first, then write
 their names in the column. A photo the library does not know is left as it
 is, and the window names it. At most 50 copies at once.
 
+## Reusable blocks
+
+:::why
+A header with the logo, a band of partners, a contact card, a footer: the same
+piece comes back in post after post. Asking the model for it again gives
+something resembling it; copying it by hand means changing every copy when the
+phone number changes.
+:::
+
+A **block** is one element of a screen kept on its own — its code exactly as
+the screen wrote it, with what it reads (a logo component, a list of partners
+declared above the page). It is put back into other screens with no model call,
+so it arrives identical, and a change saved into the block can be carried to
+every copy.
+
+1. **Save.** In `Modify` mode, click the element, then
+   `Save as a block` in the `Element` card. Give it a name and a type
+   (header, band, card, footer, other). The element you clicked becomes the
+   block's first copy.
+2. **Insert.** `Insert a block here`, in the same card, puts the chosen block
+   right after the clicked element. Right-click a screen → `Insert a block…`
+   puts it at the end of the screen, or on the last page of a document. The
+   library lists every block of your account, with where it came from and how
+   many copies this project holds; it renames and deletes them too.
+3. **Change everywhere.** Change a copy like any element (by hand, by
+   `Modify`, with `Fill in…`), click it, then `Save into the block`. Mocky
+   lists the other screens holding an older copy — in this project and in your
+   other projects — and `Update` rewrites them. A copy changed by hand is
+   counted, because the update replaces those changes; a copy holding a locked
+   element is left as it is. Opening a project whose copies are behind offers
+   the same update. Nothing is updated without the click, and `Revert` on a
+   screen undoes it.
+
+What cannot be a block, and the notice says why: the whole screen, one item of
+a list the code repeats (save the element holding the list), and an element
+that reads the screen's state — a menu that opens, a value a field changes.
+A name the block uses that the screen already gives to something else is
+renamed in the copy, so the two never collide. A copy is marked in the code
+(`data-mocky-block`), like a lock: it follows the screen into a copy, a version
+or a template, and a pass that rewrites it simply makes it ordinary code again.
+Deleting a block leaves its copies in place; they are no longer updated.
+
 ## Limits
 
 An account keeps up to 30 templates. A template holds at most 80 screens, each
@@ -125,3 +168,7 @@ under 512 KB of code, and 6 MB in all. Templates count against the instance's
 disk budget like versions and the media library, and they are deleted with the
 account. Making a project from a template calls no model and costs nothing,
 including on the free plan.
+
+An account keeps up to 100 blocks, each under 128 KB. They count against the
+same disk budget, are deleted with the account, and inserting or updating one
+calls no model.

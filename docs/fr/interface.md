@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 385f587de23e
+source_hash: 5782e195ec83
 ---
 
 # L’interface
@@ -396,6 +396,13 @@ verrouillé s’ouvre sur `Déverrouiller`. `Régénérer` repart de zéro et ne
 aucun verrou. Le verrou est un attribut dans le code (`data-mocky-lock`) : il
 suit l’écran dans une copie, une version ou un modèle.
 
+**Blocs.** La ligne `Bloc réutilisable` de la carte `Élément` enregistre
+l’élément cliqué comme bloc (`Enregistrer comme bloc`) ou place un bloc
+enregistré juste après lui (`Insérer un bloc ici`). Sur un exemplaire de bloc,
+elle dit lequel et propose `Enregistrer dans le bloc`, et
+`Mettre à jour cet exemplaire` quand la bibliothèque en a une version plus
+récente. Voir [Blocs réutilisables](templates.md#blocs-reutilisables).
+
 ### Les câbles entre les écrans
 
 Chaque lien est dessiné comme un **[[câble|cable]]**, à la manière d’une carte mentale : il
@@ -581,6 +588,7 @@ Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Cadres…` | Change la forme, l’image, le cadrage ou l’ombre de chaque image en forme de l’écran, ou met l’une de ses images dans un cadre. Réécrit la source sans appel au modèle ; `Revenir à la version précédente` l’annule. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h8M7 3v2M5 5c0 4 3 7 6 8M10 5c0 4-3 8-7 9M13 21l4-10 4 10M14.5 17.5h5"/></svg> | `Traduire…` | Ajoute une **copie** traduite à droite de l’écran, dans la langue choisie ; l’original ne change pas. Seuls les mots partent au modèle, numérotés, comme des données, et chaque réponse est réécrite à la place de ses mots — la mise en page, les images et le code sont identiques. Une valeur que le code compare (l’état d’un onglet) n’est jamais traduite. Sur un document, la copie signale elle-même ses pages qui débordent, et `Ajuster à la page` est à un clic droit. | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z"/></svg> | `Remplir…` | Les **champs à remplir** de l’écran : on coche une fois les textes et les images qui changent (un plat, une date, une photo) et on les nomme, puis on remplit une copie à côté de l’écran ou l’écran lui-même. Écrit à sa place, sans modèle. Voir [Écrans à remplir](templates.md#ecrans-a-remplir). | gratuit |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4V3ZM12 7v6M9 10h6"/></svg> | `Insérer un bloc…` | Place un **bloc** enregistré — un en-tête, un bandeau, une carte, un pied de page — à la fin de l’écran, ou sur la dernière page d’un document. Écrit à sa place, sans modèle. Voir [Blocs réutilisables](templates.md#blocs-reutilisables). | gratuit |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Supprimer l’écran` | Une confirmation. | libre |
 
 ### Les sous-menus

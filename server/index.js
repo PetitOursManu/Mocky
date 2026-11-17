@@ -42,6 +42,7 @@ import { createVersionStore } from './versions.js'
 import { createThumbStore } from './thumbs.js'
 import { createCreationStore } from './creations.js'
 import { createTemplateStore } from './templates.js'
+import { createBlockStore } from './blocks.js'
 import { createReviewStore, publicScreen } from './reviews.js'
 import { mergeStoredFolders, mergeStoredProjects } from './merge.js'
 import { createDataEvents } from './data-events.js'
@@ -144,6 +145,8 @@ const diskBudget = createDiskBudget({
     path.join(DATA_DIR, 'creations'),
     // Project templates (server/templates.js): a copy of a project's screens.
     path.join(DATA_DIR, 'templates'),
+    // Reusable blocks (server/blocks.js): an element of a screen and what it reads.
+    path.join(DATA_DIR, 'blocks'),
   ],
 })
 
@@ -255,6 +258,7 @@ const versions = createVersionStore(DATA_DIR, { budget: diskBudget })
 const thumbs = createThumbStore(DATA_DIR, { budget: diskBudget })
 const creations = createCreationStore(DATA_DIR, { budget: diskBudget })
 const templates = createTemplateStore(DATA_DIR, { budget: diskBudget })
+const blocks = createBlockStore(DATA_DIR, { budget: diskBudget })
 const reviews = createReviewStore(DATA_DIR)
 // Each account's link to its Calendy (server/calendy.js): the token stays here.
 const calendy = new CalendyStore(DATA_DIR)
@@ -2010,6 +2014,7 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   thumbs.removeAllFor(id)
   creations.removeAllFor(id)
   templates.removeAllFor(id)
+  blocks.removeAllFor(id)
   // And their review links: a client's page must not outlive the account either.
   reviews.revokeAllFor(id)
   // And the assistants it let in: a token must not outlive its account.
@@ -2161,6 +2166,39 @@ app.patch('/api/templates/:id', requireUser, (req, res) => {
 app.delete('/api/templates/:id', requireUser, (req, res) => {
   const removed = templates.remove(req.user.id, req.params.id)
   if (!removed) return res.status(404).json({ error: 'Template not found.' })
+  res.json({ removed })
+})
+
+// ---- reusable blocks (server/blocks.js) ----
+//
+// Not gated by plan, like templates: keeping and reinserting a piece of one's
+// own work bills nothing — a block goes into a screen without a model call.
+// Writes fall under maintenance's method rule like every other route.
+app.get('/api/blocks', requireUser, (req, res) => {
+  res.json({ blocks: blocks.list(req.user.id) })
+})
+
+app.post('/api/blocks', requireUser, authRateLimit(60, 60_000, 'blocks'), (req, res) => {
+  try {
+    res.json({ block: blocks.add(req.user.id, req.body || {}) })
+  } catch (err) {
+    templateError(res, err)
+  }
+})
+
+app.patch('/api/blocks/:id', requireUser, (req, res) => {
+  try {
+    const block = blocks.update(req.user.id, req.params.id, req.body || {})
+    if (!block) return res.status(404).json({ error: 'Block not found.' })
+    res.json({ block })
+  } catch (err) {
+    templateError(res, err)
+  }
+})
+
+app.delete('/api/blocks/:id', requireUser, (req, res) => {
+  const removed = blocks.remove(req.user.id, req.params.id)
+  if (!removed) return res.status(404).json({ error: 'Block not found.' })
   res.json({ removed })
 })
 

@@ -193,6 +193,24 @@ import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Banner, Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 import { isLocked, setLocks } from '../lib/locks'
+import {
+  BLOCK_ATTR,
+  blockInstances,
+  createBlock,
+  deleteBlock,
+  extractBlock,
+  insertBlock,
+  instanceAt,
+  listBlocks,
+  markInstance,
+  refreshInstances,
+  updateBlock,
+  type Block,
+  type BlockInstance,
+  type BlockKind,
+  type Extraction,
+} from '../lib/blocks'
+import { BlockLibraryDialog, BlockSaveDialog } from './BlockDialogs'
 
 /** Translation keys per animation state — resolved at render, like every label. */
 /** Fixed viewport formats offered in the screen context menu. */
@@ -307,6 +325,8 @@ export default function ProjectView({
   onSetCreative,
   onSetRules,
   onSetCreations,
+  allProjects,
+  onUpdateScreenIn,
   initialFocusScreenId,
   plan = 'standard',
 }: {
@@ -347,6 +367,10 @@ export default function ProjectView({
   onSetRules?: (rules: string | undefined) => void
   /** The project may make what the kit lacks (lib/creations). */
   onSetCreations?: (on: boolean) => void
+  /** Every project of the account: a block's change reaches its copies in the others too (lib/blocks.ts). */
+  allProjects?: Project[]
+  /** Write a screen of ANOTHER project. Only a block update does, and only on a click. */
+  onUpdateScreenIn?: (projectId: string, screenId: string, patch: Partial<Screen>) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -706,6 +730,64 @@ export default function ProjectView({
       live = false
     }
   }, [pendingModify])
+
+  // ---- Reusable blocks (lib/blocks.ts) ----
+  const [blocks, setBlocks] = useState<Block[] | null>(null)
+  const [blocksFailed, setBlocksFailed] = useState(false)
+  const [blockSave, setBlockSave] = useState<{
+    screenId: string
+    code: string
+    ex: Extract<Extraction, { kind: 'ok' }>
+    name: string
+    kind: BlockKind
+  } | null>(null)
+  const [blockSaving, setBlockSaving] = useState(false)
+  const [blockSaveError, setBlockSaveError] = useState<string | null>(null)
+  /** Where the next inserted block goes: after the picked element, or at the end of the screen. */
+  const [blockInsert, setBlockInsert] = useState<{ screenId: string; chain?: PickedSource[] } | null>(null)
+  const [blockOffer, setBlockOffer] = useState<BlockOffer | null>(null)
+  const [applyingBlocks, setApplyingBlocks] = useState(false)
+  /** The copy of a block the Modify popup's element belongs to, if any. */
+  const [pendingInstance, setPendingInstance] = useState<BlockInstance | null>(null)
+  const allProjectsRef = useRef(allProjects)
+  allProjectsRef.current = allProjects
+
+  useEffect(() => {
+    let live = true
+    listBlocks()
+      .then((b) => live && setBlocks(b))
+      .catch(() => {
+        if (!live) return
+        setBlocks([])
+        setBlocksFailed(true)
+      })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!pendingModify || (pendingModify.group && pendingModify.group.length > 1)) {
+      setPendingInstance(null)
+      return
+    }
+    const code = screensRef.current.find((s) => s.id === pendingModify.screenId)?.code ?? ''
+    let live = true
+    void instanceAt(code, pendingModify.info.source).then((i) => live && setPendingInstance(i))
+    return () => {
+      live = false
+    }
+  }, [pendingModify])
+
+  // Opening a project: copies the library has moved past are OFFERED an update,
+  // never given one — the change may have been made for another client.
+  const blocksChecked = useRef(false)
+  useEffect(() => {
+    if (!blocks?.length || blocksChecked.current) return
+    blocksChecked.current = true
+    void planBlockOffer(blocks, false).then((offer) => offer && setBlockOffer({ ...offer, reason: 'open' }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks])
 
   /** Alt+Arrow with the focus outside the frame: the frame knows the neighbours, so it is asked. */
   const [pickStep, setPickStep] = useState<{ screenId: string; delta: -1 | 1; nonce: number } | null>(null)
@@ -3174,6 +3256,256 @@ export default function ProjectView({
     setPickedElements(null)
   }
 
+  /**
+   * The screens holding copies of these blocks that the library has moved
+   * past: this project's, and with `everywhere` every other project's. `fresh`
+   * is a write this render has not seen yet — the copy just saved into the
+   * block, which must not be offered its own update.
+   */
+  async function planBlockOffer(
+    list: Block[],
+    everywhere: boolean,
+    fresh?: { screenId: string; code: string },
+  ): Promise<Omit<BlockOffer, 'reason' | 'name'> | null> {
+    const revs = new Map(list.map((b) => [b.id, b.rev]))
+    const others = everywhere ? (allProjectsRef.current ?? []).filter((p) => p.id !== project.id) : []
+    const sources = [
+      { projectId: project.id, screens: screensRef.current },
+      ...others.map((p) => ({ projectId: p.id, screens: p.screens })),
+    ]
+    const targets: BlockOffer['targets'] = []
+    let edited = 0
+    let elsewhere = 0
+    for (const src of sources) {
+      for (const s of src.screens) {
+        const code = fresh && src.projectId === project.id && s.id === fresh.screenId ? fresh.code : s.code
+        if (!code.includes(BLOCK_ATTR)) continue
+        const late = ((await blockInstances(code)) ?? []).filter((i) => revs.has(i.blockId) && revs.get(i.blockId) !== i.rev)
+        if (!late.length) continue
+        targets.push({ projectId: src.projectId, screenId: s.id })
+        edited += late.filter((i) => i.edited).length
+        if (src.projectId !== project.id) elsewhere++
+      }
+    }
+    return targets.length ? { blocks: list, targets, elsewhere, edited } : null
+  }
+
+  function screenIn(projectId: string, screenId: string): Screen | undefined {
+    if (projectId === project.id) return screensRef.current.find((s) => s.id === screenId)
+    return allProjectsRef.current?.find((p) => p.id === projectId)?.screens.find((s) => s.id === screenId)
+  }
+
+  /**
+   * Bring the offered copies up to date — no model, one screen at a time, with
+   * the conventions of every other write here: the code re-read just before
+   * writing, `previousCode` so Revert undoes it, a note for this project's
+   * history. A screen a pass is working on is skipped rather than raced.
+   */
+  async function applyBlockOffer() {
+    const offer = blockOffer
+    if (!offer || applyingBlocks) return
+    setApplyingBlocks(true)
+    let done = 0
+    let skipped = 0
+    try {
+      for (const target of offer.targets) {
+        const here = target.projectId === project.id
+        const id = target.screenId
+        const screen = screenIn(target.projectId, id)
+        if (!screen || (here && (generatingIds.has(id) || regeneratingIds.has(id) || fixingIds.has(id))) || (!here && !onUpdateScreenIn)) {
+          skipped++
+          continue
+        }
+        const codeAtStart = screen.code
+        let code: string | null = codeAtStart
+        let updated = 0
+        for (const b of offer.blocks) {
+          if (code === null) break
+          const r: Awaited<ReturnType<typeof refreshInstances>> = await refreshInstances(code, b)
+          code = r ? r.code : null
+          updated += r?.updated ?? 0
+        }
+        const now = screenIn(target.projectId, id)
+        if (!code || !updated || !now || now.code !== codeAtStart) {
+          skipped++
+          continue
+        }
+        const patch = { code, previousCode: codeAtStart, componentName: detectComponentName(code), caps: capabilitiesFor(screen.caps ?? [], code) }
+        if (here) {
+          noteChange(id, t('blocks.note.refresh', { name: offer.blocks.map((b) => b.name).join(', ') }))
+          onUpdateScreen(id, patch)
+        } else onUpdateScreenIn?.(target.projectId, id, patch)
+        done++
+      }
+    } finally {
+      setApplyingBlocks(false)
+      setBlockOffer(null)
+    }
+    setNotice(skipped ? t('blocks.appliedSome', { n: done, skipped }) : t('blocks.applied', { n: done }))
+  }
+
+  async function startSaveBlock(screenId: string, info: PickInfo) {
+    const code = screensRef.current.find((s) => s.id === screenId)?.code
+    if (!code?.trim()) return
+    const ex = await extractBlock(code, info.source)
+    if (ex.kind === 'refused') {
+      setNotice(t(`blocks.refused.${ex.reason}`, { names: (ex.names ?? []).join(', ') }))
+      return
+    }
+    setPendingModify(null)
+    setBlockSaveError(null)
+    setBlockSave({ screenId, code, ex, name: ex.label && !ex.label.startsWith('<') ? ex.label : t(`blocks.kind.${ex.guess}`), kind: ex.guess })
+  }
+
+  /** The block goes to the library, and the element it was read from becomes its first copy. */
+  async function confirmSaveBlock(name: string, kind: BlockKind) {
+    const pending = blockSave
+    if (!pending || blockSaving) return
+    setBlockSaving(true)
+    setBlockSaveError(null)
+    try {
+      const screen = screensRef.current.find((s) => s.id === pending.screenId)
+      const b = await createBlock({
+        name,
+        kind,
+        jsx: pending.ex.content.jsx,
+        decls: pending.ex.content.decls,
+        rev: pending.ex.rev,
+        from: { project: project.name, screen: screen?.name },
+      })
+      setBlocks((prev) => [b, ...(prev ?? [])])
+      if (screen && screen.code === pending.code) {
+        const marked = await markInstance(pending.code, pending.ex, b.id, b.rev)
+        const again = screensRef.current.find((s) => s.id === pending.screenId)
+        if (marked && again?.code === pending.code) {
+          noteChange(pending.screenId, t('blocks.note.mark', { name: b.name }))
+          onUpdateScreen(pending.screenId, { code: marked, previousCode: pending.code })
+        }
+      }
+      setBlockSave(null)
+      setNotice(t('blocks.saved', { name: b.name }))
+    } catch (err) {
+      setBlockSaveError(t('blocks.failed', { error: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      setBlockSaving(false)
+    }
+  }
+
+  /** A copy changed here becomes the block's new version; the other copies are offered it. */
+  async function saveIntoBlock(screenId: string, info: PickInfo) {
+    const code = screensRef.current.find((s) => s.id === screenId)?.code
+    if (!code?.trim()) return
+    const ex = await extractBlock(code, info.source, { instance: true })
+    if (ex.kind === 'refused') {
+      setNotice(t(`blocks.refused.${ex.reason}`, { names: (ex.names ?? []).join(', ') }))
+      return
+    }
+    const block = blocks?.find((b) => b.id === ex.instance?.blockId)
+    setPendingModify(null)
+    if (!block) {
+      setNotice(t('blocks.missing'))
+      return
+    }
+    if (ex.rev === block.rev) {
+      setNotice(t('blocks.unchanged'))
+      return
+    }
+    try {
+      const next = await updateBlock(block.id, { jsx: ex.content.jsx, decls: ex.content.decls, rev: ex.rev })
+      setBlocks((prev) => (prev ?? []).map((b) => (b.id === next.id ? next : b)))
+      const marked = await markInstance(code, ex, next.id, next.rev)
+      const live = screensRef.current.find((s) => s.id === screenId)
+      let fresh: { screenId: string; code: string } | undefined
+      if (marked && live?.code === code) {
+        noteChange(screenId, t('blocks.note.refresh', { name: next.name }))
+        onUpdateScreen(screenId, { code: marked, previousCode: code })
+        fresh = { screenId, code: marked }
+      }
+      const offer = await planBlockOffer([next], true, fresh)
+      if (offer) setBlockOffer({ ...offer, reason: 'updated', name: next.name })
+      else setNotice(t('blocks.updated', { name: next.name }))
+    } catch (err) {
+      setError(t('blocks.failed', { error: err instanceof Error ? err.message : String(err) }))
+    }
+  }
+
+  /** The library's version, on this screen's copies of that block. */
+  async function refreshHere(screenId: string, instance: BlockInstance) {
+    const block = blocks?.find((b) => b.id === instance.blockId)
+    setPendingModify(null)
+    if (!block) {
+      setNotice(t('blocks.missing'))
+      return
+    }
+    if (instance.locked) {
+      setNotice(t('blocks.refreshLocked'))
+      return
+    }
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen) return
+    const code = screen.code
+    const r = await refreshInstances(code, block)
+    const live = screensRef.current.find((s) => s.id === screenId)
+    if (!r?.updated || !live || live.code !== code) {
+      setNotice(t('blocks.insertFailed'))
+      return
+    }
+    noteChange(screenId, t('blocks.note.refresh', { name: block.name }))
+    onUpdateScreen(screenId, { code: r.code, previousCode: code, componentName: detectComponentName(r.code), caps: capabilitiesFor(screen.caps ?? [], r.code) })
+    setNotice(t('blocks.refreshed'))
+  }
+
+  async function insertChosenBlock(block: Block) {
+    const target = blockInsert
+    if (!target || busy) return
+    const screen = screensRef.current.find((s) => s.id === target.screenId)
+    if (!screen?.code.trim()) return
+    const code = screen.code
+    const res = await insertBlock(code, block, target.chain)
+    const live = screensRef.current.find((s) => s.id === target.screenId)
+    if ('refused' in res || !live || live.code !== code) {
+      setNotice(t('blocks.insertFailed'))
+      return
+    }
+    noteChange(target.screenId, t('blocks.note.insert', { name: block.name }))
+    onUpdateScreen(target.screenId, {
+      code: res.code,
+      previousCode: code,
+      componentName: detectComponentName(res.code),
+      caps: capabilitiesFor(screen.caps ?? [], res.code),
+    })
+    setBlockInsert(null)
+    setNotice(t('blocks.inserted', { name: block.name }))
+  }
+
+  async function renameLibraryBlock(block: Block, name: string) {
+    try {
+      const next = await updateBlock(block.id, { name })
+      setBlocks((prev) => (prev ?? []).map((b) => (b.id === next.id ? next : b)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function removeLibraryBlock(block: Block) {
+    try {
+      await deleteBlock(block.id)
+      setBlocks((prev) => (prev ?? []).filter((b) => b.id !== block.id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  /** How many copies of each block this project holds, for the library's list. */
+  const blockUses = useMemo(() => {
+    const out: Record<string, number> = {}
+    if (!blockInsert) return out
+    for (const s of screens) {
+      for (const m of s.code.matchAll(/data-mocky-block="(b[a-f0-9]{24}):/g)) out[m[1]] = (out[m[1]] ?? 0) + 1
+    }
+    return out
+  }, [blockInsert, screens])
+
   async function removeElements(screenId: string, items: PickInfo[]) {
     if (busy) return
     const code = screensRef.current.find((s) => s.id === screenId)?.code
@@ -3987,6 +4319,28 @@ export default function ProjectView({
           onFill={(values, into) => void fillScreen(fillFor, values, into)}
           onSeries={(rows) => void fillSeries(fillFor, rows)}
           onClose={() => setFillFor(null)}
+        />
+      )}
+      {blockSave && (
+        <BlockSaveDialog
+          initialName={blockSave.name}
+          initialKind={blockSave.kind}
+          saving={blockSaving}
+          error={blockSaveError}
+          onSave={(name, kind) => void confirmSaveBlock(name, kind)}
+          onClose={() => setBlockSave(null)}
+        />
+      )}
+      {blockInsert && screens.some((x) => x.id === blockInsert.screenId) && (
+        <BlockLibraryDialog
+          blocks={blocks}
+          failed={blocksFailed}
+          uses={blockUses}
+          after={!!blockInsert.chain?.length}
+          onInsert={(b) => void insertChosenBlock(b)}
+          onRename={(b, name) => void renameLibraryBlock(b, name)}
+          onDelete={(b) => void removeLibraryBlock(b)}
+          onClose={() => setBlockInsert(null)}
         />
       )}
       {translateFor && screens.some((x) => x.id === translateFor) && (
@@ -5339,6 +5693,36 @@ export default function ProjectView({
             </div>
           )}
 
+          {blockOffer && !error && (
+            <div className="mb-2 rounded-lg border border-line bg-raised px-3 py-2 text-body-sm text-ink-muted" role="status">
+              <div className="flex items-start gap-2">
+                <Icon name="template" size={16} className="mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-ink">
+                    {blockOffer.reason === 'updated'
+                      ? t('blocks.offer.updated', {
+                          name: blockOffer.name ?? '',
+                          n: blockOffer.targets.length,
+                          elsewhere: blockOffer.elsewhere ? t('blocks.offer.elsewhere', { n: blockOffer.elsewhere }) : '',
+                        })
+                      : t('blocks.offer.open', { n: blockOffer.targets.length })}
+                  </p>
+                  {blockOffer.edited > 0 && (
+                    <p className="mt-0.5 text-caption text-ink-faint">{t('blocks.offer.edited', { n: blockOffer.edited })}</p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 flex justify-end gap-2">
+                <button type="button" className="btn-ghost px-2 py-1 text-body-sm" onClick={() => setBlockOffer(null)}>
+                  {t('blocks.offer.dismiss')}
+                </button>
+                <Button variant="primary" size="sm" disabled={applyingBlocks} onClick={() => void applyBlockOffer()}>
+                  {applyingBlocks ? t('blocks.offer.applying') : t('blocks.offer.apply')}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Annotation thumbnails */}
           {(annotations.length > 0 || capturing) && (
             <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -6116,6 +6500,66 @@ export default function ProjectView({
               </div>
             </div>
 
+            {/* A reusable block: this element saved on its own, or another one put after it. */}
+            {!(pendingModify.group && pendingModify.group.length > 1) && (
+              <div className="mb-3">
+                <label className="kicker mb-1 block">{t('blocks.title')}</label>
+                {pendingInstance && (() => {
+                  const b = blocks?.find((x) => x.id === pendingInstance.blockId)
+                  return (
+                    <p className="mb-1 text-caption text-ink-muted">
+                      {b ? t('blocks.instanceOf', { name: b.name }) : t('blocks.instanceMissing')}
+                      {b && b.rev !== pendingInstance.rev ? ` ${t('blocks.instanceBehind')}` : ''}
+                    </p>
+                  )
+                })()}
+                <div className="flex flex-wrap gap-1.5">
+                  {pendingInstance && blocks?.some((b) => b.id === pendingInstance.blockId) ? (
+                    <>
+                      <button
+                        type="button"
+                        className="rounded-md border border-line-soft px-2 py-1 text-body-sm text-ink transition hover:border-line disabled:opacity-40"
+                        disabled={busy}
+                        onClick={() => void saveIntoBlock(pendingModify.screenId, pendingModify.info)}
+                      >
+                        {t('blocks.saveInto')}
+                      </button>
+                      {blocks.find((b) => b.id === pendingInstance.blockId)?.rev !== pendingInstance.rev && (
+                        <button
+                          type="button"
+                          className="rounded-md border border-line-soft px-2 py-1 text-body-sm text-ink transition hover:border-line disabled:opacity-40"
+                          disabled={busy}
+                          onClick={() => void refreshHere(pendingModify.screenId, pendingInstance)}
+                        >
+                          {t('blocks.refreshHere')}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rounded-md border border-line-soft px-2 py-1 text-body-sm text-ink transition hover:border-line disabled:opacity-40"
+                      disabled={busy}
+                      onClick={() => void startSaveBlock(pendingModify.screenId, pendingModify.info)}
+                    >
+                      {t('blocks.save')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="rounded-md border border-line-soft px-2 py-1 text-body-sm text-ink transition hover:border-line disabled:opacity-40"
+                    disabled={busy}
+                    onClick={() => {
+                      setBlockInsert({ screenId: pendingModify.screenId, chain: pendingModify.info.source })
+                      setPendingModify(null)
+                    }}
+                  >
+                    {t('blocks.insertHere')}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Free-form change */}
             <label className="kicker mb-1 block">{t('project.orDescribe')}</label>
             <textarea
@@ -6263,6 +6707,7 @@ export default function ProjectView({
                       <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
                       <MenuItem icon="translate" label={t('translate.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setTranslateFor(s.id) }} />
                       <MenuItem icon="list" label={t('fill.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setFillFor(s.id) }} />
+                      <MenuItem icon="template" label={t('blocks.insertMenu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setBlockInsert({ screenId: s.id }) }} />
                       {/* A page does not move: animations mean nothing on a document. */}
                       {!s.page && (
                         <SubMenu icon="pulse" label={t('project.menuAnimations')}>
@@ -6682,6 +7127,19 @@ function ContextMenuShell({ x, y, children }: { x: number; y: number; children: 
 /** One row of a menu: the reference's 31px row, rounded inside the shell. */
 const MENU_ROW =
   'flex min-h-8 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition disabled:opacity-40'
+
+/** Copies of blocks the library has moved past, offered an update in one click. */
+interface BlockOffer {
+  /** `open`: found when the project opened; `updated`: a block was just changed from here. */
+  reason: 'open' | 'updated'
+  name?: string
+  blocks: Block[]
+  targets: { projectId: string; screenId: string }[]
+  /** How many of the targets are in other projects. */
+  elsewhere: number
+  /** Copies changed by hand, whose changes the update replaces. */
+  edited: number
+}
 
 function MenuItem({
   icon,
