@@ -79,6 +79,9 @@ export default defineConfig({
     proxy: {
       '/api': { target: `http://localhost:${process.env.MOCKY_PORT || 8787}`, changeOrigin: true },
       '/sso': { target: `http://localhost:${process.env.MOCKY_PORT || 8787}`, changeOrigin: true },
+      // Kosmy Board sign-in. Not `changeOrigin`: the redirect URI is built from
+      // the Host the browser used (unless MOCKY_ORIGIN says otherwise).
+      '/auth/kosmy-board': { target: `http://localhost:${process.env.MOCKY_PORT || 8787}` },
     },
   },
 })

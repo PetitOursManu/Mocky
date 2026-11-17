@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type AuthUser } from '../lib/api'
 import { startDashySso } from '../lib/sso'
+import { kosmyReasonKey, startKosmyBoardLogin } from '../lib/kosmyBoard'
 import { useT } from '../i18n'
 import { Icon } from '../ui'
 
@@ -30,6 +31,7 @@ export default function AuthModal({
     allowRegistration: boolean
     setup: boolean
     sso: { enabled: boolean; dashyUrl: string | null }
+    kosmyBoard?: { enabled: boolean }
   } | null>(null)
 
   // Set when /api/config cannot be reached at all — i.e. the backend is not
@@ -54,6 +56,7 @@ export default function AuthModal({
 
   const canRegister = cfg ? cfg.allowRegistration || cfg.setup : true
   const ssoEnabled = cfg?.sso.enabled && cfg?.sso.dashyUrl
+  const kosmyEnabled = Boolean(cfg?.kosmyBoard?.enabled)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -115,16 +118,28 @@ export default function AuthModal({
           </div>
         )}
 
-        {ssoEnabled && !cfg?.setup && (
+        {(ssoEnabled || kosmyEnabled) && !cfg?.setup && (
           <>
-            <button
-              type="button"
-              className="btn-primary mt-1 w-full"
-              onClick={() => startDashySso(cfg!.sso.dashyUrl!)}
-              disabled={busy}
-            >
-              {t('account.withDashy')}
-            </button>
+            {kosmyEnabled && (
+              <button
+                type="button"
+                className="btn-primary mt-1 w-full"
+                onClick={startKosmyBoardLogin}
+                disabled={busy}
+              >
+                {t('auth.kosmy.signIn')}
+              </button>
+            )}
+            {ssoEnabled && (
+              <button
+                type="button"
+                className={`${kosmyEnabled ? 'btn-ghost mt-2' : 'btn-primary mt-1'} w-full`}
+                onClick={() => startDashySso(cfg!.sso.dashyUrl!)}
+                disabled={busy}
+              >
+                {t('account.withDashy')}
+              </button>
+            )}
             <div className="my-4 flex items-center gap-3">
               <span className="h-px flex-1 bg-line-soft" />
               <span className="kicker">{t('auth.or')}</span>
@@ -197,6 +212,8 @@ export default function AuthModal({
  * `useT()` is not available.
  */
 function ssoErrorKey(code: string): string | null {
+  // Kosmy Board's codes come back prefixed (App.tsx), so they never meet Dashy's.
+  if (code.startsWith('kosmy:')) return kosmyReasonKey(code.slice('kosmy:'.length))
   const map: Record<string, string> = {
     'state-mismatch': 'auth.sso.stateMismatch',
     'session-not-set': 'auth.sso.sessionNotSet',

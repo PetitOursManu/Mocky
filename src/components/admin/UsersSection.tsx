@@ -3,6 +3,7 @@ import { api, type AdminUser, type AuthUser, type FreePlanSettings, type Plan } 
 import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../../ui'
 import { useT } from '../../i18n'
 import UsageReport from '../UsageReport'
+import KosmyBoardSettings from './KosmyBoardSettings'
 import { SectionHead } from './AdminDashboard'
 import { OwnApiBadge, StateMark } from './ActivitySection'
 import { useFmt } from './format'
@@ -198,6 +199,8 @@ export default function UsersSection({
             </span>
             <input type="checkbox" className="h-5 w-5 accent-accent" checked={ownKeys} onChange={toggleOwnKeys} />
           </label>
+
+          <KosmyBoardSettings />
 
           {freePlan && (
             <FreePlanForm

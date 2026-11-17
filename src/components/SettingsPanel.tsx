@@ -15,6 +15,7 @@ import ReasoningSelect from './ReasoningSelect'
 import { readReasoning } from '../lib/reasoning'
 import ChimeSetting from './ChimeSetting'
 import BrandSection from './BrandSection'
+import KosmyBoardLink from './KosmyBoardLink'
 
 type TestState =
   | { status: 'idle' }
@@ -488,6 +489,7 @@ export default function SettingsPanel() {
         {account && <BrandSection />}
         <AvatarSection account={account} onChanged={setAccount} />
         <PasswordSection account={account} onChanged={setAccount} />
+        <KosmyBoardLink account={account} onChanged={setAccount} />
         {account && <AssistantConnections />}
 
         <section>
