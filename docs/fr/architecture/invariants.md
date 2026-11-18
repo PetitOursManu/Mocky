@@ -1,5 +1,5 @@
 ---
-source_hash: 8c202bbd54eb
+source_hash: 27384b58e836
 ---
 
 # Invariants
@@ -1196,7 +1196,7 @@ nothing »).
 
 **La règle.** Un compte sans champ `plan` est standard, et le forfait des
 nouveaux comptes s'applique une seule fois, à la création (inscription publique,
-SSO Dashy, Admin → Utilisateurs). Changer ce réglage ne déplace jamais un compte
+SSO Dashy, Kosmy Board, Admin → Utilisateurs). Changer ce réglage ne déplace jamais un compte
 existant. Un administrateur est standard, sauf s'il active le forfait gratuit
 POUR LUI-MÊME (`testPlan`, Admin → Utilisateurs → Tester avec mon compte) : aucune
 route ne le pose sur un autre compte, demander à `/api/admin/users/:id/plan` de

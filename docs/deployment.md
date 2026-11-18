@@ -238,7 +238,7 @@ the sign-in screen and the model provider is configured in the UI.
 | `NODE_ENV` | `production` | Affects serving mode. Cookie security does **not** depend on it |
 | `SSO_SHARED_SECRET` | *(unset)* | The HS256 secret shared with Dashy |
 | `SSO_DASHY_URL` | *(unset)* | The public origin of your Dashy instance |
-| `MOCKY_ORIGIN` | *(auto-detected)* | Mocky's own public origin. **Set it explicitly whenever SSO is on**, and to an `https://` origin for [assistants (MCP)](mcp.md) |
+| `MOCKY_ORIGIN` | *(auto-detected)* | Mocky's own public origin. **Set it explicitly whenever SSO (Dashy or Kosmy Board) is on**, and to an `https://` origin for [assistants (MCP)](mcp.md) |
 | `MOCKY_MCP_INSECURE_LOOPBACK` | *(unset)* | `1` accepts an `http://localhost` origin for the MCP server — development and tests only ([MCP](mcp.md)) |
 | `MOCKY_RUNNER_CHROMIUM` | *(auto)* | Path to the Chromium the MCP runner drives. The Docker image installs one; set this elsewhere ([MCP](mcp.md)) |
 
@@ -535,6 +535,109 @@ carry.
 
 An SSO user who has also set a Mocky password keeps their chosen username. Only
 SSO-only accounts follow the Dashy display name.
+
+---
+
+## Sign in with Kosmy Board (OpenID Connect)
+
+Mocky can also accept sign-ins from **Kosmy Board**, the space that gathers the
+admin panels of your self-hosted instances. The Board is a standard OpenID
+Connect provider; Mocky is its client, with the authorization code flow, PKCE
+and a client secret. It sits next to password sign-in and next to Dashy, and
+changes neither.
+
+**Nothing goes in `.env`.** The settings live in `config.json` under
+`kosmyBoard`, and an administrator edits them from **Admin → Users → Sign in
+with Kosmy Board**. The client secret is write-only: the API never returns it,
+and an empty field on save keeps the stored one.
+
+### Enabling it
+
+1. Set `MOCKY_ORIGIN` to the public origin (see [the table](#environment-variables)).
+   The two addresses the Board needs are built from it, so without it they
+   follow whatever host Admin was opened on.
+2. In Kosmy Board, add the Mocky instance, then **Edit → Single sign-on**, and
+   turn it on with `client_secret_basic`. The Board asks for:
+
+   ```
+   Redirect URI          https://{{domain}}/auth/kosmy-board/callback
+   Initiate login URI    https://{{domain}}/auth/kosmy-board/login
+   ```
+
+   Mocky's Admin card shows both, with a copy button.
+3. Paste the **issuer**, **client ID** and **client secret** the Board shows
+   into the card, and save. The card then reads **On**.
+4. Each person links their account once: signed in with their Mocky password,
+   **Settings → Kosmy Board → Link to Kosmy Board**.
+
+**Create an account on first sign-in** is off by default. Turned on, a Board
+account that is linked to nothing gets a plain user account — never an
+administrator — with no password, on the newcomers' plan.
+
+Behind a reverse proxy, `/auth/kosmy-board/*` must reach Mocky like `/api/*`
+does. In development, Vite proxies it to the back end.
+
+### The flow
+
+1. **Launch** — `GET /auth/kosmy-board/login`. The sign-in button calls it, and
+   so does the Board's **Open** button, with `iss` and `target_link_uri`. An
+   `iss` other than the configured issuer is refused. The target must be on
+   Mocky's own origin, otherwise the user lands on `/`.
+2. Mocky creates a `state`, a `nonce` and a PKCE verifier (S256), keeps them on
+   the server for 10 minutes, puts the `state` in an HttpOnly, `SameSite=Lax`
+   cookie scoped to `/auth/kosmy-board`, and redirects to the Board's
+   `authorization_endpoint` (read from its discovery document).
+3. **Return** — `GET /auth/kosmy-board/callback`. The `state` must match the
+   cookie and is consumed once; the `iss` parameter must be the issuer
+   (RFC 9207). The code is exchanged at the `token_endpoint` with
+   `client_secret_basic` and the PKCE verifier.
+4. The ID token is verified, the account is found by `sub`, the session cookie
+   is set, and the browser goes to the target page.
+
+A failure never leaves a blank page: the user is sent back to `/` with
+`?kosmy=error&reason=…`, and the sign-in window says what went wrong.
+
+### What verification actually checks
+
+- The header must declare `alg: RS256`. `none`, `HS256` and anything else are
+  refused before a key is looked at.
+- The signature is checked with Node's own `crypto` against the key from
+  `jwks_uri` whose `kid` matches. An unknown `kid` refetches the key set, at
+  most once every 30 seconds, so a key rotation on the Board works without a
+  restart.
+- `iss` must equal the issuer, `aud` must contain the client ID (and `azp` must
+  be the client ID when there are several audiences), `exp` must be in the
+  future and `nbf`, if present, not in it, with 60 seconds of clock skew; `iat`
+  must be present; and `nonce` must be
+  the one sent at launch.
+- `sub` must be present. It is the only thing an account is found by.
+
+Discovery is cached for an hour, the key set until a `kid` is missing. No
+dependency was added.
+
+### Accounts
+
+Accounts are linked by the Board's `sub`, stored as `kosmySub` on the account,
+and **never by e-mail**: the Board does not verify addresses, so matching on one
+would let anybody who typed someone else's address into their Board walk into
+that person's Mocky account.
+
+- **Link** (Settings) starts the same flow from a signed-in session. A `sub`
+  already linked to another account is refused.
+- **Unlink** asks for the account's password. An account the Board created has
+  none, so it cannot unlink itself: the link is its only way in.
+- A Board account linked to nothing is refused with a message pointing to
+  password sign-in, unless account creation is on.
+- During [maintenance](migration.md), signing in works but creating an account
+  is refused.
+- Signing out of Mocky closes the Mocky session only. The Board's session stays
+  open, and **Open** signs the person in again.
+
+The audit log records sign-ins (`auth.kosmy-board`), links, unlinks and changes
+to the settings — never the secret.
+
+The pending sign-ins are kept in memory. A restart forgets them, and anyone
+caught in the middle of one clicks the button again.
 
 ---
 

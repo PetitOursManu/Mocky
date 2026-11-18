@@ -1,5 +1,5 @@
 ---
-source_hash: 62d0db9cc591
+source_hash: 5debf2626044
 ---
 
 # Déploiement
@@ -249,7 +249,7 @@ l'interface.
 | `NODE_ENV` | `production` | Influence le mode de service. La sécurité du cookie n'en dépend **pas** |
 | `SSO_SHARED_SECRET` | *(non définie)* | Le secret HS256 partagé avec Dashy |
 | `SSO_DASHY_URL` | *(non définie)* | L'origine publique de votre instance Dashy |
-| `MOCKY_ORIGIN` | *(détectée)* | L'origine publique de Mocky. **À définir explicitement dès que le SSO est activé**, et en `https://` pour les [assistants (MCP)](mcp.md) |
+| `MOCKY_ORIGIN` | *(détectée)* | L'origine publique de Mocky. **À définir explicitement dès que le SSO (Dashy ou Kosmy Board) est activé**, et en `https://` pour les [assistants (MCP)](mcp.md) |
 | `MOCKY_MCP_INSECURE_LOOPBACK` | *(non définie)* | `1` accepte une origine `http://localhost` pour le serveur MCP — développement et tests uniquement ([MCP](mcp.md)) |
 | `MOCKY_RUNNER_CHROMIUM` | *(auto)* | Chemin du Chromium que pilote l’exécuteur MCP. L’image Docker en installe un ; à définir ailleurs ([MCP](mcp.md)) |
 
@@ -562,6 +562,111 @@ uniquement par `dashySub`, que seuls les comptes créés par SSO portent.
 Un utilisateur SSO qui a aussi défini un mot de passe Mocky garde le nom
 d'utilisateur qu'il a choisi. Seuls les comptes uniquement SSO suivent le nom
 d'affichage de Dashy.
+
+---
+
+## Se connecter avec Kosmy Board (OpenID Connect)
+
+Mocky peut aussi accepter les connexions de **Kosmy Board**, l'espace qui
+regroupe les panneaux d'administration de vos instances auto-hébergées. Le Board
+est un fournisseur OpenID Connect standard ; Mocky en est le client, avec le
+flux par code d'autorisation, PKCE et un secret client. Il s'ajoute à la
+connexion par mot de passe et à Dashy, sans rien changer à l'un ni à l'autre.
+
+**Rien à mettre dans `.env`.** Les réglages sont dans `config.json`, sous
+`kosmyBoard`, et un administrateur les modifie depuis **Admin → Utilisateurs →
+Connexion avec Kosmy Board**. Le secret client est en écriture seule : l'API ne
+le renvoie jamais, et un champ vide à l'enregistrement garde celui en place.
+
+### L'activer
+
+1. Réglez `MOCKY_ORIGIN` sur l'origine publique (voir le tableau des variables d'environnement).
+   Les deux adresses dont le Board a besoin en découlent ; sans elle, elles
+   suivent l'hôte par lequel Admin a été ouvert.
+2. Dans Kosmy Board, ajoutez l'instance Mocky, puis **Modifier → Connexion
+   unique**, et activez-la avec `client_secret_basic`. Le Board demande :
+
+   ```
+   Adresse de retour       https://{{domain}}/auth/kosmy-board/callback
+   Adresse de lancement    https://{{domain}}/auth/kosmy-board/login
+   ```
+
+   La carte d'Admin de Mocky affiche les deux, avec un bouton pour les copier.
+3. Collez l'**émetteur**, l'**identifiant client** et le **secret client**
+   affichés par le Board dans la carte, et enregistrez. La carte indique alors
+   **Activée**.
+4. Chaque personne relie son compte une fois : connectée avec son mot de passe
+   Mocky, **Réglages → Kosmy Board → Relier à Kosmy Board**.
+
+**Créer un compte à la première connexion** est désactivé par défaut. Activé, un
+compte du Board relié à rien reçoit un compte d'utilisateur simple — jamais
+administrateur — sans mot de passe, au forfait des nouveaux comptes.
+
+Derrière un reverse proxy, `/auth/kosmy-board/*` doit atteindre Mocky comme
+`/api/*`. En développement, Vite le transmet au back-end.
+
+### Le parcours
+
+1. **Lancement** — `GET /auth/kosmy-board/login`. Le bouton de connexion
+   l'appelle, tout comme le bouton **Ouvrir** du Board, avec `iss` et
+   `target_link_uri`. Un `iss` différent de l'émetteur réglé est refusé. La page
+   cible doit être sur l'origine de Mocky, sinon l'utilisateur arrive sur `/`.
+2. Mocky crée un `state`, un `nonce` et un vérificateur PKCE (S256), les garde
+   côté serveur 10 minutes, place le `state` dans un cookie HttpOnly,
+   `SameSite=Lax`, limité à `/auth/kosmy-board`, et redirige vers
+   l'`authorization_endpoint` du Board (lu dans son document de découverte).
+3. **Retour** — `GET /auth/kosmy-board/callback`. Le `state` doit correspondre
+   au cookie et ne sert qu'une fois ; le paramètre `iss` doit être l'émetteur
+   (RFC 9207). Le code est échangé au `token_endpoint` avec
+   `client_secret_basic` et le vérificateur PKCE.
+4. L'ID token est vérifié, le compte est retrouvé par `sub`, le cookie de
+   session est posé, et le navigateur va à la page cible.
+
+Un échec ne laisse jamais une page blanche : l'utilisateur revient sur `/` avec
+`?kosmy=error&reason=…`, et la fenêtre de connexion dit ce qui a échoué.
+
+### Ce que la vérification contrôle réellement
+
+- L'en-tête doit déclarer `alg: RS256`. `none`, `HS256` et tout le reste sont
+  refusés avant même de chercher une clé.
+- La signature est vérifiée avec le module `crypto` de Node, avec la clé de
+  `jwks_uri` dont le `kid` correspond. Un `kid` inconnu fait relire le jeu de
+  clés, au plus une fois toutes les 30 secondes : une rotation de clé côté Board
+  passe sans redémarrage.
+- `iss` doit être l'émetteur, `aud` doit contenir l'identifiant client (et
+  `azp` doit être l'identifiant client s'il y a plusieurs audiences), `exp` doit
+  être dans le futur et `nbf`, s'il est présent, pas dans le futur, à
+  60 secondes d'écart d'horloge près ; `iat` doit être présent ; et `nonce` doit être celui envoyé au lancement.
+- `sub` doit être présent. C'est la seule chose par laquelle un compte est
+  retrouvé.
+
+La découverte est gardée en cache une heure, le jeu de clés jusqu'à ce qu'un
+`kid` manque. Aucune dépendance n'a été ajoutée.
+
+### Les comptes
+
+Les comptes sont reliés par le `sub` du Board, gardé dans `kosmySub` sur le
+compte, et **jamais par l'e-mail** : le Board ne vérifie pas les adresses, donc
+s'en servir laisserait n'importe qui, en tapant l'adresse d'un autre dans son
+Board, entrer dans le compte Mocky de cette personne.
+
+- **Relier** (Réglages) lance le même parcours depuis une session ouverte. Un
+  `sub` déjà relié à un autre compte est refusé.
+- **Défaire le lien** demande le mot de passe du compte. Un compte créé par le
+  Board n'en a pas : il ne peut donc pas défaire son lien, qui est sa seule
+  connexion.
+- Un compte du Board relié à rien est refusé, avec un message qui renvoie vers
+  la connexion par mot de passe, sauf si la création de comptes est activée.
+- Pendant une [maintenance](migration.md), la connexion fonctionne mais la
+  création d'un compte est refusée.
+- Se déconnecter de Mocky ferme la session Mocky seulement. Celle du Board reste
+  ouverte, et **Ouvrir** reconnecte la personne.
+
+Le journal d'audit enregistre les connexions (`auth.kosmy-board`), les liens, les
+déliaisons et les changements de réglages — jamais le secret.
+
+Les connexions en cours sont gardées en mémoire. Un redémarrage les oublie, et
+qui était au milieu d'une connexion reclique sur le bouton.
 
 ---
 
