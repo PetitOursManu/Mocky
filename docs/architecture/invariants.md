@@ -1115,7 +1115,7 @@ what each one received — including with the free model unconfigured.
 ### F2. A plan changes only when somebody changes it
 
 **The rule.** An account with no `plan` field is standard, and the newcomers'
-default is applied once, at creation (public sign-up, Dashy SSO, Admin → Users).
+default is applied once, at creation (public sign-up, Dashy SSO, Kosmy Board, Admin → Users).
 Changing that default never moves an existing account. An administrator is
 standard unless they switch the free plan on for THEMSELVES (`testPlan`, Admin →
 Users → Test with my account): no route sets it on another account, asking

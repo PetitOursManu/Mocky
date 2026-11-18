@@ -23,6 +23,25 @@ export interface AuthUser {
   avatar?: boolean
   /** When it last changed — used as a cache-buster in the avatar URL. */
   avatarAt?: number
+  /** Linked to a Kosmy Board account (signs in with "Se connecter avec Kosmy Board"). */
+  kosmyBoard?: boolean
+  /** Has a password of its own. Unlinking Kosmy Board asks for it. */
+  hasPassword?: boolean
+}
+
+/** Admin → Users → Kosmy Board. The secret is write-only: only `hasSecret` comes back. */
+export interface KosmyBoardSettings {
+  issuer: string
+  clientId: string
+  hasSecret: boolean
+  autoCreate: boolean
+  /** Issuer, client and secret are all set: the sign-in button shows. */
+  enabled: boolean
+  /** To copy into the Board (Kosmy convention). */
+  redirectUri: string
+  initiateLoginUri: string
+  /** MOCKY_ORIGIN is set, so the two addresses above do not depend on how Admin was reached. */
+  originSet: boolean
 }
 
 export interface AdminUser {
@@ -35,6 +54,9 @@ export interface AdminUser {
   mustChangePassword?: boolean
   /** Signs in through Dashy and has no local password to reset. */
   sso?: boolean
+  /** Linked to a Kosmy Board account. */
+  kosmyBoard?: boolean
+  hasPassword?: boolean
   /** "API perso": the provider and model this account declared for its own key. Never the key. */
   ownText?: { provider: string; model: string | null } | null
 }
@@ -584,6 +606,15 @@ export const api = {
       (d) => d.user as AuthUser,
     ),
 
+  /** Kosmy Board: link this account (returns the Board's address to go to), or unlink it (password). */
+  kosmyBoard: {
+    link: () => req('/api/account/kosmy-board/link', { method: 'POST' }) as Promise<{ url: string }>,
+    unlink: (password: string) =>
+      req('/api/account/kosmy-board/unlink', { method: 'POST', body: JSON.stringify({ password }) }).then(
+        (d) => d.user as AuthUser,
+      ),
+  },
+
   /**
    * Upload an account picture. The File is sent as the raw body, exactly like
    * the image library does — no multipart, no parser dependency, and the
@@ -630,6 +661,8 @@ export const api = {
       allowRegistration: boolean
       setup: boolean
       sso: { enabled: boolean; dashyUrl: string | null }
+      /** "Se connecter avec Kosmy Board" is configured. Absent from an older server. */
+      kosmyBoard?: { enabled: boolean }
       maintenance?: MaintenanceState
       /** Admin → Dashboard → Announcement; null when none, or once it expired. */
       announcement?: Announcement | null
@@ -695,6 +728,13 @@ export const api = {
       shotUrl: (hash: string) => `/api/admin/mcp/runner/shots/${encodeURIComponent(hash)}`,
     },
     getConfig: () => req('/api/admin/config') as Promise<AdminConfig>,
+    kosmyBoard: {
+      get: () => req('/api/admin/kosmy-board') as Promise<KosmyBoardSettings>,
+      /** An empty `clientSecret` keeps the stored one. */
+      set: (patch: { issuer?: string; clientId?: string; clientSecret?: string; autoCreate?: boolean }) =>
+        req('/api/admin/kosmy-board', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<KosmyBoardSettings>,
+      remove: () => req('/api/admin/kosmy-board', { method: 'DELETE' }) as Promise<KosmyBoardSettings>,
+    },
     setAllowRegistration: (allowRegistration: boolean) =>
       req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ allowRegistration }) }) as Promise<AdminConfig>,
     setOwnKeys: (ownKeys: boolean) =>

@@ -1,5 +1,5 @@
 ---
-source_hash: d09a96bb6ba9
+source_hash: 59b03986e463
 ---
 
 # Maintenance et migration de serveur
@@ -35,9 +35,9 @@ tout `POST`, `PUT`, `PATCH` et `DELETE` reçoit un `503` avec
 `code: "maintenance"`, sauf la connexion et la déconnexion — et deux POST qui
 n’écrivent rien : le battement de présence, et `/mcp`, dont les outils qui
 écrivent vérifient eux-mêmes la maintenance ([MCP](mcp.md)). Une route ajoutée
-l'an prochain est couverte sans que personne ne pense à l'ajouter. Le seul `GET`
-qui écrit — le retour SSO Dashy qui crée un compte à la première connexion —
-refuse d'en créer.
+l'an prochain est couverte sans que personne ne pense à l'ajouter. Les `GET` qui
+écrivent — les retours SSO Dashy et Kosmy Board qui créent un compte à la
+première connexion — refusent d'en créer.
 
 ### Ce que voit un utilisateur
 

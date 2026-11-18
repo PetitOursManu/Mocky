@@ -28,8 +28,9 @@ every `POST`, `PUT`, `PATCH` and `DELETE` is refused with `503` and
 `code: "maintenance"`, except sign-in and sign-out — and two POSTs that write
 nothing: the presence heartbeat, and `/mcp`, whose writing tools check
 maintenance themselves ([MCP](mcp.md)). A route added next year is
-covered without anybody remembering to list it. The one `GET` that writes — the
-Dashy SSO callback creating an account on first sign-in — refuses to create one.
+covered without anybody remembering to list it. The `GET`s that write — the
+Dashy SSO and Kosmy Board callbacks creating an account on first sign-in —
+refuse to create one.
 
 ### What a user sees
 

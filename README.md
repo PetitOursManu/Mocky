@@ -34,6 +34,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - **A portable design system (`DESIGN.md`)** — plain Markdown (color tokens, typography, spacing, component patterns) that Mocky prepends to every generation so screens stay on-brand across sessions. Each project also keeps a **direction of its own**, set once and left alone, so its screens look like one product; `DESIGN.md` is what a project falls back on until it has one.
 - **Generation tuned for real UIs** — the system prompt forbids wireframes, gray placeholders, and "Lorem ipsum"; it asks for finished, interactive components with real copy, hover/focus states, and modern Tailwind styling.
 - **Optional "Sign in with Dashy" SSO** — let users authenticate through a [Dashy](https://github.com/PetitOursManu/Dashy) instance and find their Mocky projects without another password.
+- **Optional "Sign in with Kosmy Board"** — OpenID Connect with your Kosmy Board: one click from the sign-in page or from the Board's "Open" button, accounts linked by their owner.
 
 ## Features
 
@@ -770,6 +771,28 @@ create or change.
 
 Everything else — the tools, the pictures, the quotas, the keys, the runner's
 network rule — is in [docs/mcp.md](docs/mcp.md).
+
+## Sign in with Kosmy Board (OpenID Connect)
+
+> **Why it works this way —** Kosmy Board is the space that gathers the admin panels of your self-hosted instances, and a standard OpenID Connect provider. Accounts are matched on the Board's stable identifier and never on the e-mail, because the Board does not verify addresses: matching on one would let anybody who typed someone else's address into their Board walk into that person's Mocky account. So the link is made once, by the account's owner, while signed in with their password.
+
+Mocky accepts **"Sign in with Kosmy Board"** next to its own passwords (and next to Dashy). Nothing goes in `.env`: an administrator sets it up from **Admin → Users → Sign in with Kosmy Board**.
+
+1. In Kosmy Board, add the Mocky instance, then open **Edit → Single sign-on** and turn it on. For an app of the Kosmy catalogue the two addresses are filled in already; otherwise copy them from Mocky's Admin card: redirect URI `{instance}/auth/kosmy-board/callback`, initiate login URI `{instance}/auth/kosmy-board/login`.
+2. Paste the three values the Board shows — **issuer**, **client ID**, **client secret** — into Mocky's card and save. The secret is write-only: it is never shown again, and typing a new one replaces it.
+3. Each person links their account once: signed in with their Mocky password, **Settings → Kosmy Board → Link to Kosmy Board**. From then on the sign-in page's button, and the Board's **Open** button, sign them straight in.
+
+Set `MOCKY_ORIGIN` to the instance's public address so the redirect URI does not depend on how Admin was reached.
+
+### What Mocky checks
+
+> **Why it works this way —** Every check below closes a specific way in: the state and its cookie stop a sign-in started in someone else's browser, PKCE stops a stolen code from being redeemed, and the ID token checks stop a valid token issued for another app, by another provider, or for another attempt from being accepted here.
+
+- **Launch** (`GET /auth/kosmy-board/login`, also called by the Board with `iss` and `target_link_uri`): a different issuer is refused; the target page must be on this instance (same origin), otherwise Mocky opens on `/`. A `state`, a `nonce` and a PKCE verifier (S256) are kept on the server for 10 minutes; the browser holds only the state, in an HttpOnly cookie.
+- **Return** (`GET /auth/kosmy-board/callback`): the state is single-use and must match the cookie; `iss` must be the issuer (RFC 9207); the code is exchanged with `client_secret_basic`; the ID token is verified entirely — RS256 signature against `jwks_uri`, `iss`, `aud`, `exp` and `nonce`. No dependency: node's own crypto does it.
+- **Accounts**: matched on `sub` only (stored as `kosmySub` on the account), never on the e-mail. An unknown Board account is refused with a message pointing to password sign-in. **Create an account on first sign-in** (off by default) makes a plain user without a password — never an administrator, and never during maintenance.
+- **Unlinking** (Settings) asks for the account's password. An account created by the Board has none, so it cannot unlink itself: the link is its only way in.
+- Signing out of Mocky closes the Mocky session only; the Board's session stays open and **Open** signs you in again with one click.
 
 ## SSO — "Sign in with Dashy"
 

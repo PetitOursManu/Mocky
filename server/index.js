@@ -65,6 +65,7 @@ import { createAuditLog } from './admin/audit.js'
 import { describeUserAgent, sessionId } from './admin/sessions.js'
 import { liveAnnouncement } from './admin/announcement.js'
 import { createDashboardRouter } from './admin/routes.js'
+import { createKosmyBoardRoutes, settingsOf as kosmyBoardSettings } from './kosmy-board.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -505,6 +506,13 @@ const publicUser = (u) => ({
    */
   avatar: Boolean(u.avatarMime),
   avatarAt: u.avatarAt || 0,
+  /**
+   * Linked to a Kosmy Board account (server/kosmy-board.js), and whether the
+   * account has a password of its own — unlinking asks for it, so an account
+   * without one cannot unlink (the link is its only way in).
+   */
+  kosmyBoard: Boolean(u.kosmySub),
+  hasPassword: Boolean(u.salt && u.hash),
 })
 function verifyPw(user, password) {
   // SSO-only accounts have no password and cannot log in this way.
@@ -1034,6 +1042,9 @@ app.get('/api/config', (req, res) => {
       enabled: ssoEnabled,
       dashyUrl: SSO_DASHY_URL || null,
     },
+    // "Se connecter avec Kosmy Board" (server/kosmy-board.js): only whether the
+    // button can work. The issuer, client and secret stay in Admin.
+    kosmyBoard: { enabled: kosmyBoardSettings(loadConfig()).ready },
     // Whether an admin configured an instance-wide model (no secret exposed) —
     // lets Settings tell users their own provider fields are being overridden.
     // Per ACCOUNT, not per instance: on the free plan the model that answers is
@@ -1253,9 +1264,11 @@ app.post('/api/account/password', requireUser, authRateLimit(8, 60_000, 'passwor
   const user = users.find((u) => u.id === req.user.id)
   if (!user) return res.status(404).json({ error: 'Compte introuvable.' })
   if (!user.salt || !user.hash) {
-    return res
-      .status(400)
-      .json({ error: 'Ce compte se connecte via Dashy : le mot de passe se change côté Dashy.' })
+    return res.status(400).json({
+      error: user.kosmySub && !user.dashySub
+        ? 'Ce compte se connecte avec Kosmy Board : il n’a pas de mot de passe propre à Mocky.'
+        : 'Ce compte se connecte via Dashy : le mot de passe se change côté Dashy.',
+    })
   }
   if (!verifyPw(user, current)) {
     // The current password is a secret being guessed here too, session or not.
@@ -1342,6 +1355,39 @@ app.get('/sso/dashy/callback', (req, res, next) => {
   if (state) dest.searchParams.set('state', state)
   res.redirect(302, dest.toString())
 })
+
+// ---- "Se connecter avec Kosmy Board" (OpenID Connect) ----
+// /auth/kosmy-board/login and /callback (the Kosmy convention), the account's
+// link / unlink, and Admin's settings. See server/kosmy-board.js.
+app.use(
+  createKosmyBoardRoutes({
+    loadConfig,
+    saveConfig,
+    loadUsers,
+    saveUsers,
+    sessionUser,
+    setSession,
+    requireUser,
+    requireAdmin,
+    verifyPw,
+    accountLocked,
+    noteAuthFailure,
+    clearAuthFailures,
+    logAuth,
+    audit,
+    auditActor,
+    clientIp,
+    authRateLimit,
+    publicUser,
+    assignNewcomerPlan,
+    isMaintenance: () => maintenance.on,
+    isHttps,
+    // The redirect URI must be exactly the one given to the Board: MOCKY_ORIGIN
+    // when set, else the address this request came in on.
+    baseUrl: (req) => MOCKY_ORIGIN || `${req.protocol}://${req.get('host')}`,
+    originSet: () => Boolean(MOCKY_ORIGIN),
+  }),
+)
 
 // ---- admin routes ----
 /**
@@ -1526,6 +1572,9 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
       mustChangePassword: Boolean(u.mustChangePassword),
       // SSO-only accounts have no local password to reset.
       sso: Boolean(u.dashySub) && !u.salt && !u.hash,
+      // Linked to Kosmy Board (server/kosmy-board.js).
+      kosmyBoard: Boolean(u.kosmySub),
+      hasPassword: Boolean(u.salt && u.hash),
       // "API perso": the provider and model this account declared for its own
       // key — never the key, which the server does not have.
       ownText: ownTextView(u, cfg),
@@ -3065,7 +3114,12 @@ if (fs.existsSync(dist)) {
     }),
   )
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/__provider') || req.path.startsWith('/sso'))
+    if (
+      req.path.startsWith('/api') ||
+      req.path.startsWith('/__provider') ||
+      req.path.startsWith('/sso') ||
+      req.path.startsWith('/auth/kosmy-board')
+    )
       return next()
     // Never cached: this is the document that names the fingerprinted bundles,
     // so a stale copy pins the browser to the previous release forever.

@@ -4,6 +4,7 @@ import { loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
 import { enableSync, installUnloadGuard, reconcileOnLogin } from './lib/sync'
 import { checkSsoReturn, cleanSsoQueryParams } from './lib/sso'
+import { rememberLinkNotice, takeKosmyReturn } from './lib/kosmyBoard'
 import { loadMuseConfig, setMuseVideoPin, type MuseVideoPin } from './lib/muse'
 import { videoPosterUrl } from './lib/videoLibrary'
 import ProjectsHome from './components/ProjectsHome'
@@ -229,6 +230,11 @@ function MockyApp() {
       if (!returned.ok) setSsoError(returned.error)
       cleanSsoQueryParams()
     }
+    // Back from Kosmy Board (lib/kosmyBoard.ts): a refused sign-in is said in the
+    // sign-in box, a link (or a refused one) in Settings, where it was asked for.
+    const kosmy = takeKosmyReturn()
+    if (kosmy?.kind === 'error') setSsoError(`kosmy:${kosmy.reason}`)
+    if (kosmy && kosmy.kind !== 'error') rememberLinkNotice(kosmy)
 
     api
       .me()
@@ -237,6 +243,10 @@ function MockyApp() {
         if (!user) {
           setAuthOpen(true)
         } else {
+          // Signed in already, yet the Board's sign-in was refused (another
+          // account, not linked…): the sign-in box is where that is explained.
+          if (kosmy?.kind === 'error') setAuthOpen(true)
+          if (kosmy && kosmy.kind !== 'error') navigate('settings')
           // Reconcile BEFORE arming sync, not after. Armed first, the empty
           // array `useProjects` reads at mount could be pushed to the server
           // before the server's own copy had even been read — and on a fresh
