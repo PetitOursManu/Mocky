@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `auth` | se connecter avec Kosmy Board (OpenID Connect) | `e483882` |
 | `modèles` | sections nommées, choisies d'un coup dans le composeur, et aperçus des écrans | `99c81e3` |
 | `campagne` | importer un PDF comme source du brief, des infos et des images | `eeec133` |
 | `campagne` | pack de publication, avec légendes par réseau, textes alternatifs et export complet | `0d42da1` |
@@ -58,6 +59,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `auth` | documenter la connexion avec Kosmy Board | `7840c72` |
 | `readme` | présenter les fonctionnalités ajoutées depuis novembre | `11728f3` |
 | — | vision, traduction, tokens propagés, calendrier éditorial et Calendy | `91c88b8` |
 | — | les modèles ont leur icône, le README présente les nouveautés | `a601f98` |
