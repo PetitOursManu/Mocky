@@ -1397,6 +1397,13 @@ Six things that will bite you:
    `gateTools`, never another way. And the key path is chosen on the PREFIX,
    before the SDK's bearer: the OAuth path must not change for a value without
    it, and nothing outside `/mcp` may read a key — it is never a session (X8).
+6. **The rewrites without a layout reach the runner as job kinds**
+   (`translate`, `fill`, `pack` in `src/runner/main.tsx`), and the check as a
+   page call like the export (`checkDocument`, `runner.checkCode`). A
+   translation and a fill write COPIES (`copyOf`, placed with `placeBeside`),
+   never the original unless `into: "here"`; a fill calls no model, so it skips
+   the provider checks and the daily quota (`FREE_KINDS`). `TRANSLATE_LANGS` in
+   `tools.js` mirrors `lib/translate.ts`, held by `rewrites.test.js`.
 
 ## Versions and branches
 

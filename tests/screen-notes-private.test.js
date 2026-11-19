@@ -43,6 +43,8 @@ const ALLOWED = new Set([
   'src/lib/useVersions.ts', // "Keep beside" makes a copy and leaves the notes behind, like Duplicate
   'src/lib/templates.test.ts', // a template is a snapshot for a NEW project: the notes stay behind
   'server/templates.test.js', // the same, at the store: a screen sent with notes is kept without them
+  'src/runner/main.tsx', // an assistant's translated or filled copy leaves the notes behind (copyOf)
+  'server/mcp/rewrites.test.js', // plants notes to prove get_project and check_document never pass them on
 ])
 
 const MENTION = /\buserNotes\b|\bScreenNote\b|screenNotes['"]/

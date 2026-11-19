@@ -338,6 +338,8 @@ export function createRunner(d) {
 
   /** What existing screens were last photographed as, so asking twice costs nothing. */
   const codeShots = new Map()
+  /** The pre-export checks already measured, by what they measured. */
+  const checks = new Map()
   /** One photograph of an existing screen at a time: they share the warm browser. */
   let photoQueue = Promise.resolve()
 
@@ -505,10 +507,15 @@ export function createRunner(d) {
         ...(result.polish ? { polish: result.polish } : {}),
         ...(result.audit ? { audit: result.audit } : {}),
         ...(result.auditFix ? { auditFix: result.auditFix } : {}),
+        // The rewrites without a layout: counts, field labels and the captions —
+        // the captions are what the person asked for, so they travel whole.
+        ...(result.translate ? { translate: cleanTranslate(result.translate) } : {}),
+        ...(result.fill ? { fill: cleanFill(result.fill) } : {}),
+        ...(result.pack ? { pack: cleanPack(result.pack) } : {}),
         // Several screens made by one job: ids, names and roles — never code.
         ...(Array.isArray(result.screens) && result.screens.length
           ? {
-              collection: ['flow', 'campaign', 'publication'].includes(result.collection) ? result.collection : 'flow',
+              collection: ['flow', 'campaign', 'publication', 'series'].includes(result.collection) ? result.collection : 'flow',
               screens: result.screens.slice(0, 16).map((x) => ({
                 screenId: String(x?.screenId || '').slice(0, 64),
                 name: String(x?.name || '').slice(0, 120),
@@ -635,8 +642,9 @@ export function createRunner(d) {
     countToday(userId) {
       const start = new Date()
       start.setHours(0, 0, 0, 0)
-      // An audit changes nothing and its rule half costs nothing: it is not a design.
-      return [...jobs.values()].filter((j) => j.userId === userId && j.createdAt >= start.getTime() && j.request?.kind !== 'audit').length
+      // An audit changes nothing and its rule half costs nothing, and a fill calls
+      // no model at all: neither is a design.
+      return [...jobs.values()].filter((j) => j.userId === userId && j.createdAt >= start.getTime() && !FREE_KINDS.has(j.request?.kind)).length
     },
 
     readShot,
@@ -744,6 +752,44 @@ export function createRunner(d) {
       return run
     },
 
+    /**
+     * The pre-export check of a document that exists (`check_document`): the
+     * Download dialog's own measurement, run in the runner's page. No model, no
+     * token, no file, nothing written — like `exportCode`, and on the same
+     * queue. An unchanged document asked twice is measured once.
+     */
+    async checkCode(spec) {
+      const why = availability()
+      if (!why.available) throw Object.assign(new Error(why.reason), { code: why.reason })
+      const screen = spec.screen || {}
+      const key = crypto
+        .createHash('sha256')
+        .update(JSON.stringify(['check', spec.lang || 'fr', screen.code, screen.page, screen.fold, screen.caps || []]))
+        .digest('hex')
+      const known = checks.get(key)
+      if (known) return known
+      const run = photoQueue.then(async () => {
+        let context = null
+        const timer = setTimeout(() => void context?.close().catch(() => {}), EXPORT_TIMEOUT_MS)
+        timer.unref?.()
+        try {
+          const opened = await openPage(null, spec.lang === 'en' ? 'en-US' : 'fr-FR')
+          context = opened.context
+          await ready(opened.page)
+          const out = cleanCheck(await opened.page.evaluate((x) => window.__mockyRunner.checkDocument(x), { screen, lang: spec.lang }))
+          checks.set(key, out)
+          if (checks.size > MAX_SHOTS) checks.delete(checks.keys().next().value)
+          return out
+        } finally {
+          clearTimeout(timer)
+          await context?.close().catch(() => {})
+          armIdle()
+        }
+      })
+      photoQueue = run.catch(() => {})
+      return run
+    },
+
     /** Whether this account has a design being made right now — the admin's "MCP" chip. */
     isBusy(userId) {
       for (const j of jobs.values()) if (j.userId === userId && LIVE.has(j.status)) return true
@@ -755,6 +801,41 @@ export function createRunner(d) {
       if (idleTimer) clearTimeout(idleTimer)
       await browser?.close().catch(() => {})
     },
+  }
+}
+
+/** The kinds that do not count as a design against the daily quota. */
+const FREE_KINDS = new Set(['audit', 'fill'])
+
+const str = (v, n) => String(v ?? '').slice(0, n)
+const strs = (v, n, each) => (Array.isArray(v) ? v.slice(0, n).map((x) => str(x, each)) : [])
+const count = (v) => Math.max(0, Math.floor(Number(v) || 0))
+
+/** What a page reports, re-read as data: shapes and lengths the tools can print. */
+export function cleanTranslate(t) {
+  return { lang: str(t?.lang, 10), total: count(t?.total), written: count(t?.written), kept: count(t?.kept) }
+}
+export function cleanFill(f) {
+  return { into: f?.into === 'here' ? 'here' : 'copy', written: strs(f?.written, 40, 80), refused: strs(f?.refused, 20, 200), unknown: strs(f?.unknown, 20, 60) }
+}
+export function cleanPack(p) {
+  const captions = {}
+  for (const n of ['instagram', 'facebook', 'linkedin']) {
+    const c = p?.captions?.[n]
+    if (c && typeof c.text === 'string' && c.text.trim()) captions[n] = { text: str(c.text, 3000), hashtags: strs(c.hashtags, 30, 61) }
+  }
+  return { captions, alts: count(p?.alts), pieces: count(p?.pieces) }
+}
+export function cleanCheck(c) {
+  const STATUS = new Set(['ok', 'info', 'warn', 'na'])
+  return {
+    pages: count(c?.pages),
+    checks: (Array.isArray(c?.checks) ? c.checks : []).slice(0, 12).map((x) => ({
+      id: str(x?.id, 20),
+      label: str(x?.label, 80),
+      status: STATUS.has(x?.status) ? x.status : 'info',
+      notes: strs(x?.notes, 12, 400),
+    })),
   }
 }
 

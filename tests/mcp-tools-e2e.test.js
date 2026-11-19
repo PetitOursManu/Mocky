@@ -129,7 +129,15 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
         // Muse's dossier is asked for by its schema; everything else JSON is the
         // planner. A pass on an existing screen is told apart by its prompt.
         const said = JSON.stringify(body)
-        const content = said.includes('correcting named accessibility and SEO problems')
+        // A translation answers every id it was given, marked so the test can
+        // find the words in the copy; the pack answers its JSON object.
+        const asked = body?.messages?.at?.(-1)?.content || ''
+        const texts = said.includes('You translate the visible text') ? JSON.parse(asked.slice(asked.indexOf('<<<TEXTS') + 8, asked.indexOf('TEXTS>>>'))) : null
+        const content = texts
+          ? JSON.stringify(Object.fromEntries(texts.map((t) => [String(t.id), `EN ${t.text}`])))
+          : said.includes('You write what goes UNDER')
+            ? JSON.stringify({ instagram: { caption: 'Samedi, la fête du quartier !', hashtags: ['#quartier', '#fete'] }, alt: { P1: 'Affiche de la fête du quartier, samedi.' } })
+            : said.includes('correcting named accessibility and SEO problems')
           ? fence(CODE_FIXED)
           : said.includes('You are EDITING an existing screen')
             ? fence(CODE_EDITED)
@@ -609,6 +617,97 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // Someone else's screen, or no screen, reads as missing (X4).
     const missing = await mcp.callTool({ name: 'edit_design', arguments: { project_id: 'p-passes', screen_id: 'nope', instruction: 'x' } })
     expect(missing.isError).toBe(true)
+  }, 240_000)
+
+  it('translates into a copy, fills fields, checks a document and writes a campaign’s pack — without laying anything out again', async () => {
+    const now = Date.now()
+    const FLYER = 'export default function App() {\n  return <Doc><Page className="p-12"><h1 className="text-5xl font-bold">Fête du quartier</h1><p className="text-2xl">Samedi : grillades</p></Page></Doc>\n}'
+    const seeded = {
+      id: 'p-rewrites',
+      name: 'Fête',
+      createdAt: now,
+      updatedAt: now,
+      campaign: { brief: 'La fête du quartier, samedi 14 juin, place du marché', facts: [{ id: 'date', label: 'Date', value: 'samedi 14 juin' }], formats: ['flyer'] },
+      screens: [
+        {
+          id: 's-flyer',
+          name: 'Flyer',
+          code: FLYER,
+          w: 794,
+          h: 1123,
+          x: 0,
+          y: 0,
+          device: 'none',
+          page: 'a4',
+          caps: ['document'],
+          prompt: 'Un flyer pour la fête du quartier',
+          createdAt: now,
+          campaign: { format: 'flyer', facts: { date: 'samedi 14 juin' } },
+          fill: [{ id: 'f-plat', label: 'Plat', kind: 'text', value: 'Samedi : grillades', nth: 0 }],
+        },
+      ],
+    }
+    expect((await call('PUT', '/api/data', { projects: JSON.stringify([seeded]) })).ok).toBe(true)
+    const stored = async () => JSON.parse((await (await call('GET', '/api/data')).json()).projects).find((p) => p.id === 'p-rewrites')
+    const run = async (name, args) => {
+      let out = await mcp.callTool({ name, arguments: { project_id: 'p-rewrites', ...args } })
+      for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
+        out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+      }
+      expect(out.isError, JSON.stringify(out.content)).toBeFalsy()
+      return out
+    }
+    const said = (out) => out.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n')
+
+    // get_project shows the fields to fill and says it is a document of a campaign.
+    const listed = said(await mcp.callTool({ name: 'get_project', arguments: { project_id: 'p-rewrites' } }))
+    expect(listed).toContain('field "Plat" (text): Samedi : grillades')
+    expect(listed).toMatch(/document a4, campaign flyer/)
+
+    // A translated copy beside the flyer; the flyer itself untouched.
+    const translated = await run('translate_screen', { screen_id: 's-flyer', language: 'en' })
+    expect(translated.structuredContent.translate).toMatchObject({ lang: 'en', written: 2, total: 2 })
+    let project = await stored()
+    expect(project.screens).toHaveLength(2)
+    const copy = project.screens.find((s) => s.id === translated.structuredContent.screenId)
+    expect(copy).toMatchObject({ name: 'Flyer · EN', page: 'a4' })
+    expect(copy.code).toContain('EN Fête du quartier')
+    expect(copy.x).toBeGreaterThan(794)
+    expect(copy).not.toHaveProperty('campaign')
+    expect(project.screens.find((s) => s.id === 's-flyer').code).toBe(FLYER)
+
+    // A series: one copy per row, from the original, no model call.
+    const before = modelCalls.length
+    const series = await run('fill_fields', { screen_id: 's-flyer', rows: [{ label: 'Lyon', values: { plat: 'Samedi : paella' } }, { label: 'Nîmes', values: { Plat: 'Samedi : brasucade' } }] })
+    expect(modelCalls.length).toBe(before)
+    expect(series.structuredContent.collection).toBe('series')
+    project = await stored()
+    expect(project.screens).toHaveLength(4)
+    const names = project.screens.map((s) => s.name)
+    expect(names).toEqual(expect.arrayContaining(['Flyer · Lyon', 'Flyer · Nîmes']))
+    expect(project.screens.find((s) => s.name === 'Flyer · Nîmes').code).toContain('Samedi : brasucade')
+    expect(project.screens.find((s) => s.id === 's-flyer').code).toBe(FLYER)
+
+    // Into the screen itself, revertible.
+    await run('fill_fields', { screen_id: 's-flyer', rows: [{ values: { Plat: 'Samedi : couscous' } }], into: 'here' })
+    const flyer = (await stored()).screens.find((s) => s.id === 's-flyer')
+    expect(flyer.code).toContain('Samedi : couscous')
+    expect(flyer.previousCode).toBe(FLYER)
+    expect(flyer.fill[0].value).toBe('Samedi : couscous')
+
+    // The pre-export check: measured in the runner, worded, nothing written.
+    const checked = await run('check_document', { screen_id: 's-flyer' })
+    expect(checked.structuredContent.pages).toBe(1)
+    expect(checked.structuredContent.checks.map((c) => c.id)).toEqual(['pictures', 'margins', 'bleed', 'text', 'qr', 'canva'])
+    expect(said(checked)).toMatch(/Fonds perdus/)
+
+    // The pack: the captions handed back, kept in the campaign, the alt on the piece.
+    const pack = await run('write_publication_pack', {})
+    expect(said(pack)).toContain('Samedi, la fête du quartier !')
+    project = await stored()
+    expect(project.campaign.pack.captions.instagram.hashtags).toEqual(['#quartier', '#fete'])
+    expect(project.campaign.pack.facts).toEqual({ date: 'samedi 14 juin' })
+    expect(project.screens.find((s) => s.id === 's-flyer').campaign.alt.text).toBe('Affiche de la fête du quartier, samedi.')
   }, 240_000)
 
   it('lets the assistant write the code itself, and holds it to what Mocky’s would be held to (phase 4)', async () => {

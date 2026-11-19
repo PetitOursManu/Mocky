@@ -37,20 +37,25 @@ import { documentPictureSource, imageGenerationAvailable, type DocumentImageChoi
 import { stockImageStatus, stockUsable } from '../lib/stockImages'
 import { imageUrl } from '../lib/imageLibrary'
 import { defaultDesign, extractProductName, isDesignActive } from '../lib/design'
-import { DEFAULT_PROJECT_NAME, deriveName, designForProject, newId, normalizeScreen, placeScreen, type Project, type Screen } from '../lib/project'
+import { DEFAULT_PROJECT_NAME, deriveName, designForProject, newId, normalizeScreen, placeBeside, placeScreen, type Project, type Screen } from '../lib/project'
 import { projectFromTemplate, type ProjectTemplate } from '../lib/templates'
 import { exportDocument, type ExportKind } from '../lib/docExport'
 import { exportWebScreen } from '../lib/docExport/web'
 import { runNewScreen, type NewScreenHooks, type NewScreenPhase, type NewScreenRequest, type ScreenWriter } from '../lib/pipeline/newScreen'
 import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
-import { readCampaignFacts, runCampaign } from '../lib/pipeline/campaign'
+import { readCampaignFacts, runCampaign, writePublicationPack } from '../lib/pipeline/campaign'
 import { addPublicationPage, planPublication, runPublication } from '../lib/pipeline/publication'
 import { flowScreenName } from '../lib/flows'
 import { isFoldId } from '../lib/folds'
 import { projectRulesSection } from '../lib/rules'
 import { brandByName, brandOfProject, brandSection, brandsOfDesign, defaultBrandId, type BrandIdentity } from '../lib/brand'
 import { composerPageFormat } from '../lib/documentMode'
-import { isCampaignFormatId, normalizeCampaign, sortFormats, type CampaignFormatId } from '../lib/campaign'
+import { CAMPAIGN_FORMAT_IDS, factSnapshot, isCampaignFormatId, normalizeCampaign, sortFormats, type CampaignFormatId } from '../lib/campaign'
+import { translateCode, TRANSLATE_LANGS, type TranslateLang } from '../lib/translate'
+import { applyFill, type FillRefusal } from '../lib/fillFields'
+import { SERIES_MAX } from '../lib/fillSeries'
+import { runPreflight } from '../lib/docExport/preflight'
+import type { PackCaption, PackNetwork } from '../lib/publicationPack'
 import { isPublicationKind, latestPublication, upsertPublication, type Publication } from '../lib/publication'
 import { buildGenerationMessages, detectComponentName, finishGeneratedCode } from '../lib/generate'
 import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
@@ -66,8 +71,11 @@ import Preview, { previewDocument } from '../components/Preview'
  * that exists — each calls ONE of the correction passes, never a mix (CLAUDE.md,
  * "four independent correction passes"): an edit, the quality pass, the
  * SEO/accessibility report, or that report followed by its own correction.
+ * Three more rewrite WITHOUT laying out again ("Rewrites without a model"):
+ * `translate` and `fill` make copies beside the screen (fill may write the
+ * screen itself), and `pack` writes the words under a campaign's pieces.
  */
-export type RunnerKind = 'new' | 'edit' | 'polish' | 'audit' | 'auditFix' | 'campaign' | 'publication'
+export type RunnerKind = 'new' | 'edit' | 'polish' | 'audit' | 'auditFix' | 'campaign' | 'publication' | 'translate' | 'fill' | 'pack'
 
 /**
  * The kinds that MAKE screens rather than work on one: a screen (and the pages
@@ -85,6 +93,14 @@ export interface RunnerJob {
   instruction?: string
   /** An audit's model-judged half (a model call), as the panel's "deep" switch. */
   deep?: boolean
+  /** The language a `translate` job writes the copy in (lib/translate.ts). */
+  toLang?: string
+  /**
+   * A `fill` job: one row fills one copy (or, with `into: 'here'` and one row,
+   * the screen itself). A row's values are keyed by a field's label or id, as
+   * "Remplir…" names them; a picture's value is a library hash.
+   */
+  fill?: { into?: 'copy' | 'here'; rows: Array<{ label?: string; values: Record<string, string> }> }
   brief: string
   /** An existing project of the account, or absent for a new one. */
   projectId?: string
@@ -155,6 +171,12 @@ export interface RunnerResult {
   audit?: RunnerAudit
   /** What the accessibility correction resolved and left. */
   auditFix?: { fixed: string[]; residual: string[]; stopped: string }
+  /** A translation: how many runs there were, were written, kept their words. */
+  translate?: { lang: string; total: number; written: number; kept: number }
+  /** A fill: the fields written (by label), and those refused with the reason, per row. */
+  fill?: { into: 'copy' | 'here'; written: string[]; refused: string[]; unknown: string[] }
+  /** The publication pack: the captions as written, and how many pieces got a text alternative. */
+  pack?: { captions: Partial<Record<PackNetwork, PackCaption>>; alts: number; pieces: number }
   /**
    * Every screen the job made, in order, when it made more than one: a
    * campaign's pieces, a publication's sheets, a screen and the pages of its
@@ -162,7 +184,7 @@ export interface RunnerResult {
    */
   screens?: Array<{ screenId: string; name: string; role: string }>
   /** What made `screens`. */
-  collection?: 'flow' | 'campaign' | 'publication'
+  collection?: 'flow' | 'campaign' | 'publication' | 'series'
 }
 
 /** The SEO / accessibility report as it leaves the page: scores and named findings, no source. */
@@ -190,6 +212,8 @@ declare global {
         pages: number
         notices: string[]
       }>
+      /** The pre-export check of a document, worded in `lang` (lib/docExport/preflight.ts). */
+      checkDocument: (spec: { screen: Partial<Screen>; lang?: string }) => Promise<RunnerCheck>
     }
     /** Exposed by the server (page.exposeFunction): where progress goes. */
     __mockyRunnerProgress?: (phase: string) => void
@@ -256,6 +280,7 @@ function brandIdFor(raw: string | null | undefined, name: string | undefined): s
 }
 
 async function run(job: RunnerJob): Promise<RunnerResult> {
+  if (job.kind === 'pack') return runPack(job)
   if (job.kind && !MAKING.includes(job.kind)) return runOnScreen(job)
   const lang = job.lang === 'en' ? 'en' : 'fr'
   const t = (key: TranslationKey, vars?: Record<string, string | number>) => translate(lang, key, vars)
@@ -767,9 +792,72 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
   const codeAtStart = screen.code
   const notices: string[] = []
   let patch: Partial<Screen> | null = null
+  /** New screens a pass makes BESIDE the one it read (a translation, filled copies), in order. */
+  const copies: Screen[] = []
   const result: Partial<RunnerResult> = { kind }
 
-  if (kind === 'edit') {
+  if (kind === 'translate') {
+    const to = TRANSLATE_LANGS.find((l) => l === job.toLang) as TranslateLang | undefined
+    if (!to) throw new Error(`unknown language: ${String(job.toLang).slice(0, 10)}`)
+    progress('translating')
+    const res = await translateCode(settings, codeAtStart, to, signal)
+    result.translate = { lang: to, total: res.total, written: res.written, kept: res.kept }
+    if (res.written) copies.push(copyOf(screen, { code: res.code, name: t('translate.copyName', { name: screen.name, code: to.toUpperCase() }) }))
+  } else if (kind === 'fill') {
+    const fields = screen.fill
+    if (!fields?.length) {
+      throw new Error(
+        lang === 'fr'
+          ? 'Cet écran n’a pas de champs à remplir : dans Mocky, clic droit sur l’écran → « Remplir… » pour les choisir.'
+          : 'This screen has no fields to fill: in Mocky, right-click the screen → "Fill…" to choose them.',
+      )
+    }
+    const rows = (job.fill?.rows || []).slice(0, SERIES_MAX)
+    if (!rows.length) throw new Error('no values')
+    const into = job.fill?.into === 'here' && rows.length === 1 ? 'here' : 'copy'
+    // A key is the person's own name for a field (its label, any case) or its id.
+    const fieldOf = (key: string) => {
+      const k = key.trim().toLowerCase()
+      return fields.find((f) => f.id === key) ?? fields.find((f) => f.label.trim().toLowerCase() === k)
+    }
+    const reasons: Record<FillRefusal, string> = {
+      missing: t('fill.reason.missing'),
+      empty: t('fill.reason.empty'),
+      unsafe: t('fill.reason.unsafe'),
+      notImage: t('fill.reason.notImage'),
+    }
+    const unknown = new Set<string>()
+    const written = new Set<string>()
+    const refused: string[] = []
+    progress('filling')
+    for (const [i, row] of rows.entries()) {
+      const values: Record<string, string> = {}
+      for (const [key, value] of Object.entries(row.values || {})) {
+        const f = fieldOf(key)
+        if (f) values[f.id] = String(value)
+        else unknown.add(key.slice(0, 60))
+      }
+      // From the ORIGINAL every time, as fillSeries does: an empty cell keeps the screen's value, not the previous row's.
+      const res = await applyFill(codeAtStart, fields, values, window.location.origin)
+      const labelOf = (id: string) => fields.find((f) => f.id === id)?.label ?? id
+      for (const id of res.written) written.add(labelOf(id))
+      const rowName = row.label?.trim() || String(i + 1)
+      for (const r of res.refused) refused.push(`${rows.length > 1 ? `${rowName} : ` : ''}${labelOf(r.id)} (${reasons[r.reason]})`)
+      if (!res.written.length) continue
+      if (into === 'here') {
+        patch = { code: res.code, componentName: detectComponentName(res.code), previousCode: codeAtStart, fill: res.fields }
+        continue
+      }
+      const first = res.fields.find((f) => f.kind === 'text' && res.written.includes(f.id))
+      const value = (row.label?.trim() || first?.value || t('fill.picture')).slice(0, 32)
+      copies.push(copyOf(screen, { code: res.code, name: t('fill.copyName', { name: screen.name, value }), fill: res.fields }))
+    }
+    result.fill = { into, written: [...written], refused: refused.slice(0, 20), unknown: [...unknown].slice(0, 20) }
+    if (copies.length > 1) {
+      result.collection = 'series'
+      result.screens = copies.map((c) => ({ screenId: c.id, name: c.name, role: 'copy' }))
+    }
+  } else if (kind === 'edit') {
     const instruction = String(job.instruction || '').trim()
     if (!instruction) throw new Error('empty instruction')
     progress('editing')
@@ -833,22 +921,32 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
   }
 
   let saved = screen
-  if (patch) {
+  if (patch || copies.length) {
     progress('saving')
     // Applied to the project as it is NOW, so a screen added or renamed meanwhile
-    // is kept; and dropped when this very screen moved under the pass.
+    // is kept; and dropped when this very screen moved under the pass. A copy
+    // never writes the original, so it only needs the original to still exist.
     const fresh = find((await api.getData()).projects)
-    if (!fresh.project || !fresh.screen || fresh.screen.code !== codeAtStart) {
+    if (!fresh.project || !fresh.screen || (patch && fresh.screen.code !== codeAtStart)) {
       throw new Error(
         lang === 'fr'
           ? 'Cet écran a été modifié pendant le travail : rien n’a été remplacé.'
           : 'This screen was changed while the work ran: nothing was replaced.',
       )
     }
-    saved = { ...fresh.screen, ...patch }
+    saved = patch ? { ...fresh.screen, ...patch } : fresh.screen
+    let screens = fresh.project.screens.map((s) => (s.id === saved.id ? saved : s))
+    // Each copy right of the one before, so a series reads as a row (fillSeries).
+    let anchor: Screen = saved
+    for (const c of copies) {
+      const placed = { ...c, ...placeBeside(screens, anchor, c.w, c.h) }
+      screens = [...screens, placed]
+      anchor = placed
+    }
+    if (copies.length) saved = screens.find((s) => s.id === copies[0].id) as Screen
     const working: Project = {
       ...fresh.project,
-      screens: fresh.project.screens.map((s) => (s.id === saved.id ? saved : s)),
+      screens,
       updatedAt: Date.now(),
     }
     const res = await fetch('/api/data', {
@@ -869,7 +967,137 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
     caps: saved.caps || [],
     notices,
     picture: 'none',
-    changed: saved.code !== codeAtStart,
+    changed: copies.length > 0 || saved.code !== codeAtStart,
+  }
+}
+
+/**
+ * A copy of a screen, as "Traduire…" and "Remplir…" make one in the composer:
+ * what the screen IS travels, what was said ABOUT it stays — its links and
+ * route drive the original's demo, its notes and quality report describe other
+ * words, a campaign or publication place is the original's. Placed by the save.
+ */
+function copyOf(screen: Screen, over: { code: string; name: string; fill?: Screen['fill'] }): Screen {
+  const {
+    links: _links,
+    userNotes: _notes,
+    route: _route,
+    quality: _quality,
+    campaign: _campaign,
+    publication: _publication,
+    previousCode: _prev,
+    ...rest
+  } = screen
+  return {
+    ...rest,
+    id: newId(),
+    name: over.name,
+    code: over.code,
+    componentName: detectComponentName(over.code),
+    createdAt: Date.now(),
+    links: [],
+    ...(over.fill ? { fill: over.fill } : {}),
+  }
+}
+
+/**
+ * The publication pack of a project's campaign (lib/publicationPack.ts): the
+ * captions and a text alternative per piece, in the one call the panel makes
+ * (`writePublicationPack`). The captions land on `Campaign.pack` with the facts
+ * they were written with, each alternative on its piece with the digest of the
+ * code it describes — so "out of date" stays read, never stored.
+ */
+async function runPack(job: RunnerJob): Promise<RunnerResult> {
+  const lang = job.lang === 'en' ? 'en' : 'fr'
+  const t = (key: TranslationKey, vars?: Record<string, string | number>) => translate(lang, key, vars)
+  progress('reading')
+  const data = await api.getData()
+  const project = parseProjects(data.projects).find((p) => p.id === job.projectId && !p.deletedAt)
+  if (!project) throw new Error('project not found')
+  const campaign = normalizeCampaign(project.campaign)
+  const pieces = project.screens
+    .filter((s): s is Screen & { campaign: NonNullable<Screen['campaign']> } => !!s.campaign && !!s.code.trim())
+    .sort((a, b) => CAMPAIGN_FORMAT_IDS.indexOf(a.campaign.format) - CAMPAIGN_FORMAT_IDS.indexOf(b.campaign.format) || a.createdAt - b.createdAt)
+  if (!campaign || !pieces.length) {
+    throw new Error(
+      lang === 'fr'
+        ? 'Ce projet n’est pas une campagne (ou n’a encore aucune création) : le pack de publication s’écrit pour les créations d’une campagne.'
+        : 'This project is not a campaign (or has no pieces yet): the publication pack is written for a campaign’s pieces.',
+    )
+  }
+  setUsageProject(project.id)
+  progress('writing')
+  const res = await writePublicationPack(
+    defaultSettings(),
+    campaign,
+    pieces.map((p) => ({ id: p.id, code: p.code, format: p.campaign.format, formatLabel: t(`campaign.format.${p.campaign.format}` as TranslationKey) })),
+    project.name,
+  )
+  if (!Object.keys(res.captions).length) throw new Error(t('campaign.pack.empty'))
+
+  progress('saving')
+  const fresh = parseProjects((await api.getData()).projects).find((p) => p.id === project.id && !p.deletedAt)
+  if (!fresh) throw new Error('project not found')
+  const freshCampaign = normalizeCampaign(fresh.campaign) ?? campaign
+  const working: Project = {
+    ...fresh,
+    campaign: { ...freshCampaign, pack: { captions: res.captions, facts: factSnapshot(freshCampaign.facts) } },
+    screens: fresh.screens.map((s) => (s.campaign && res.alts[s.id] ? { ...s, campaign: { ...s.campaign, alt: { text: res.alts[s.id], of: res.digests[s.id] } } } : s)),
+    updatedAt: Date.now(),
+  }
+  const saved = await fetch('/api/data', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ projects: JSON.stringify([working]) }),
+  })
+  if (!saved.ok) throw new Error(`could not save the project (HTTP ${saved.status})`)
+  const first = pieces[0]
+  return {
+    kind: 'pack',
+    projectId: project.id,
+    screenId: first.id,
+    code: first.code,
+    w: first.w,
+    h: first.h,
+    caps: first.caps || [],
+    notices: [],
+    picture: 'none',
+    changed: false,
+    pack: { captions: res.captions, alts: Object.keys(res.alts).length, pieces: pieces.length },
+  }
+}
+
+/** The pre-export check as it leaves the page: worded, no source and no measured element. */
+export interface RunnerCheck {
+  pages: number
+  checks: Array<{ id: string; label: string; status: 'ok' | 'info' | 'warn' | 'na'; notes: string[] }>
+}
+
+/**
+ * The pre-export check (lib/docExport/preflight.ts) of a document that exists,
+ * as the Download dialog runs it: rendered, measured, judged — no model, no
+ * file, no write. Worded here, with the dialog's own sentences.
+ */
+async function checkDocument(spec: { screen: Partial<Screen>; lang?: string }): Promise<RunnerCheck> {
+  const screen = normalizeScreen(spec.screen || {}, 0)
+  if (!screen.code.trim()) throw new Error('empty screen')
+  if (!screen.page) throw new Error('not a document')
+  const lang = spec.lang === 'en' ? 'en' : 'fr'
+  const t = (key: string, vars?: Record<string, string | number>) => translate(lang, key as TranslationKey, vars)
+  const report = await runPreflight(screen, { unnamed: (n) => t('docExport.check.picture', { n }) })
+  return {
+    pages: report.pages,
+    checks: report.checks.map((c) => ({
+      id: c.id,
+      label: t(`docExport.check.${c.id}`),
+      status: c.status,
+      notes:
+        c.status === 'ok'
+          ? [t(`docExport.check.ok.${c.id}`)]
+          : c.status === 'na'
+            ? []
+            : c.notes.map((n) => t(`docExport.check.note.${n.code}`, { pages: n.pages.join(', '), items: n.items.join(' ; '), n: n.n ?? 0 })),
+    })),
   }
 }
 
@@ -976,6 +1204,7 @@ window.__mockyRunner = {
   run,
   show,
   exportScreen,
+  checkDocument,
   // Built here, in a page at the public origin, so its addresses are the ones a
   // browser elsewhere can load — the reason the runner lives at that origin.
   document: (spec) => previewDocument(spec.code, spec.caps || [], { frameId: 'mcp-view', animations: true }),

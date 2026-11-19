@@ -23,7 +23,7 @@ account makes for itself, read-only or read and write.
 | `create_publication` | A [magazine or a book](documents.md#magazines-and-books) (`publication`): four pages — front cover, two inside pages, back cover — under one art direction of its own, in a new project. `add_screen` with `screen_type` `magazine` or `book` in that project then adds one inside page per call, before the back cover. |
 | `get_design` | Waits for a design that is still being made, then returns the same. |
 | `list_projects` | The account's projects, each with a link. |
-| `get_project` | One project's screens: name, device, the request that made it, a link. |
+| `get_project` | One project's screens: name, device or page size, the request that made it, the [fields to fill](templates.md#screens-to-fill-in) with their current value, a campaign piece's format, a link. |
 | `get_screenshot` | A picture of a screen that already exists. |
 | `export_screen` | A screen as a **file**, as the Download dialog makes it: `png` (to publish — a post at its exact pixels), `pptx` (texts editable over the design), `pptx-edit` (Canva / PowerPoint with every piece taken apart) or `pdf` (documents). Answers a download link that works for a day; changes nothing and calls no model. |
 | `list_templates` | The account's [project templates](templates.md): names, sections and screens, never their code. |
@@ -33,6 +33,10 @@ account makes for itself, read-only or read and write.
 | `polish_design` | Mocky's [quality pass](quality.md) on a screen: corrects what it finds and scores it out of 20. Says what it fixed and what is left. |
 | `audit_design` | The [SEO and accessibility report](seo-accessibility.md) of a screen: two scores and the named findings. Changes nothing; `deep` adds the model-judged questions. |
 | `fix_accessibility` | That report's own correction: fixes the markup, the screen looking the same. |
+| `translate_screen` | A [translated copy](interface.md#the-screen-context-menu) of a screen in `language` (fr, en, es, de, it, pt, nl, pl, sv, da, ca), placed right of it; the original does not change and only the words do. |
+| `fill_fields` | New values in a screen's [fields to fill](templates.md#screens-to-fill-in), by field name, in `rows`: one row is one filled copy beside the screen (`into: "here"` fills the screen itself, revertible), several rows a [series](templates.md#a-series-from-a-table), one copy each. No model is called; a picture field takes an `image_id` from `add_image`. A screen without fields is refused, with how to choose them. |
+| `write_publication_pack` | For a campaign project: the [publication pack](campaign.md#publication-pack) — a caption with hashtags for Instagram, Facebook and LinkedIn and a text alternative per piece, in one model call — kept in the campaign and handed back to the assistant. |
+| `check_document` | The [pre-export check](documents.md#checking-before-you-export) of a document: picture sharpness, margins and safe zones, bleed, cut text, QR codes, what Canva flattens. Changes nothing, calls no model. |
 
 And seven prompts (the "/" menu in Claude), each a starting message that already
 names the right tools in the right order (`server/mcp/prompts.js`): **new-design**
@@ -139,7 +143,16 @@ a prompt still starts a sensible conversation.
   `mcp-exports/` (a hundred at most) behind a link signed over its hash and its
   extension, and an unchanged screen asked for twice in one format is not made
   twice. No model, no quota, and a read key may ask for it: the account does not
-  change.
+  change. `check_document` runs the Download dialog's check the same way, and
+  answers its report in words instead of a file.
+- **Rewrites without a new layout.** `translate_screen` and `fill_fields` make
+  COPIES beside the screen, as "Translate…" and "Fill…" do in Mocky: what the
+  screen is travels, its notes, links, quality report and campaign place stay
+  with the original. A fill calls no model and does not count against the
+  daily quota; it needs the fields the person chose in Mocky, and never guesses
+  one. Elements the person locked stay as they are through every tool that
+  rewrites a screen, and the project's and brand's rules reach every one of
+  them.
 - **From a template.** `create_design` with `template_id` starts the new
   project from one of the account's [templates](templates.md), as "New project
   from this template" does: its direction, settings and screens, with fresh ids.
@@ -365,7 +378,7 @@ maintenance.
 
 | Level | What it reaches |
 |---|---|
-| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `list_templates`, `audit_design`, `search_free_images` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
+| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `search_free_images` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
 | **Read and write** | Every tool the account may use, as with an OAuth connection. |
 
 The read-only list is **closed**, in code (`server/mcp/levels.js`): a tool

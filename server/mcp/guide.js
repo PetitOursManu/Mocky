@@ -35,6 +35,10 @@ export const GUIDED_TOOLS = [
   'polish_design',
   'audit_design',
   'fix_accessibility',
+  'translate_screen',
+  'fill_fields',
+  'write_publication_pack',
+  'check_document',
 ]
 
 /**
@@ -99,6 +103,7 @@ write access. Talk to the person in THEIR language.
 | \`export_screen\` | A screen as a file to download: \`png\` to publish, \`pptx\` or \`pptx-edit\` for Canva / PowerPoint, \`pdf\` for a document. |
 | \`list_templates\` | The account's project templates (names, screens). |
 | \`audit_design\` | The SEO and accessibility report of a screen. Changes nothing. |
+| \`check_document\` | The check of a document before printing or posting: picture sharpness, margins, bleed, cut text, QR codes. Changes nothing. |
 | \`get_design\` | The answer of work still running for this account — an audit, or a design started elsewhere. |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at — to suggest, not to add. |
 
@@ -253,6 +258,26 @@ made it, or \`get_project\`), and pick the ONE tool that matches what they ask:
   nothing. Then, if they want it corrected, \`fix_accessibility\`: it fixes the
   markup and the screen looks the same.
 
+- **"Translate it into English"** → \`translate_screen\` with \`language\`: a
+  translated COPY is placed beside the screen, which stays as it is. Only the
+  words change, never the layout — prefer it to \`edit_design\` for a translation.
+- **"This week's menu", "the same flyer for Lyon", "one per city"** →
+  \`fill_fields\`, when the screen has FIELDS (\`get_project\` lists them, with
+  their current value). The person chooses them once in Mocky (right-click →
+  "Fill…"); you only give the new values, by field name, in \`rows\`. One row
+  makes one filled copy (\`into: "here"\` fills the screen itself); several rows
+  make a series, one copy each. No model runs and nothing else moves. A screen
+  without fields cannot be filled: tell the person how to choose them, or use
+  \`edit_design\` for a one-off change.
+- **"Write the captions", "the texts to post with it"** — for a campaign
+  project → \`write_publication_pack\`: a caption and hashtags for Instagram,
+  Facebook and LinkedIn, and a text alternative for each piece, kept in the
+  campaign. Give the person the captions it returns.
+- **"Is it ready to print?", "check it before I post it"** — for a document →
+  \`check_document\`: picture sharpness, margins and safe zones, bleed, cut or
+  overflowing text, QR codes, what Canva flattens. Changes nothing; report what
+  is "to review".
+
 - **"Send me the file", "for Canva", "the PNG"** → \`export_screen\` with the
   \`format\`: \`png\` to publish (a post at its exact pixels), \`pptx\` to change
   the words in Canva or PowerPoint, \`pptx-edit\` to rework every piece in Canva,
@@ -260,8 +285,15 @@ made it, or \`get_project\`), and pick the ONE tool that matches what they ask:
 
 Never use \`edit_design\` to polish or to fix accessibility: each tool runs a
 pass with its own instruction, and a correction made with the wrong one comes
-back as a redesign. Every change can be undone in Mocky ("Revert to the previous
-version", in the screen's menu); say so when you report one.
+back as a redesign. Every change to a screen can be undone in Mocky ("Revert to
+the previous version", in the screen's menu); say so when you report one. A
+translated or filled COPY is a new screen: deleting it undoes it.
+
+Elements the person LOCKED in Mocky stay as they are through every one of these
+tools: a change that would rewrite one is put back, one that would remove it is
+refused. The project's and the brand's RULES (corrections the person kept)
+apply to every design and every change; a request in the conversation wins over
+a rule.
 
 ## The tools
 
@@ -283,7 +315,11 @@ version", in the screen's menu); say so when you report one.
 | \`edit_design\` | Change an existing screen as the person asks. |
 | \`polish_design\` | Mocky's quality pass on a screen: corrections and a score out of 20. |
 | \`audit_design\` | The SEO and accessibility report of a screen. Changes nothing. |
-| \`fix_accessibility\` | Correct that report's fixable findings, the screen looking the same. |${client ? '\n| `submit_screen` | Send the component you wrote, when a design answered awaiting_code. |' : ''}
+| \`fix_accessibility\` | Correct that report's fixable findings, the screen looking the same. |
+| \`translate_screen\` | A translated copy of a screen, beside it; the layout does not change. |
+| \`fill_fields\` | New values in a screen's fields: one filled copy, a series of copies, or the screen itself. No model. |
+| \`write_publication_pack\` | A campaign's captions (Instagram, Facebook, LinkedIn) and text alternatives. |
+| \`check_document\` | The check of a document before printing or posting. Changes nothing. |${client ? '\n| `submit_screen` | Send the component you wrote, when a design answered awaiting_code. |' : ''}
 
 ## Screen types
 

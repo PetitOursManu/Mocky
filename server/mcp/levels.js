@@ -43,6 +43,8 @@ export const READ_TOOLS = Object.freeze([
   // A file of a screen, and the list of templates: neither changes the account.
   'export_screen',
   'list_templates',
+  // The pre-export check measures a document and writes nothing.
+  'check_document',
 ])
 const readTools = new Set(READ_TOOLS)
 

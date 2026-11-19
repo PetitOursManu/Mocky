@@ -1,5 +1,5 @@
 ---
-source_hash: 72a2074c20c2
+source_hash: 94c6ed6800f2
 ---
 
 # Connecter un assistant (MCP)
@@ -29,7 +29,7 @@ clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
 | `create_publication` | Un [magazine ou un livre](documents.md#magazines-et-livres) (`publication`) : quatre pages — première de couverture, deux pages intérieures, quatrième — sous une direction artistique à lui, dans un nouveau projet. `add_screen` avec le `screen_type` `magazine` ou `book` dans ce projet ajoute ensuite une page intérieure par appel, avant la quatrième. |
 | `get_design` | Attend un design encore en cours, puis renvoie la même chose. |
 | `list_projects` | Les projets du compte, chacun avec un lien. |
-| `get_project` | Les écrans d'un projet : nom, appareil, la demande qui l'a créé, un lien. |
+| `get_project` | Les écrans d'un projet : nom, appareil ou format de page, la demande qui l'a créé, les [champs à remplir](templates.md#écrans-à-remplir) avec leur valeur actuelle, le format d’une création de campagne, un lien. |
 | `get_screenshot` | Une image d'un écran qui existe déjà. |
 | `export_screen` | Un écran en **fichier**, comme le fait la fenêtre Télécharger : `png` (pour publier — un post à ses pixels exacts), `pptx` (textes modifiables sur le design), `pptx-edit` (Canva / PowerPoint, chaque pièce séparée) ou `pdf` (documents). Rend un lien de téléchargement valable un jour ; ne change rien et n'appelle aucun modèle. |
 | `list_templates` | Les [modèles de projet](templates.md) du compte : noms, sections et écrans, jamais leur code. |
@@ -39,6 +39,10 @@ clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
 | `polish_design` | La [passe de qualité](quality.md) de Mocky sur un écran : corrige ce qu'elle trouve et note l'écran sur 20. Dit ce qu'elle a corrigé et ce qui reste. |
 | `audit_design` | Le [rapport SEO et accessibilité](seo-accessibility.md) d'un écran : deux notes et les constats nommés. Ne change rien ; `deep` ajoute les questions jugées par le modèle. |
 | `fix_accessibility` | La correction propre à ce rapport : corrige le balisage, l'écran restant identique à l'œil. |
+| `translate_screen` | Une [copie traduite](interface.md#le-menu-contextuel-dun-écran) d’un écran dans `language` (fr, en, es, de, it, pt, nl, pl, sv, da, ca), posée à sa droite ; l’original ne change pas, et seuls les mots changent. |
+| `fill_fields` | De nouvelles valeurs dans les [champs à remplir](templates.md#écrans-à-remplir) d’un écran, par nom de champ, dans `rows` : une ligne donne une copie remplie à côté de l’écran (`into: "here"` remplit l’écran lui-même, annulable), plusieurs lignes une [série](templates.md#une-série-depuis-un-tableau), une copie chacune. Aucun modèle n’est appelé ; un champ image prend un `image_id` d’`add_image`. Un écran sans champs est refusé, avec la façon de les choisir. |
+| `write_publication_pack` | Pour un projet de campagne : le [pack de publication](campaign.md#pack-de-publication) — une légende avec ses hashtags pour Instagram, Facebook et LinkedIn et un texte alternatif par création, en un appel au modèle — gardé dans la campagne et rendu à l’assistant. |
+| `check_document` | La [vérification avant export](documents.md#contrôler-avant-dexporter) d’un document : netteté des images, marges et zones sûres, fonds perdus, texte coupé, QR codes, ce que Canva aplatit. Ne change rien, n’appelle aucun modèle. |
 
 Et sept prompts (le menu « / » de Claude), chacun un message de départ qui nomme
 déjà les bons outils dans le bon ordre (`server/mcp/prompts.js`) : **new-design**
@@ -155,7 +159,17 @@ rien remplir, un prompt démarre quand même une conversation sensée.
   derrière un lien signé sur son empreinte et son extension, et un écran
   inchangé demandé deux fois dans un même format n'est pas refait. Aucun modèle,
   aucun quota, et une clé en lecture seule peut le demander : le compte ne
-  change pas.
+  change pas. `check_document` lance de la même façon la vérification de la
+  fenêtre Télécharger, et rend son rapport en mots plutôt qu’un fichier.
+- **Réécrire sans refaire la mise en page.** `translate_screen` et
+  `fill_fields` font des COPIES à côté de l’écran, comme « Traduire… » et
+  « Remplir… » dans Mocky : ce qu’est l’écran voyage, ses notes, ses liens, son
+  rapport de qualité et sa place dans une campagne restent à l’original. Un
+  remplissage n’appelle aucun modèle et ne compte pas dans le quota quotidien ;
+  il lui faut les champs que la personne a choisis dans Mocky, et il n’en
+  devine jamais un. Les éléments verrouillés restent tels quels à travers chaque
+  outil qui réécrit un écran, et les règles du projet et de la marque
+  s’appliquent à chacun.
 - **Depuis un modèle.** `create_design` avec `template_id` démarre le nouveau
   projet depuis un des [modèles](templates.md) du compte, comme le fait
   « Nouveau projet depuis ce modèle » : sa direction, ses réglages et ses
@@ -406,7 +420,7 @@ compte et son travail unique à la fois, la maintenance.
 
 | Niveau | Ce qu'il atteint |
 |---|---|
-| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `list_templates`, `audit_design`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
+| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
 | **Lecture + écriture** | Tous les outils permis au compte, comme avec une connexion OAuth. |
 
 La liste de lecture est **fermée**, dans le code (`server/mcp/levels.js`) : un

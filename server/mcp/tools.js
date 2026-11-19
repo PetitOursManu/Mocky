@@ -15,6 +15,10 @@
  *   polish_design   the quality pass on a screen                  (write)
  *   audit_design    the SEO / accessibility report of a screen    (read)
  *   fix_accessibility  that report's own correction              (write)
+ *   translate_screen   a translated COPY beside a screen            (write)
+ *   fill_fields     a screen's fields filled: copies, a series, or here (write)
+ *   write_publication_pack  a campaign's captions and text alternatives (write)
+ *   check_document  the pre-export check of a document            (read)
  *   submit_screen   the code the assistant wrote, when it writes  (write)
  *                   it (the "client" engine, phase 4)
  *   search_free_images  free photos, as thumbnails to look at      (read)
@@ -69,6 +73,18 @@ export const WAIT_MS = 40_000
 export const THIN_BRIEF_WORDS = 6
 
 const DEVICES = ['desktop', 'mobile', 'tablet']
+
+/**
+ * The languages "Traduire…" offers (src/lib/translate.ts, TRANSLATE_LANGS) —
+ * mirrored by hand because `node server/index.js` cannot import a .ts file;
+ * tools.test.js holds the two lists together.
+ */
+export const TRANSLATE_LANGS = ['fr', 'en', 'es', 'de', 'it', 'pt', 'nl', 'pl', 'sv', 'da', 'ca']
+
+/** How many rows one fill_fields call may fill (src/lib/fillSeries.ts, SERIES_MAX). */
+export const FILL_ROWS_MAX = 50
+
+const HASH_RE = /^[a-f0-9]{64}$/
 
 const SCREEN_TYPE_IDS = Object.keys(SCREEN_TYPES)
 
@@ -143,8 +159,24 @@ export function screenSummary(s, projectId, linkFor) {
     height: typeof s.h === 'number' ? s.h : undefined,
     request: typeof s.prompt === 'string' ? s.prompt.slice(0, 500) : undefined,
     createdAt: typeof s.createdAt === 'number' ? new Date(s.createdAt).toISOString() : undefined,
+    // A document's page size: what tells check_document it has something to check.
+    ...(typeof s.page === 'string' ? { page: s.page } : {}),
+    // The fields the person chose to fill ("Remplir…"): their name, their kind
+    // and what the screen says there now — the words already on the screen.
+    ...(fieldsOf(s).length ? { fields: fieldsOf(s) } : {}),
+    // A campaign piece's format, for write_publication_pack.
+    ...(s.campaign && typeof s.campaign.format === 'string' ? { campaignFormat: s.campaign.format } : {}),
     link: linkFor(projectId, s.id),
   }
+}
+
+/** A screen's fields to fill, as an assistant sees them. */
+export function fieldsOf(s) {
+  if (!Array.isArray(s?.fill)) return []
+  return s.fill
+    .filter((f) => f && typeof f.id === 'string' && typeof f.label === 'string' && (f.kind === 'text' || f.kind === 'image'))
+    .slice(0, 40)
+    .map((f) => ({ id: f.id, label: f.label.slice(0, 80), kind: f.kind, value: String(f.value || '').slice(0, 300) }))
 }
 
 /**
@@ -222,6 +254,7 @@ function writeInstructions(user, client) {
     'Before designing, make sure you know what screen it is, who it is for and the tone wanted; when the person has not said, ask them at most three short questions — never questions they already answered. ' +
     'For pictures, YOU choose: search_free_images shows you free photos to look at, add_image puts the chosen one (or a picture from this conversation) in the account\'s library, and its image_id goes in the images field with what it is for. ' +
     'For a screen that already exists, one tool per request: edit_design to change it as asked, polish_design for Mocky\'s quality pass, audit_design for its SEO and accessibility report, fix_accessibility to correct that report. ' +
+    'Without laying a screen out again: translate_screen makes a translated copy beside it, fill_fields writes new values into the fields the person chose in Mocky (one copy per row for a series), write_publication_pack writes a campaign\'s captions and text alternatives, check_document checks a document before it is printed or posted. ' +
     'A generation takes from thirty seconds to a few minutes: if create_design answers that it is still running, call get_design with the job id. ' +
     (client ? 'If a design answers awaiting_code, YOU write the code: follow the rules it gives, then send the component with submit_screen. ' : '') +
     'Show the person the picture you get back, and give them the link: it opens the project in Mocky and requires them to be signed in to this account.'
@@ -409,6 +442,7 @@ export function buildMcpServer(deps) {
       campaign: fr ? `Campagne : ${r.screens.length} créations, mêmes infos clés et même direction.` : `Campaign: ${r.screens.length} pieces, same key facts and direction.`,
       publication: fr ? `Publication : ${r.screens.length} feuilles sous une même direction artistique (l’image montre la première).` : `Publication: ${r.screens.length} sheets under one art direction (the picture shows the first).`,
       flow: fr ? `Parcours : ${r.screens.length} écrans reliés, à essayer dans la démo de Mocky.` : `Flow: ${r.screens.length} linked screens, to try in Mocky's demo.`,
+      series: fr ? `Série : ${r.screens.length} copies remplies, côte à côte à droite de l’original (l’image montre la première).` : `Series: ${r.screens.length} filled copies, side by side right of the original (the picture shows the first).`,
     }[r.collection] || ''
     return [head, ...r.screens.map((x, i) => `${i + 1}. ${x.name || x.role} — ${linkFor(r.projectId, x.screenId)}`)]
   }
@@ -427,6 +461,40 @@ export function buildMcpServer(deps) {
     const lines = []
     if (r.kind === 'edit') {
       lines.push(fr ? `Écran modifié. Ouvrir dans Mocky : ${link}` : `Screen edited. Open it in Mocky: ${link}`)
+    } else if (r.kind === 'translate') {
+      const x = r.translate || { total: 0, written: 0, kept: 0, lang: '' }
+      if (!x.total) lines.push(fr ? 'Cet écran n’a aucun texte à traduire : aucune copie.' : 'This screen has no text to translate: no copy made.')
+      else if (!r.changed) lines.push(fr ? 'Aucun texte n’a pu être traduit : aucune copie.' : 'No text could be translated: no copy made.')
+      else {
+        lines.push(
+          fr
+            ? `Copie traduite (${x.lang.toUpperCase()}) posée à droite de l’original, qui n’a pas changé : ${x.written} texte(s) sur ${x.total}. ${link}`
+            : `Translated copy (${x.lang.toUpperCase()}) placed right of the original, which is unchanged: ${x.written} text(s) of ${x.total}. ${link}`,
+        )
+        if (x.kept) lines.push(fr ? `${x.kept} texte(s) gardé(s) dans la langue d’origine (réponse incomplète).` : `${x.kept} text(s) kept in the original language (incomplete answer).`)
+      }
+    } else if (r.kind === 'fill') {
+      const x = r.fill || { into: 'copy', written: [], refused: [], unknown: [] }
+      if (!r.changed) lines.push(fr ? 'Rien n’a été écrit : aucune valeur ne changeait un champ.' : 'Nothing was written: no value changed a field.')
+      else if (x.into === 'here') lines.push(fr ? `Écran rempli (${list(x.written)}). ${link}` : `Screen filled (${list(x.written)}). ${link}`)
+      else if (!r.screens) lines.push(fr ? `Copie remplie (${list(x.written)}) posée à droite de l’original, qui n’a pas changé. ${link}` : `Filled copy (${list(x.written)}) placed right of the original, which is unchanged. ${link}`)
+      if (x.refused.length) lines.push(fr ? `Refusé : ${x.refused.join(' ; ')}.` : `Refused: ${x.refused.join('; ')}.`)
+      if (x.unknown.length) lines.push(fr ? `Champs inconnus de cet écran (ignorés) : ${list(x.unknown)}. get_project donne ses champs.` : `Not fields of this screen (ignored): ${list(x.unknown)}. get_project lists its fields.`)
+    } else if (r.kind === 'pack') {
+      const x = r.pack || { captions: {}, alts: 0, pieces: 0 }
+      const names = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn' }
+      lines.push(
+        fr
+          ? `Pack de publication écrit et gardé dans la campagne : ${Object.keys(x.captions).length} légende(s), ${x.alts} texte(s) alternatif(s) pour ${x.pieces} création(s). ${link}`
+          : `Publication pack written and kept in the campaign: ${Object.keys(x.captions).length} caption(s), ${x.alts} text alternative(s) for ${x.pieces} piece(s). ${link}`,
+      )
+      for (const [n, c] of Object.entries(x.captions)) lines.push('', `## ${names[n] || n}`, c.text, ...(c.hashtags.length ? ['', c.hashtags.join(' ')] : []))
+      lines.push(
+        '',
+        fr
+          ? 'Dans Mocky, le panneau Campagne → Pack de publication les montre, les laisse modifier et télécharge le pack (.zip).'
+          : 'In Mocky, the Campaign panel → Publication pack shows them, lets the person edit them and downloads the pack (.zip).',
+      )
     } else if (r.kind === 'polish') {
       const p = r.polish || { score: null, fixed: [], residual: [], stopped: 'error' }
       if (p.score === null) {
@@ -470,7 +538,9 @@ export function buildMcpServer(deps) {
       }
       lines.push(link)
     }
-    if (r.changed) {
+    // A copy is undone by deleting it; only a rewrite of the screen itself has a previous version.
+    const rewroteScreen = r.changed && r.kind !== 'translate' && !(r.kind === 'fill' && r.fill?.into !== 'here')
+    if (rewroteScreen) {
       lines.push(
         fr
           ? 'Dans Mocky, « Revenir à la version précédente », dans le menu de l’écran (clic droit), annule ce changement.'
@@ -478,6 +548,7 @@ export function buildMcpServer(deps) {
       )
     }
     if (r.shot) lines.push(fr ? `Image : ${deps.shotLink(r.shot)}` : `Picture: ${deps.shotLink(r.shot)}`)
+    lines.push(...collectionLines(r, lang))
     const notes = [...(r.warning ? [r.warning] : []), ...(r.notices || []), ...(r.audit?.notices || [])]
     if (notes.length) lines.push((fr ? 'Remarques : ' : 'Notes: ') + notes.join(' '))
     return {
@@ -494,6 +565,10 @@ export function buildMcpServer(deps) {
         ...(r.polish ? { polish: r.polish } : {}),
         ...(r.audit ? { audit: r.audit } : {}),
         ...(r.auditFix ? { auditFix: r.auditFix } : {}),
+        ...(r.translate ? { translate: r.translate } : {}),
+        ...(r.fill ? { fill: r.fill } : {}),
+        ...(r.pack ? { pack: r.pack } : {}),
+        ...(r.screens ? { collection: r.collection, screens: r.screens.map((x) => ({ ...x, link: linkFor(r.projectId, x.screenId) })) } : {}),
         notes,
         view: liveView(r.shot, r, lang),
       },
@@ -544,12 +619,12 @@ export function buildMcpServer(deps) {
    * Hand a pass on an existing screen to the runner and wait for it, like a
    * design. A screen that is not this account's answers like a missing one (X4).
    */
-  async function startPass(kind, { project_id, screen_id, instruction, deep }) {
+  async function startPass(kind, { project_id, screen_id, instruction, deep, extra }) {
     const p = findProject(project_id)
     const s = p?.screens?.find((x) => x?.id === screen_id)
     const lang = briefLanguage(instruction || s?.prompt || '')
     if (!s || typeof s.code !== 'string' || !s.code.trim()) return refuse(lang === 'fr' ? 'Aucun écran de ce compte ne porte cet identifiant.' : 'No such screen in this account.')
-    const blocked = cannotRun(lang, { writes: kind !== 'audit' })
+    const blocked = cannotRun(lang, { writes: kind !== 'audit', model: kind !== 'fill' })
     if (blocked) return blocked
     const { job, existing } = runner.enqueue(user.id, {
       kind,
@@ -558,8 +633,14 @@ export function buildMcpServer(deps) {
       screenId: s.id,
       ...(instruction ? { instruction: String(instruction).slice(0, 4000) } : {}),
       ...(deep ? { deep: true } : {}),
+      ...(extra || {}),
       lang,
     })
+    return answerJob(job, existing, lang)
+  }
+
+  /** Wait for a queued job and answer it, saying so when it is not the one asked for. */
+  async function answerJob(job, existing, lang) {
     const out = jobResult(await runner.wait(job.id, user.id, WAIT_MS), lang)
     if (existing) {
       // The job handed back is not the one asked for: say so before its answer.
@@ -642,7 +723,11 @@ export function buildMcpServer(deps) {
       const screens = (p.screens || []).map((s) => screenSummary(s, p.id, linkFor))
       const body = [
         `${p.name || '(untitled)'} — ${linkFor(p.id)}`,
-        ...screens.map((s) => `- ${s.name || '(untitled)'} (${s.device || '?'}, id ${s.id}) — ${s.link}`),
+        ...(p.campaign ? ['Campaign project: write_publication_pack writes its captions and text alternatives.'] : []),
+        ...screens.flatMap((s) => [
+          `- ${s.name || '(untitled)'} (${s.page ? `document ${s.page}` : s.device || '?'}${s.campaignFormat ? `, campaign ${s.campaignFormat}` : ''}, id ${s.id}) — ${s.link}`,
+          ...(s.fields || []).map((f) => `    field "${f.label}" (${f.kind}): ${f.kind === 'image' ? `picture ${f.value}` : f.value}`),
+        ]),
       ].join('\n')
       return { content: [text(body)], structuredContent: { project: projectSummary(p, (id) => linkFor(id)), screens } }
     },
@@ -654,9 +739,9 @@ export function buildMcpServer(deps) {
    * so maintenance (read-only, not closed) lets it through, and it costs no
    * "design" from the daily quota.
    */
-  function cannotRun(lang, { writes = true } = {}) {
+  function cannotRun(lang, { writes = true, model = true } = {}) {
     if (writes && deps.maintenance()) return refuse(lang === 'fr' ? 'Mocky est en maintenance : réessaie plus tard.' : 'Mocky is in maintenance: try again later.')
-    if (!deps.hasTextProvider(user) && deps.usesOwnText?.(user)) {
+    if (model && !deps.hasTextProvider(user) && deps.usesOwnText?.(user)) {
       // The account chose its own key (Settings), and that key lives in its
       // browser: the runner on the server has nothing to call the model with.
       return refuse(
@@ -665,13 +750,13 @@ export function buildMcpServer(deps) {
           : 'This account uses its own API key, which stays in its browser: Mocky cannot generate for it from the server. In Settings, choose “Instance model” to use Mocky from an assistant.',
       )
     }
-    if (!deps.hasTextProvider(user)) {
+    if (model && !deps.hasTextProvider(user)) {
       return refuse(lang === 'fr' ? 'Ce Mocky n’a pas de fournisseur de génération configuré par son administrateur.' : 'This Mocky has no generation provider configured by its administrator.')
     }
     const why = runner.availability()
     if (!why.available) return refuse(lang === 'fr' ? `La génération à distance n’est pas disponible sur ce Mocky (${why.reason}).` : `Remote generation is not available on this Mocky (${why.reason}).`)
     const quota = deps.dailyQuota()
-    if (writes && quota && !runner.isBusy(user.id) && runner.countToday(user.id) >= quota) {
+    if (writes && model && quota && !runner.isBusy(user.id) && runner.countToday(user.id) >= quota) {
       return refuse(lang === 'fr' ? `Limite atteinte : ${quota} designs par jour pour ce compte.` : `Limit reached: ${quota} designs a day for this account.`)
     }
     return null
@@ -1215,6 +1300,115 @@ export function buildMcpServer(deps) {
     async (args) => startPass('auditFix', args),
   )
 
+  /*
+   * Rewrites WITHOUT a new layout (CLAUDE.md, "Rewrites without a model"):
+   * what a model laid out is not laid out again to change a language or this
+   * week's dishes. A translation and a fill make COPIES beside the screen — the
+   * original is never written, as in Mocky — and a fill calls no model at all.
+   */
+  server.registerTool(
+    'translate_screen',
+    {
+      title: 'Translate a screen into a copy',
+      description:
+        'Makes a translated COPY of a screen, placed right of it in the same project — the original is not changed. ' +
+        'Only the visible words are translated (texts, alt texts, labels, placeholders); the layout, the pictures and the code stay as they are, and words the code compares against are left alone so tabs and filters keep working. ' +
+        `Languages: ${TRANSLATE_LANGS.join(', ')}. Returns a picture of the copy and its link. ` +
+        'Prefer it to edit_design for "translate it": it costs one small model call and cannot redesign anything.',
+      inputSchema: {
+        ...screenFields,
+        language: z.enum(TRANSLATE_LANGS).describe('The language of the copy, as a two-letter code: en, fr, es, de…'),
+      },
+      _meta: VIEW_META,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ language, ...args }) => startPass('translate', { ...args, extra: { toLang: language } }),
+  )
+
+  server.registerTool(
+    'fill_fields',
+    {
+      title: 'Fill a screen\'s fields',
+      description:
+        'Writes new values into the fields the person chose on a screen in Mocky (right-click → "Fill…"): this week\'s dishes in a menu, a date and a price on a flyer, a name on a badge. No model is called and nothing else on the screen moves. ' +
+        'get_project lists each screen\'s fields with their name, kind and current value; a screen without fields cannot be filled — tell the person to choose them in Mocky. ' +
+        'Give rows: ONE row makes one filled copy right of the screen (or, with into "here", fills the screen itself); SEVERAL rows make a series, one copy per row, side by side. ' +
+        'A row\'s values are keyed by the field\'s name (or id); a field left out keeps the screen\'s value. A picture field takes an image_id from add_image.',
+      inputSchema: {
+        ...screenFields,
+        rows: z
+          .array(
+            z.object({
+              label: z.string().max(80).optional().describe('A short name for this row\'s copy ("Semaine 12", "Lyon").'),
+              values: z.record(z.string().max(2000)).describe('Field name → the new value, as the person gave it. A picture field: an image_id.'),
+            }),
+          )
+          .min(1)
+          .max(FILL_ROWS_MAX)
+          .describe(`One row per copy, ${FILL_ROWS_MAX} at most.`),
+        into: z.enum(['copy', 'here']).optional().describe('copy (default) leaves the screen as it is; here writes this one row into the screen itself (revertible in Mocky).'),
+      },
+      _meta: VIEW_META,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ rows, into, ...args }) => {
+      const p = findProject(args.project_id)
+      const s = p?.screens?.find((x) => x?.id === args.screen_id)
+      // The person's language: the screen's own request first, then the values given.
+      const lang = briefLanguage(`${s?.prompt || ''} ${rows.map((r) => Object.values(r.values).join(' ')).join(' ')}`)
+      // A picture is one of the account's own, as for create_design (X4).
+      const stranger = rows.flatMap((r) => Object.values(r.values)).find((v) => HASH_RE.test(String(v).trim()) && !deps.pictures?.owns(user, String(v).trim()))
+      if (stranger) {
+        return refuse(lang === 'fr' ? 'Une image donnée n’est pas dans la bibliothèque de ce compte : ajoute-la d’abord avec add_image.' : 'A picture given is not in this account’s library: add it with add_image first.')
+      }
+      if (s && !fieldsOf(s).length) {
+        return refuse(
+          lang === 'fr'
+            ? 'Cet écran n’a pas de champs à remplir. Dans Mocky, clic droit sur l’écran → « Remplir… » pour choisir ses champs (une fois), puis rappelle fill_fields. Pour changer un texte une seule fois, edit_design suffit.'
+            : 'This screen has no fields to fill. In Mocky, right-click the screen → "Fill…" to choose its fields (once), then call fill_fields again. To change a text once, edit_design is enough.',
+        )
+      }
+      return startPass('fill', {
+        ...args,
+        extra: {
+          fill: {
+            into: into === 'here' && rows.length === 1 ? 'here' : 'copy',
+            rows: rows.map((r) => ({
+              ...(r.label ? { label: String(r.label).slice(0, 80) } : {}),
+              values: Object.fromEntries(Object.entries(r.values).slice(0, 40).map(([k, v]) => [String(k).slice(0, 80), String(v).slice(0, 2000)])),
+            })),
+          },
+        },
+      })
+    },
+  )
+
+  server.registerTool(
+    'write_publication_pack',
+    {
+      title: 'Write a campaign\'s captions and text alternatives',
+      description:
+        'For a CAMPAIGN project (made by create_campaign): writes the words that go UNDER its visuals when they are posted — one caption with its hashtags for Instagram, Facebook and LinkedIn, and a text alternative for each piece — in one model call, from the pieces as they are now. ' +
+        'Kept in the campaign, where Mocky\'s Campaign panel shows them, lets the person edit them and downloads the whole pack (.zip). Writing it again replaces the captions. The visuals do not change.',
+      inputSchema: { project_id: z.string().min(1).max(64).describe('The campaign project, from list_projects or create_campaign.') },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ project_id }) => {
+      const p = findProject(project_id)
+      const lang = briefLanguage(p?.campaign?.brief || p?.name || '')
+      const fr = lang === 'fr'
+      if (!p) return refuse(fr ? 'Aucun projet de ce compte ne porte cet identifiant.' : 'No such project in this account.')
+      const pieces = (p.screens || []).filter((s) => s?.campaign && typeof s.code === 'string' && s.code.trim())
+      if (!p.campaign || !pieces.length) {
+        return refuse(fr ? 'Ce projet n’est pas une campagne, ou n’a encore aucune création : le pack s’écrit pour les créations d’une campagne (create_campaign).' : 'This project is not a campaign, or has no pieces yet: the pack is written for a campaign’s pieces (create_campaign).')
+      }
+      const blocked = cannotRun(lang)
+      if (blocked) return blocked
+      const { job, existing } = runner.enqueue(user.id, { kind: 'pack', brief: '', projectId: p.id, lang })
+      return answerJob(job, existing, lang)
+    },
+  )
+
   if (deps.engines?.().client) {
     server.registerTool(
       'submit_screen',
@@ -1341,7 +1535,7 @@ export function buildMcpServer(deps) {
     {
       title: 'Get a design being made',
       description: canWrite
-        ? 'Waits for work started by create_design, add_screen, edit_design, polish_design, audit_design or fix_accessibility, and returns its answer, or says it is still running. Read-only.'
+        ? 'Waits for work started by create_design, add_screen, edit_design, polish_design, audit_design, fix_accessibility, translate_screen, fill_fields or write_publication_pack, and returns its answer, or says it is still running. Read-only.'
         : 'Waits for work still running for this account — an audit_design report, or a design started elsewhere — and returns its answer, or says it is still running. Read-only.',
       inputSchema: {
         job_id: z
@@ -1473,6 +1667,53 @@ export function buildMcpServer(deps) {
         }
       } catch (err) {
         return refuse(fr ? `L’export a échoué : ${String(err?.message || err).slice(0, 200)}` : `The export failed: ${String(err?.message || err).slice(0, 200)}`)
+      }
+    },
+  )
+
+  /*
+   * The pre-export check (lib/docExport/preflight.ts), as the Download dialog
+   * runs it before a file is made: photo resolution, safe zone, bleed, cut
+   * text, QR codes, what the Canva .pptx flattens. Read-only like export_screen:
+   * no model, no file, nothing written — the report is the answer.
+   */
+  server.registerTool(
+    'check_document',
+    {
+      title: 'Check a document before printing or posting',
+      description:
+        'Renders a document (a flyer, a poster, a post, a story…) as the export does and checks it: pictures sharp enough for print or for the network, text too close to the edge or under a story\'s bands, bleed, text cut or overflowing, QR codes too small or still placeholders, what Canva will flatten. ' +
+        'Returns each check as ok, to note or to review, with the pages and elements concerned. Changes nothing, calls no model. Read-only. Only for a document (a screen with a page size in get_project).',
+      inputSchema: screenFields,
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ project_id, screen_id }) => {
+      const p = findProject(project_id)
+      const s = p?.screens?.find((x) => x?.id === screen_id)
+      const lang = briefLanguage(s?.prompt || '')
+      const fr = lang === 'fr'
+      if (!s || typeof s.code !== 'string' || !s.code.trim()) return refuse(fr ? 'Aucun écran de ce compte ne porte cet identifiant.' : 'No such screen in this account.')
+      if (!s.page) return refuse(fr ? 'Cet écran n’est pas un document : la vérification avant export porte sur les affiches, flyers, posts… Pour un écran web, audit_design.' : 'This screen is not a document: the pre-export check is for posters, flyers, posts… For a web screen, audit_design.')
+      if (typeof runner.checkCode !== 'function') return refuse(fr ? 'La vérification n’est pas disponible sur ce Mocky.' : 'The check is not available on this Mocky.')
+      const why = runner.availability()
+      if (!why.available) return refuse(fr ? `La vérification n’est pas disponible sur ce Mocky (${why.reason}).` : `The check is not available on this Mocky (${why.reason}).`)
+      try {
+        // Only what the measurement reads: never the notes (I9) or the history.
+        const screen = {}
+        for (const k of ['id', 'name', 'prompt', 'code', 'componentName', 'caps', 'page', 'fold', 'theme', 'w', 'h']) if (s[k] !== undefined) screen[k] = s[k]
+        const report = await runner.checkCode({ screen, lang })
+        const STATUS = fr ? { ok: 'ok', info: 'à noter', warn: 'à revoir', na: 'sans objet' } : { ok: 'ok', info: 'to note', warn: 'to review', na: 'not applicable' }
+        const review = report.checks.filter((c) => c.status === 'warn').length
+        const link = linkFor(p.id, s.id)
+        const lines = [
+          review
+            ? fr ? `${review} point(s) à revoir sur ${report.pages} page(s). ${link}` : `${review} point(s) to review on ${report.pages} page(s). ${link}`
+            : fr ? `Rien à revoir sur ${report.pages} page(s). ${link}` : `Nothing to review on ${report.pages} page(s). ${link}`,
+          ...report.checks.flatMap((c) => [`- ${c.label} : ${STATUS[c.status]}`, ...c.notes.map((n) => `    ${n}`)]),
+        ]
+        return { content: [text(lines.join('\n'))], structuredContent: { projectId: p.id, screenId: s.id, link, ...report } }
+      } catch (err) {
+        return refuse(fr ? `La vérification a échoué : ${String(err?.message || err).slice(0, 200)}` : `The check failed: ${String(err?.message || err).slice(0, 200)}`)
       }
     },
   )
