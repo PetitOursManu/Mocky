@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mcp` | traduire, remplir, pack de publication et vérification avant export | `04de8b2` |
 | `auth` | se connecter avec Kosmy Board (OpenID Connect) | `e483882` |
 | `modèles` | sections nommées, choisies d'un coup dans le composeur, et aperçus des écrans | `99c81e3` |
 | `campagne` | importer un PDF comme source du brief, des infos et des images | `eeec133` |
