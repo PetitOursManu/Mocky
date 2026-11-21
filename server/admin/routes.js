@@ -164,10 +164,10 @@ export function createDashboardRouter(d) {
     }
   }
 
-  router.get('/overview', (req, res) => {
+  /** The overview, without the request: Admin's screen and the Board (server/board-admin/) read the same. */
+  function overview() {
     const names = nameMap()
-    res.setHeader('Cache-Control', 'no-store')
-    res.json({
+    return {
       ...live(names),
       info: d.system.info(),
       metrics: d.system.history(),
@@ -178,7 +178,77 @@ export function createDashboardRouter(d) {
         failedLogins24h: d.audit.countSince('auth.login-failed', DAY),
         lockouts24h: d.audit.countSince('auth.locked', DAY),
       },
+    }
+  }
+
+  function sessions(currentToken = null) {
+    return listSessions(d.sessions.load(), d.users(), { lastUse: d.sessions.lastUse, currentToken })
+  }
+
+  /*
+   * The four verbs, as functions taking who acts (`actor`, `ip`, and `detail`
+   * for what the audit line should add — the Board's `via`) rather than a
+   * request: Admin's routes below and the Board's admin both call them, so a
+   * revocation is audited the same way whichever screen asked for it. Each
+   * answers `{ status, body, code }` — the route sends `body` as it always did,
+   * and `code` is what the Board turns into a sentence in the reader's language.
+   */
+
+  /** `ownToken`: the caller's own session, which is ended by signing out instead. */
+  function revokeSession(id, { actor, ip, ownToken = null, detail = null }) {
+    const store = d.sessions.load()
+    const token = tokenForId(store, id)
+    if (!token) return { status: 404, code: 'not_found', body: { error: 'Session introuvable.' } }
+    // Your own session is ended by signing out, which also clears the cookie;
+    // revoking it from here would leave the tab believing it is signed in.
+    if (ownToken && token === ownToken) return { status: 400, code: 'own-session', body: { code: 'own-session', error: 'Utilisez « Se déconnecter ».' } }
+    const owner = store[token]?.u
+    delete store[token]
+    d.sessions.save(store)
+    d.sessions.lastUse.delete(id)
+    const target = d.users().find((u) => u.id === owner)
+    d.audit.record({ action: 'session.revoke', actor, target: target ? { id: target.id, name: target.username } : null, detail, ip })
+    return { status: 200, body: { ok: true } }
+  }
+
+  /** `keepToken`: signing yourself out everywhere keeps the session you asked from. */
+  function signOutUser(id, { actor, ip, keepToken = null, detail = null }) {
+    const target = d.users().find((u) => u.id === id)
+    if (!target) return { status: 404, code: 'not_found', body: { error: 'Compte introuvable.' } }
+    const revoked = d.sessions.revokeUser(target.id, keepToken)
+    if (!keepToken) d.presence.forget(target.id)
+    d.audit.record({ action: 'user.signout', actor, target: { id: target.id, name: target.username }, detail: { revoked, ...detail }, ip })
+    return { status: 200, body: { ok: true, revoked } }
+  }
+
+  function setAnnouncement(body, { actor, ip, detail = null }) {
+    let next
+    try {
+      next = makeAnnouncement(body || {}, { previous: readAnnouncement(d.announcement.get()) })
+    } catch (err) {
+      return { status: err?.statusCode || 400, code: 'invalid', body: { error: err.message } }
+    }
+    d.announcement.set(next)
+    d.audit.record({
+      action: 'announcement.set',
+      actor,
+      detail: { tone: next.tone, length: next.message.length, scheduled: next.startsAt != null, expires: next.expiresAt != null, ...detail },
+      ip,
     })
+    return { status: 200, body: { announcement: readAnnouncement(next) } }
+  }
+
+  function clearAnnouncement({ actor, ip, detail = null }) {
+    d.announcement.set(null)
+    d.audit.record({ action: 'announcement.clear', actor, detail, ip })
+    return { status: 200, body: { announcement: null } }
+  }
+
+  const send = (res, out) => res.status(out.status).json(out.body)
+
+  router.get('/overview', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store')
+    res.json(overview())
   })
 
   router.get('/live', (req, res) => {
@@ -234,51 +304,16 @@ export function createDashboardRouter(d) {
   })
 
   router.get('/sessions', (req, res) => {
-    res.json({
-      sessions: listSessions(d.sessions.load(), d.users(), {
-        lastUse: d.sessions.lastUse,
-        currentToken: d.tokenOf(req),
-      }),
-    })
+    res.json({ sessions: sessions(d.tokenOf(req)) })
   })
 
   router.delete('/sessions/:id', (req, res) => {
-    const store = d.sessions.load()
-    const token = tokenForId(store, req.params.id)
-    if (!token) return res.status(404).json({ error: 'Session introuvable.' })
-    // Your own session is ended by signing out, which also clears the cookie;
-    // revoking it from here would leave the tab believing it is signed in.
-    if (token === d.tokenOf(req)) return res.status(400).json({ code: 'own-session', error: 'Utilisez « Se déconnecter ».' })
-    const owner = store[token]?.u
-    delete store[token]
-    d.sessions.save(store)
-    d.sessions.lastUse.delete(req.params.id)
-    const target = d.users().find((u) => u.id === owner)
-    d.audit.record({
-      action: 'session.revoke',
-      actor: d.actor(req),
-      target: target ? { id: target.id, name: target.username } : null,
-      ip: req.ip,
-    })
-    res.json({ ok: true })
+    send(res, revokeSession(req.params.id, { actor: d.actor(req), ip: req.ip, ownToken: d.tokenOf(req) }))
   })
 
   router.post('/users/:id/signout', (req, res) => {
-    const target = d.users().find((u) => u.id === req.params.id)
-    if (!target) return res.status(404).json({ error: 'Compte introuvable.' })
-    // Signing yourself out everywhere keeps THIS session — the admin asked to
-    // close the others, not to lose the screen they asked from.
-    const keep = target.id === req.user.id ? d.tokenOf(req) : null
-    const revoked = d.sessions.revokeUser(target.id, keep)
-    if (!keep) d.presence.forget(target.id)
-    d.audit.record({
-      action: 'user.signout',
-      actor: d.actor(req),
-      target: { id: target.id, name: target.username },
-      detail: { revoked },
-      ip: req.ip,
-    })
-    res.json({ ok: true, revoked })
+    const keepToken = req.params.id === req.user.id ? d.tokenOf(req) : null
+    send(res, signOutUser(req.params.id, { actor: d.actor(req), ip: req.ip, keepToken }))
   })
 
   router.get('/audit', (req, res) => {
@@ -288,30 +323,22 @@ export function createDashboardRouter(d) {
   })
 
   router.put('/announcement', (req, res) => {
-    let next
-    try {
-      next = makeAnnouncement(req.body || {}, { previous: readAnnouncement(d.announcement.get()) })
-    } catch (err) {
-      return res.status(err?.statusCode || 400).json({ error: err.message })
-    }
-    d.announcement.set(next)
-    d.audit.record({
-      action: 'announcement.set',
-      actor: d.actor(req),
-      detail: { tone: next.tone, length: next.message.length, scheduled: next.startsAt != null, expires: next.expiresAt != null },
-      ip: req.ip,
-    })
-    res.json({ announcement: readAnnouncement(next) })
+    send(res, setAnnouncement(req.body, { actor: d.actor(req), ip: req.ip }))
   })
 
   router.delete('/announcement', (req, res) => {
-    d.announcement.set(null)
-    d.audit.record({ action: 'announcement.clear', actor: d.actor(req), ip: req.ip })
-    res.json({ announcement: null })
+    send(res, clearAnnouncement({ actor: d.actor(req), ip: req.ip }))
   })
 
   return {
     router,
+    overview,
+    sessions,
+    revokeSession,
+    signOutUser,
+    setAnnouncement,
+    clearAnnouncement,
+    announcement: () => readAnnouncement(d.announcement.get()),
     /** Somebody has the dashboard open: the GPU is worth reading every sample. */
     watched: () => streams.size > 0,
     /** Shutdown: an open stream would hold `server.close()` until its timeout. */

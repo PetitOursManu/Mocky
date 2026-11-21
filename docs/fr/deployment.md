@@ -1,5 +1,5 @@
 ---
-source_hash: 5debf2626044
+source_hash: 93598195fca0
 ---
 
 # Déploiement
@@ -667,6 +667,45 @@ déliaisons et les changements de réglages — jamais le secret.
 
 Les connexions en cours sont gardées en mémoire. Un redémarrage les oublie, et
 qui était au milieu d'une connexion reclique sur le bouton.
+
+### Administrer Mocky depuis le Board
+
+Une fois la connexion en place, le bouton **Admin** du Board peut afficher
+l'administration de Mocky dans le Board (protocole `kosmy.board-admin.v1`,
+spécifié dans le dépôt de Kosmy Board :
+[docs/admin-api.md](https://github.com/PetitOursManu/Kosmy-Board/blob/main/docs/admin-api.md)).
+C'est le **serveur** du Board qui appelle trois adresses ; il doit donc pouvoir
+joindre l'instance à l'adresse saisie dans le Board :
+
+```
+GET  /api/kosmy-board/admin             le sommaire
+GET  /api/kosmy-board/admin/{section}   une section
+POST /api/kosmy-board/admin/{section}   une action dans cette section
+```
+
+Sections : vue d'ensemble, utilisateurs, sessions, accès et forfaits, annonce,
+maintenance, activité, dépenses, assistants (MCP), fournisseurs (en lecture
+seule) et journal d'audit. Les réglages des fournisseurs et leurs clés, la table
+des prix, les sources de Muse, la liste d'accès de Motion Ultra, l'interrupteur
+MCP et son exécuteur, la migration et le test du forfait gratuit d'un
+administrateur restent dans l'Admin de Mocky.
+
+Chaque appel porte un JWT de 60 secondes signé avec la clé des ID tokens du
+Board. Mocky vérifie la signature RS256 avec le `jwks_uri` en cache,
+`typ: kb-admin+jwt` (un ID token est refusé), `iss`, `aud` = l'identifiant
+client, `exp` avec 30 secondes de tolérance, que `htm` est la méthode de la
+requête et que le chemin de `htu` se termine par le chemin demandé, et que le
+`jti` n'a jamais été vu (gardé en mémoire jusqu'à son expiration). Ensuite, le
+`sub` doit être relié à un compte Mocky **administrateur dans Mocky** : sinon
+`403 not_linked` ou `403 forbidden`, avec une phrase que le Board affiche.
+
+Chaque action appelle la fonction qu'appelle la route d'Admin elle-même : mêmes
+règles, même ligne dans le journal d'audit, avec `via: kosmy-board` dans son
+détail. Ces routes sont montées avant les sessions et la maintenance : aucun
+cookie, aucun en-tête CORS, jamais de redirection, et l'action d'un
+administrateur passe la maintenance comme dans Admin. Aucun mot de passe, clé ni
+secret client n'est jamais renvoyé ; un mot de passe que Mocky génère pour un
+compte est montré une seule fois.
 
 ---
 

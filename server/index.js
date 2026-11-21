@@ -65,7 +65,8 @@ import { createAuditLog } from './admin/audit.js'
 import { describeUserAgent, sessionId } from './admin/sessions.js'
 import { liveAnnouncement } from './admin/announcement.js'
 import { createDashboardRouter } from './admin/routes.js'
-import { createKosmyBoardRoutes, settingsOf as kosmyBoardSettings } from './kosmy-board.js'
+import { adminView as kosmyBoardAdminView, createKosmyBoardRoutes, createOidcClient, settingsOf as kosmyBoardSettings } from './kosmy-board.js'
+import { BOARD_ADMIN_PATH, createBoardAdmin } from './board-admin/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -564,6 +565,14 @@ app.use((req, res, next) => {
   }
   next()
 })
+
+// ---- Mocky's admin, from Kosmy Board (server/board-admin/) ----
+// Before maintenance, sessions and `express.json` on purpose: the Board's server
+// calls it with a signed token, not a cookie, and every action it can take is an
+// administrator's — which maintenance lets through anyway. The handler answers
+// every path under it, so nothing below (the SPA fallback included) ever does.
+// `boardAdmin` is created at the end of this file, once the stores it reads exist.
+app.use(BOARD_ADMIN_PATH, (req, res) => boardAdmin.handle(req, res))
 
 // ---- maintenance mode ----
 // Mounted before every route, the provider proxy included, so the rule is one
@@ -1359,6 +1368,11 @@ app.get('/sso/dashy/callback', (req, res, next) => {
 // ---- "Se connecter avec Kosmy Board" (OpenID Connect) ----
 // /auth/kosmy-board/login and /callback (the Kosmy convention), the account's
 // link / unlink, and Admin's settings. See server/kosmy-board.js.
+// One OpenID Connect client for sign-in AND the Board's admin: one discovery and
+// JWKS cache, cleared by both when the settings change.
+const kosmyOidc = createOidcClient()
+/** The redirect URI must be exactly the one given to the Board: MOCKY_ORIGIN when set. */
+const kosmyBaseUrl = (req) => MOCKY_ORIGIN || `${req.protocol}://${req.get('host')}`
 app.use(
   createKosmyBoardRoutes({
     loadConfig,
@@ -1382,10 +1396,9 @@ app.use(
     assignNewcomerPlan,
     isMaintenance: () => maintenance.on,
     isHttps,
-    // The redirect URI must be exactly the one given to the Board: MOCKY_ORIGIN
-    // when set, else the address this request came in on.
-    baseUrl: (req) => MOCKY_ORIGIN || `${req.protocol}://${req.get('host')}`,
+    baseUrl: kosmyBaseUrl,
     originSet: () => Boolean(MOCKY_ORIGIN),
+    oidc: kosmyOidc,
   }),
 )
 
@@ -1405,37 +1418,55 @@ app.get('/api/admin/config', requireAdmin, (req, res) => {
   res.json(adminConfigView(loadConfig(), req.user))
 })
 
-app.put('/api/admin/config', requireAdmin, (req, res) => {
+/*
+ * Admin's actions, one function each, called by Admin's own route AND by the
+ * Board's admin (server/board-admin/): the same checks, the same side effects
+ * and the same audit line, whichever screen asked. `by` is who acts and from
+ * where — `{ user, ip }`, plus `detail` for what the audit line should add
+ * (the Board's `via`). Each answers `{ status, body, code }`: the route sends
+ * `body` exactly as it always did, and `code` is what the Board turns into a
+ * sentence in the reader's language.
+ */
+const auditDetail = (by, detail) => (by.detail ? { ...(detail || {}), ...by.detail } : detail)
+const byOf = (req) => ({ user: req.user, ip: clientIp(req) })
+const sendOp = (res, out) => res.status(out.status || 200).json(out.body)
+
+/** Sign-ups, personal keys, the free plan: Admin → Accounts. */
+function updateAdminConfig(by, body) {
   const cfg = loadConfig()
-  if (typeof req.body?.allowRegistration === 'boolean') {
-    cfg.allowRegistration = req.body.allowRegistration
+  if (typeof body?.allowRegistration === 'boolean') {
+    cfg.allowRegistration = body.allowRegistration
     audit.record({
       action: 'config.registration',
-      actor: auditActor(req.user),
-      detail: { allowRegistration: cfg.allowRegistration },
-      ip: clientIp(req),
+      actor: auditActor(by.user),
+      detail: auditDetail(by, { allowRegistration: cfg.allowRegistration }),
+      ip: by.ip,
     })
   }
-  if (typeof req.body?.ownKeys === 'boolean') {
-    cfg.ownKeys = req.body.ownKeys
+  if (typeof body?.ownKeys === 'boolean') {
+    cfg.ownKeys = body.ownKeys
     audit.record({
       action: 'config.ownKeys',
-      actor: auditActor(req.user),
-      detail: { ownKeys: cfg.ownKeys },
-      ip: clientIp(req),
+      actor: auditActor(by.user),
+      detail: auditDetail(by, { ownKeys: cfg.ownKeys }),
+      ip: by.ip,
     })
   }
-  if (req.body?.freePlan && typeof req.body.freePlan === 'object') {
-    cfg.freePlan = mergeFreePlanSettings(cfg.freePlan, req.body.freePlan)
+  if (body?.freePlan && typeof body.freePlan === 'object') {
+    cfg.freePlan = mergeFreePlanSettings(cfg.freePlan, body.freePlan)
     audit.record({
       action: 'config.freePlan',
-      actor: auditActor(req.user),
-      detail: { newAccounts: cfg.freePlan.newAccounts, dailyLimit: cfg.freePlan.dailyLimit },
-      ip: clientIp(req),
+      actor: auditActor(by.user),
+      detail: auditDetail(by, { newAccounts: cfg.freePlan.newAccounts, dailyLimit: cfg.freePlan.dailyLimit }),
+      ip: by.ip,
     })
   }
   saveConfig(cfg)
-  res.json(adminConfigView(cfg, req.user))
+  return { status: 200, body: adminConfigView(cfg, by.user) }
+}
+
+app.put('/api/admin/config', requireAdmin, (req, res) => {
+  sendOp(res, updateAdminConfig(byOf(req), req.body))
 })
 
 /*
@@ -1466,20 +1497,23 @@ app.put('/api/admin/test-plan', requireAdmin, (req, res) => {
  * `planOf` would silently ignore. Takes effect on the account's next request:
  * every gate reads the stored account, nothing is cached in a session.
  */
-app.put('/api/admin/users/:id/plan', requireAdmin, (req, res) => {
-  const plan = req.body?.plan
-  if (!PLANS.includes(plan)) return res.status(400).json({ error: 'Unknown plan.' })
+function setUserPlan(by, id, plan) {
+  if (!PLANS.includes(plan)) return { status: 400, code: 'plan', body: { error: 'Unknown plan.' } }
   const users = loadUsers()
-  const user = users.find((u) => u.id === req.params.id)
-  if (!user) return res.status(404).json({ error: 'No such account.' })
+  const user = users.find((u) => u.id === id)
+  if (!user) return { status: 404, code: 'not_found', body: { error: 'No such account.' } }
   if ((user.role || 'user') === 'admin' && plan === 'free') {
-    return res.status(400).json({ error: 'An administrator is always on the standard plan.' })
+    return { status: 400, code: 'admin-free', body: { error: 'An administrator is always on the standard plan.' } }
   }
   if (plan === 'free') user.plan = 'free'
   else delete user.plan
   saveUsers(users)
-  audit.record({ action: 'user.plan', actor: auditActor(req.user), target: auditActor(user), detail: { plan }, ip: clientIp(req) })
-  res.json({ user: { id: user.id, username: user.username, plan: planOf(user) } })
+  audit.record({ action: 'user.plan', actor: auditActor(by.user), target: auditActor(user), detail: auditDetail(by, { plan }), ip: by.ip })
+  return { status: 200, body: { user: { id: user.id, username: user.username, plan: planOf(user) } } }
+}
+
+app.put('/api/admin/users/:id/plan', requireAdmin, (req, res) => {
+  sendOp(res, setUserPlan(byOf(req), req.params.id, req.body?.plan))
 })
 
 /*
@@ -1559,27 +1593,30 @@ app.put('/api/account/text-source', requireUser, (req, res) => {
   res.json({ own: Boolean(me.ownText) })
 })
 
-app.get('/api/admin/users', requireAdmin, (req, res) => {
+/** Admin's account list — never a password, a hash or a key. */
+function adminUserList() {
   const cfg = loadConfig()
-  res.json({
-    users: loadUsers().map((u) => ({
-      id: u.id,
-      username: u.username,
-      role: u.role || 'user',
-      plan: planOf(u),
-      createdAt: u.createdAt,
-      // Lets the admin list show which accounts still owe a password change.
-      mustChangePassword: Boolean(u.mustChangePassword),
-      // SSO-only accounts have no local password to reset.
-      sso: Boolean(u.dashySub) && !u.salt && !u.hash,
-      // Linked to Kosmy Board (server/kosmy-board.js).
-      kosmyBoard: Boolean(u.kosmySub),
-      hasPassword: Boolean(u.salt && u.hash),
-      // "API perso": the provider and model this account declared for its own
-      // key — never the key, which the server does not have.
-      ownText: ownTextView(u, cfg),
-    })),
-  })
+  return loadUsers().map((u) => ({
+    id: u.id,
+    username: u.username,
+    role: u.role || 'user',
+    plan: planOf(u),
+    createdAt: u.createdAt,
+    // Lets the admin list show which accounts still owe a password change.
+    mustChangePassword: Boolean(u.mustChangePassword),
+    // SSO-only accounts have no local password to reset.
+    sso: Boolean(u.dashySub) && !u.salt && !u.hash,
+    // Linked to Kosmy Board (server/kosmy-board.js).
+    kosmyBoard: Boolean(u.kosmySub),
+    hasPassword: Boolean(u.salt && u.hash),
+    // "API perso": the provider and model this account declared for its own
+    // key — never the key, which the server does not have.
+    ownText: ownTextView(u, cfg),
+  }))
+}
+
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  res.json({ users: adminUserList() })
 })
 
 /**
@@ -1602,8 +1639,8 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
  * deleted one says so. `days` = 0 is everything. Grouping and sorting are the
  * panel's: the lines are few (one per day × account × project × model).
  */
-app.get('/api/admin/spend', requireAdmin, (req, res) => {
-  const days = Math.max(0, Math.min(3660, Math.floor(Number(req.query.days ?? 30)) || 0))
+function spendReport(daysAsked) {
+  const days = Math.max(0, Math.min(3660, Math.floor(Number(daysAsked ?? 30)) || 0))
   const since = days ? dayOf(new Date(Date.now() - (days - 1) * 86_400_000)) : ''
   const prices = spend.prices()
   const usernames = new Map(loadUsers().map((u) => [u.id, u.username]))
@@ -1645,7 +1682,11 @@ app.get('/api/admin/spend', requireAdmin, (req, res) => {
       estimated: e.estN || 0,
     }
   })
-  res.json({ since, entries, prices })
+  return { since, entries, prices }
+}
+
+app.get('/api/admin/spend', requireAdmin, (req, res) => {
+  res.json(spendReport(req.query.days))
 })
 
 /** The price table: dollars per million tokens, per model, for calls whose provider reported none. */
@@ -1667,7 +1708,7 @@ app.put('/api/admin/spend/prices', requireAdmin, (req, res) => {
  * price someone TYPED is never overwritten — a negotiated rate is exactly what a
  * public catalogue does not know; a price fetched before is refreshed.
  */
-app.post('/api/admin/spend/prices/import', requireAdmin, async (req, res) => {
+async function importPrices(by) {
   try {
     const { credentials, models } = configuredProviders(textConfig.get())
     const wanted = new Map()
@@ -1690,11 +1731,20 @@ app.post('/api/admin/spend/prices/import', requireAdmin, async (req, res) => {
       imported++
     }
     const saved = spend.setPrices(prices)
-    audit.record({ action: 'config.prices', actor: auditActor(req.user), detail: { models: Object.keys(saved).length, imported }, ip: clientIp(req) })
-    res.json({ prices: saved, report })
+    audit.record({
+      action: 'config.prices',
+      actor: auditActor(by.user),
+      detail: auditDetail(by, { models: Object.keys(saved).length, imported }),
+      ip: by.ip,
+    })
+    return { status: 200, body: { prices: saved, report }, imported }
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+    return { status: 500, code: 'failed', body: { error: err instanceof Error ? err.message : String(err) } }
   }
+}
+
+app.post('/api/admin/spend/prices/import', requireAdmin, async (req, res) => {
+  sendOp(res, await importPrices(byOf(req)))
 })
 
 app.get('/api/admin/usage', requireAdmin, (req, res) => {
@@ -1721,94 +1771,114 @@ app.get('/api/admin/usage', requireAdmin, (req, res) => {
   }
 })
 
-app.post('/api/admin/users', requireAdmin, (req, res) => {
-  const username = String(req.body?.username || '').trim().toLowerCase()
-  const password = String(req.body?.password || '')
-  const role = req.body?.role === 'admin' ? 'admin' : 'user'
-  const mustChangePassword = req.body?.mustChangePassword === true
+function createUserAccount(by, body) {
+  const username = String(body?.username || '').trim().toLowerCase()
+  const password = String(body?.password || '')
+  const role = body?.role === 'admin' ? 'admin' : 'user'
+  const mustChangePassword = body?.mustChangePassword === true
   if (username.length < 3) {
-    return res.status(400).json({ error: 'Le nom d’utilisateur doit faire au moins 3 caractères.' })
+    return { status: 400, code: 'username', body: { error: 'Le nom d’utilisateur doit faire au moins 3 caractères.' } }
   }
   // Stricter than public sign-up (6) on purpose: this password is chosen by
   // someone other than its owner and travels through a chat or a sticky note.
   if (password.length < MIN_NEW_PASSWORD) {
-    return res
-      .status(400)
-      .json({ error: `Le mot de passe doit faire au moins ${MIN_NEW_PASSWORD} caractères.` })
+    return {
+      status: 400,
+      code: 'password',
+      body: { error: `Le mot de passe doit faire au moins ${MIN_NEW_PASSWORD} caractères.` },
+    }
   }
   const users = loadUsers()
   if (users.some((u) => u.username === username)) {
-    return res.status(409).json({ error: 'Ce nom d’utilisateur est déjà pris.' })
+    return { status: 409, code: 'taken', body: { error: 'Ce nom d’utilisateur est déjà pris.' } }
   }
   // The form says which plan; without one, the newcomers' default applies.
-  const plan = PLANS.includes(req.body?.plan) ? req.body.plan : undefined
+  const plan = PLANS.includes(body?.plan) ? body.plan : undefined
   const user = assignNewcomerPlan(makeUser(username, password, role, mustChangePassword), plan)
   users.push(user)
   saveUsers(users)
   audit.record({
     action: 'user.create',
-    actor: auditActor(req.user),
+    actor: auditActor(by.user),
     target: auditActor(user),
     // `mustChange`, not `mustChangePassword`: the audit log drops any key that
     // contains "pass", and this one is a yes/no, not a secret.
-    detail: { role, mustChange: mustChangePassword, plan: planOf(user) },
-    ip: clientIp(req),
+    detail: auditDetail(by, { role, mustChange: mustChangePassword, plan: planOf(user) }),
+    ip: by.ip,
   })
-  res.json({
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      plan: planOf(user),
-      mustChangePassword: Boolean(user.mustChangePassword),
+  return {
+    status: 200,
+    body: {
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        plan: planOf(user),
+        mustChangePassword: Boolean(user.mustChangePassword),
+      },
     },
-  })
+  }
+}
+
+app.post('/api/admin/users', requireAdmin, (req, res) => {
+  sendOp(res, createUserAccount(byOf(req), req.body))
 })
 
 // ---- admin: reset a user's password ----
 // No confirmation by the admin's own password, on purpose: an admin who can
 // already DELETE the account and everything in it gains nothing from a second
 // prompt here — it only makes helping a locked-out colleague slower.
-app.put('/api/admin/users/:id/password', requireAdmin, (req, res) => {
-  const password = String(req.body?.password || '')
-  const mustChange = req.body?.mustChange === true
+function resetUserPassword(by, id, body) {
+  const password = String(body?.password || '')
+  const mustChange = body?.mustChange === true
   if (password.length < MIN_NEW_PASSWORD) {
-    return res
-      .status(400)
-      .json({ error: `Le mot de passe doit faire au moins ${MIN_NEW_PASSWORD} caractères.` })
+    return {
+      status: 400,
+      code: 'password',
+      body: { error: `Le mot de passe doit faire au moins ${MIN_NEW_PASSWORD} caractères.` },
+    }
   }
   const users = loadUsers()
-  const user = users.find((u) => u.id === req.params.id)
-  if (!user) return res.status(404).json({ error: 'Compte introuvable.' })
+  const user = users.find((u) => u.id === id)
+  if (!user) return { status: 404, code: 'not_found', body: { error: 'Compte introuvable.' } }
 
   setPassword(user, password)
   if (mustChange) user.mustChangePassword = true
   saveUsers(users)
   audit.record({
     action: 'user.password-reset',
-    actor: auditActor(req.user),
+    actor: auditActor(by.user),
     target: auditActor(user),
-    detail: { mustChange },
-    ip: clientIp(req),
+    detail: auditDetail(by, { mustChange }),
+    ip: by.ip,
   })
 
   // The target is signed out everywhere — a reset exists precisely for accounts
-  // that may be compromised. When an admin resets their own password we hand
-  // them a fresh cookie instead of bouncing them to the sign-in screen; the old
-  // tokens die either way.
-  const self = user.id === req.user.id
+  // that may be compromised. Whether a fresh cookie goes back is the caller's
+  // (`self`): Admin hands one to an admin resetting their own password, the
+  // Board has no browser to hand it to.
   revokeSessions(user.id)
-  if (self) setSession(res, user.id, req)
-
-  res.json({
-    ok: true,
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role || 'user',
-      mustChangePassword: Boolean(user.mustChangePassword),
+  return {
+    status: 200,
+    self: user.id === by.user.id,
+    body: {
+      ok: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role || 'user',
+        mustChangePassword: Boolean(user.mustChangePassword),
+      },
     },
-  })
+  }
+}
+
+app.put('/api/admin/users/:id/password', requireAdmin, (req, res) => {
+  const out = resetUserPassword(byOf(req), req.params.id, req.body)
+  // An admin resetting their own password gets a fresh cookie instead of being
+  // bounced to the sign-in screen; the old tokens die either way.
+  if (out.self) setSession(res, req.user.id, req)
+  sendOp(res, out)
 })
 
 // ---- admin: image-generation provider ----
@@ -2036,11 +2106,10 @@ app.post('/api/admin/text/models', requireAdmin, authRateLimit(20, 60_000, 'text
   }
 })
 
-app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
-  const id = req.params.id
-  if (id === req.user.id) return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte.' })
+function deleteUserAccount(by, id) {
+  if (id === by.user.id) return { status: 400, code: 'self', body: { error: 'Vous ne pouvez pas supprimer votre propre compte.' } }
   const users = loadUsers()
-  if (!users.some((u) => u.id === id)) return res.status(404).json({ error: 'Compte introuvable.' })
+  if (!users.some((u) => u.id === id)) return { status: 404, code: 'not_found', body: { error: 'Compte introuvable.' } }
   saveUsers(users.filter((u) => u.id !== id))
   try {
     fs.rmSync(path.join(DATA_DIR, userDataFile(id)), { force: true })
@@ -2053,7 +2122,7 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   presence.forget(id)
   calendy.forget(id)
   const gone = users.find((u) => u.id === id)
-  audit.record({ action: 'user.delete', actor: auditActor(req.user), target: auditActor(gone), ip: clientIp(req) })
+  audit.record({ action: 'user.delete', actor: auditActor(by.user), target: auditActor(gone), detail: auditDetail(by, null), ip: by.ip })
   // Their share links go too. A capability URL outlives the account that minted
   // it otherwise — a deleted user's screens would stay readable by anyone
   // holding a link, which is not what "delete this account" means to anybody.
@@ -2068,7 +2137,11 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   reviews.revokeAllFor(id)
   // And the assistants it let in: a token must not outlive its account.
   mcpServer.onUserDeleted(id)
-  res.json({ ok: true })
+  return { status: 200, body: { ok: true } }
+}
+
+app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
+  sendOp(res, deleteUserAccount(byOf(req), req.params.id))
 })
 
 // ---- share links (one screen, no account, expires) ----
@@ -2700,11 +2773,11 @@ app.use(
 
 // ---- admin: maintenance mode ----
 app.get('/api/admin/maintenance', requireAdmin, (req, res) => res.json(maintenance))
-app.put('/api/admin/maintenance', requireAdmin, (req, res) => {
-  const on = Boolean(req.body?.on)
+function setMaintenance(by, body) {
+  const on = Boolean(body?.on)
   const next = {
     on,
-    message: cleanMaintenanceMessage(req.body?.message ?? maintenance.message),
+    message: cleanMaintenanceMessage(body?.message ?? maintenance.message),
     // Kept across a message edit: "since" answers "how long have users been
     // locked out", which rewording the notice does not change.
     since: on ? (maintenance.on ? maintenance.since : Date.now()) : null,
@@ -2712,13 +2785,18 @@ app.put('/api/admin/maintenance', requireAdmin, (req, res) => {
   const was = maintenance
   saveConfig({ ...loadConfig(), maintenance: next })
   maintenance = next
-  console.log(`mocky maintenance ${on ? 'on' : 'off'} by=${JSON.stringify(req.user.username)}`)
+  console.log(`mocky maintenance ${on ? 'on' : 'off'} by=${JSON.stringify(by.user.username)}`)
   audit.record({
     action: on === was.on ? 'maintenance.message' : on ? 'maintenance.on' : 'maintenance.off',
-    actor: auditActor(req.user),
-    ip: clientIp(req),
+    actor: auditActor(by.user),
+    detail: auditDetail(by, null),
+    ip: by.ip,
   })
-  res.json(maintenance)
+  return { status: 200, body: maintenance }
+}
+
+app.put('/api/admin/maintenance', requireAdmin, (req, res) => {
+  sendOp(res, setMaintenance(byOf(req), req.body))
 })
 
 // ---- server-to-server migration ----
@@ -3055,6 +3133,62 @@ const mcpServer = createMcpServerRoutes({
   rateLimit: authRateLimit,
 })
 mcpServer.mount(app)
+
+// ---- Mocky's admin, from Kosmy Board: what it reads and calls ----
+// Functions only — the same ones Admin's routes call (see server/board-admin/
+// sections.js) — so an action taken from the Board is checked, applied and
+// audited exactly as the same click in Admin.
+const boardAdmin = createBoardAdmin({
+  loadConfig,
+  loadUsers,
+  oidc: kosmyOidc,
+  clientIp,
+  auditActor,
+  audit,
+  activity,
+  version: () => MOCKY_VERSION,
+  // The Board calls the address it was given; what this instance calls itself.
+  baseUrl: () => MOCKY_ORIGIN || null,
+  users: adminUserList,
+  configView: adminConfigView,
+  freePlan: freePlanSettings,
+  maintenance: () => maintenance,
+  spendReport,
+  ops: {
+    createUser: createUserAccount,
+    resetPassword: resetUserPassword,
+    setPlan: setUserPlan,
+    deleteUser: deleteUserAccount,
+    updateConfig: updateAdminConfig,
+    setMaintenance,
+    importPrices,
+  },
+  dashboard: () => dashboard,
+  mcp: () => mcpServer,
+  // `base`: the address the Board called, when MOCKY_ORIGIN does not say it.
+  kosmyBoard: (base) => kosmyBoardAdminView(loadConfig(), MOCKY_ORIGIN || base || ''),
+  // Names only — a provider and a model — never a key or a base URL's query.
+  providers: () => {
+    const text = Object.fromEntries(
+      TEXT_PROFILES.map((p) => {
+        const t = textConfig.target(p)
+        return [p, t ? { provider: t.id, model: t.model } : null]
+      }),
+    )
+    const image = (p) => {
+      const x = images.configStore.profile(p)
+      return x?.provider ? { provider: x.provider, model: x.model } : null
+    }
+    const video = images.configStore.videoProfile()
+    const vc = videoConfig.get() || {}
+    return {
+      text,
+      images: { content: image('content'), inspiration: image('inspiration'), edit: image('edit') },
+      video: video?.provider ? { provider: video.provider, model: video.model } : null,
+      worker: Boolean(vc.enabled && vc.workerUrl),
+    }
+  },
+})
 
 // ---- the typefaces generated screens are set in (src/lib/fonts) ----
 //

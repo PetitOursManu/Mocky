@@ -39,6 +39,11 @@ const DISCOVERY_TTL_MS = 60 * 60 * 1000
 const JWKS_REFRESH_MIN_MS = 30 * 1000
 const CLOCK_SKEW_S = 60
 const FETCH_TIMEOUT_MS = 10_000
+/** The admin token's header `typ` (kosmy.board-admin.v1): what tells it from an ID token. */
+export const ADMIN_TOKEN_TYP = 'kb-admin+jwt'
+/** The admin protocol's own tolerance — tighter than sign-in's: its tokens live 60 s. */
+const ADMIN_CLOCK_SKEW_S = 30
+const ADMIN_MAX_AGE_S = 120
 
 /* ---------- small helpers ---------- */
 
@@ -329,7 +334,52 @@ export function createOidcClient({ fetchImpl = fetch, now = () => Date.now() } =
     }
   }
 
-  return { discover, authorizationUrl, exchangeCode, verifyIdToken, clear: () => cache.clear() }
+  /**
+   * The Board's admin token (`kosmy.board-admin.v1`, server/board-admin/): signed
+   * with the same key as its ID tokens, so it is checked against the same cached
+   * JWKS — and that is exactly why `typ` is checked too. Without it, any ID
+   * token the Board ever issued for this client (they last minutes, and pass
+   * through browsers) would open the admin API.
+   *
+   * What it does NOT check is what only the request knows — `htm`, `htu`, and
+   * whether `jti` was seen: the caller does (server/board-admin/index.js).
+   */
+  async function verifyAdminToken(token, { issuer, doc, clientId }) {
+    const parts = String(token).split('.')
+    if (parts.length !== 3) throw new KosmyError('token', 'malformed admin token')
+    let header, payload
+    try {
+      header = b64urlJson(parts[0])
+      payload = b64urlJson(parts[1])
+    } catch {
+      throw new KosmyError('token', 'malformed admin token')
+    }
+    if (header?.alg !== 'RS256') throw new KosmyError('token', 'unexpected admin token algorithm')
+    const key = await keyFor(issuer, doc, header.kid)
+    const ok = crypto.verify('RSA-SHA256', Buffer.from(`${parts[0]}.${parts[1]}`), key, Buffer.from(parts[2], 'base64url'))
+    if (!ok) throw new KosmyError('token', 'invalid admin token signature')
+    if (header.typ !== ADMIN_TOKEN_TYP) throw new KosmyError('token', 'not an admin token (typ)')
+    if (!payload || typeof payload !== 'object') throw new KosmyError('token', 'malformed admin token')
+
+    if (payload.iss !== issuer) throw new KosmyError('token', 'admin token: wrong issuer')
+    const aud = payload.aud
+    if (!(Array.isArray(aud) ? aud.includes(clientId) : aud === clientId)) throw new KosmyError('token', 'admin token: wrong audience')
+    const t = Math.floor(now() / 1000)
+    if (typeof payload.exp !== 'number' || payload.exp + ADMIN_CLOCK_SKEW_S < t) throw new KosmyError('token', 'admin token expired')
+    if (typeof payload.iat !== 'number') throw new KosmyError('token', 'admin token: missing iat')
+    // A 60-second token issued "two minutes ago" (or from the future) is not one the Board made for this request.
+    if (payload.iat - ADMIN_CLOCK_SKEW_S > t || t - payload.iat > ADMIN_MAX_AGE_S + ADMIN_CLOCK_SKEW_S) {
+      throw new KosmyError('token', 'admin token: iat out of range')
+    }
+    if (typeof payload.nbf === 'number' && payload.nbf - ADMIN_CLOCK_SKEW_S > t) throw new KosmyError('token', 'admin token not yet valid')
+    for (const k of ['sub', 'jti', 'htm', 'htu']) {
+      if (typeof payload[k] !== 'string' || !payload[k] || payload[k].length > 2048) throw new KosmyError('token', `admin token: missing ${k}`)
+    }
+    const str = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : undefined)
+    return { sub: payload.sub, jti: payload.jti, exp: payload.exp, htm: payload.htm, htu: payload.htu, name: str(payload.name) }
+  }
+
+  return { discover, authorizationUrl, exchangeCode, verifyIdToken, verifyAdminToken, clear: () => cache.clear() }
 }
 
 /* ---------- pending flows (state → verifier, nonce, target…) ---------- */

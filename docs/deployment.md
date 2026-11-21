@@ -639,6 +639,43 @@ to the settings — never the secret.
 The pending sign-ins are kept in memory. A restart forgets them, and anyone
 caught in the middle of one clicks the button again.
 
+### Administering Mocky from the Board
+
+Once sign-in works, the Board's **Admin** button can show Mocky's administration
+inside the Board (protocol `kosmy.board-admin.v1`, specified in the Kosmy Board
+repository:
+[docs/admin-api.md](https://github.com/PetitOursManu/Kosmy-Board/blob/main/docs/admin-api.md)).
+The Board's **server** calls three endpoints, so it must be able to reach the
+instance at the address typed into the Board:
+
+```
+GET  /api/kosmy-board/admin             the menu
+GET  /api/kosmy-board/admin/{section}   one section
+POST /api/kosmy-board/admin/{section}   one action in it
+```
+
+Sections: overview, users, sessions, access and plans, announcement,
+maintenance, activity, spending, assistants (MCP), providers (read-only) and the
+audit log. Provider settings and keys, the price table, Muse's sources, Motion
+Ultra's access list, the MCP switch and runner, the migration and an
+administrator's own free-plan test stay in Mocky's Admin.
+
+Each call carries a 60-second JWT signed with the Board's ID-token key. Mocky
+checks the RS256 signature against the cached `jwks_uri`, `typ: kb-admin+jwt`
+(an ID token is refused), `iss`, `aud` = the client ID, `exp` with 30 seconds of
+skew, that `htm` is the request's method and the path of `htu` ends with the
+path asked for, and that the `jti` was never seen (kept in memory until it
+expires). Then the `sub` must be linked to a Mocky account that is an
+**administrator in Mocky**: `403 not_linked` or `403 forbidden` otherwise, with a
+sentence the Board shows.
+
+Every action calls the function Admin's own route calls, so it follows the same
+rules and writes the same audit line, with `via: kosmy-board` in its detail.
+These routes are mounted before sessions and maintenance: they use no cookie,
+send no CORS header and never redirect, and an administrator's action passes
+maintenance as it does in Admin. No password, key or client secret is ever
+returned; a password Mocky generates for an account is shown once.
+
 ---
 
 ## Coolify

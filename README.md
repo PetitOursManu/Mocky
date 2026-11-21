@@ -794,6 +794,23 @@ Set `MOCKY_ORIGIN` to the instance's public address so the redirect URI does not
 - **Unlinking** (Settings) asks for the account's password. An account created by the Board has none, so it cannot unlink itself: the link is its only way in.
 - Signing out of Mocky closes the Mocky session only; the Board's session stays open and **Open** signs you in again with one click.
 
+### Administering Mocky from the Board
+
+> **Why it works this way —** The Board only says who the person is; it grants no rights. So the Board's server calls a small JSON API on Mocky with a short-lived token signed by the same key as its ID tokens, and Mocky decides: the token must be made for that exact request, used once, and belong to a Board account linked to a Mocky **administrator**. Every action then goes through the same code as Admin's own buttons — same checks, same audit log.
+
+With "Sign in with Kosmy Board" set up, the Board's **Admin** button shows Mocky's administration inside the Board itself (protocol `kosmy.board-admin.v1`, [specification](https://github.com/PetitOursManu/Kosmy-Board/blob/main/docs/admin-api.md)):
+
+- **Overview** — accounts, who is online, failed sign-ins, memory and storage, version, maintenance and announcement notices.
+- **Users** — the accounts; create one (a generated password is shown once), set a new password, move between plans, sign out everywhere, delete.
+- **Sessions** — the signed-in devices, each one can be closed.
+- **Access and plans** — public sign-ups, personal API keys, the free plan; the Kosmy Board settings, read-only.
+- **Announcement** and **Maintenance** — publish or remove the banner, turn maintenance on or off.
+- **Activity**, **Spending**, **Assistants (MCP)**, **Providers**, **Audit log** — the last hour of work, the last 30 days of model costs (and importing published prices), connected assistants and keys (revocable), the configured models, and who did what.
+
+It requires the sign-in above to be configured, and **your Mocky account linked** to your Board account (Settings → Kosmy Board) **with administrator rights in Mocky**. An unlinked or non-administrator account gets a clear refusal in the Board. No password, API key or client secret is ever sent to the Board. Provider settings and keys, the price table, Muse's sources, Motion Ultra's access list, the MCP switch and runner, and the server migration stay in Mocky's own Admin.
+
+The endpoints are `GET /api/kosmy-board/admin`, `GET` and `POST /api/kosmy-board/admin/{section}`; behind a reverse proxy they must reach Mocky like the rest of `/api/*`.
+
 ## SSO — "Sign in with Dashy"
 
 > **Why it works this way —** The problem being solved is not authentication but duplication: someone who has already proved who they are to one self-hosted service should not have to maintain a second password for the next one. So Dashy does the proving and issues a short, signed statement of the result, and Mocky checks that statement against a secret only the two servers hold — which is what makes the browser's copy of it useless to anybody who steals it. Requiring both halves of the configuration before any of this activates means a half-finished setup behaves exactly like an instance with no SSO at all.

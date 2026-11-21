@@ -789,6 +789,23 @@ Réglez `MOCKY_ORIGIN` sur l'adresse publique de l'instance, pour que l'adresse 
 - **Défaire le lien** (Réglages) demande le mot de passe du compte. Un compte créé par le Board n'en a pas : il ne peut donc pas défaire son lien, qui est sa seule connexion.
 - Se déconnecter de Mocky ferme la session Mocky seulement ; celle du Board reste ouverte, et **Ouvrir** vous reconnecte d'un clic.
 
+### Administrer Mocky depuis le Board
+
+> **Pourquoi c'est ainsi —** Le Board dit seulement qui est la personne ; il ne donne aucun droit. Le serveur du Board appelle donc une petite API JSON de Mocky avec un jeton de courte durée, signé par la même clé que ses ID tokens, et c'est Mocky qui décide : le jeton doit avoir été fait pour cette requête précise, ne servir qu'une fois, et appartenir à un compte du Board relié à un **administrateur** de Mocky. Chaque action passe ensuite par le même code que les boutons d'Admin — mêmes vérifications, même journal d'audit.
+
+Une fois « Se connecter avec Kosmy Board » réglé, le bouton **Admin** du Board affiche l'administration de Mocky dans le Board lui-même (protocole `kosmy.board-admin.v1`, [spécification](https://github.com/PetitOursManu/Kosmy-Board/blob/main/docs/admin-api.md)) :
+
+- **Vue d'ensemble** — comptes, qui est en ligne, connexions refusées, mémoire et stockage, version, avis de maintenance et d'annonce.
+- **Utilisateurs** — les comptes ; en créer un (un mot de passe généré est montré une seule fois), donner un nouveau mot de passe, changer de forfait, déconnecter partout, supprimer.
+- **Sessions** — les appareils connectés, chacun peut être déconnecté.
+- **Accès et forfaits** — inscriptions publiques, clés d'API personnelles, forfait gratuit ; les réglages Kosmy Board, en lecture seule.
+- **Annonce** et **Maintenance** — publier ou retirer le bandeau, activer ou couper la maintenance.
+- **Activité**, **Dépenses**, **Assistants (MCP)**, **Fournisseurs**, **Journal d'audit** — la dernière heure de travail, le coût des modèles sur 30 jours (et l'import des prix publiés), les assistants reliés et leurs clés (révocables), les modèles configurés, et qui a fait quoi.
+
+Il faut que la connexion ci-dessus soit réglée, et que **votre compte Mocky soit relié** à votre compte du Board (Réglages → Kosmy Board) **avec les droits d'administration dans Mocky**. Un compte non relié ou non administrateur reçoit un refus clair dans le Board. Aucun mot de passe, clé d'API ni secret client n'est jamais envoyé au Board. Les réglages des fournisseurs et leurs clés, la table des prix, les sources de Muse, la liste d'accès de Motion Ultra, l'interrupteur MCP et son exécuteur, et la migration de serveur restent dans l'Admin de Mocky.
+
+Les adresses sont `GET /api/kosmy-board/admin`, `GET` et `POST /api/kosmy-board/admin/{section}` ; derrière un reverse proxy, elles doivent atteindre Mocky comme le reste de `/api/*`.
+
 ## SSO — « Se connecter avec Dashy »
 
 > **Pourquoi c'est ainsi —** Le problème résolu n'est pas l'authentification mais la duplication : quelqu'un qui a déjà prouvé son identité à un service auto-hébergé ne devrait pas avoir à entretenir un second mot de passe pour le suivant. Dashy se charge donc de la preuve et émet une attestation courte et signée du résultat, que Mocky vérifie face à un secret que seuls les deux serveurs détiennent — c'est ce qui rend la copie qu'en garde le navigateur inutilisable pour qui la volerait. Exiger les deux moitiés de la configuration avant que tout cela ne s'active signifie qu'une installation à moitié faite se comporte exactement comme une instance sans SSO.
