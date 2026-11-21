@@ -523,37 +523,61 @@ export function createMcpServerRoutes(d) {
 
     /** An administrator revokes any key — and never sees or makes one (X8). */
     app.delete('/api/admin/mcp/keys/:id', d.requireAdmin, (req, res) => {
-      const k = keys.get(req.params.id)
-      if (!k) return res.status(404).json({ error: 'Not found.' })
-      keys.revoke(k.id)
-      d.audit.record({
-        action: 'mcp.key-revoke',
-        actor: d.auditActor(req.user),
-        target: actorOf(k.userId),
-        detail: { name: k.name, level: k.level },
-        ip: d.clientIp(req),
-      })
-      res.json({ ok: true })
+      const out = adminRevokeKey(req.params.id, { user: req.user, ip: d.clientIp(req) })
+      res.status(out.status).json(out.body)
     })
 
     app.delete('/api/admin/mcp/connections/:id', d.requireAdmin, (req, res) => {
-      const c = store.getConnection(req.params.id)
-      if (!c) return res.status(404).json({ error: 'Not found.' })
-      store.revoke(c.id)
-      d.audit.record({
-        action: 'mcp.revoke',
-        actor: d.auditActor(req.user),
-        target: actorOf(c.userId),
-        detail: { client: c.clientName },
-        ip: d.clientIp(req),
-      })
-      res.json({ ok: true })
+      const out = adminRevokeConnection(req.params.id, { user: req.user, ip: d.clientIp(req) })
+      res.status(out.status).json(out.body)
     })
+  }
+
+  /*
+   * The administrator's revocations, as functions of who acts (`by`: `{ user,
+   * ip, detail? }`) rather than of a request: the routes above and the Board's
+   * admin (server/board-admin/) both call them, so either way is audited alike.
+   */
+  function adminRevokeKey(id, by) {
+    const k = keys.get(id)
+    if (!k) return { status: 404, code: 'not_found', body: { error: 'Not found.' } }
+    keys.revoke(k.id)
+    d.audit.record({
+      action: 'mcp.key-revoke',
+      actor: d.auditActor(by.user),
+      target: actorOf(k.userId),
+      detail: { name: k.name, level: k.level, ...(by.detail || {}) },
+      ip: by.ip,
+    })
+    return { status: 200, body: { ok: true } }
+  }
+
+  function adminRevokeConnection(id, by) {
+    const c = store.getConnection(id)
+    if (!c) return { status: 404, code: 'not_found', body: { error: 'Not found.' } }
+    store.revoke(c.id)
+    d.audit.record({
+      action: 'mcp.revoke',
+      actor: d.auditActor(by.user),
+      target: actorOf(c.userId),
+      detail: { client: c.clientName, ...(by.detail || {}) },
+      ip: by.ip,
+    })
+    return { status: 200, body: { ok: true } }
   }
 
   return {
     mount,
     active,
+    /** What the admin section lists — never a token or a key's value (X8). */
+    adminView: () => ({
+      enabled: config.get().enabled === true,
+      active: active(),
+      connections: connectionsWithNames(store.listConnections()),
+      keys: connectionsWithNames(keys.list()),
+    }),
+    adminRevokeKey,
+    adminRevokeConnection,
     /** An account deleted: whatever it granted goes with it. */
     onUserDeleted: (userId) => {
       store.revokeUser(userId)
