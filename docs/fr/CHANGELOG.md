@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `admin` | administrer Mocky depuis Kosmy Board (kosmy.board-admin.v1) | `0fc27c4` |
 | `mcp` | traduire, remplir, pack de publication et vérification avant export | `04de8b2` |
 | `auth` | se connecter avec Kosmy Board (OpenID Connect) | `e483882` |
 | `modèles` | sections nommées, choisies d'un coup dans le composeur, et aperçus des écrans | `99c81e3` |
