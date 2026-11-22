@@ -154,6 +154,23 @@ var mockyMergeRefs = function (a, b) {
   };
 };
 
+// A clickable volume is a button for the keyboard too. A tape on a shelf or
+// a print on a wall is a div in 3D, and a div with only onClick is out of the
+// Tab order: a headless run reached the shelf with the arrows and could not
+// open a single film without a mouse. Given here so no page has to remember.
+var mockyPressable = function (props, rest) {
+  if (typeof props.onClick !== 'function' || props.tabIndex != null) return rest;
+  rest.tabIndex = 0;
+  if (!rest.role) rest.role = 'button';
+  var own = props.onKeyDown;
+  rest.onKeyDown = function (e) {
+    if (typeof own === 'function') own(e);
+    if (e.defaultPrevented || e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); props.onClick(e); }
+  };
+  return rest;
+};
+
 /* ---------- A box with six faces, lit ---------- */
 
 // The rotation the box gets, as CSS composes it: rotateZ · rotateX · rotateY.
@@ -226,6 +243,7 @@ var Box3D = React.forwardRef(function (props, ref) {
   });
   var rest = {};
   for (var p in props) if (/^(on[A-Z]|data-|aria-|role$|tabIndex$|id$|title$)/.test(p)) rest[p] = props[p];
+  mockyPressable(props, rest);
   return React.createElement('div', Object.assign(rest, {
     ref: ref, className: className,
     style: Object.assign(
@@ -306,6 +324,7 @@ var Place3D = React.forwardRef(function (props, ref) {
   }
   var rest = {};
   for (var p in props) if (/^(on[A-Z]|data-|aria-|role$|tabIndex$|id$|title$)/.test(p)) rest[p] = props[p];
+  mockyPressable(props, rest);
   return React.createElement('div', {
     style: {
       position: 'absolute', left: 0, top: 0, width: 0, height: 0, transformStyle: 'preserve-3d',

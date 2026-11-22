@@ -47,6 +47,7 @@ import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { type QualityFinding } from '../lib/quality'
 import { editScreen, fixScreenAudit, polishScreenCode, screenCapabilities } from '../lib/pipeline/screenPasses'
 import { ultraLoss } from '../lib/ultra/check'
+import { interactLossNotice } from '../lib/briefCheck'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import type { ProjectAnalysis } from '../lib/projectAnalysis'
 import { followRecolor } from '../lib/designFollow'
@@ -2200,6 +2201,7 @@ export default function ProjectView({
               setNotice(t('project.ultraEditLoss', { what, name: sc.name }))
             }
             if (res.locksRestored?.length) setNotice(t('lock.restored', { names: res.locksRestored.join(', '), name: sc.name }))
+            if (res.interactLost) setNotice(interactLossNotice(t, sc.name, res.interactLost))
           } catch (err) {
             // Put the screen back the way we found it. A half-written component
             // is worse than no change at all.
@@ -2435,6 +2437,21 @@ export default function ProjectView({
    * to render, and FIX_PROMPT ("fix only the error, do not restyle") has no
    * error to fix. Shortening copy is an edit, and the person's to ask for.
    */
+  /*
+   * A crop of a picture sheet the screen could not draw (interact pack,
+   * <SheetCrop>): said once per screen and crop, by name — the preview only
+   * shows a striped box, which reads as a design choice.
+   */
+  const cropProblemsSaid = useRef(new Set<string>())
+  function onCropProblem(screenId: string, p: { name: string; problem: string; box: string }) {
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen) return
+    const key = `${screenId}|${p.name}|${p.problem}|${p.box}`
+    if (cropProblemsSaid.current.has(key)) return
+    cropProblemsSaid.current.add(key)
+    setNotice(t('project.cropProblem', { screen: screen.name, crop: p.name || p.box, problem: p.problem }))
+  }
+
   function onDocPages(screenId: string, count: unknown, overflow: unknown, format: unknown, fold?: unknown) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen) return
@@ -5178,6 +5195,7 @@ export default function ProjectView({
           contentHeights.current[id] = h
         }}
         onDocPages={onDocPages}
+        onCropProblem={onCropProblem}
         onDownloadDocument={setDownloadDocId}
         // Every screen animates unless its own menu says otherwise.
         animations

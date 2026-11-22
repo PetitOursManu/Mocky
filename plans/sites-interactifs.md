@@ -213,8 +213,33 @@ fournissent un repli sans WebGL (liste HTML des mêmes éléments).
   - [x] Contrôles après génération (`lib/briefCheck.ts`) : images imposées
         absentes du code (une adresse de proxy et sa source comptent pour
         une), pack `interact` offert mais inutilisé — messages, sans correction
-  - [ ] Contrôle des découpes hors planche à l'exécution (le pack marque déjà
-        `data-mocky-crop-error` ; il faut le remonter de l'aperçu) (découpes hors planche, cibles,
+  - [x] Découpes hors planche remontées de l'aperçu (`crop-problem` →
+        Preview → Canvas → message dans ProjectView, une fois par découpe)
+  - [x] Brief avec images imposées : Muse (images de page, planche
+        d'ambiance), images de site remplacées et série Motion Ultra ne sont
+        plus générées (`briefImposesPictures`)
+  - [x] Trace par génération : `x-mocky-run` sur chaque appel d'un nouvel
+        écran (`lib/proxy.ts`), `server/admin/runs.js` (appels, durées,
+        jetons, coût ; en mémoire, 2 h, bornée), `GET /api/runs/:id` pour le
+        compte qui l'a lancée ; `NewScreenOutcome.runId`,
+        `window.__mockyLastRun` pour un banc d'essai. Limite : deux
+        générations simultanées dans un même onglet partagent l'identifiant
+  - [x] Retouches : consigne `EDIT_RULES` (ids, adresses d'images, découpes,
+        interactions) et `interactLoss` signalé après chaque retouche
+        (composeur et MCP)
+  - [x] Appareils, dans Chromium headless : glisser au doigt, balayage
+        vertical laissé à la page, pas de curseur personnalisé au tactile,
+        aucun débordement horizontal à 390 px, tap = sélection (Zestwell
+        paysage 844×390), barre Stride posée à 0 px de sa carte à 390 px,
+        mouvement réduit = tout arrive d'un coup. Corrigé : un volume
+        cliquable (`Box3D`, `Place3D` avec onClick) est un bouton au clavier
+        (Tab, Entrée, Espace). Observé, pas un défaut du pack : après un
+        balayage vertical, Chrome mange le tap suivant (arrêt du défilement)
+  - [ ] Polices CJK (Noto Sans JP, Noto Serif SC) : le vendoring ne garde que
+        `latin` / `latin-ext` par choix (`scripts/vendor-fonts.mjs`) ; les
+        ajouter change ce choix (sous-ensembles CJK, nouveaux paquets) —
+        décision à prendre. D'ici là, police japonaise du système
+  - [ ] Passage de correction borné (un au plus) après un contrôle en échec (découpes hors planche, cibles,
         médias imposés absents du code)
   - [ ] Muse / Ultra : ne plus générer d'images de page quand le brief en impose
   - [ ] Polices manquantes : Noto Sans JP, Noto Serif SC

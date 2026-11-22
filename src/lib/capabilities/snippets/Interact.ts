@@ -74,7 +74,13 @@ var SheetCrop = function (props) {
   var label = props.name ? String(props.name) : '';
   if (problem) {
     var key = (sheet && sheet.src) + '|' + String(box) + '|' + problem;
-    if (!mockyCropWarned[key]) { mockyCropWarned[key] = 1; try { console.warn('SheetCrop' + (label ? ' "' + label + '"' : '') + ': ' + problem); } catch (_) {} }
+    if (!mockyCropWarned[key]) {
+      mockyCropWarned[key] = 1;
+      try { console.warn('SheetCrop' + (label ? ' "' + label + '"' : '') + ': ' + problem); } catch (_) {}
+      // Said to the page that holds the frame, which tells the person: a
+      // striped box in a preview reads as a design choice, not a broken crop.
+      try { if (window.__mockyPost) window.__mockyPost('crop-problem', { name: label.slice(0, 80), problem: problem, box: String(box).slice(0, 80) }); } catch (_) {}
+    }
   }
   // \`mask\`: the crop is not drawn but CUTS — its alpha becomes the outline of
   // whatever the children paint. The back of a wrapper printed in HTML inside

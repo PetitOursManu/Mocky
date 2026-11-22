@@ -65,6 +65,7 @@ import { secretTag } from './migration/crypto.js'
 import { ffmpegStatus } from './videos/frames.js'
 import { createPresence } from './admin/presence.js'
 import { createActivity, createTracker } from './admin/activity.js'
+import { createRunLog } from './admin/runs.js'
 import { createSystemMonitor } from './admin/system.js'
 import { createGpuProbe } from './admin/gpu.js'
 import { createAuditLog } from './admin/audit.js'
@@ -125,6 +126,9 @@ try {
 // the header of each file under server/admin/ for why.
 const presence = createPresence()
 const activity = createActivity()
+// One generation as a trace (calls, timings, tokens, price), by the run id the
+// browser sends beside each of its calls — server/admin/runs.js.
+const runLog = createRunLog()
 const audit = createAuditLog({ dataDir: DATA_DIR })
 /** Last request per session handle; sessions.json's own stamp is written once a day. */
 const sessionLastUse = new Map()
@@ -718,7 +722,13 @@ function meterFor(req, profile) {
   if (!user) return undefined
   const { provider, source } = textProviderFor(req, profile)
   const projectId = cleanProjectId(req.headers['x-mocky-project'])
-  return (u) => spend.record({ userId: user.id, projectId, provider, source, ...u })
+  const run = req.headers['x-mocky-run']
+  return (u) => {
+    spend.record({ userId: user.id, projectId, provider, source, ...u })
+    // On the person's own key the ledger keeps no numbers (F4); the trace
+    // follows the same rule.
+    if (run && source !== 'browser') runLog.usage(user.id, run, u)
+  }
 }
 /** The same ledger for the decision model: always the instance's, priced off its tokens. */
 function decisionMeterFor(req) {
@@ -758,7 +768,17 @@ function providerFor({ kind, action }, req) {
 // film — and records who, what and how it ended; never a prompt (see
 // server/admin/activity.js). Before the proxy, because the proxy answers the
 // request itself and nothing after it would see it.
-app.use(createTracker({ activity, userOf: currentUser, providerOf: providerFor }))
+app.use(
+  createTracker({
+    activity,
+    userOf: currentUser,
+    providerOf: providerFor,
+    onEnd: (user, req, ev) => {
+      const run = req.headers['x-mocky-run']
+      if (run) runLog.call(user.id, run, ev)
+    },
+  }),
+)
 
 // Model-provider proxy — forwards to `${x-provider-base}<subpath>` (raw body,
 // so it must run before express.json()). The logic (incl. the SSRF guard) lives
@@ -1207,6 +1227,16 @@ app.get('/api/me', (req, res) => {
  * The limit is per address and generous on purpose — an office behind one NAT
  * is ten people with two tabs each, which is forty beats a minute.
  */
+// The trace of one of the account's own generations (server/admin/runs.js).
+// sessionUser, not currentUser: reading a trace is not activity (D5).
+app.get('/api/runs/:id', (req, res) => {
+  const user = sessionUser(req)
+  if (!user) return res.status(401).json({ error: 'unauthorized' })
+  const trace = runLog.get(user.id, req.params.id)
+  if (!trace) return res.status(404).json({ error: 'unknown run' })
+  res.json(trace)
+})
+
 app.post('/api/presence', authRateLimit(240, 60_000, 'presence'), (req, res) => {
   const user = sessionUser(req)
   if (!user) return res.status(401).end()

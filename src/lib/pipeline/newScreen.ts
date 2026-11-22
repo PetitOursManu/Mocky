@@ -100,6 +100,7 @@ import { readLinkedReferences } from '../linkedImage'
 import { lintSlop } from '../lint'
 import { buildProvidedPicturesSection, type ProvidedPicture } from '../providedPictures'
 import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
+import { currentUsageRun, setUsageRun } from '../proxy'
 import { briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
 
@@ -321,6 +322,8 @@ export interface NewScreenOutcome {
    * sheet, the one the rest of the publication will follow.
    */
   direction?: string
+  /** The trace of this run on the server (`GET /api/runs/:id`): its calls, timings and tokens. */
+  runId?: string
 }
 
 export function joinSystem(parts: Array<string | undefined>): string | undefined {
@@ -351,7 +354,34 @@ export function identityOrLayoutReference(
  * cleans up after itself first: a screen that was added but never received a
  * character is removed, while one with code in it is kept as the work it is.
  */
+/**
+ * Every model call of one new screen carries one run id (`x-mocky-run`), so
+ * the server can answer "what did this prompt cost" — calls, seconds, tokens
+ * (plans/sites-interactifs.md, §6). The id is released when the run ends,
+ * whatever way it ends.
+ */
 export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks): Promise<NewScreenOutcome> {
+  const runId = newRunId()
+  setUsageRun(runId)
+  try {
+    const out = await runNewScreenStages(req, hooks)
+    try {
+      ;(globalThis as { __mockyLastRun?: string }).__mockyLastRun = runId
+    } catch {
+      /* not a browser */
+    }
+    return { ...out, runId }
+  } finally {
+    if (currentUsageRun() === runId) setUsageRun(null)
+  }
+}
+
+function newRunId(): string {
+  const rnd = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Math.random().toString(36).slice(2) + Date.now().toString(36)
+  return `run_${rnd.slice(0, 24)}`
+}
+
+async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks): Promise<NewScreenOutcome> {
   const {
     text,
     settings,
@@ -462,7 +492,15 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
      * switches off every NEW picture outside Motion Ultra — Muse's, a site's
      * replaced ones — and leaves the project's existing pictures on offer.
      */
-    const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff
+    /*
+     * Pictures the brief imposes by address (lib/briefMedia.ts) are the page's
+     * pictures: Muse's page pictures, its mood plate, a site's replacements and
+     * a Motion Ultra series would be paid for and then compete with them for the
+     * same slots (cahier, "les illustrations imposées gardent la priorité").
+     * Read here, before any of those stages, with no model.
+     */
+    const briefImposesPictures = !reproducing && !pipe.document && briefImageCount(extractBriefMedia(text)) > 0
+    const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff && !briefImposesPictures
     const pictureSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
     const formHint = withScreenTheme(pipe.format ? documentHint(pipe.format, runFold) : preset.hint, runTheme)
     /** Motion Ultra for THIS run: the project's setting, unless the screen is a document. */
@@ -998,8 +1036,10 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         const total = board.images.length
         hooks.setUltraStage(t('project.ultraStageImages', { done: 0, total }))
         const failures: string[] = []
-        const finder = effectiveImageSource === 'stock' ? await stockFinder(ultraCount) : undefined
-        const made = await generateUltraImages(board, project.id, {
+        const finder = effectiveImageSource === 'stock' && !briefImposesPictures ? await stockFinder(ultraCount) : undefined
+        // The brief brought its own pictures: the storyboard keeps its sections
+        // and recipes, and the series is not made (see briefImposesPictures).
+        const made = briefImposesPictures ? [] : await generateUltraImages(board, project.id, {
           signal: signal,
           onImage: (_im, done) => hooks.setUltraStage(t('project.ultraStageImages', { done, total })),
           onError: (msg) => failures.push(msg),
@@ -1009,14 +1049,14 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         })
         // In storyboard order, since the finder runs one picture at a time.
         if (finder) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
-        if (made.length < total) {
+        if (!briefImposesPictures && made.length < total) {
           hooks.setMuseImageError(
             t('project.ultraImagesMissing', { made: made.length, total, reason: failures[0] || '—' }),
           )
         }
         ultraFilmSection = ultraVideo ? filmSectionOf(board.sections, board.mode) : null
         planSection = [
-          buildUltraPreamble(board, made, { filmSection: ultraFilmSection }),
+          buildUltraPreamble(briefImposesPictures ? { ...board, images: [] } : board, made, { filmSection: ultraFilmSection }),
           modeToPromptSection(mode),
         ].join('\n\n')
         ultraRecord = {

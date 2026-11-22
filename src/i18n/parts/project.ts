@@ -148,6 +148,12 @@ export const project = {
       'La bibliothèque {url} ne peut pas être chargée dans l’aperçu : l’écran a été construit avec les composants de Mocky.',
     'project.briefImagesUnused':
       '{count} image(s) imposée(s) par le brief sur {total} n’apparaissent pas dans l’écran : {list}. Demandez une retouche qui les utilise.',
+    'project.cropProblem':
+      '« {screen} » : la découpe {crop} ne peut pas être dessinée ({problem}). Vérifiez ses coordonnées et la taille de la planche dans le brief.',
+    'project.interactEditLoss': 'La retouche de « {name} » a retiré : {what}. « Revenir » restaure la version précédente.',
+    'project.interactLossComponents': 'des interactions ({list})',
+    'project.interactLossPictures': '{count} adresse(s) d’image',
+    'project.interactLossIds': 'des ancres ({list})',
     'project.interactUnused':
       'Le brief décrit des gestes ou des transitions, mais l’écran n’utilise aucun composant d’interaction de Mocky : les interactions ont été écrites à la main ou omises.',
     'project.museLinkUnreadable': 'L’image d’inspiration n’a pas pu être lue : Muse ne l’a pas utilisée.',
@@ -571,6 +577,12 @@ export const project = {
       'The library {url} cannot load in the preview: the screen was built with Mocky’s components instead.',
     'project.briefImagesUnused':
       '{count} of the {total} picture(s) the brief imposes do not appear on the screen: {list}. Ask for an edit that uses them.',
+    'project.cropProblem':
+      '“{screen}”: the crop {crop} cannot be drawn ({problem}). Check its coordinates and the sheet size in the brief.',
+    'project.interactEditLoss': 'The edit of “{name}” removed: {what}. “Revert” brings the previous version back.',
+    'project.interactLossComponents': 'interactions ({list})',
+    'project.interactLossPictures': '{count} picture address(es)',
+    'project.interactLossIds': 'anchors ({list})',
     'project.interactUnused':
       'The brief describes gestures or transitions, but the screen uses none of Mocky’s interaction components: they were written by hand or left out.',
     'project.museLinkUnreadable': 'The inspiration picture could not be read: Muse did not use it.',

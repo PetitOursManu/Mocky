@@ -903,6 +903,7 @@ export default function Preview({
   visionFilter,
   onContentHeight,
   onDocPages,
+  onCropProblem,
   flow,
   overflowRequest,
   onOverflow,
@@ -981,6 +982,8 @@ export default function Preview({
    * the page format the kit actually laid out (the code's `<Doc format>`).
    */
   onDocPages?: (count: unknown, overflow: unknown, format: unknown, fold?: unknown) => void
+  /** A <SheetCrop> (interact pack) could not draw its crop — name, reason, box, as the frame said them. */
+  onCropProblem?: (problem: { name: string; problem: string; box: string }) => void
   /**
    * This frame is a page of a working prototype (snippets/Flow.ts): it starts
    * with `state`, and reports what its code writes and where it asks to go.
@@ -1025,6 +1028,7 @@ export default function Preview({
   const onOverflowRef = useRef(onOverflow)
   const onScrolledRef = useRef(onScrolled)
   const onDocPagesRef = useRef(onDocPages)
+  const onCropProblemRef = useRef(onCropProblem)
   const flowRef = useRef(flow)
   const lastDocPagesRef = useRef<{ count: unknown; overflow: unknown; format: unknown; fold?: unknown } | null>(null)
   // Same reasoning applied to a value rather than a callback: the listener needs
@@ -1060,6 +1064,7 @@ export default function Preview({
   onOverflowRef.current = onOverflow
   onScrolledRef.current = onScrolled
   onDocPagesRef.current = onDocPages
+  onCropProblemRef.current = onCropProblem
   flowRef.current = flow
   generatingRef.current = generating
   pickModeRef.current = pickMode
@@ -1244,6 +1249,13 @@ export default function Preview({
       // half-streamed document has half its pages, and the frame would shrink
       // and grow with every chunk. The kit posts only when its answer changes,
       // so the last one is replayed when generation ends (effect below).
+      // Strings only, bounded: the frame runs model-written code.
+      if (d.type === 'crop-problem' && current && !generatingRef.current && typeof d.problem === 'string')
+        onCropProblemRef.current?.({
+          name: typeof d.name === 'string' ? d.name.slice(0, 80) : '',
+          problem: d.problem.slice(0, 80),
+          box: typeof d.box === 'string' ? d.box.slice(0, 80) : '',
+        })
       if (d.type === DOC_PAGES_MESSAGE) {
         lastDocPagesRef.current = { count: d.count, overflow: d.overflow, format: d.format, fold: d.fold }
         if (!generatingRef.current) onDocPagesRef.current?.(d.count, d.overflow, d.format, d.fold)

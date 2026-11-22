@@ -64,6 +64,17 @@ describe('Box3D', () => {
   })
 })
 
+describe('a clickable volume', () => {
+  it('is a keyboard button, unless the page decided otherwise', () => {
+    const on = renderToStaticMarkup(React.createElement(kit.Box3D, { w: 10, h: 10, d: 2, front: 'x', onClick: () => {}, 'aria-label': 'Open Noon in Ashes' }))
+    expect(on).toContain('tabindex="0"')
+    expect(on).toContain('role="button"')
+    expect(on).toContain('aria-label="Open Noon in Ashes"')
+    expect(renderToStaticMarkup(React.createElement(kit.Box3D, { w: 10, h: 10, d: 2, front: 'x' }))).not.toContain('tabindex')
+    expect(renderToStaticMarkup(React.createElement(kit.Box3D, { w: 10, h: 10, d: 2, front: 'x', onClick: () => {}, tabIndex: -1 }))).toContain('tabindex="-1"')
+  })
+})
+
 describe('Space3D arithmetic', () => {
   it('faces an object towards a point and turns a camera to look at it', () => {
     const at: V3 = [18, 2, 0]

@@ -23,6 +23,7 @@
  *               own functions (lib/docExport), never a second exporter.
  */
 import { createRoot } from 'react-dom/client'
+import { interactLossNotice } from '../lib/briefCheck'
 // The app's own stylesheet: Preview sizes its frame with the app's classes, and
 // without them the iframe fell back to a browser's 300×150 default — the first
 // photograph was a postage stamp.
@@ -872,6 +873,7 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
       ].filter(Boolean).join(t('project.ultraLossAnd'))
       notices.push(t('project.ultraEditLoss', { what, name: screen.name }))
     }
+    if (res.interactLost) notices.push(interactLossNotice(t, screen.name, res.interactLost))
   } else if (kind === 'polish') {
     progress('polishing')
     const { outcome, record, caps } = await polishScreenCode({
