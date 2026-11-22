@@ -161,6 +161,7 @@ function MockyApp() {
     setProjectUseBrand,
     setProjectCreative,
     setProjectCreations,
+    setProjectTemplateLink,
     setProjectRules,
   } = useProjects()
   const [route, setRoute] = useState<Route>('home')
@@ -375,6 +376,25 @@ function MockyApp() {
     const project = projectFromTemplate(template, {
       folderId,
       folderLabel: folderId ? folders.find((f) => f.id === folderId)?.name : undefined,
+    })
+    addProject(project)
+    openProject(project.id)
+  }
+
+  /**
+   * Media → Design → Edit: the template opened as a project that remembers it
+   * (`templateId`), where "Update the template" writes it back. The same
+   * project again when one already edits it, so a second click does not leave
+   * two drafts of one template to choose between.
+   */
+  function editTemplate(template: ProjectTemplate) {
+    const open = projects.find((p) => p.templateId === template.id)
+    if (open) return openProject(open.id)
+    const folderId = homeFolder()
+    const project = projectFromTemplate(template, {
+      folderId,
+      folderLabel: folderId ? folders.find((f) => f.id === folderId)?.name : undefined,
+      editing: true,
     })
     addProject(project)
     openProject(project.id)
@@ -897,6 +917,7 @@ function MockyApp() {
             onSetUseBrand={(on, brandId) => setProjectUseBrand(activeProject.id, on, brandId)}
             onSetCreative={(on) => setProjectCreative(activeProject.id, on)}
             onSetCreations={(on) => setProjectCreations(activeProject.id, on)}
+            onSetTemplateLink={(templateId) => setProjectTemplateLink(activeProject.id, templateId)}
             onSetRules={(rules) => setProjectRules(activeProject.id, rules)}
             allProjects={projects}
             onUpdateScreenIn={updateScreen}
@@ -943,6 +964,7 @@ function MockyApp() {
           variant="page"
           onNewProjectWithDirection={newProjectWithDirection}
           onNewProjectFromTemplate={newProjectFromTemplate}
+          onEditTemplate={editTemplate}
           projectId={activeProject?.id}
           projectNames={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
           // Choosing a sequence here has no project to attach to, so it is

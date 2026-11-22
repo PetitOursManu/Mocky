@@ -1,5 +1,5 @@
 ---
-source_hash: 94c6ed6800f2
+source_hash: 462b8a24d1f3
 ---
 
 # Connecter un assistant (MCP)
@@ -24,7 +24,11 @@ clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
 |---|---|
 | `mocky_guide` | Le guide écrit pour l'assistant lui-même : les étapes d'une demande à un design, quel outil quand, les types d'écran, les images, ce qu'il ne doit jamais faire. Il a pour consigne de le lire avant son premier design ; aussi servi comme ressource `mocky://guide`. |
 | `create_design` | Génère un nouvel écran à partir d'une description, toujours dans un **nouveau projet**, et renvoie **une image du résultat et un lien** vers lui dans Mocky. |
-| `add_screen` | La même chose, dans un **projet existant** — où l'écran suit la direction artistique de ce projet. Seulement quand la personne nomme ce projet : un assistant ne doit jamais en choisir un parce qu'il semble proche, et la réponse dit dans quel projet l'écran est allé. |
+| `add_screen` | La même chose, dans un **projet existant** — où l'écran suit la direction artistique de ce projet. Quand la personne parle de ce projet — par son nom, son lien, ou simplement (« mon site de boulangerie »), retrouvé avec `list_projects` ; l'assistant demande lequel quand deux pourraient convenir, ne range jamais un design nouveau et sans rapport dans un projet parce qu'il semble proche, et la réponse dit dans quel projet l'écran est allé. |
+| `update_project` | Modifie un projet existant lui-même, sans modèle : son **nom**, sa propre **direction artistique** (le DESIGN.md que suivent ses prochains écrans ; `""` revient à celui du compte) et ses **règles**. Les écrans déjà faits gardent leur apparence. `get_project` avec `direction: true` montre d'abord les actuelles. |
+| `rename_screen`, `duplicate_screen`, `delete_screen` | Un écran renommé ; copié à côté de lui-même (sans liens ni notes), pour essayer un changement sur la copie ; ou retiré, comme Supprimer sur le canevas — seulement quand la personne l'a demandé, après que l'assistant lui a nommé l'écran en question. |
+| `edit_template` | Ouvre un des [modèles](templates.md#modifier-un-modèle) du compte comme un projet lié à lui — le même projet s'il est déjà ouvert — pour le changer avec les outils ci-dessus. |
+| `update_template` | Réécrit ce projet dans son modèle : écrans, direction, règles et réglages ; le nom et la section restent. |
 | `create_campaign` | Un brief décliné en plusieurs créations — affiche A3, flyer A4, post et story Instagram, visuels LinkedIn et Facebook (`formats`) — dans un nouveau projet qui est la [campagne](campaign.md). Les infos clés sont d’abord lues dans le brief ; la réponse liste chaque création avec son lien. |
 | `create_publication` | Un [magazine ou un livre](documents.md#magazines-et-livres) (`publication`) : quatre pages — première de couverture, deux pages intérieures, quatrième — sous une direction artistique à lui, dans un nouveau projet. `add_screen` avec le `screen_type` `magazine` ou `book` dans ce projet ajoute ensuite une page intérieure par appel, avant la quatrième. |
 | `get_design` | Attend un design encore en cours, puis renvoie la même chose. |

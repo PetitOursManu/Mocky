@@ -137,6 +137,33 @@ describe('the template store', () => {
     expect(store.remove('u1', t.id)).toBe(true)
     expect(fs.readdirSync(path.join(dir, 'templates', 'u1'))).toEqual([])
   })
+
+  it('rewrites a template’s content from the project that edits it, keeping its name and section', () => {
+    const t = store.add('u1', input({ section: 'Posts', screens: [screen('s1'), screen('s2')] }))
+    store.putThumbs('u1', t.id, { s1: JPEG, s2: JPEG })
+    const out = store.replace('u1', t.id, {
+      name: 'ignored',
+      section: 'ignored',
+      design: '# New',
+      settings: { creative: true, useBrand: 'yes' },
+      referenceScreenId: 'n1',
+      screens: [screen('s1', { code: 'export default () => "new"', userNotes: [{ text: 'private' }] }), screen('n1')],
+    })
+    expect(out).toMatchObject({ id: t.id, name: 'Landing kit', section: 'Posts', design: '# New', screenCount: 2, settings: { creative: true } })
+    const kept = store.get('u1', t.id)
+    expect(kept.createdAt).toBe(store.get('u1', t.id).createdAt)
+    expect(kept.referenceScreenId).toBe('n1')
+    expect(kept.screens.map((s) => s.id)).toEqual(['s1', 'n1'])
+    expect(kept.screens[0]).not.toHaveProperty('userNotes')
+    // The picture of a screen that is gone goes too; the one still there stays.
+    expect(out.thumbs).toEqual(['s1'])
+    expect(store.readThumb('u1', t.id, 's2')).toBeNull()
+    // Someone else's, a missing one, garbage.
+    expect(store.replace('u2', t.id, input())).toBeNull()
+    expect(store.replace('u1', 't' + '0'.repeat(24), input())).toBeNull()
+    expect(() => store.replace('u1', t.id, { screens: 'nope' })).toThrow(/screens/)
+    expect(() => store.replace('u1', t.id, { screens: [screen('s1', { code: 'x'.repeat(MAX_TEMPLATE_CODE_BYTES + 1) })] })).toThrow(/too large/)
+  })
 })
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46]).toString('base64')

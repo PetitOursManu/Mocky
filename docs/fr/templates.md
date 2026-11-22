@@ -1,7 +1,7 @@
 ---
 description: Démarrer un nouveau projet depuis une direction gardée, ou depuis un projet entier gardé comme modèle. Les deux sont dans Média, sous Design.
 badge: Nouveau
-source_hash: aaeca332d136
+source_hash: 534d02510749
 ---
 
 # Directions et modèles
@@ -59,6 +59,24 @@ comme de tous les projets qui l’affichent.
 identifiants pour chaque écran et chaque lien, dans le dossier qu’affichait la
 page des projets, et l’ouvre. Modifier le nouveau projet ne touche jamais au
 modèle, et inversement.
+
+### Modifier un modèle
+
+`Modifier` sur la carte d’un modèle (Média → Design) l’ouvre comme un projet
+**lié à lui** : les mêmes écrans, la même direction et les mêmes réglages, et une
+barre au-dessus du composeur qui dit quel modèle il modifie. Changez-le là avec
+tout ce que Mocky sait faire — modifier, ajouter ou supprimer des écrans, polir,
+changer la direction ou les règles — puis cliquez `Mettre à jour le modèle`.
+Mocky demande d’abord, puis remplace les écrans, la direction et les réglages du
+modèle par ceux du projet ; son nom et sa section restent. Jusque-là, le modèle
+est exactement ce qu’il était.
+
+`Modifier` sur un modèle déjà ouvert en modification rouvre ce même projet plutôt
+qu’une deuxième copie. Les projets créés avant avec `Nouveau projet depuis ce
+modèle` ne changent pas. `Détacher` fait du projet de modification un projet
+ordinaire ; le modèle reste tel qu’à sa dernière mise à jour. Un assistant
+connecté par [MCP](mcp.md) fait de même avec `edit_template` et
+`update_template`.
 
 La carte de chaque modèle montre **les images de ses écrans** — la référence de
 mise en page en grand, jusqu’à trois autres à côté — prises dans votre navigateur

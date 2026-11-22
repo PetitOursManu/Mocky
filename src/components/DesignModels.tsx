@@ -12,7 +12,9 @@ import {
   setTemplateSection,
   templateFromProject,
   templateSections,
+  templateContentFromProject,
   templateThumbUrl,
+  updateTemplate,
   type ProjectTemplate,
   type TemplateSection,
   type TemplateSummary,
@@ -136,6 +138,7 @@ export function DesignModelsTab({
   onApplyDirection,
   onNewProjectWithDirection,
   onNewProjectFromTemplate,
+  onEditTemplate,
   wide = false,
 }: {
   templates: TemplateSummary[]
@@ -148,6 +151,8 @@ export function DesignModelsTab({
   onApplyDirection?: (markdown: string) => void
   onNewProjectWithDirection?: (entry: DesignEntry) => void
   onNewProjectFromTemplate?: (template: ProjectTemplate) => void
+  /** Open the template as a project linked to it, to change it (`TemplateEditBar` writes it back). */
+  onEditTemplate?: (template: ProjectTemplate) => void
   wide?: boolean
 }) {
   const t = useT()
@@ -204,12 +209,13 @@ export function DesignModelsTab({
     }
   }
 
-  async function open(summary: TemplateSummary) {
-    if (!onNewProjectFromTemplate) return
-    setOpening(summary.id)
+  async function open(summary: TemplateSummary, edit = false) {
+    const go = edit ? onEditTemplate : onNewProjectFromTemplate
+    if (!go) return
+    setOpening(edit ? `edit:${summary.id}` : summary.id)
     setError(null)
     try {
-      onNewProjectFromTemplate(await getTemplate(summary.id))
+      go(await getTemplate(summary.id))
     } catch (e) {
       setError(t('templates.openFailed', { reason: e instanceof Error ? e.message : String(e) }))
     } finally {
@@ -260,6 +266,18 @@ export function DesignModelsTab({
             <Button variant="ghost" size="sm" disabled={opening !== null} onClick={() => void open(tpl)}>
               {opening === tpl.id ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="plus" size={14} />}
               {t('templates.newProjectFrom')}
+            </Button>
+          )}
+          {onEditTemplate && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={opening !== null}
+              title={t('templates.editTitle', { name: tpl.name })}
+              onClick={() => void open(tpl, true)}
+            >
+              {opening === `edit:${tpl.id}` ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="template" size={14} />}
+              {t('templates.edit')}
             </Button>
           )}
           <span className="ml-auto flex items-center">
@@ -433,6 +451,91 @@ export function DesignModelsTab({
           </div>
         )}
       </section>
+    </div>
+  )
+}
+
+/**
+ * Above the composer of a project that EDITS a template (`Project.templateId`):
+ * which template, and the one button that writes the project back into it.
+ *
+ * Asked before writing, because the template's screens are REPLACED — the
+ * whole point, and not something to do on a stray click. The pictures are
+ * taken afterwards, like on a first save: the template is kept even when a
+ * screen cannot be photographed. "Detach" lets a project that is no longer
+ * meant to be the template go back to being an ordinary one.
+ */
+export function TemplateEditBar({ project, onDetach }: { project: Project; onDetach: () => void }) {
+  const t = useT()
+  const id = project.templateId
+  const [name, setName] = useState<string | null>(null)
+  const [gone, setGone] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!id) return
+    let live = true
+    setGone(false)
+    listTemplates().then(
+      (list) => {
+        if (!live) return
+        const found = list.find((x) => x.id === id)
+        setName(found?.name ?? null)
+        setGone(!found)
+      },
+      () => {
+        /* no server: the bar still offers the update, which will say why it fails */
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [id])
+  // A change after an update makes the bar offer it again.
+  useEffect(() => setDone(false), [project.updatedAt])
+  if (!id) return null
+
+  async function update() {
+    if (!id || busy) return
+    if (!confirm(t('templates.updateConfirm', { name: name ?? '' }))) return
+    setBusy(true)
+    setError(null)
+    try {
+      const out = await updateTemplate(id, templateContentFromProject(project, activeGlobalDesign()))
+      setName(out.name)
+      setDone(true)
+      void saveTemplateThumbs(out.id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mb-2 rounded-lg border border-line bg-raised px-3 py-2 text-body-sm text-ink-muted" role="status">
+      <div className="flex items-start gap-2">
+        <Icon name="template" size={16} className="mt-0.5 shrink-0" />
+        <p className="min-w-0 text-ink">
+          {gone
+            ? t('templates.editingGone')
+            : done
+              ? t('templates.updated', { name: name ?? '' })
+              : t('templates.editing', { name: name ?? '…' })}
+        </p>
+      </div>
+      {error && <p className="mt-1 text-caption text-danger">{error}</p>}
+      <div className="mt-2 flex justify-end gap-2">
+        <button type="button" className="btn-ghost px-2 py-1 text-body-sm" title={t('templates.detachTitle')} onClick={onDetach}>
+          {t('templates.detach')}
+        </button>
+        {!gone && (
+          <Button variant="primary" size="sm" disabled={busy || done || project.screens.length === 0} onClick={() => void update()}>
+            {busy ? t('templates.updating') : t('templates.update')}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
