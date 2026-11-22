@@ -20,6 +20,12 @@ import { VideoExportStore } from './video/store.js'
 import { totalDurationMs } from './video/timeline.js'
 import { createVideoRouter, createVideoAdminRouter } from './video/routes.js'
 import { TextConfigStore, TEXT_PROFILES, looksLikeImageModel, configuredProviders } from './text/config.js'
+import { DecisionConfigStore } from './decision/config.js'
+import { askSystemOne } from './decision/jev.js'
+import { createDecisionRouter } from './decision/routes.js'
+import { makeDecider } from './decision/decide.js'
+import { makeLlm } from './muse/llm.js'
+import { runProjectAudit } from './decision/audit.js'
 import {
   PLANS,
   planOf,
@@ -227,6 +233,21 @@ const videoQueue = new VideoQueue({
 // ---- Admin-configured text (LLM) provider ----
 // When unset, the proxy keeps using the credentials the browser sends.
 const textConfig = new TextConfigStore(DATA_DIR)
+
+// ---- Admin-configured DECISION model (server/decision/, docs/decision-model.md) ----
+// Absent, every decision is asked of Muse's text model instead.
+const decisionConfig = new DecisionConfigStore(DATA_DIR)
+
+/**
+ * The decision model `user` may use, or null. It bills the instance, so it is
+ * the instance's paying accounts' only: an account on the free plan reaches
+ * nothing that bills (F1), and one on its own key spends nobody's money but its
+ * own (F4) — both get their text model to answer the same questions.
+ */
+function decisionTargetFor(user) {
+  if (!user || planOf(user) === 'free' || usesOwnText(user, loadConfig())) return null
+  return decisionConfig.target()
+}
 
 // ---- the free plan (server/plan.js) ----
 const freeQuota = new FreeQuota(DATA_DIR)
@@ -699,13 +720,21 @@ function meterFor(req, profile) {
   const projectId = cleanProjectId(req.headers['x-mocky-project'])
   return (u) => spend.record({ userId: user.id, projectId, provider, source, ...u })
 }
+/** The same ledger for the decision model: always the instance's, priced off its tokens. */
+function decisionMeterFor(req) {
+  const user = req.user || sessionUser(req)
+  if (!user) return undefined
+  const projectId = cleanProjectId(req.headers['x-mocky-project'])
+  const provider = decisionConfig.target()?.id || 'decision'
+  return (u) => spend.record({ userId: user.id, projectId, provider, source: 'instance', ...u })
+}
 
 function providerFor({ kind, action }, req) {
   switch (kind) {
     case 'mocky':
       return textProviderFor(req, profileFromRequest(req))
     case 'muse':
-      return textProviderFor(req, action === 'dossier' ? 'inspiration' : 'generation')
+      return textProviderFor(req, action === 'dossier' || action === 'project-audit' ? 'inspiration' : 'generation')
     case 'image': {
       const p = req.body?.profile === 'inspiration' || req.body?.profile === 'edit' ? req.body.profile : 'content'
       return { provider: images.configStore.profile(p)?.provider || images.configStore.profile('content')?.provider }
@@ -2106,6 +2135,39 @@ app.post('/api/admin/text/models', requireAdmin, authRateLimit(20, 60_000, 'text
   }
 })
 
+// ---- admin: decision model (server/decision/config.js) ----
+app.get('/api/admin/decision/config', requireAdmin, (req, res) => {
+  res.json(decisionConfig.publicView())
+})
+
+app.put('/api/admin/decision/config', requireAdmin, (req, res) => {
+  decisionConfig.update(req.body || {})
+  audit.record({
+    action: 'config.decision',
+    actor: auditActor(req.user),
+    detail: { fields: changedFields(req.body) },
+    ip: clientIp(req),
+  })
+  res.json({ ...decisionConfig.publicView(), ...(decisionConfig.lastPersistError ? { persistError: true } : {}) })
+})
+
+// One real yes/no through the SAVED settings, so an admin knows it answers.
+app.post('/api/admin/decision/test', requireAdmin, authRateLimit(20, 60_000, 'decision-test'), async (req, res) => {
+  const target = decisionConfig.target()
+  if (!target) return res.json({ ok: false, code: 'not-configured' })
+  const started = Date.now()
+  try {
+    const { answers, model } = await askSystemOne(target, {
+      state: 'The sky is blue on a clear day.',
+      questions: [{ id: 'is_true', type: 'check', instructions: 'Is this statement true?' }],
+    })
+    if (!answers.is_true) return res.json({ ok: false, code: 'shape' })
+    res.json({ ok: true, model, ms: Date.now() - started, value: answers.is_true.value })
+  } catch (err) {
+    res.json({ ok: false, code: typeof err?.code === 'string' ? err.code : 'error', error: String(err?.message || err).slice(0, 200) })
+  }
+})
+
 function deleteUserAccount(by, id) {
   if (id === by.user.id) return { status: 400, code: 'self', body: { error: 'Vous ne pouvez pas supprimer votre propre compte.' } }
   const users = loadUsers()
@@ -2626,6 +2688,21 @@ app.use(
     resolveTarget: (profile, req) => textTargetFor(req?.user, profile),
     sources: muse.sources,
     meter: meterFor,
+    // Polish's judged rules and the SEO deep pass ask the decision model first.
+    decisionTarget: (req) => decisionTargetFor(req.user),
+    decisionMeter: decisionMeterFor,
+  }),
+)
+// The audit of a project (server/decision/): a grid, one decision per page, a
+// synthesis. Ten a minute — each is up to thirty pages' worth of calls.
+app.use('/api/muse/project-audit', authRateLimit(10, 60_000, 'muse-project-audit'))
+app.use(
+  '/api',
+  createDecisionRouter({
+    resolveTarget: (profile, req) => textTargetFor(req?.user, profile),
+    decisionTarget: (req) => decisionTargetFor(req.user),
+    meter: meterFor,
+    decisionMeter: decisionMeterFor,
   }),
 )
 
@@ -3120,6 +3197,46 @@ const mcpRunner = createRunner({
   guard: assertSafeTargetResolved,
   config: () => ({ concurrency: 1 }),
 })
+/**
+ * A project audit for an assistant (audit_project): the Audit panel's engine,
+ * run on the project as the server stores it. It reuses the grid and the last
+ * run the project keeps, so the answer compares with the person's own history,
+ * and writes nothing back — the history is the panel's.
+ */
+async function auditStoredProject(user, project, { lang, goal, expected, newGrid } = {}) {
+  const text = textTargetFor(user, 'inspiration')
+  const charge = (provider) => (u) => spend.record({ userId: user.id, projectId: cleanProjectId(project.id), provider, source: 'instance', ...u })
+  const llm = text ? makeLlm({ ...text, trusted: true, onUsage: charge(text.id) }) : null
+  const target = decisionTargetFor(user)
+  const notices = []
+  const decider = makeDecider({ target, llm, onUsage: target ? charge(target.id) : undefined, onNotice: (m) => notices.push(m) })
+  const kept = project.analysis && typeof project.analysis === 'object' ? project.analysis : null
+  const fresh = newGrid === true || !kept?.grid
+  const own = typeof project.design === 'string' && project.design.trim() ? project.design : ''
+  const run = await runProjectAudit(
+    {
+      lang,
+      project: {
+        name: String(project.name || ''),
+        goal: goal || kept?.grid?.goal || '',
+        direction: own || '',
+        rules: typeof project.rules === 'string' ? project.rules : '',
+      },
+      pages: (project.screens || []).filter((s) => s && typeof s.code === 'string'),
+      grid: fresh ? null : kept.grid,
+      previous: fresh ? null : Array.isArray(kept.runs) ? kept.runs[0] : null,
+      expected: fresh
+        ? [
+            ...(Array.isArray(project.campaign?.facts) ? project.campaign.facts.filter((f) => f?.label).map((f) => ({ label: String(f.label), detail: String(f.value || '') })) : []),
+            ...(expected || []),
+          ]
+        : undefined,
+    },
+    { decider, llm },
+  )
+  return { ...run, notices: [...new Set([...notices, ...run.notices])] }
+}
+
 const mcpServer = createMcpServerRoutes({
   runner: mcpRunner,
   // Per account: on the free plan, Mocky's own engine is the free model.
@@ -3156,6 +3273,8 @@ const mcpServer = createMcpServerRoutes({
   // follows, so a template written back from one keeps meaning the same thing.
   readGlobalDesign: (userId) => readJson(userDataFile(userId), { design: null }).design ?? null,
   writeProject: (userId, project) => writeOneProject(userId, project),
+  // audit_project (server/decision/): the Audit panel's engine, on the stored project.
+  auditProject: (user, project, opts) => auditStoredProject(user, project, opts),
   maintenance: () => maintenance.on,
   audit,
   auditActor,

@@ -253,6 +253,7 @@ export function createMcpServerRoutes(d) {
         // merge as PUT /api/data. Absent, those tools refuse.
         ...(d.writeProject ? { writeProject: (project) => d.writeProject(userId, project) } : {}),
         readGlobalDesign: () => d.readGlobalDesign?.(userId) ?? null,
+        ...(d.auditProject ? { auditProject: (project, opts) => d.auditProject(user, project, opts) } : {}),
         origin,
         pictures: d.pictures,
         // An OAuth connection reaches every tool, as it always has; a key, the

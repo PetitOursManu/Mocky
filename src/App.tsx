@@ -163,6 +163,7 @@ function MockyApp() {
     setProjectCreations,
     setProjectTemplateLink,
     setProjectRules,
+    setProjectAnalysis,
   } = useProjects()
   const [route, setRoute] = useState<Route>('home')
   /** DESIGN.md shown over the current project, without leaving it. */
@@ -919,6 +920,7 @@ function MockyApp() {
             onSetCreations={(on) => setProjectCreations(activeProject.id, on)}
             onSetTemplateLink={(templateId) => setProjectTemplateLink(activeProject.id, templateId)}
             onSetRules={(rules) => setProjectRules(activeProject.id, rules)}
+            onSetAnalysis={(analysis) => setProjectAnalysis(activeProject.id, analysis)}
             allProjects={projects}
             onUpdateScreenIn={updateScreen}
             initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}

@@ -4,6 +4,7 @@ import ImageProviderSettings from '../ImageProviderSettings'
 import TextProviderSettings from '../TextProviderSettings'
 import VideoExportSettings from '../VideoExportSettings'
 import MuseSourcesSettings from './MuseSourcesSettings'
+import DecisionModelSettings from './DecisionModelSettings'
 import { SectionHead } from './AdminDashboard'
 import { ProviderName } from './ActivitySection'
 import { useFmt } from './format'
@@ -59,6 +60,9 @@ export default function ProvidersSection({ live }: { live: Live }) {
       <div className="mt-10 space-y-10 border-t border-line pt-8">
         <TextProviderSettings />
         <ImageProviderSettings />
+      </div>
+      <div className="mt-10 border-t border-line pt-8">
+        <DecisionModelSettings />
       </div>
       <div className="mt-10 border-t border-line pt-8">
         <MuseSourcesSettings />

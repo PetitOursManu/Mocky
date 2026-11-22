@@ -46,6 +46,7 @@ export const AUDIT_ACTIONS = [
   'config.kosmyBoard',
   'config.prices',
   'config.text',
+  'config.decision',
   'config.images',
   'config.video',
   'maintenance.on',

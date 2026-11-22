@@ -33,6 +33,7 @@ export { RULE_POLICY, dispositionFor, applyPolicy } from './policy.js'
  * @param {object} deps
  * @param {((req:object)=>Promise<any>)|null} [deps.llm]
  * @param {AbortSignal} [deps.signal]
+ * @param {object|null} [deps.decision]  the decision model, when this account may use it
  */
 export async function runQuality(args, deps = {}) {
   const notices = []
@@ -47,7 +48,7 @@ export async function runQuality(args, deps = {}) {
 
   let judged = { findings: [], verdicts: [], available: false }
   if (wantCritique) {
-    judged = await critiqueScreen(deps.llm || null, code, { hasDirection, ultra, onNotice, signal: deps.signal })
+    judged = await critiqueScreen(deps.llm || null, code, { hasDirection, ultra, onNotice, signal: deps.signal, decision: deps.decision || null })
   }
 
   const audit = buildAudit([...detected.findings, ...judged.findings], {
@@ -61,6 +62,8 @@ export async function runQuality(args, deps = {}) {
     findings: audit.findings,
     audit,
     verdicts: judged.verdicts,
+    // Who gave the verdicts: the decision model, the text model, or nobody.
+    judgedBy: judged.available ? judged.judgedBy || 'text' : null,
     // Rules the policy dropped for this project, so "why didn't it flag X" has
     // an answer that does not require reading policy.js.
     ignored: detected.ignored,

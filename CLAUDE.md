@@ -227,6 +227,40 @@ The judged rules in `catalog.js` are Mocky's own questions, written for this
 pipeline. The audit rubric follows the structure Impeccable documents publicly
 (five dimensions, 0–4, P0–P3); the scoring and the confidence model are ours.
 
+## The project audit and the decision model
+
+The Audit panel's "Le projet" tab, and the MCP tool `audit_project` (read).
+User doc `docs/decision-model.md`.
+
+```
+server/decision/config.js    the admin's decision model (TypeSafe's Jev); the key never leaves
+server/decision/jev.js       POST /v1/systemone: score / noul / choice, answers checked
+server/decision/decide.js    one door: Jev when set up, else Muse's text model, same answer shape
+server/decision/grid.js      six criteria with FIXED ids, wording tailored by Muse
+server/decision/audit.js     grid → one decision per page + one for the project → synthesis
+src/lib/projectAnalysis.ts   what the project keeps: the grid once, the last eight runs
+```
+
+Three things that will bite you:
+
+1. **A decision model is not a text profile.** Its API is its own, so it has a
+   store of its own and `museChat` cannot reach it. "If one is available, use
+   it" (the user's rule) is `makeDecider`: Jev first, the text model on failure
+   or absence, and two failures in a row set Jev aside for the run.
+2. **The fallback's confidence is `null`, never a number.** A text model has no
+   calibrated certainty; a figure it writes is one more guess. The report says
+   "not measured". Do not fill it in.
+3. **Criterion ids never change** (`CRITERIA_IDS`): they are what makes a second
+   run comparable (`gridKey`, `compareRuns`). Muse tailors the WORDS; `cleanGrid`
+   throws away a renamed or re-scoped criterion. Not for the free plan nor an
+   account on its own key (`decisionTargetFor`, F1/F4): their text model answers.
+
+The two judged passes use it too (`server/decision/verdicts.js`): Polish's
+`critique.js` and the SEO deep pass `audit-judge.js` get their yes/no verdicts
+from Jev, and the text model writes a sentence for the FAILED ones only. Jev
+writes no text, and a finding that repeats its question is the defect
+audit-judge.js already records. Jev down → the old text-model pass, unchanged.
+
 ## Motion Ultra
 
 A **project** setting (`Project.ultra`, paused per session from the composer)

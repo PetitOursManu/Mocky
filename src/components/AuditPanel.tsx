@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Screen } from '../lib/project'
+import type { Project, Screen } from '../lib/project'
+import type { ProjectAnalysis } from '../lib/projectAnalysis'
+import ProjectAnalysisView from './ProjectAnalysisView'
 import { loadSettings } from '../lib/settings'
 import type { QualityFinding } from '../lib/quality'
 import { auditExport, auditScreen, type AuditReport, type DimensionScore, type FamilyScore } from '../lib/audit'
 import { getThumb } from '../lib/thumbnails'
-import { Banner, Button, Icon, Panel, Spinner } from '../ui'
+import { Banner, Button, Icon, Panel, Segmented, Spinner } from '../ui'
 import { getLang, useT } from '../i18n'
 
 /**
@@ -43,8 +45,19 @@ export default function AuditPanel({
   busy = false,
   onClose,
   className = '',
+  project,
+  direction,
+  onSaveAnalysis,
 }: {
   screens: Screen[]
+  /**
+   * The project, for the "Le projet" tab (ProjectAnalysisView): the audit of
+   * every page against one grid. Absent, the panel is the one-screen audit it
+   * always was.
+   */
+  project?: Project
+  direction?: string
+  onSaveAnalysis?: (analysis: ProjectAnalysis | undefined) => void
   projectName: string
   productName?: string
   /** The screen the canvas has selected, so the two stay in step. */
@@ -68,6 +81,8 @@ export default function AuditPanel({
   className?: string
 }) {
   const t = useT()
+  /** One screen's SEO and accessibility, or the whole project against a grid. */
+  const [tab, setTab] = useState<'screen' | 'project'>('screen')
   /**
    * Reports, each kept beside the source it describes.
    *
@@ -221,7 +236,23 @@ export default function AuditPanel({
 
   return (
     <Panel title={t('audit.title')} onClose={onClose} className={className}>
-      {screens.length === 0 ? (
+      {project && onSaveAnalysis && (
+        <div className="border-b border-line-soft px-3 py-2">
+          <Segmented
+            label={t('analysis.tabs')}
+            value={tab}
+            // The active segment stays active: one of the two is always shown.
+            onChange={(v) => v && setTab(v)}
+            options={[
+              { value: 'screen', label: t('analysis.tabScreen') },
+              { value: 'project', label: t('analysis.tabProject') },
+            ]}
+          />
+        </div>
+      )}
+      {project && onSaveAnalysis && tab === 'project' ? (
+        <ProjectAnalysisView project={project} screens={screens} direction={direction} onSave={onSaveAnalysis} onSelect={onSelect} />
+      ) : screens.length === 0 ? (
         <p className="p-3 text-body-sm text-ink-faint">{t('audit.noScreens')}</p>
       ) : (
         <>
@@ -313,6 +344,11 @@ export default function AuditPanel({
                 <span className="font-medium text-ink-muted">{t('audit.confidence')} — </span>
                 {t('audit.confidenceNote')}
               </p>
+              {report.coverage.judgedBy && (
+                <p className="mt-1 text-caption text-ink-faint">
+                  {report.coverage.judgedBy === 'decision' ? t('analysis.judgedByDecision') : t('analysis.judgedByText')}
+                </p>
+              )}
 
               <FamilyBreakdown families={report.families} />
 

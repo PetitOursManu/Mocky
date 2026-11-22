@@ -583,6 +583,16 @@ describe('the deep pass', () => {
     expect(report.a11y.score).toBeLessThan(100)
   })
 
+  it('says who decided the judged questions, and only when something was judged', async () => {
+    const answer = (body: object) => vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => body })))
+    answer({ judged: true, judgedBy: 'decision', findings: [] })
+    expect((await auditScreen(screen(`<main><h1>A</h1></main>`), { deep: true })).coverage.judgedBy).toBe('decision')
+    answer({ judged: false, judgedBy: 'decision', findings: [] })
+    expect((await auditScreen(screen(`<main><h1>A</h1></main>`), { deep: true })).coverage.judgedBy).toBeUndefined()
+    answer({ judged: true, judgedBy: 'invented', findings: [] })
+    expect((await auditScreen(screen(`<main><h1>A</h1></main>`), { deep: true })).coverage.judgedBy).toBeUndefined()
+  })
+
   it('sends the model name, or the server cannot reach a browser-configured provider', async () => {
     // `proxyHeaders` carries the base URL, the dialect and the key — never the
     // model. The server reads it from the body, and without it `credsFromReq`

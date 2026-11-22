@@ -103,8 +103,23 @@ export function sanitizeReference(raw) {
  *   because the answer depends on the ACCOUNT: one on the free plan gets the
  *   free model (server/plan.js).
  */
-export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget, sources, meter, guard, fetchImpl }) {
+export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget, sources, meter, guard, fetchImpl, decisionTarget, decisionMeter }) {
   const router = express.Router()
+
+  /**
+   * The decision model for this request (server/decision/), or null: the two
+   * judged passes below give it the verdicts when the administrator set one
+   * up and this account may use it, and keep their text-model pass otherwise.
+   */
+  const decisionFor = (req) => {
+    let target = null
+    try {
+      target = decisionTarget ? decisionTarget(req) : null
+    } catch {
+      target = null
+    }
+    return target ? { target, onUsage: decisionMeter?.(req) } : null
+  }
 
   /*
    * POST /api/muse/linked-image — a link given to Muse that is a PICTURE.
@@ -257,7 +272,7 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
           ultra: body.ultra === true,
           critique: body.critique !== false,
         },
-        { llm },
+        { llm, decision: decisionFor(req) },
       )
       res.json(result)
     } catch (err) {
@@ -300,7 +315,7 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
     const llm = creds ? makeLlm(creds) : null
 
     try {
-      res.json(await judgeAudit(code, { llm }))
+      res.json(await judgeAudit(code, { llm, decision: decisionFor(req) }))
     } catch (err) {
       // judgeAudit is written not to throw. If it ever does, the screen is on
       // the user's canvas and the deterministic half is already in their hands.

@@ -34,6 +34,7 @@ export const GUIDED_TOOLS = [
   'edit_design',
   'polish_design',
   'audit_design',
+  'audit_project',
   'fix_accessibility',
   'translate_screen',
   'fill_fields',
@@ -109,6 +110,7 @@ write access. Talk to the person in THEIR language.
 | \`export_screen\` | A screen as a file to download: \`png\` to publish, \`pptx\` or \`pptx-edit\` for Canva / PowerPoint, \`pdf\` for a document. |
 | \`list_templates\` | The account's project templates (names, screens). |
 | \`audit_design\` | The SEO and accessibility report of a screen. Changes nothing. |
+| \`audit_project\` | A whole project audited against a grid drawn from its goal: strengths, observed problems, priority improvements, expected elements found or not. Changes nothing. |
 | \`check_document\` | The check of a document before printing or posting: picture sharpness, margins, bleed, cut text, QR codes. Changes nothing. |
 | \`get_design\` | The answer of work still running for this account — an audit, or a design started elsewhere. |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at — to suggest, not to add. |
@@ -291,6 +293,12 @@ made it, or \`get_project\`), and pick the ONE tool that matches what they ask:
 - **"Is it accessible?", "check the SEO"** → \`audit_design\`: a report, changes
   nothing. Then, if they want it corrected, \`fix_accessibility\`: it fixes the
   markup and the screen looks the same.
+- **"Audit my project", "is my site consistent?", "what should I fix first?",
+  "did my changes help?"** → \`audit_project\`: every page against one grid
+  drawn from the project's goal (pass \`goal\` and \`expected\` the first time,
+  in their words). It reuses the project's grid, so a second audit says what
+  moved. Relay the problems and the improvements as two lists, keep the
+  doubts it prints, and never turn "not found" into "missing".
 
 - **"Translate it into English"** → \`translate_screen\` with \`language\`: a
   translated COPY is placed beside the screen, which stays as it is. Only the
@@ -355,6 +363,7 @@ a rule.
 | \`edit_design\` | Change an existing screen as the person asks. |
 | \`polish_design\` | Mocky's quality pass on a screen: corrections and a score out of 20. |
 | \`audit_design\` | The SEO and accessibility report of a screen. Changes nothing. |
+| \`audit_project\` | A whole project audited against a grid: what works, what to fix first, what moved since the last audit. Changes nothing. |
 | \`fix_accessibility\` | Correct that report's fixable findings, the screen looking the same. |
 | \`translate_screen\` | A translated copy of a screen, beside it; the layout does not change. |
 | \`fill_fields\` | New values in a screen's fields: one filled copy, a series of copies, or the screen itself. No model. |
