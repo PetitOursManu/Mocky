@@ -65,6 +65,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `readme` | audit de projet, modèle de décision et recherche Admin | `eb7b45f` |
 | `auth` | documenter la connexion avec Kosmy Board | `7840c72` |
 | `readme` | présenter les fonctionnalités ajoutées depuis novembre | `11728f3` |
 | — | vision, traduction, tokens propagés, calendrier éditorial et Calendy | `91c88b8` |
