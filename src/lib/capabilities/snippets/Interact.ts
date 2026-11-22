@@ -76,10 +76,23 @@ var SheetCrop = function (props) {
     var key = (sheet && sheet.src) + '|' + String(box) + '|' + problem;
     if (!mockyCropWarned[key]) { mockyCropWarned[key] = 1; try { console.warn('SheetCrop' + (label ? ' "' + label + '"' : '') + ': ' + problem); } catch (_) {} }
   }
+  // \`mask\`: the crop is not drawn but CUTS — its alpha becomes the outline of
+  // whatever the children paint. The back of a wrapper printed in HTML inside
+  // the front's own silhouette, a label in the shape of a bottle.
+  var look = problem ? { background: 'repeating-linear-gradient(45deg,#e4e4e7 0 8px,#f4f4f5 8px 16px)' } : mockyCropCss(sheet, box);
+  if (props.mask && !problem) {
+    look = {
+      WebkitMaskImage: look.backgroundImage, maskImage: look.backgroundImage,
+      WebkitMaskSize: look.backgroundSize, maskSize: look.backgroundSize,
+      WebkitMaskPosition: look.backgroundPosition, maskPosition: look.backgroundPosition,
+      WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+    };
+  }
   var style = Object.assign(
     {},
     sized || problem ? null : { aspectRatio: box[2] + ' / ' + box[3] },
-    problem ? { background: 'repeating-linear-gradient(45deg,#e4e4e7 0 8px,#f4f4f5 8px 16px)' } : mockyCropCss(sheet, box),
+    look,
+    props.flip ? { transform: 'scaleX(-1)' } : null,
     props.style && typeof props.style === 'object' ? props.style : null
   );
   var attrs = {
@@ -90,7 +103,12 @@ var SheetCrop = function (props) {
   };
   if (props.alt) { attrs.role = 'img'; attrs['aria-label'] = String(props.alt); }
   else if (!props.children) attrs['aria-hidden'] = true;
-  return React.createElement(props.as || 'div', attrs, props.children);
+  // A mirrored crop must not mirror the words printed over it.
+  var kids = props.flip && props.children
+    ? React.createElement('div', { style: { transform: 'scaleX(-1)', position: 'absolute', inset: 0 } }, props.children)
+    : props.children;
+  if (props.flip && props.children && !/(^|\\s)(?:[\\w-]+:)*(absolute|fixed|sticky|relative)(\\s|$)/.test(className)) style.position = 'relative';
+  return React.createElement(props.as || 'div', attrs, kids);
 };
 // The same crop as the attributes of an SVG <image> inside a viewBox of
 // vw × vh: the whole sheet, scaled so that only the box covers the view.

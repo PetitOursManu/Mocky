@@ -35,6 +35,7 @@ import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from '../capabilities/snippets/S
 import { FlowSource, FLOW_EXPORTS } from '../capabilities/snippets/Flow'
 import { OrnamentSource, ORNAMENT_EXPORTS } from '../capabilities/snippets/Ornament'
 import { InteractSource, INTERACT_EXPORTS } from '../capabilities/snippets/Interact'
+import { Interact3DSource, INTERACT3D_EXPORTS } from '../capabilities/snippets/Interact3D'
 import { cnSource } from '../capabilities/snippets/cn'
 
 const MOCKY_HEADER = '/* Vendored by Mocky export — inline, dependency-free. */'
@@ -224,7 +225,7 @@ export function flowJsx(): string {
  * the Web Animations API and inline SVG: it moves the same outside Mocky.
  */
 export function interactJsx(): string {
-  return packJsx(InteractSource, INTERACT_EXPORTS)
+  return packJsx(`${InteractSource}\n\n${Interact3DSource}`, [...INTERACT_EXPORTS, ...INTERACT3D_EXPORTS])
 }
 
 export interface UiFile {
@@ -263,6 +264,6 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('frames', framesJsx(), SHAPEFRAME_EXPORTS),
     ...pack('ornaments', ornamentsJsx(), ORNAMENT_EXPORTS),
     ...pack('flow', flowJsx(), FLOW_EXPORTS),
-    ...pack('interact', interactJsx(), INTERACT_EXPORTS),
+    ...pack('interact', interactJsx(), [...INTERACT_EXPORTS, ...INTERACT3D_EXPORTS]),
   ]
 }

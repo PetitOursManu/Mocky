@@ -78,6 +78,28 @@ mais mal exposée · **X** à étendre · **C** à créer.
 | Contrôles déterministes avant présentation | **X** | Réparation sur erreur de rendu ; `measureOverflowIn` exécuté dans la frame (à la demande) | Média absent, découpe hors limites, cible inconnue, fiche orpheline (sur l'AST) ; parcours court joué dans la frame |
 | Mesure par essai | **C** | Activité (par requête, 1 h, sans jetons) ; registre de dépenses (plié par jour, sans `purpose`) | Identifiant de génération porté par chaque appel et relu en une trace : appels, durée, jetons, coût ; images non comptées aujourd'hui |
 
+**Révisé le 22/11 après les images de référence** (`Mocky_References_Images_20261122_v01.zip`,
+images extraites des vidéos : Vasari, Stride, Zestwell) : **la 3D CSS d'abord, le WebGL
+en dernier recours.** Ce que les images montrent :
+
+- *Vasari* : des pavés réels (tranche et jaquette visibles en même temps pendant
+  la rotation, une face assombrie par l'éclairage) — un pavé CSS à six faces.
+- *Stride* : la barre est vue de face ou de dos, presque jamais de profil ; un
+  recto en image détourée, un verso imprimé (tableau nutritionnel) dans la même
+  silhouette, un reflet qui glisse — deux faces CSS, le verso découpé par un
+  masque fait de la même découpe, un reflet piloté par l'angle.
+- *Zestwell* : des cadres plats sur deux murs courbes, une caméra qui avance et
+  pivote — un monde CSS (`perspective` + transformation inverse de la caméra),
+  murs en anneau de panneaux, brouillard par l'opacité.
+
+En CSS, la sélection est un clic du DOM (l'œuvre réellement touchée, des deux
+côtés), la projection vers le HTML est `getBoundingClientRect` (la fiche part de
+l'œuvre sans calcul), les images s'affichent par `img-src *` (pas de CORS de
+texture), et aucun contexte WebGL n'est consommé. Limites connues : la capture
+(`html2canvas`) ne rend pas les transformations 3D — les vignettes seront
+approximatives —, et un volume vraiment courbe ou éclairé (un sachet gonflé vu de
+profil, un globe) reste l'affaire du WebGL.
+
 Choix d'architecture 3D (§3 du cahier) : **nouveaux composants, pas
 d'extension de `<Scene3D>`**. `<Scene3D>` est décoratif par contrat
 (`aria-hidden`, pas de clic, image figée hors budget) et ces trois contrats sont
@@ -166,6 +188,21 @@ fournissent un repli sans WebGL (liste HTML des mêmes éléments).
         plus court, flèches ignorées fiche ouverte, fiche qui pousse de la
         jaquette, fermeture pendant l'entrée sans saut, encre complète,
         curseur OPEN qui retombe après le clic
+  - [x] 3D CSS (`snippets/Interact3D.ts`, même pack) : `Box3D` (pavé à six
+        faces, ombrage par l'orientation, reflet), `MaskRise`, `useTweened`
+        (une courbe par clé), `useViewportSize`, `Space3D` / `Place3D` /
+        `Ring3D` / `MockySpace` (monde à caméra, brouillard, élimination
+        derrière l'œil) ; `SheetCrop mask flip` (verso dans la silhouette du
+        recto)
+  - [x] Scènes construites avec les vraies planches des briefs, comparées aux
+        images de référence : étagère Vasari (tranche + jaquette visibles à
+        mi-rotation, fiche qui pousse de la jaquette, encre, lignes qui
+        montent) ; couloir Zestwell (anneau courbe, œuvres sur les deux murs,
+        marche à la molette, clic = l'œuvre réellement touchée des deux côtés,
+        cadrage, fiche de la bonne œuvre, copie volante puis retirée). Corrigé
+        en chemin : `Space3D` perdait le `ref` du geste (molette sans effet)
+  - [ ] Stride en CSS : barre = `Box3D` à faible épaisseur + verso masqué ;
+        un seul objet qui voyage entre sections (ancrage sur un rectangle HTML)
   - [ ] Contrôles AST après génération (découpes hors planche, cibles,
         médias imposés absents du code)
   - [ ] Muse / Ultra : ne plus générer d'images de page quand le brief en impose

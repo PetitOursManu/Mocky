@@ -13,6 +13,7 @@ import { FOLD_IDS } from '../folds'
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from './snippets/ShapeFrame'
 import { FlowSource, FLOW_EXPORTS } from './snippets/Flow'
 import { InteractSource, INTERACT_EXPORTS } from './snippets/Interact'
+import { Interact3DSource, INTERACT3D_EXPORTS } from './snippets/Interact3D'
 import { FRAME_FAMILIES, FRAME_SHAPES } from '../frameShapes'
 import { OrnamentSource, ORNAMENT_EXPORTS } from './snippets/Ornament'
 import { ORNAMENTS, ORNAMENT_OUTLINE_IDS } from '../ornaments'
@@ -532,7 +533,10 @@ export const CAPABILITIES: Capability[] = [
       ],
       intents: [],
     },
-    snippets: [{ source: InteractSource, exports: [...INTERACT_EXPORTS] }],
+    snippets: [
+      { source: InteractSource, exports: [...INTERACT_EXPORTS] },
+      { source: Interact3DSource, exports: [...INTERACT3D_EXPORTS] },
+    ],
     components: [
       {
         name: 'SheetCrop',
@@ -589,6 +593,61 @@ export const CAPABILITIES: Capability[] = [
         description:
           'Moves between two REAL places on the page, measured when called. `grow(el, from, o)` makes `el` (a detail view already rendered and visible) grow out of `from` — an element or a rect — straightening `o.rotate` degrees on the way (1050 ms); with `reverse: true` it shrinks back onto `from` (850 ms), and called while still growing it turns back from where it is. `fly(from, to, o)` flies a copy of `from` onto `to` while the real `to` stays hidden, so there is never two of it (300 ms; `lift` arcs it, `rotate`, `endOpacity`, `delay`). Both return a promise. Call them in the event handler AFTER the target is rendered (in a useLayoutEffect on the open state, or after a setState with requestAnimationFrame), with refs to the elements — never with selectors guessed from text. Always measure `from` again on the way back: the shelf may have moved.',
         tags: ['transition', 'flip', 'morph', 'shared element', 'open', 'detail', 'fly'],
+      },
+      {
+        name: 'Box3D',
+        signature: '<Box3D w={36} h={210} d={110} rotateY={-90 * open} rotateZ={-4.5 * open} front={<SheetCrop … />} right={<SheetCrop … />} gloss={0.3} />',
+        description:
+          'A real box in CSS 3D, in pixels: `w` × `h` × `d`, and any of six faces — `front`, `back`, `left`, `right`, `top`, `bottom` — each a node that fills its face (usually a <SheetCrop>). `rotateX/Y/Z` in degrees (applied Z, then X, then Y), `x/y/z` in px. Each face darkens by how far it is turned from the light (`shade` 0–1, default .55; `light` = [x, y, z], y down), so a spine turning into a cover reads as a lit object — never add your own shading. `gloss` 0–1 slides a sheen across front and back as it turns. The PARENT needs a CSS `perspective` (e.g. style={{ perspective: 2200 }}) or a <Space3D>. Use it for every object that has a thickness: a VHS case or a book on a shelf (spine = front, cover = right, rotateY −90 shows the cover), a product box, a card with an edge. A flat product seen front and back (a wrapper, a bottle label) is a Box3D with a small `d`, `front` = the picture and `back` = a <SheetCrop mask flip> of the SAME crop holding the printed back in HTML. Children are laid in the box\'s own space. Event handlers and data-* attributes pass through.',
+        tags: ['3d', 'box', 'cuboid', 'product', 'flip', 'vhs', 'book', 'package'],
+      },
+      {
+        name: 'MaskRise',
+        signature: '<MaskRise play={open} delay={620} stagger={75}><p>…</p><h2>…</h2><p>…</p></MaskRise>',
+        description:
+          'Each child is a line that rises out of its own mask when `play` becomes true, one after the other (`delay` before the first, `stagger` between them, `duration` 900 ms, `from` 110 %), and is hidden again when `play` is false — tie it to the open state of a view so every opening replays it. Use it for the text of a page that opens, a headline revealed line by line, a caption block. Never fade text in instead.',
+        tags: ['text', 'reveal', 'mask', 'stagger', 'lines'],
+      },
+      {
+        name: 'useTweened',
+        signature: 'const pose = useTweened(focused ? FOCUS : WALK, { duration: 950, easing: { th: "quartOut", yaw: "quadOut", r: "cubicOut" } })',
+        description:
+          'A number, or an object of numbers, that TRAVELS to its target whenever the target changes: returns the in-between value every frame. `duration` in ms; `easing` a name ("linear", "quadOut", "cubicOut", "quartOut", "expoOut", "sineInOut", "cubicInOut"), a cubic-bezier as [x1, y1, x2, y2], or an object giving each key its own (so a camera\'s travel can lead and its turn lag). Retargeted mid-way, it starts from where it is. `onDone(value)`. Reduced motion arrives at once. Use it for a camera glide, a flip to a given angle, a pose between two states — not for a value the visitor drags (that is useGlideTrack).',
+        tags: ['tween', 'animation', 'easing', 'camera', 'pose'],
+      },
+      {
+        name: 'useViewportSize',
+        signature: 'const { w, h } = useViewportSize()',
+        description: 'The window\'s size in px, updated on resize — for geometry derived from the screen (const H = Math.min(h * 0.46, w * 0.31)).',
+        tags: ['viewport', 'resize', 'responsive'],
+      },
+      {
+        name: 'Space3D',
+        signature: '<Space3D camera={{ x, y, z, yaw, pitch }} fov={56} scale={100} fog={[10, 46]} className="fixed inset-0" style={{ background: "#FFF9EC" }}>…</Space3D>',
+        description:
+          'A 3D WORLD drawn in CSS, seen through a camera: for a gallery to walk through, a room, a passage, things placed in space. World units with y UP (metres, as a three.js brief writes them), `scale` px per unit. `camera`: position x/y/z and `yaw` (radians; 0 looks towards −z, positive turns left) and `pitch` (positive looks up) — drive it from useGlideTrack (walking) and useTweened (gliding to a focus). `fov` vertical, in degrees. `fog` [near, far] fades things by distance into the Space3D\'s own background, so give it the fog colour (a vertical gradient from wall to floor colour reads as a floor). `overlay` is laid over the world, not in it. Everything is ordinary DOM: a click on a print IS that print (both walls, no ray casting), and MockyMorph.fly/grow from it starts at its projected rectangle. Fill it with <Place3D> and <Ring3D>.',
+        tags: ['3d', 'gallery', 'camera', 'room', 'walk', 'space', 'museum'],
+      },
+      {
+        name: 'Place3D',
+        signature: '<Place3D at={[x, y, z]} yaw={MockySpace.facing(at, [0, y, 0])} onClick={…}><SheetCrop … /></Place3D>',
+        description:
+          'Puts its children at a point of the <Space3D> world, centred, facing +z when `yaw` is 0 (`yaw`, `pitch`, `roll` in radians). The child\'s size is in px (world size × the Space3D\'s scale). Things behind the camera are not drawn (`radius`, in units, keeps a large thing until it is wholly behind; `cull={false}` never hides) and fog fades them (`fog={false}` exempts one). Events and data-* attributes pass through.',
+        tags: ['3d', 'place', 'position', 'gallery'],
+      },
+      {
+        name: 'Ring3D',
+        signature: '<Ring3D radius={18} height={6.2} segments={48} background="linear-gradient(#F5EBD8,#FBF3E3 20%,#FBF3E3 60%,#EFDFC4)" />',
+        description:
+          'The walls of a round room or of a curved passage: a ring of `segments` panels of `height` units around the vertical axis, facing the centre (`inside`, default) or away from it (`inside={false}`, the inner wall of a ring-shaped corridor). Two rings make a corridor; the prints go on <Place3D> just in front of each.',
+        tags: ['3d', 'wall', 'ring', 'corridor', 'room'],
+      },
+      {
+        name: 'MockySpace',
+        signature: 'MockySpace.ring(angle, radius, y) · MockySpace.facing(from, to) · MockySpace.look(from, to)',
+        description:
+          'The arithmetic of a walk-through, in radians and world units: `ring` gives the point at an angle on a circle of the x–z plane (angle 0 is +x), `facing` the yaw that turns an object at `from` towards `to`, `look` the camera yaw that looks from `from` to `to`. Place every print with them instead of rewriting the trigonometry.',
+        tags: ['3d', 'math', 'ring', 'camera'],
       },
     ],
   },
