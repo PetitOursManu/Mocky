@@ -14,6 +14,8 @@ import AnnouncementSection from './AnnouncementSection'
 import AssistantsSection from './AssistantsSection'
 import SpendSection from './SpendSection'
 import MigrationSettings from '../MigrationSettings'
+import AdminSearch from './AdminSearch'
+import type { AdminSetting } from './settingsIndex'
 
 export type SectionId =
   | 'overview'
@@ -91,6 +93,50 @@ export default function AdminDashboard({
   const d = live.data
   const rootRef = useRef<HTMLDivElement>(null)
   const firstRender = useRef(true)
+  /** The setting the search bar asked for, until it is on screen. */
+  const [target, setTarget] = useState<{ id: string; nonce: number } | null>(null)
+  /** True while a search result is being brought into view: the section's own scroll stands aside. */
+  const seeking = useRef(false)
+
+  function goTo(s: AdminSetting) {
+    seeking.current = true
+    setSection(s.section)
+    setNavOpen(false)
+    setTarget({ id: s.id, nonce: Date.now() })
+  }
+
+  /*
+   * Bring the block the search found into view, and mark it for a moment.
+   *
+   * Looked for until it appears rather than once: most blocks are drawn only
+   * after their settings have been fetched (a provider block says "Loading…"
+   * first), so the element does not exist on the render that opened the
+   * section. Four seconds, then given up — the section is open either way.
+   */
+  useEffect(() => {
+    if (!target) return
+    let frame = 0
+    let timer = 0
+    const until = Date.now() + 4000
+    const find = () => {
+      const el = rootRef.current?.querySelector<HTMLElement>(`[data-admin-setting="${CSS.escape(target.id)}"]`)
+      if (el) {
+        seeking.current = false
+        const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        el.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' })
+        el.classList.add('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-surface')
+        timer = window.setTimeout(() => el.classList.remove('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-surface'), 2400)
+        return
+      }
+      if (Date.now() < until) frame = requestAnimationFrame(find)
+      else seeking.current = false
+    }
+    frame = requestAnimationFrame(find)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [target])
 
   useEffect(() => {
     try {
@@ -99,8 +145,9 @@ export default function AdminDashboard({
       /* a convenience only */
     }
     // A card at the bottom of the overview opens a section; without this the
-    // new section appears scrolled to where the old one was.
-    if (!firstRender.current && rootRef.current && rootRef.current.getBoundingClientRect().top < 0) {
+    // new section appears scrolled to where the old one was. A search result
+    // scrolls to its own block instead (above).
+    if (!firstRender.current && !seeking.current && rootRef.current && rootRef.current.getBoundingClientRect().top < 0) {
       rootRef.current.scrollIntoView({ block: 'start' })
     }
     firstRender.current = false
@@ -234,6 +281,9 @@ export default function AdminDashboard({
             </button>
             <LiveBadge status={live.status} compact />
           </div>
+          <div className="px-3 pb-2">
+            <AdminSearch onPick={goTo} compact />
+          </div>
           {navOpen && (
             <>
               <div className="fixed inset-0 z-10" aria-hidden onClick={() => setNavOpen(false)} />
@@ -252,6 +302,7 @@ export default function AdminDashboard({
             <h2 className="mt-1 text-h3 text-ink">{t('dashboard.title')}</h2>
             <LiveBadge status={live.status} />
           </header>
+          <AdminSearch onPick={goTo} />
           <ul className="md:block md:border-t md:border-line-soft md:py-2">{navRows(setSection)}</ul>
         </div>
       </nav>
@@ -305,14 +356,17 @@ export function SectionHead({
   title,
   blurb,
   actions,
+  'data-admin-setting': adminSetting,
 }: {
   kicker?: string
   title: string
   blurb?: string
   actions?: React.ReactNode
+  /** Where the Admin search lands for this section (settingsIndex.ts). */
+  'data-admin-setting'?: string
 }) {
   return (
-    <header className="rule-thin mb-5 flex flex-wrap items-end gap-x-4 gap-y-2 pb-3">
+    <header data-admin-setting={adminSetting} className="rule-thin mb-5 flex flex-wrap items-end gap-x-4 gap-y-2 pb-3">
       <div className="min-w-0 flex-1">
         {kicker && <span className="kicker">{kicker}</span>}
         <h2 className="mt-1 text-h2 text-ink">{title}</h2>

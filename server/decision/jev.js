@@ -1,4 +1,6 @@
-// The client for TypeSafe's System One API — the one Jev answers on.
+// The client for TypeSafe's System One API — the one Jev answers on, at
+// TypeSafe and at every gateway that resells it (config.js lists them: each
+// implements the same shapes under its own base URL and key).
 //
 // POST <base>/v1/systemone with a `state` (any JSON value) and `questions`
 // keyed by name; the answers come back under the same names
@@ -58,6 +60,19 @@ export function fromSystemOneAnswer(question, raw) {
   return null
 }
 
+/**
+ * What one call cost, in dollars: what the gateway says when it says it
+ * (OpenRouter in `usage.cost`, Vercel in `provider_metadata.gateway.cost`, a
+ * string), else the provider's list price on the input tokens, else null —
+ * an unknown price is not a free call.
+ */
+export function costOf(raw, target, input) {
+  const said = target.cost === 'usage' ? raw?.usage?.cost : target.cost === 'gateway' ? raw?.provider_metadata?.gateway?.cost : undefined
+  const n = typeof said === 'string' ? Number(said) : said
+  if (typeof n === 'number' && Number.isFinite(n) && n >= 0) return n
+  return typeof target.inputPricePerToken === 'number' ? input * target.inputPricePerToken : null
+}
+
 function fail(code, message) {
   const err = new Error(message)
   err.code = code
@@ -98,6 +113,8 @@ export async function askSystemOne(target, req, opts = {}) {
     }
     if (res.status === 401 || res.status === 403) throw fail('auth', `Decision model refused the key (HTTP ${res.status})`)
     if (res.status === 429 || res.status === 529) throw fail('busy', `Decision model is rate-limited (HTTP ${res.status})`)
+    // A gateway's account out of credit (OpenRouter answers 402).
+    if (res.status === 402) throw fail('credits', 'Decision model: the account has no credit left (HTTP 402)')
     if (!res.ok) {
       // The detail can say `max_tokens_exceeded`; it never quotes the state back
       // in a way worth keeping, and only the code reaches a person.
@@ -111,10 +128,13 @@ export async function askSystemOne(target, req, opts = {}) {
         const input = Math.max(0, Number(raw.usage?.input_tokens) || 0)
         const output = Math.max(0, Number(raw.usage?.output_tokens) || 0)
         opts.onUsage({
-          model: typeof raw.model === 'string' ? raw.model : target.model,
+          // The id asked for, not the one echoed: OpenRouter answers with a
+          // dated snapshot ("typesafe/jev-1.13-20260917"), and a ledger keyed
+          // on that would split one model into a line per release.
+          model: target.model,
           input,
           output,
-          cost: typeof target.inputPricePerToken === 'number' ? input * target.inputPricePerToken : null,
+          cost: costOf(raw, target, input),
           estimated: false,
         })
       } catch {

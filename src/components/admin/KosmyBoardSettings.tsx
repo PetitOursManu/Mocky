@@ -108,7 +108,7 @@ export default function KosmyBoardSettings() {
   )
 
   return (
-    <form onSubmit={save} className="mt-4 space-y-3 rounded-lg border border-line-soft bg-ink/5 p-3">
+    <form data-admin-setting="kosmy-board" onSubmit={save} className="mt-4 space-y-3 rounded-lg border border-line-soft bg-ink/5 p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="kicker">{t('auth.kosmy.admin.title')}</div>
         <span className={`text-caption ${s.enabled ? 'text-ok' : 'text-ink-faint'}`}>

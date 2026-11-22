@@ -28,7 +28,7 @@ export default function SystemSection({ live }: { live: Live }) {
 
   return (
     <section>
-      <SectionHead kicker={t('dashboard.nav.system')} title={t('dashboard.system.title')} blurb={t('dashboard.system.blurb')} />
+      <SectionHead data-admin-setting="system-machine" kicker={t('dashboard.nav.system')} title={t('dashboard.system.title')} blurb={t('dashboard.system.blurb')} />
 
       <InfoStrip d={d} f={f} />
 
@@ -125,7 +125,7 @@ export default function SystemSection({ live }: { live: Live }) {
 
       <div className="mt-10 grid gap-x-10 gap-y-8 lg:grid-cols-2">
         <div>
-          <div className="section-head">
+          <div data-admin-setting="system-storage" className="section-head">
             <span className="kicker">{t('dashboard.system.storage')}</span>
           </div>
           <div className="space-y-4">
@@ -152,7 +152,7 @@ export default function SystemSection({ live }: { live: Live }) {
         </div>
 
         <div>
-          <div className="section-head">
+          <div data-admin-setting="system-worker" className="section-head">
             <span className="kicker">{t('dashboard.system.worker')}</span>
           </div>
           <WorkerLine d={d} />

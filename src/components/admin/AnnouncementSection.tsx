@@ -139,7 +139,7 @@ export default function AnnouncementSection({ live }: { live: Live }) {
 
   return (
     <section>
-      <SectionHead kicker={t('dashboard.nav.announcement')} title={t('dashboard.announce.title')} blurb={t('dashboard.announce.blurb')} />
+      <SectionHead data-admin-setting="announcement" kicker={t('dashboard.nav.announcement')} title={t('dashboard.announce.title')} blurb={t('dashboard.announce.blurb')} />
 
       {error && (
         <Banner tone="danger" title={t('common.error')} className="mb-4">
