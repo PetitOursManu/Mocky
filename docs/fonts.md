@@ -75,7 +75,12 @@ third party what it is looking at.
    two families; a screen that names none is drawn exactly as before.
 3. Only the Latin subsets are shipped (`latin` and `latin-ext`, which covers the
    accents of French, Polish, Czech, Turkish…), and a browser fetches the second
-   only when the text needs it.
+   only when the text needs it. Two families are the exception: **Noto Sans JP**
+   and **Noto Serif SC** also carry Japanese and Chinese characters, cut into
+   about a hundred small files each, so a page that writes a few kanji downloads
+   the few files holding them. Put one after the Latin face —
+   `'Inter Tight', 'Noto Sans JP', sans-serif` — and only the characters the
+   Latin face lacks come from it.
 4. A capture waits for the faces before it draws, so a thumbnail or an exported
    flyer is not set in the fallback.
 

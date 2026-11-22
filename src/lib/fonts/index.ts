@@ -34,8 +34,12 @@ export interface FontFace {
   style: 'normal' | 'italic'
   /** A CSS font-weight descriptor: "400", or a range "100 900". */
   weight: string
-  /** Paths under /fonts/, per subset. */
-  files: { latin?: string; 'latin-ext'?: string }
+  /**
+   * Paths under /fonts/, per subset: `latin` and `latin-ext` for every family,
+   * and for a CJK family its numbered chunks too ("[0]" …), whose ranges are
+   * the family's own (`FontFamily.ranges`).
+   */
+  files: { latin?: string; 'latin-ext'?: string } & Record<string, string | undefined>
 }
 
 export interface FontFamily {
@@ -47,6 +51,8 @@ export interface FontFamily {
   version: string
   license: string
   faces: FontFace[]
+  /** The unicode-range of each CJK chunk this family carries — absent on a Latin-only family. */
+  ranges?: Record<string, string>
 }
 
 export const FONT_FAMILIES = catalogue.families as FontFamily[]
@@ -194,12 +200,17 @@ export function fontFaceCss(families: FontFamily[], origin = '', alias?: (f: Fon
   for (const f of families) {
     const name = (alias ? alias(f) : f.family).replace(/'/g, '')
     for (const face of f.faces) {
-      for (const subset of ['latin', 'latin-ext'] as const) {
-        const file = face.files[subset]
-        if (!file) continue
+      for (const [subset, file] of Object.entries(face.files)) {
+        // A CJK chunk's range is the family's own; a Latin subset's is shared.
+        const range = subset === 'latin' || subset === 'latin-ext' ? RANGES[subset] : f.ranges?.[subset]
+        if (!file || !range) continue
+        // `swap` for a CJK chunk, not `block`: a kanji label waiting three
+        // seconds on one of a hundred chunks hides it; the system's own
+        // Japanese face is a better first frame than nothing.
+        const display = subset === 'latin' || subset === 'latin-ext' ? 'block' : 'swap'
         rules.push(
-          `@font-face{font-family:'${name}';font-style:${face.style};font-weight:${face.weight};font-display:block;` +
-            `src:url(${origin}/fonts/${file}) format('woff2');unicode-range:${RANGES[subset]}}`,
+          `@font-face{font-family:'${name}';font-style:${face.style};font-weight:${face.weight};font-display:${display};` +
+            `src:url(${origin}/fonts/${file}) format('woff2');unicode-range:${range}}`,
         )
       }
     }
@@ -272,4 +283,11 @@ export const FONTS_PROMPT = [
         .map((f) => f.family)
         .join(', ')}`,
   ),
+  ...(FONT_FAMILIES.some((f) => f.ranges)
+    ? [
+        `Japanese or Chinese characters: ${FONT_FAMILIES.filter((f) => f.ranges)
+          .map((f) => f.family)
+          .join(' and ')} carry them. Put one AFTER the Latin face in the same stack — font-family: 'Inter Tight', 'Noto Sans JP', sans-serif — so the Latin letters keep their face and only the CJK glyphs come from it.`,
+      ]
+    : []),
 ].join('\n')

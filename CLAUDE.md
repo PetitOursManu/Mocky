@@ -1146,7 +1146,10 @@ data: URL of the path. Three things:
 
 ## Fonts in a generated page
 
-~200 self-hosted families (`src/lib/fonts`, user doc `docs/fonts.md`). Four
+~200 self-hosted families (`src/lib/fonts`, user doc `docs/fonts.md`), Latin
+subsets only — except Noto Sans JP and Noto Serif SC (`CJK_IDS` in the script),
+which also ship their CJK chunks, each declared with its own unicode-range
+(`FontFamily.ranges`) and `font-display: swap`. Four
 things that will bite you:
 
 1. **The files are generated, the catalogue is committed.** `public/fonts/` is

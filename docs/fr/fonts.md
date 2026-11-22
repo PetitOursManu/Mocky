@@ -1,6 +1,6 @@
 ---
 description: Environ 200 polices, servies par Mocky lui-même, que chaque écran et chaque document généré peut utiliser par leur nom.
-source_hash: 45a929cfcc78
+source_hash: 215afd777757
 ---
 
 # Polices
@@ -83,7 +83,13 @@ navigateur de chaque visiteur dise à un tiers ce qu’il regarde.
    comme avant.
 3. Seuls les sous-ensembles latins sont livrés (`latin` et `latin-ext`, qui
    couvre les accents du français, du polonais, du tchèque, du turc…), et un
-   navigateur ne télécharge le second que si le texte en a besoin.
+   navigateur ne télécharge le second que si le texte en a besoin. Deux familles
+   font exception : **Noto Sans JP** et **Noto Serif SC** portent aussi les
+   caractères japonais et chinois, découpés en une centaine de petits fichiers
+   chacune, si bien qu’une page qui écrit quelques kanji ne télécharge que les
+   quelques fichiers qui les contiennent. Placez-en une après la police latine —
+   `'Inter Tight', 'Noto Sans JP', sans-serif` — et seuls les caractères absents
+   de la police latine viennent d’elle.
 4. Une capture attend les polices avant de dessiner : une vignette ou un flyer
    exporté n’est pas composé dans la police de secours.
 

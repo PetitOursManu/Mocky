@@ -1,7 +1,7 @@
 ---
 description: Décrivez une page que le visiteur manipule — une étagère à faire glisser, un produit qui voyage le long de la page, une galerie à parcourir —, apportez vos images, et obtenez-la qui fonctionne dès le premier aperçu.
 badge: Nouveau
-source_hash: f787ea0eeb5f
+source_hash: 09d62c7fe63e
 ---
 
 # Sites interactifs
@@ -88,7 +88,8 @@ peut lire sa trace — appels, durées, jetons et prix — à `/api/runs/<id>`.
 
 - Les vignettes, captures et exports dessinent la 3D à plat : html2canvas ne rend
   pas la 3D CSS. L’aperçu fait foi.
-- Les polices viennent du catalogue de Mocky. Une police japonaise ou chinoise
-  nommée dans une description est remplacée par celle du système.
+- Les polices viennent du catalogue de Mocky. Pour les caractères japonais ou
+  chinois, il propose Noto Sans JP et Noto Serif SC ([Polices](fonts.md)) ; une
+  autre police CJK nommée dans une description est remplacée par l’une d’elles.
 - L’export de la page en un seul fichier HTML autonome n’est pas encore
   disponible.

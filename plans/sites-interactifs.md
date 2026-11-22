@@ -235,10 +235,16 @@ fournissent un repli sans WebGL (liste HTML des mêmes éléments).
         cliquable (`Box3D`, `Place3D` avec onClick) est un bouton au clavier
         (Tab, Entrée, Espace). Observé, pas un défaut du pack : après un
         balayage vertical, Chrome mange le tap suivant (arrêt du défilement)
-  - [ ] Polices CJK (Noto Sans JP, Noto Serif SC) : le vendoring ne garde que
-        `latin` / `latin-ext` par choix (`scripts/vendor-fonts.mjs`) ; les
-        ajouter change ce choix (sous-ensembles CJK, nouveaux paquets) —
-        décision à prendre. D'ici là, police japonaise du système
+  - [x] Polices CJK (décidé par l'utilisateur le 22/11) : Noto Sans JP
+        (sans) et Noto Serif SC (serif), variables, avec leurs ~100 tranches
+        CJK chacune (`CJK_IDS`), une `unicode-range` par tranche
+        (`FontFamily.ranges`) et `font-display: swap` ; +11,6 Mo dans
+        `public/fonts`, rien dans git. Vérifié : un logo 莱昂·瓦萨里 et un
+        libellé 灰の正午 ne téléchargent que 13 fichiers
+  - [x] Coût annoncé avant le lancement : sous le champ du composeur, le
+        nombre d'images imposées, ce qu'elles changent (pas d'images Muse /
+        Ultra, une correction au plus) et les médias qui ne se chargeront pas.
+        Non vérifié à l'écran (le composeur demande un compte)
   - [x] Passage de correction borné : un au plus, motif `brief-fix`, seulement
         sur un brief qui impose des images et quand un contrôle échoue, gardé
         seulement s'il améliore sans rien aggraver (`briefFixInstruction`)

@@ -81,6 +81,7 @@ trace — calls, durations, tokens and price — at `/api/runs/<id>`.
 
 - Thumbnails, captures and exports draw 3D flat: html2canvas does not render
   CSS 3D. The preview is the reference.
-- Fonts come from Mocky's catalogue. A Japanese or Chinese face named in a
-  description falls back to the system's own.
+- Fonts come from Mocky's catalogue. For Japanese or Chinese characters it has
+  Noto Sans JP and Noto Serif SC ([Fonts](fonts.md)); another CJK face named in a
+  description is replaced by one of them.
 - Exporting the page as a single standalone HTML file is not available yet.

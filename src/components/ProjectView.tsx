@@ -47,7 +47,8 @@ import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { type QualityFinding } from '../lib/quality'
 import { editScreen, fixScreenAudit, polishScreenCode, screenCapabilities } from '../lib/pipeline/screenPasses'
 import { ultraLoss } from '../lib/ultra/check'
-import { interactLossNotice } from '../lib/briefCheck'
+import { briefImageCount, interactLossNotice } from '../lib/briefCheck'
+import { extractBriefMedia } from '../lib/briefMedia'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import type { ProjectAnalysis } from '../lib/projectAnalysis'
 import { followRecolor } from '../lib/designFollow'
@@ -4312,6 +4313,24 @@ export default function ProjectView({
           : 'composer.generating',
   )
 
+  /**
+   * The media the brief names by address (lib/briefMedia.ts), read as it is
+   * typed: pictures win over Muse's and Ultra's (S1), one correction pass at
+   * most may follow (S2), and what the preview cannot play is said now rather
+   * than after a paid run.
+   */
+  const briefMediaHint = useMemo(() => {
+    if (!prompt.includes('http')) return ''
+    const media = extractBriefMedia(prompt)
+    const pictures = briefImageCount(media)
+    const blocked = media.filter((m) => m.kind === 'video' || m.kind === 'script').length
+    const parts = [
+      pictures ? t('project.briefMediaHint', { count: pictures }) : '',
+      blocked ? t('project.briefMediaBlocked', { count: blocked }) : '',
+    ].filter(Boolean)
+    return parts.join(' ')
+  }, [prompt, t])
+
   /** What the brief says in one line when it is folded. */
   const briefSummary =
     museStage ||
@@ -6050,6 +6069,13 @@ export default function ProjectView({
           )}
 
           <EnhanceNotice enhancer={enhancer} className="mb-2" />
+          {/* What a brief that brings its own media changes, said BEFORE the
+              run (decided with the user: the cost is shown before launch). */}
+          {!editing && briefMediaHint && (
+            <p className="mb-2 border border-line bg-raised px-3 py-2 text-body-sm text-ink-muted" role="status">
+              {briefMediaHint}
+            </p>
+          )}
           {/* min-w-0: a textarea's automatic minimum size comes from `cols`
               (20 by default), which is wider than a 390px row. */}
           <textarea
