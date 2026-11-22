@@ -146,6 +146,10 @@ export const project = {
       'La vidéo {url} ne peut pas être lue dans l’aperçu (seules les vidéos de Mocky le peuvent) : importez-la dans la médiathèque pour l’intégrer.',
     'project.briefScriptBlocked':
       'La bibliothèque {url} ne peut pas être chargée dans l’aperçu : l’écran a été construit avec les composants de Mocky.',
+    'project.briefImagesUnused':
+      '{count} image(s) imposée(s) par le brief sur {total} n’apparaissent pas dans l’écran : {list}. Demandez une retouche qui les utilise.',
+    'project.interactUnused':
+      'Le brief décrit des gestes ou des transitions, mais l’écran n’utilise aucun composant d’interaction de Mocky : les interactions ont été écrites à la main ou omises.',
     'project.museLinkUnreadable': 'L’image d’inspiration n’a pas pu être lue : Muse ne l’a pas utilisée.',
     'project.museLinkOnlyFirst': 'Plusieurs images d’inspiration : Muse s’inspire de la première seulement.',
     'project.museLinkDirection':
@@ -565,6 +569,10 @@ export const project = {
       'The video {url} cannot play in the preview (only Mocky’s own videos can): import it into the media library to embed it.',
     'project.briefScriptBlocked':
       'The library {url} cannot load in the preview: the screen was built with Mocky’s components instead.',
+    'project.briefImagesUnused':
+      '{count} of the {total} picture(s) the brief imposes do not appear on the screen: {list}. Ask for an edit that uses them.',
+    'project.interactUnused':
+      'The brief describes gestures or transitions, but the screen uses none of Mocky’s interaction components: they were written by hand or left out.',
     'project.museLinkUnreadable': 'The inspiration picture could not be read: Muse did not use it.',
     'project.museLinkOnlyFirst': 'Several inspiration pictures: Muse draws on the first one only.',
     'project.museLinkDirection':

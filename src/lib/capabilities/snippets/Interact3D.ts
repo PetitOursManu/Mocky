@@ -207,6 +207,11 @@ var Box3D = React.forwardRef(function (props, ref) {
     var lit = mockyBoxShade(rx, ry, rz, k, props.light);
     var dark = shade * (1 - lit.lambert);
     var sheenAt = 50 + lit.normal[0] * 70;
+    // Shade and sheen are rectangles; a face whose picture has a transparent
+    // outline (a wrapper's crimped ends) would show them around it. overlayMask
+    // (sheetCropMask of the same crop) cuts them to the picture.
+    var cut = props.overlayMask || null;
+    if (cut && k === 'back' && props.overlayMaskFlip !== false) cut = Object.assign({}, cut, { transform: 'scaleX(-1)' });
     return React.createElement('div', {
       key: k, 'data-face': k, className: props.faceClassName,
       style: Object.assign({
@@ -215,8 +220,8 @@ var Box3D = React.forwardRef(function (props, ref) {
       }, props.faceStyle || null),
     },
       props[k],
-      dark > 0.002 ? React.createElement('div', { 'aria-hidden': true, style: { position: 'absolute', inset: 0, background: '#000', opacity: dark, pointerEvents: 'none' } }) : null,
-      gloss > 0 && (k === 'front' || k === 'back') ? React.createElement('div', { 'aria-hidden': true, style: { position: 'absolute', inset: 0, pointerEvents: 'none', mixBlendMode: 'screen', background: 'linear-gradient(105deg, transparent ' + (sheenAt - 22) + '%, rgba(255,255,255,' + 0.55 * gloss + ') ' + sheenAt + '%, transparent ' + (sheenAt + 22) + '%)' } }) : null
+      dark > 0.002 ? React.createElement('div', { 'aria-hidden': true, style: Object.assign({ position: 'absolute', inset: 0, background: '#000', opacity: dark, pointerEvents: 'none' }, cut) }) : null,
+      gloss > 0 && (k === 'front' || k === 'back') ? React.createElement('div', { 'aria-hidden': true, style: Object.assign({ position: 'absolute', inset: 0, pointerEvents: 'none', mixBlendMode: 'screen', background: 'linear-gradient(105deg, transparent ' + (sheenAt - 22) + '%, rgba(255,255,255,' + 0.55 * gloss + ') ' + sheenAt + '%, transparent ' + (sheenAt + 22) + '%)' }, cut) }) : null
     );
   });
   var rest = {};
@@ -343,6 +348,99 @@ var Ring3D = function (props) {
       React.createElement('div', { 'aria-hidden': true, style: { width: width * s, height: hgt * s, background: props.background || '#f5ebd8', backfaceVisibility: 'hidden' } })));
   }
   return panels;
+};
+
+/* ---------- One object that travels from place to place down the page ---------- */
+
+// An element's box as a centre and a size, in viewport pixels — or null when
+// it is not laid out (display:none, not mounted yet).
+var mockyRectNow = function (r) {
+  var el = r && r.current !== undefined ? r.current : r;
+  if (!el || !el.getBoundingClientRect) return null;
+  var b = el.getBoundingClientRect();
+  if (!b.width && !b.height) return null;
+  return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width, h: b.height };
+};
+// How far an element has come up the viewport: 0 while its top is at \`start\`
+// viewport-heights from the top (1 = the bottom edge), 1 once it reaches \`end\`.
+var mockyScrollP = function (r, start, end) {
+  var el = r && r.current !== undefined ? r.current : r;
+  if (!el || !el.getBoundingClientRect) return 0;
+  var vh = window.innerHeight || 1;
+  var top = el.getBoundingClientRect().top / vh;
+  var s = start == null ? 1 : start, e = end == null ? 0 : end;
+  if (s === e) return top <= e ? 1 : 0;
+  return Math.max(0, Math.min(1, (s - top) / (s - e)));
+};
+var useScrollProgress = function (ref, options) {
+  var o = options || {};
+  var st = React.useState(0), p = st[0], setP = st[1];
+  React.useEffect(function () {
+    var raf = 0;
+    var read = function () { raf = 0; setP(mockyScrollP(ref, o.start, o.end)); };
+    var on = function () { if (!raf) raf = requestAnimationFrame(read); };
+    read();
+    window.addEventListener('scroll', on, { passive: true, capture: true });
+    window.addEventListener('resize', on);
+    return function () { cancelAnimationFrame(raf); window.removeEventListener('scroll', on, { capture: true }); window.removeEventListener('resize', on); };
+  }, [ref, o.start, o.end]);
+  return p;
+};
+var MOCKY_POSE_KEYS = ['x', 'y', 'w', 'h', 'rotateX', 'rotateY', 'rotateZ', 'z', 'opacity'];
+// The object is ONE element, fixed over the page, re-measured every frame
+// against the places it stands in — so it follows a card's hover tilt, a
+// resize, a horizontal strip scrolled on a phone, and the way back up. Two
+// copies (one per section) is what this exists to avoid: they were never in
+// the same place at the hand-over, and the eye sees the jump.
+var AnchorTravel = function (props) {
+  var stopsRef = React.useRef(props.stops || []);
+  stopsRef.current = props.stops || [];
+  var st = React.useState(null), pose = st[0], setPose = st[1];
+  var last = React.useRef('');
+  React.useEffect(function () {
+    var raf = 0, alive = true;
+    var poseOf = function (s) {
+      var r = mockyRectNow(s.anchor);
+      if (!r) return null;
+      return { x: r.x, y: r.y, w: r.w, h: r.h, rotateX: s.rotateX || 0, rotateY: s.rotateY || 0, rotateZ: s.rotateZ || 0, z: s.z || 0, opacity: s.opacity == null ? 1 : s.opacity, stop: 0, t: 0 };
+    };
+    var frame = function () {
+      if (!alive) return;
+      var stops = stopsRef.current;
+      var cur = null;
+      for (var i = 0; i < stops.length; i++) {
+        var s = stops[i];
+        var p = poseOf(s);
+        if (!p) continue;
+        if (!cur) { cur = p; cur.stop = i; continue; }
+        var t = mockyScrollP(s.when || s.anchor, s.start, s.end);
+        if (t <= 0) continue;
+        var e = mockyEaseOf(s.easing || 'sineInOut')(t);
+        var next = {};
+        for (var k = 0; k < MOCKY_POSE_KEYS.length; k++) { var key = MOCKY_POSE_KEYS[k]; next[key] = cur[key] + (p[key] - cur[key]) * e; }
+        next.stop = t >= 1 ? i : i - 1 + t;
+        next.t = t;
+        cur = next;
+      }
+      var sig = cur ? MOCKY_POSE_KEYS.map(function (k) { return Math.round(cur[k] * 10); }).join(',') : '';
+      if (sig !== last.current) { last.current = sig; setPose(cur); }
+      if (!mockyIxStill() || !cur) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return function () { alive = false; cancelAnimationFrame(raf); };
+  }, []);
+  if (!pose) return null;
+  var body = typeof props.children === 'function' ? props.children(pose) : props.children;
+  return React.createElement('div', {
+    'data-mocky-travel': '', 'aria-hidden': props['aria-hidden'],
+    className: props.className,
+    style: Object.assign({
+      position: 'fixed', left: pose.x - pose.w / 2, top: pose.y - pose.h / 2, width: pose.w, height: pose.h,
+      zIndex: props.zIndex != null ? props.zIndex : 30, pointerEvents: props.interactive ? 'auto' : 'none',
+      opacity: pose.opacity, perspective: props.perspective || 1200,
+      display: pose.opacity <= 0.01 ? 'none' : undefined,
+    }, props.style || null),
+  }, body);
 };`
 
-export const INTERACT3D_EXPORTS = ['useTweened', 'useViewportSize', 'MaskRise', 'Box3D', 'Space3D', 'Place3D', 'Ring3D', 'MockySpace'] as const
+export const INTERACT3D_EXPORTS = ['useTweened', 'useViewportSize', 'MaskRise', 'Box3D', 'Space3D', 'Place3D', 'Ring3D', 'MockySpace', 'useScrollProgress', 'AnchorTravel'] as const

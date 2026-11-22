@@ -553,6 +553,13 @@ export const CAPABILITIES: Capability[] = [
         tags: ['sprite', 'svg', 'crop', 'mask'],
       },
       {
+        name: 'sheetCropMask',
+        signature: 'overlayMask={sheetCropMask(SHEET, box)}',
+        description:
+          "The same crop as a CSS mask style object — for a layer that must stop at the picture's own transparent outline. Pass it to Box3D's `overlayMask` when a face is a cut-out (a wrapper, a bottle), so its shade and sheen follow the silhouette instead of drawing a rectangle around it.",
+        tags: ['sprite', 'mask', 'crop', 'silhouette'],
+      },
+      {
         name: 'useGlideTrack',
         signature: 'const t = useGlideTrack({ count: films.length, initial: 5, loop: true, unit: 64, wheel: true, keys: true, onChange: (i, dir) => {} })',
         description:
@@ -598,7 +605,7 @@ export const CAPABILITIES: Capability[] = [
         name: 'Box3D',
         signature: '<Box3D w={36} h={210} d={110} rotateY={-90 * open} rotateZ={-4.5 * open} front={<SheetCrop … />} right={<SheetCrop … />} gloss={0.3} />',
         description:
-          'A real box in CSS 3D, in pixels: `w` × `h` × `d`, and any of six faces — `front`, `back`, `left`, `right`, `top`, `bottom` — each a node that fills its face (usually a <SheetCrop>). `rotateX/Y/Z` in degrees (applied Z, then X, then Y), `x/y/z` in px. Each face darkens by how far it is turned from the light (`shade` 0–1, default .55; `light` = [x, y, z], y down), so a spine turning into a cover reads as a lit object — never add your own shading. `gloss` 0–1 slides a sheen across front and back as it turns. The PARENT needs a CSS `perspective` (e.g. style={{ perspective: 2200 }}) or a <Space3D>. Use it for every object that has a thickness: a VHS case or a book on a shelf (spine = front, cover = right, rotateY −90 shows the cover), a product box, a card with an edge. A flat product seen front and back (a wrapper, a bottle label) is a Box3D with a small `d`, `front` = the picture and `back` = a <SheetCrop mask flip> of the SAME crop holding the printed back in HTML. Children are laid in the box\'s own space. Event handlers and data-* attributes pass through.',
+          'A real box in CSS 3D, in pixels: `w` × `h` × `d`, and any of six faces — `front`, `back`, `left`, `right`, `top`, `bottom` — each a node that fills its face (usually a <SheetCrop>). `rotateX/Y/Z` in degrees (applied Z, then X, then Y), `x/y/z` in px. Each face darkens by how far it is turned from the light (`shade` 0–1, default .55; `light` = [x, y, z], y down), so a spine turning into a cover reads as a lit object — never add your own shading. `gloss` 0–1 slides a sheen across front and back as it turns; for a cut-out face pass `overlayMask={sheetCropMask(sheet, box)}` so shade and sheen stop at its outline. The PARENT needs a CSS `perspective` (e.g. style={{ perspective: 2200 }}) or a <Space3D>. Use it for every object that has a thickness: a VHS case or a book on a shelf (spine = front, cover = right, rotateY −90 shows the cover), a product box, a card with an edge. A flat product seen front and back (a wrapper, a bottle label) is a Box3D with a small `d`, `front` = the picture and `back` = a <SheetCrop mask flip> of the SAME crop holding the printed back in HTML. Children are laid in the box\'s own space. Event handlers and data-* attributes pass through.',
         tags: ['3d', 'box', 'cuboid', 'product', 'flip', 'vhs', 'book', 'package'],
       },
       {
@@ -641,6 +648,20 @@ export const CAPABILITIES: Capability[] = [
         description:
           'The walls of a round room or of a curved passage: a ring of `segments` panels of `height` units around the vertical axis, facing the centre (`inside`, default) or away from it (`inside={false}`, the inner wall of a ring-shaped corridor). Two rings make a corridor; the prints go on <Place3D> just in front of each.',
         tags: ['3d', 'wall', 'ring', 'corridor', 'room'],
+      },
+      {
+        name: 'useScrollProgress',
+        signature: 'const p = useScrollProgress(sectionRef, { start: 1, end: 0 })',
+        description:
+          'How far an element has come up the screen, 0 to 1: 0 while its top is at `start` viewport-heights from the top (1 = the bottom edge), 1 once it reaches `end`. For the steps of a pinned section (a 500vh section with a sticky inside: steps = Math.floor(p * n)), a fade tied to a section arriving, a storm that plays as the visitor scrolls.',
+        tags: ['scroll', 'progress', 'pinned', 'sticky', 'steps'],
+      },
+      {
+        name: 'AnchorTravel',
+        signature: '<AnchorTravel stops={[{ anchor: heroSlotRef }, { anchor: insideBoxRef, rotateZ: 14, rotateY: flip }, { anchor: cardRefs[sel], when: shopRef, start: 1, end: 0.3 }]}>{(pose) => <Box3D w={pose.w} h={pose.h} d={6} rotateY={pose.rotateY} rotateZ={pose.rotateZ} front={…} back={…} />}</AnchorTravel>',
+        description:
+          'ONE object that travels down the page from place to place — the product picked in the hero that flies into the next section, turns there, and lands exactly on its own card in the shop. Each stop is an `anchor` (a ref to an empty placeholder element sized and placed where the object should stand: the centre slot of a carousel, a box in a pinned section, the picture spot of a card) plus a pose (`rotateX/Y/Z` in degrees, `z`, `opacity`). The object stands at the first stop; each later stop takes over as ITS section scrolls up the screen — `when` (default its anchor) from `start` to `end` viewport-heights (defaults 1 → 0), eased (`easing`, default "sineInOut"). Re-measured every frame, so it follows a card\'s hover tilt, a resize and the way back up. The child is a function of the pose {x, y, w, h, rotateX, rotateY, rotateZ, z, opacity, stop, t} — draw the object to fill w × h. Never draw a second copy at a stop: hide the flat picture at the stop it occupies (e.g. the selected card shows an empty slot). It takes no clicks unless `interactive`; `zIndex` (30), `perspective` (1200).',
+        tags: ['travel', 'scroll', 'product', 'hero', 'card', 'anchor', 'journey'],
       },
       {
         name: 'MockySpace',

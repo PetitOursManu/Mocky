@@ -100,6 +100,7 @@ import { readLinkedReferences } from '../linkedImage'
 import { lintSlop } from '../lint'
 import { buildProvidedPicturesSection, type ProvidedPicture } from '../providedPictures'
 import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
+import { briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
 
 /** What the run is busy with, for the composer's progress line. */
@@ -1158,8 +1159,8 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // Media the brief names by address (lib/briefMedia.ts): allowed by their
     // exact address, and what the preview cannot play is said by name. Not on
     // a reproduction, whose pictures are read off the screenshot and replaced.
+    const briefMedia = reproducing ? [] : extractBriefMedia(text)
     if (!reproducing) {
-      const briefMedia = extractBriefMedia(text)
       const mediaSection = buildBriefMediaSection(briefMedia)
       if (mediaSection) planSection = [planSection, mediaSection].filter(Boolean).join('\n\n')
       for (const m of briefMedia) {
@@ -1316,6 +1317,13 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     hooks.screenWritten(screenId)
     // Every picture of the series was paid for; one the page left out is
     // worth a sentence (see lib/ultra/check.ts).
+    // What the brief imposed and the code left out (lib/briefCheck.ts): said,
+    // never corrected here — the bounded correction pass is its own step.
+    {
+      const missing = missingBriefImages(result.code, briefMedia)
+      if (missing.length) hooks.notice(t('project.briefImagesUnused', { count: missing.length, total: briefImageCount(briefMedia), list: missing.slice(0, 3).join(' · ') }))
+      if (interactUnused(result.code, capIds)) hooks.notice(t('project.interactUnused'))
+    }
     if (ultraRecord) {
       const said: string[] = []
       const unused = missingUltraImages(result.code, ultraRecord)

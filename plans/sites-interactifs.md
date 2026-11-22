@@ -201,9 +201,20 @@ fournissent un repli sans WebGL (liste HTML des mêmes éléments).
         marche à la molette, clic = l'œuvre réellement touchée des deux côtés,
         cadrage, fiche de la bonne œuvre, copie volante puis retirée). Corrigé
         en chemin : `Space3D` perdait le `ref` du geste (molette sans effet)
-  - [ ] Stride en CSS : barre = `Box3D` à faible épaisseur + verso masqué ;
-        un seul objet qui voyage entre sections (ancrage sur un rectangle HTML)
-  - [ ] Contrôles AST après génération (découpes hors planche, cibles,
+  - [x] Stride en CSS : barre = `Box3D` à faible épaisseur + verso
+        `SheetCrop mask flip` ; `sheetCropMask` / `overlayMask` pour que
+        l'ombre et le reflet s'arrêtent à la silhouette ; `AnchorTravel` (un
+        seul objet, mesuré à chaque image sur des emplacements HTML, relayé
+        par le défilement) et `useScrollProgress`. Vérifié dans Chromium
+        headless (le panneau masqué gèle les animations) sur la vraie planche :
+        Mint Chip choisi, arrivée au pixel sur la boîte de la section 2, verso
+        nutritionnel à l'étape 2, retour en arrière, atterrissage au pixel sur
+        sa carte, carte plate masquée, une seule copie
+  - [x] Contrôles après génération (`lib/briefCheck.ts`) : images imposées
+        absentes du code (une adresse de proxy et sa source comptent pour
+        une), pack `interact` offert mais inutilisé — messages, sans correction
+  - [ ] Contrôle des découpes hors planche à l'exécution (le pack marque déjà
+        `data-mocky-crop-error` ; il faut le remonter de l'aperçu) (découpes hors planche, cibles,
         médias imposés absents du code)
   - [ ] Muse / Ultra : ne plus générer d'images de page quand le brief en impose
   - [ ] Polices manquantes : Noto Sans JP, Noto Serif SC

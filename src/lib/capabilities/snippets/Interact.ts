@@ -124,6 +124,19 @@ var sheetCropSvg = function (sheet, box, vw, vh) {
   };
 };
 
+// The crop as a CSS mask, for a layer that must stop at the picture's own
+// outline (Box3D's shade and sheen over a transparent-edged wrapper).
+var sheetCropMask = function (sheet, box) {
+  if (mockyCropProblem(sheet, box)) return null;
+  var c = mockyCropCss(sheet, box);
+  return {
+    WebkitMaskImage: c.backgroundImage, maskImage: c.backgroundImage,
+    WebkitMaskSize: c.backgroundSize, maskSize: c.backgroundSize,
+    WebkitMaskPosition: c.backgroundPosition, maskPosition: c.backgroundPosition,
+    WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+  };
+};
+
 /* ---------- A continuous track: drag, wheel, keys, snap, inertia, loop ---------- */
 
 var mockyTrackWrap = function (i, n) { return ((Math.round(i) % n) + n) % n; };
@@ -646,4 +659,4 @@ var MockyMorph = {
   },
 };`
 
-export const INTERACT_EXPORTS = ['SheetCrop', 'sheetCropSvg', 'useGlideTrack', 'MaskSwap', 'InkReveal', 'ColorReveal', 'PointerRing', 'MockyMorph'] as const
+export const INTERACT_EXPORTS = ['SheetCrop', 'sheetCropSvg', 'sheetCropMask', 'useGlideTrack', 'MaskSwap', 'InkReveal', 'ColorReveal', 'PointerRing', 'MockyMorph'] as const
