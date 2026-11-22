@@ -10,6 +10,8 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `admin` | barre de recherche dans tous les réglages | `af25a24` |
+| `muse` | Jev chez plusieurs fournisseurs | `1756add` |
 | `muse` | modèle de décision (Jev) et audit de projet | `2c92f9d` |
 | `mcp` | modifier les projets existants et les modèles | `dce329a` |
 | `admin` | administrer Mocky depuis Kosmy Board (kosmy.board-admin.v1) | `0fc27c4` |
