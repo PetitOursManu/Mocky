@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `mcp` | modifier les projets existants et les modèles | `dce329a` |
 | `admin` | administrer Mocky depuis Kosmy Board (kosmy.board-admin.v1) | `0fc27c4` |
 | `mcp` | traduire, remplir, pack de publication et vérification avant export | `04de8b2` |
 | `auth` | se connecter avec Kosmy Board (OpenID Connect) | `e483882` |
