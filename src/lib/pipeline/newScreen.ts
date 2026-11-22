@@ -29,7 +29,7 @@ import { CREATIVE_SECTION, CREATIVE_TEMPERATURE } from '../creative'
 import { askModel, creationsSection, inlineCreations, runCreationStage, type Creation } from '../creations/stage'
 import { listCreations, renderInSandbox, saveCreation } from '../creations/browser'
 import type { Settings } from '../settings'
-import { buildDocumentInspirationReference, buildDocumentLayoutReference, buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
+import { buildDocumentInspirationReference, buildDocumentLayoutReference, buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, editComponent, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Project, type Screen, type ScreenUltra } from '../project'
 import { filmMedia } from '../screenMedia'
 import { resolveDirection } from '../direction'
@@ -101,7 +101,7 @@ import { lintSlop } from '../lint'
 import { buildProvidedPicturesSection, type ProvidedPicture } from '../providedPictures'
 import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
 import { currentUsageRun, setUsageRun } from '../proxy'
-import { briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
+import { briefFixInstruction, briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
 
 /** What the run is busy with, for the composer's progress line. */
@@ -1357,12 +1357,43 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     hooks.screenWritten(screenId)
     // Every picture of the series was paid for; one the page left out is
     // worth a sentence (see lib/ultra/check.ts).
-    // What the brief imposed and the code left out (lib/briefCheck.ts): said,
-    // never corrected here — the bounded correction pass is its own step.
+    // What the brief imposed and the code left out (lib/briefCheck.ts), and
+    // the ONE correction pass that may follow — decided with the user: at most
+    // one, only when a check failed, only on a brief that imposed pictures (a
+    // page that merely says "carousel" never pays for it), never on an
+    // assistant's own code (MCP "client" engine) nor on a cut answer. Kept only
+    // if it fixed something and broke nothing the checks can see; otherwise the
+    // first answer stays and the notices say what is still missing.
     {
-      const missing = missingBriefImages(result.code, briefMedia)
+      let missing = missingBriefImages(result.code, briefMedia)
+      let unused = interactUnused(result.code, capIds)
+      const worth = !req.writer && !result.truncated && briefImposesPictures && (missing.length > 0 || unused)
+      if (worth) {
+        const first = result.code
+        try {
+          const fixed = await editComponent(
+            settings, briefFixInstruction(text, missing, unused), first, extraSystem, undefined, signal,
+            (partial) => hooks.updateScreen(screenId, { code: partial }), caps, 'brief-fix',
+          )
+          const m2 = fixed.code.trim() && !fixed.truncated ? missingBriefImages(fixed.code, briefMedia) : null
+          const u2 = m2 ? interactUnused(fixed.code, capIds) : true
+          const better = m2 !== null && m2.length <= missing.length && (!u2 || unused) && (m2.length < missing.length || (unused && !u2))
+          if (better) {
+            result.code = fixed.code
+            result.componentName = fixed.componentName
+            hooks.notice(t('project.briefFixed', { fixed: missing.length - m2.length + (unused && !u2 ? 1 : 0) }))
+            missing = m2
+            unused = u2
+          }
+          hooks.updateScreen(screenId, { code: result.code, componentName: result.componentName })
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') throw err
+          if (signal.aborted) throw err
+          hooks.updateScreen(screenId, { code: first })
+        }
+      }
       if (missing.length) hooks.notice(t('project.briefImagesUnused', { count: missing.length, total: briefImageCount(briefMedia), list: missing.slice(0, 3).join(' · ') }))
-      if (interactUnused(result.code, capIds)) hooks.notice(t('project.interactUnused'))
+      if (unused) hooks.notice(t('project.interactUnused'))
     }
     if (ultraRecord) {
       const said: string[] = []

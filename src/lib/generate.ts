@@ -184,7 +184,7 @@ export function stripDataUrl(dataUrl: string): string {
  * polishing a screen" rather than "Alice called the model"; nothing else changes
  * with it, and the header is never forwarded to the provider.
  */
-export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan' | 'creation-propose' | 'creation-review' | 'translate' | 'responsive' | 'publication-pack'
+export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'brief-fix' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan' | 'creation-propose' | 'creation-review' | 'translate' | 'responsive' | 'publication-pack'
 
 export async function chat(
   s: Settings,
@@ -839,6 +839,8 @@ export async function editComponent(
   signal?: AbortSignal,
   onChunk?: (partialCode: string) => void,
   caps?: Capability[],
+  /** What the call is filed under (server/admin/activity.js) — a brief's correction pass is not a person's edit. */
+  purpose: ChatPurpose = 'edit',
 ): Promise<GeneratedComponent> {
   const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
   const baseSystem = [extraSystem, SYSTEM_PROMPT, EDIT_RULES].filter(Boolean).join('\n\n')
@@ -868,7 +870,7 @@ export async function editComponent(
     signal,
     onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
     meta,
-    'edit',
+    purpose,
   )
   const kept = await keepLocks(existingCode, await guardMotion(extractCode(content)))
   return { raw: content, ...kept, componentName: detectComponentName(kept.code), truncated: meta.truncated }

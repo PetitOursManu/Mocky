@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are eleven series:
+There are twelve series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
@@ -22,6 +22,7 @@ There are eleven series:
 - **C1 to C3**, introduced by Campaign Studio.
 - **P1 to P3**, introduced by folded leaflets and publications.
 - **A1 to A4**, introduced by what a model makes for itself.
+- **S1 to S5**, introduced by interactive sites.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1438,6 +1439,69 @@ built at runtime. Nothing may start trusting a creation for having passed: it
 runs where any generated screen runs, under I2, and it never reaches the server,
 another account, or a Motion Ultra film.
 
+
+---
+
+## Series S — interactive sites
+
+A page the visitor handles: a shelf to drag, a product that travels down the
+page, a gallery to walk through. User doc: [Interactive sites](../interactive-sites.md).
+
+### S1. The brief's pictures win
+
+**The rule.** A picture the brief names by address is used by that exact
+address (`lib/briefMedia.ts`), and while the brief imposes one, Muse adds no page
+picture or mood plate, a site's pictures are not replaced and Motion Ultra makes
+no series (`briefImposesPictures` in `runNewScreen`). A picture the code left
+out is said after generation (`lib/briefCheck.ts`).
+
+**What it protects.** The base prompt told the model to draw placeholders
+instead of external images, so a brief that came with its sprite sheets came
+back grey while the preview could have shown them. And a series generated beside
+imposed pictures is paid for twice and competes for the same slots.
+
+### S2. One correction pass, at most, kept only if it is better
+
+**The rule.** When a check of S1 fails on a brief that imposed pictures, ONE edit
+pass may follow (purpose `brief-fix`). It is kept only if it fixed something and
+made nothing the checks can see worse; otherwise the first answer stays and the
+notices say what is missing. Never on an assistant's own code (MCP "client"
+engine), never on a cut answer, never on a page that merely says "carousel".
+
+**What it protects.** The user's budget: decided with them as a plan call plus
+at most one pass. A loop that tries until it works has no price.
+
+### S3. Depth in CSS before WebGL, and every volume is reachable
+
+**The rule.** The `interact` pack draws its volumes, cameras and travelling
+objects with CSS `preserve-3d` and never creates a WebGL context. A volume with
+an `onClick` is a keyboard button. Under "Sans animation", reduced motion and a
+capture frame, everything arrives at its end state at once.
+
+**What it protects.** The context budget of the canvas (`GL_BUDGET`) stays
+`<Scene3D>`'s; a click is the element really under the pointer and a detail
+view grows out of its real rectangle; a picture needs no CORS to be drawn. And a
+shelf that only a mouse can open is not a shelf.
+
+### S4. One travelling object, never two copies
+
+**The rule.** `<AnchorTravel>` is ONE element fixed over the page, re-measured
+every frame against the placeholders it stands in. The flat picture at the stop
+it occupies is hidden by the page; a second copy is never drawn.
+
+**What it protects.** Two copies are never in the same place at the hand-over,
+and the eye sees the jump. Re-measuring every frame is what follows a card's
+hover tilt, a resize and the way back up.
+
+### S5. A run trace names, never authorises, and holds no content
+
+**The rule.** `x-mocky-run` files a call under one generation
+(`server/admin/runs.js`); it is read back only by the account that sent it, kept
+in memory, bounded, and records purpose, provider, model, timings and counts —
+never a prompt or an answer (D1). On a person's own key it keeps no numbers (F4).
+
+**What it protects.** Measuring "one prompt" in calls, seconds and money
+without becoming a second log of what people asked.
 ---
 
 ## The two unnumbered rules

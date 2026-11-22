@@ -148,6 +148,8 @@ export const project = {
       'La bibliothèque {url} ne peut pas être chargée dans l’aperçu : l’écran a été construit avec les composants de Mocky.',
     'project.briefImagesUnused':
       '{count} image(s) imposée(s) par le brief sur {total} n’apparaissent pas dans l’écran : {list}. Demandez une retouche qui les utilise.',
+    'project.briefFixed':
+      'Un passage de correction a ajouté ce que le brief imposait et que la première version avait omis ({fixed} point(s)).',
     'project.cropProblem':
       '« {screen} » : la découpe {crop} ne peut pas être dessinée ({problem}). Vérifiez ses coordonnées et la taille de la planche dans le brief.',
     'project.interactEditLoss': 'La retouche de « {name} » a retiré : {what}. « Revenir » restaure la version précédente.',
@@ -577,6 +579,8 @@ export const project = {
       'The library {url} cannot load in the preview: the screen was built with Mocky’s components instead.',
     'project.briefImagesUnused':
       '{count} of the {total} picture(s) the brief imposes do not appear on the screen: {list}. Ask for an edit that uses them.',
+    'project.briefFixed':
+      'A correction pass added what the brief imposed and the first version had left out ({fixed} point(s)).',
     'project.cropProblem':
       '“{screen}”: the crop {crop} cannot be drawn ({problem}). Check its coordinates and the sheet size in the brief.',
     'project.interactEditLoss': 'The edit of “{name}” removed: {what}. “Revert” brings the previous version back.',

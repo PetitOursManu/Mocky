@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { briefImageCount, interactLoss, interactUnused, missingBriefImages } from './briefCheck'
+import { BRIEF_FIX_BRIEF_MAX, briefFixInstruction, briefImageCount, interactLoss, interactUnused, missingBriefImages } from './briefCheck'
 import { extractBriefMedia } from './briefMedia'
 
 const RAW = 'https://d8j0ntlcm91z4.cloudfront.net/user_x/hf_20261116_132032_30242d8c.png'
@@ -39,5 +39,23 @@ describe('interactLoss', () => {
   it('names the gesture, the sheet and the handle an edit dropped', () => {
     const after = 'function App(){ return <section><div className="bg-gray-200" /></section> }'
     expect(interactLoss(before, after)).toEqual({ components: ['SheetCrop', 'useGlideTrack'], pictures: [RAW], ids: ['hero'] })
+  })
+})
+
+describe('briefFixInstruction', () => {
+  it('names only what the checks found, and carries the brief as data', () => {
+    const only = briefFixInstruction('Build a shelf. Drag to change film.', [RAW], false)
+    expect(only).toContain(RAW)
+    expect(only).not.toContain('useGlideTrack')
+    expect(only).toContain('<<<BRIEF\nBuild a shelf. Drag to change film.\nBRIEF>>>')
+    const both = briefFixInstruction('x', [], true)
+    expect(both).toContain('useGlideTrack')
+    expect(both).not.toContain('These pictures are imposed')
+  })
+
+  it('bounds the brief it re-reads', () => {
+    const out = briefFixInstruction('a'.repeat(BRIEF_FIX_BRIEF_MAX + 500), [], true)
+    expect(out.length).toBeLessThan(BRIEF_FIX_BRIEF_MAX + 2000)
+    expect(out).toContain('[…]')
   })
 })

@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Eleven series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications), A1–A4 (what a model makes for itself). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Twelve series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications), A1–A4 (what a model makes for itself), S1–S5 (interactive sites). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1230,6 +1230,34 @@ Three things that will bite you:
    previews, exports, versions and review links unaware of all this, and why
    `element` must be a hoisted function declaration: the root of a screen is found
    by looking for its first component.
+
+## Interactive sites
+
+A page the visitor handles — a shelf to drag, a product that travels down the
+page, a gallery to walk through. User doc `docs/interactive-sites.md`; invariants
+S1–S5; roadmap `plans/sites-interactifs.md`; reference briefs `bench/briefs/`.
+
+```
+src/lib/capabilities/snippets/Interact.ts    crops, the glide track, masks, cursor, morphs
+src/lib/capabilities/snippets/Interact3D.ts  Box3D, Space3D/Place3D/Ring3D, AnchorTravel, tweens
+src/lib/briefMedia.ts     the addresses a brief imposes, read with no model
+src/lib/briefCheck.ts     what the code left out, the one correction pass, what an edit lost
+server/admin/runs.js      one generation as a trace (x-mocky-run → GET /api/runs/:id)
+```
+
+Four things that will bite you:
+
+1. **Depth is CSS, not WebGL** (S3). A click is the element under the pointer and
+   a detail view grows from its getBoundingClientRect; nothing here may create a
+   WebGL context. The `.jsx` scenes were checked against the reference frames;
+   the browser pane, hidden, freezes animation frames — check motion in the
+   headless shell Playwright installed (`ms-playwright/chromium_headless_shell-*`).
+2. **The brief's pictures win** (S1): `briefImposesPictures` switches off Muse's
+   and Ultra's pictures. A new stage that makes pictures reads it too.
+3. **One correction pass, kept only if better** (S2), purpose `brief-fix`. Do not
+   turn it into a loop.
+4. **`AnchorTravel` is one element** (S4). A second copy at a stop is the bug it
+   exists to prevent.
 
 ## Removing an element without a model
 

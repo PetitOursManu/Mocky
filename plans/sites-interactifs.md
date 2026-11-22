@@ -239,7 +239,11 @@ fournissent un repli sans WebGL (liste HTML des mêmes éléments).
         `latin` / `latin-ext` par choix (`scripts/vendor-fonts.mjs`) ; les
         ajouter change ce choix (sous-ensembles CJK, nouveaux paquets) —
         décision à prendre. D'ici là, police japonaise du système
-  - [ ] Passage de correction borné (un au plus) après un contrôle en échec (découpes hors planche, cibles,
+  - [x] Passage de correction borné : un au plus, motif `brief-fix`, seulement
+        sur un brief qui impose des images et quand un contrôle échoue, gardé
+        seulement s'il améliore sans rien aggraver (`briefFixInstruction`)
+  - [x] Documentation : `docs/interactive-sites.md` + miroir FR, invariants
+        S1–S5 (EN/FR), entrée de navigation, section dans `CLAUDE.md` (découpes hors planche, cibles,
         médias imposés absents du code)
   - [ ] Muse / Ultra : ne plus générer d'images de page quand le brief en impose
   - [ ] Polices manquantes : Noto Sans JP, Noto Serif SC

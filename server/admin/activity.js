@@ -30,6 +30,9 @@ export const PURPOSES = new Set([
   'generate',
   'edit',
   'fix',
+  // The one correction pass of a new screen whose brief imposed what the
+  // first answer left out (lib/briefCheck.ts) — not a person's edit.
+  'brief-fix',
   'polish',
   'audit-fix',
   'fit',
