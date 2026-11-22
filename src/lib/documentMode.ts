@@ -385,6 +385,9 @@ export const DOCUMENT_EXCLUDED_CAPS: readonly string[] = [
   'ultra',
   'animate',
   'motion-lib',
+  // Gestures, cursors and transitions between places: a page of paper has
+  // nothing to drag and nowhere to go.
+  'interact',
 ]
 
 /** The page kit's capability id — force-added, like `ultra` on its screens. */

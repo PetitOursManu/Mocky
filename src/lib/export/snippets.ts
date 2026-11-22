@@ -34,6 +34,7 @@ import { DocumentSource, DOCUMENT_EXPORTS } from '../capabilities/snippets/Docum
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from '../capabilities/snippets/ShapeFrame'
 import { FlowSource, FLOW_EXPORTS } from '../capabilities/snippets/Flow'
 import { OrnamentSource, ORNAMENT_EXPORTS } from '../capabilities/snippets/Ornament'
+import { InteractSource, INTERACT_EXPORTS } from '../capabilities/snippets/Interact'
 import { cnSource } from '../capabilities/snippets/cn'
 
 const MOCKY_HEADER = '/* Vendored by Mocky export — inline, dependency-free. */'
@@ -86,7 +87,12 @@ function packDts(exports: readonly string[]): string {
   const lines = exports.map((name) =>
     name === 'Icon'
       ? `export declare const Icon: Record<string, React.FC<any>>`
-      : `export declare const ${name}: React.FC<any>`,
+      : /^[a-z]/.test(name) || /^Mocky[A-Z]/.test(name)
+        ? // A hook, a function or a namespace object (`useGlideTrack`,
+          // `sheetCropSvg`, `MockyMorph`): typed as a component, a screen's
+          // `const t = useGlideTrack(…); t.bind` is an error in the export's build.
+          `export declare const ${name}: any`
+        : `export declare const ${name}: React.FC<any>`,
   )
   return `${MOCKY_HEADER}\nimport type React from 'react'\n\n${lines.join('\n')}\n`
 }
@@ -212,6 +218,15 @@ export function flowJsx(): string {
   return packJsx(FlowSource, FLOW_EXPORTS)
 }
 
+/**
+ * src/components/ui/interact.jsx — sheets and crops, the glide track, the mask
+ * swap, the ink and colour reveals, the pointer ring and the morphs. Plain React,
+ * the Web Animations API and inline SVG: it moves the same outside Mocky.
+ */
+export function interactJsx(): string {
+  return packJsx(InteractSource, INTERACT_EXPORTS)
+}
+
 export interface UiFile {
   /** path relative to project root */
   path: string
@@ -248,5 +263,6 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('frames', framesJsx(), SHAPEFRAME_EXPORTS),
     ...pack('ornaments', ornamentsJsx(), ORNAMENT_EXPORTS),
     ...pack('flow', flowJsx(), FLOW_EXPORTS),
+    ...pack('interact', interactJsx(), INTERACT_EXPORTS),
   ]
 }

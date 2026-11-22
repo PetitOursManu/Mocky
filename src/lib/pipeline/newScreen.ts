@@ -99,6 +99,7 @@ import { withAnimations } from '../animations'
 import { readLinkedReferences } from '../linkedImage'
 import { lintSlop } from '../lint'
 import { buildProvidedPicturesSection, type ProvidedPicture } from '../providedPictures'
+import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
 import type { TranslationKey } from '../../i18n'
 
 /** What the run is busy with, for the composer's progress line. */
@@ -1154,6 +1155,18 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // own picture, and only when there are some.
     const provided = req.providedPictures?.length ? req.providedPictures : null
     if (provided) planSection = [planSection, buildProvidedPicturesSection(provided)].filter(Boolean).join('\n\n')
+    // Media the brief names by address (lib/briefMedia.ts): allowed by their
+    // exact address, and what the preview cannot play is said by name. Not on
+    // a reproduction, whose pictures are read off the screenshot and replaced.
+    if (!reproducing) {
+      const briefMedia = extractBriefMedia(text)
+      const mediaSection = buildBriefMediaSection(briefMedia)
+      if (mediaSection) planSection = [planSection, mediaSection].filter(Boolean).join('\n\n')
+      for (const m of briefMedia) {
+        if (m.kind === 'video') hooks.notice(t('project.briefVideoBlocked', { url: m.url }))
+        else if (m.kind === 'script') hooks.notice(t('project.briefScriptBlocked', { url: m.url }))
+      }
+    }
     // Last, so on a reproduction it is the final word over the base rules' taste.
     if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
     if (req.flowContext) planSection = [planSection, req.flowContext].filter(Boolean).join('\n\n')

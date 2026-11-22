@@ -12,6 +12,7 @@ import { DocumentSource, DOCUMENT_EXPORTS } from './snippets/Document'
 import { FOLD_IDS } from '../folds'
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from './snippets/ShapeFrame'
 import { FlowSource, FLOW_EXPORTS } from './snippets/Flow'
+import { InteractSource, INTERACT_EXPORTS } from './snippets/Interact'
 import { FRAME_FAMILIES, FRAME_SHAPES } from '../frameShapes'
 import { OrnamentSource, ORNAMENT_EXPORTS } from './snippets/Ornament'
 import { ORNAMENTS, ORNAMENT_OUTLINE_IDS } from '../ornaments'
@@ -505,6 +506,89 @@ export const CAPABILITIES: Capability[] = [
         signature: '<Field name="email" type="email" label="…" />',
         description: `A blank to fill in, which becomes a REAL form field in the exported PDF. \`name\` is unique in the document. \`type\` is exactly one of ${FIELD_TYPES.map((t) => `"${t}"`).join(', ')} (default "text"). \`label\` is printed above it (beside it for a checkbox), in the document's language, like an optional \`placeholder\`. \`options\` is an array of strings for "select"; \`rows\` sets the height of a "multiline". Without className it has a neutral bordered look; a className REPLACES that look entirely, so give it its own border or background and padding. It fills the width of its parent — size it with the parent.`,
         tags: ['form', 'field', 'input', 'coupon', 'pdf'],
+      },
+    ],
+  },
+  {
+    /**
+     * Interactive sites — see snippets/Interact.ts and plans/sites-interactifs.md.
+     * Offered on the words of a page the visitor HANDLES (drag, a shelf, a
+     * sprite sheet with crop boxes, a custom cursor, a card that opens into a
+     * page) and inferred from code like the others. The arithmetic a model
+     * rewrites wrongly every time is in the pack; the page composes it.
+     */
+    id: 'interact',
+    kind: 'snippet-pack',
+    triggers: {
+      // Phrases where a word alone is in half the briefs ("ink" is inside
+      // "pink" and "link", "mask" inside every SVG prompt).
+      keywords: [
+        'drag', 'glisser', 'faire glisser', 'swipe', 'flick', 'carousel', 'carrousel', 'shelf', 'étagère', 'etagere',
+        'sprite', 'sprite sheet', 'planche', 'crop box', 'crop boxes', 'découpe', 'decoupe', 'background-position',
+        'custom cursor', 'curseur personnalisé', 'curseur personnalise', 'ring cursor', 'ink blot', 'ink reveal', "taches d'encre", 'encre',
+        'mask slide', 'slides up through a mask', 'through a mask', 'par un masque', 'colour reveal', 'color reveal',
+        'snap to', 'snaps to', 'inertia', 'inertie', 'mouse wheel', 'scroll, drag', 'molette', 'scrub', 'requestanimationframe', 'web animations',
+        'grows out of', 'fly to', 'flies into', 'shared element',
+      ],
+      intents: [],
+    },
+    snippets: [{ source: InteractSource, exports: [...INTERACT_EXPORTS] }],
+    components: [
+      {
+        name: 'SheetCrop',
+        signature: '<SheetCrop sheet={SHEETS.covers} box={[497, 72, 344, 659]} name="cover-valley" alt="…" className="w-40" />',
+        description:
+          'One rectangle cut out of a picture SHEET (a sprite sheet, a contact sheet, a grid of prints), stretched to fill its box exactly. Write the sheets ONCE as data — const SHEETS = { covers: { src: "URL", w: 1744, h: 2336 } } with the size the brief gives in SOURCE pixels — and every crop as [x, y, w, h] in those same source pixels: the crop stays right whatever size the sheet is served at, so never convert the numbers. Without a height or an aspect class it keeps the box\'s own proportions. `name` labels it for diagnostics; `alt` makes it an image for screen readers (omit it on a decorative copy). Children are laid over it. A box outside the sheet draws a striped placeholder and names the problem in the console — never "fix" a box by guessing. Use it for EVERY crop the brief names, in HTML; never slice the sheet into separate files and never use <img> for a crop.',
+        tags: ['sprite', 'sheet', 'crop', 'image', 'cover', 'thumbnail'],
+      },
+      {
+        name: 'sheetCropSvg',
+        signature: '<image {...sheetCropSvg(SHEETS.covers, [497, 72, 344, 659], 474, 900)} />',
+        description:
+          'The same crop as the attributes of an SVG <image> inside a viewBox of the given width × height — for a crop that must live in an SVG (a clip, a mask, a filter). Spread it on <image>; the box then fills the whole viewBox.',
+        tags: ['sprite', 'svg', 'crop', 'mask'],
+      },
+      {
+        name: 'useGlideTrack',
+        signature: 'const t = useGlideTrack({ count: films.length, initial: 5, loop: true, unit: 64, wheel: true, keys: true, onChange: (i, dir) => {} })',
+        description:
+          'ONE continuous position shared by everything that moves together: a shelf, a carousel, an arc of products, a walk along a corridor. `t.pos` is a FLOAT (2.5 = halfway between item 2 and item 3) that eases towards `t.target` every frame; derive every transform, angle, scale and opacity from `t.offset(i)` (how many steps item i stands from the centre, wrapped on a loop) so that dragging halfway puts EVERY item halfway at once. Spread `{...t.bind}` on the element the gestures are read on: a drag follows the pointer (`unit` = pixels per step, a number or a function for a size measured at run time), a flick carries up to two more steps, release snaps to the nearest item, and the click a drag ends on is swallowed. `wheel: true` steps with the wheel (and stops the page scrolling over it — leave it off on a section of a long page), `keys: true` uses the arrow keys (`axis: "y"` for up/down), `enabled: false` freezes it while a detail view is open. `t.go(i)` glides to item i the short way round, `t.step(±1)` moves one; `t.index` is the item at the centre now, `t.selected` the one it is going to, `t.dir` the direction (+1/−1), `t.settled` true at rest. `onChange(i, dir)` fires as each item passes the centre — drive captions from `t.index`, never from a separate state. `stiffness` (default 5.2) and `dragStiffness` (18) tune the glide. It renders every frame while moving: keep the items it maps cheap, and render each copy of a looping list from one data array.',
+        tags: ['drag', 'swipe', 'carousel', 'shelf', 'wheel', 'snap', 'inertia', 'progress', 'gesture'],
+      },
+      {
+        name: 'MaskSwap',
+        signature: '<MaskSwap value={film.title} dir={t.dir} className="text-3xl" />',
+        description:
+          'Text that changes by sliding through a mask: when `value` changes, the old text leaves one way and the new one comes in from the other, and if it changes again mid-way every intermediate value passes through in turn. `dir` +1 brings the new text up from below, −1 down from above — pass the track\'s `dir`. `by="letter"` staggers per letter (words never break), `fade` adds an opacity fade to the slide, `duration` (650 ms), `easing`, `as` (default "div"), `appear` also animates the first value. Plain text only. Use it for every caption, title, counter or label that follows a selection.',
+        tags: ['text', 'mask', 'caption', 'title', 'swap', 'reveal'],
+      },
+      {
+        name: 'InkReveal',
+        signature: '<InkReveal sheet={SHEETS.covers} box={[74, 72, 347, 659]} width={474} height={900} play={open} delay={520} alt="…" className="h-full" />',
+        description:
+          'A picture that arrives like ink spreading on paper: a few ragged blots grow and merge until the whole picture shows. Give it a crop (`sheet` + `box`) or a plain `src`; `width`/`height` set its proportions. It plays when `play` becomes true and is blank while false — tie it to the open state of the view it is in. `delay`, `duration` (1250 ms), `blobs` (7), `seed`, `roughness` (120). Under reduced motion the picture is simply there.',
+        tags: ['ink', 'reveal', 'mask', 'poster', 'image', 'blot'],
+      },
+      {
+        name: 'ColorReveal',
+        signature: '<ColorReveal color={flavour.color} origin={[50, 41]} className="absolute inset-0" />',
+        description:
+          'A background layer whose colour changes by a feathered circle growing out of `origin` (percent of its box) until it covers the old colour. Put it first in a section, behind the content; it takes no clicks. `duration` (420 ms), `onDone(color)`. Use it when a selection recolours a section, instead of a cross-fade.',
+        tags: ['color', 'background', 'reveal', 'transition', 'theme'],
+      },
+      {
+        name: 'PointerRing',
+        signature: '<PointerRing color="#141414" states={{ spine: { scale: 0.72 }, link: { scale: 0.55, dot: false }, open: { scale: 1.75, fill: "#1F3FB0", dot: false, label: "OPEN" } }} />',
+        description:
+          'A custom cursor: a ring and a dot that follow the mouse smoothly and hide the system cursor — on mouse and trackpad only, never on touch. Its state is the `data-cursor` attribute of the element under the pointer (data-cursor="open" on the active cover, data-cursor="spine" on the others); `link` applies over any link or button. Each state sets `scale`, `fill`, `border`, `dot` (false hides it) and a short `label` shown inside. `size` (58), `follow` (16). Render it ONCE, at the end of the page.',
+        tags: ['cursor', 'pointer', 'hover'],
+      },
+      {
+        name: 'MockyMorph',
+        signature: 'MockyMorph.grow(dialogEl, coverEl, { rotate: -4.5 }) · MockyMorph.grow(dialogEl, coverEl, { rotate: -4.5, reverse: true }) · MockyMorph.fly(cardImgEl, pageImgEl)',
+        description:
+          'Moves between two REAL places on the page, measured when called. `grow(el, from, o)` makes `el` (a detail view already rendered and visible) grow out of `from` — an element or a rect — straightening `o.rotate` degrees on the way (1050 ms); with `reverse: true` it shrinks back onto `from` (850 ms), and called while still growing it turns back from where it is. `fly(from, to, o)` flies a copy of `from` onto `to` while the real `to` stays hidden, so there is never two of it (300 ms; `lift` arcs it, `rotate`, `endOpacity`, `delay`). Both return a promise. Call them in the event handler AFTER the target is rendered (in a useLayoutEffect on the open state, or after a setState with requestAnimationFrame), with refs to the elements — never with selectors guessed from text. Always measure `from` again on the way back: the shelf may have moved.',
+        tags: ['transition', 'flip', 'morph', 'shared element', 'open', 'detail', 'fly'],
       },
     ],
   },

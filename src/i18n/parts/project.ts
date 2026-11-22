@@ -142,6 +142,10 @@ export const project = {
     'project.museLinkNoVision':
       'Le modèle de texte ne voit pas les images : de l’image d’inspiration, Muse n’a gardé que les couleurs.',
     'project.museLinkTooLarge': 'L’image d’inspiration dépasse 15 Mo : Muse ne l’a pas utilisée.',
+    'project.briefVideoBlocked':
+      'La vidéo {url} ne peut pas être lue dans l’aperçu (seules les vidéos de Mocky le peuvent) : importez-la dans la médiathèque pour l’intégrer.',
+    'project.briefScriptBlocked':
+      'La bibliothèque {url} ne peut pas être chargée dans l’aperçu : l’écran a été construit avec les composants de Mocky.',
     'project.museLinkUnreadable': 'L’image d’inspiration n’a pas pu être lue : Muse ne l’a pas utilisée.',
     'project.museLinkOnlyFirst': 'Plusieurs images d’inspiration : Muse s’inspire de la première seulement.',
     'project.museLinkDirection':
@@ -557,6 +561,10 @@ export const project = {
     'project.museLinkNoVision':
       'The text model cannot see pictures: of the inspiration picture, Muse kept only the colours.',
     'project.museLinkTooLarge': 'The inspiration picture is over 15 MB: Muse did not use it.',
+    'project.briefVideoBlocked':
+      'The video {url} cannot play in the preview (only Mocky’s own videos can): import it into the media library to embed it.',
+    'project.briefScriptBlocked':
+      'The library {url} cannot load in the preview: the screen was built with Mocky’s components instead.',
     'project.museLinkUnreadable': 'The inspiration picture could not be read: Muse did not use it.',
     'project.museLinkOnlyFirst': 'Several inspiration pictures: Muse draws on the first one only.',
     'project.museLinkDirection':
