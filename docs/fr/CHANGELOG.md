@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `muse` | modèle de décision (Jev) et audit de projet | `2c92f9d` |
 | `mcp` | modifier les projets existants et les modèles | `dce329a` |
 | `admin` | administrer Mocky depuis Kosmy Board (kosmy.board-admin.v1) | `0fc27c4` |
 | `mcp` | traduire, remplir, pack de publication et vérification avant export | `04de8b2` |
