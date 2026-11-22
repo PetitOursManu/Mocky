@@ -1355,6 +1355,9 @@ server/mcp/prompts.js      the prompts a person picks in their client's menu —
 server/mcp/skill.js        the downloadable Claude skill: the guide + the prompts as one SKILL.md
 src/runner/main.tsx        runner.html: runNewScreen (from a template when the job carries one), or one
                            pass on an existing screen, + the preview (X5) and exportScreen
+server/mcp/project-edits.js what an assistant changes with no model: a project's name, direction and
+                           rules, a screen renamed/copied/deleted, a template opened and written back
+                           (`writeProject` in index.js: the same merge as PUT /api/data)
 server/mcp/view.js         the live view (MCP Apps): a frame around /mcp-view/<hash>.html, served
                            under `sandbox allow-scripts` (X7) — never the screen inlined in the view
 bridge/mocky-mcp.js        the LAN bridge: stdio for a local client, HTTPS to /mcp; its own package

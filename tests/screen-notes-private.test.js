@@ -45,6 +45,9 @@ const ALLOWED = new Set([
   'server/templates.test.js', // the same, at the store: a screen sent with notes is kept without them
   'src/runner/main.tsx', // an assistant's translated or filled copy leaves the notes behind (copyOf)
   'server/mcp/rewrites.test.js', // plants notes to prove get_project and check_document never pass them on
+  'server/mcp/project-edits.js', // an assistant's duplicate_screen leaves the notes behind, like Duplicate
+  'server/mcp/project-edits.test.js', // proves the copy has none
+  'server/mcp/project-tools.test.js', // proves update_template does not carry them into a template
 ])
 
 const MENTION = /\buserNotes\b|\bScreenNote\b|screenNotes['"]/

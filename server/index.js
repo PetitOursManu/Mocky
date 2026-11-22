@@ -2275,6 +2275,18 @@ app.post('/api/templates', requireUser, authRateLimit(30, 60_000, 'templates'), 
   }
 })
 
+// The CONTENT of a template rewritten from the project that edited it (name and
+// section stay): Media → Design → Edit, then "Update the template".
+app.put('/api/templates/:id', requireUser, authRateLimit(30, 60_000, 'templates'), (req, res) => {
+  try {
+    const template = templates.replace(req.user.id, req.params.id, req.body || {})
+    if (!template) return res.status(404).json({ error: 'Template not found.' })
+    res.json({ template })
+  } catch (err) {
+    templateError(res, err)
+  }
+})
+
 // A section is renamed (or dissolved, `to: ''`) on every template that carries it.
 app.post('/api/templates/sections/rename', requireUser, (req, res) => {
   try {
@@ -2559,6 +2571,20 @@ app.put('/api/data', (req, res) => {
   }
   res.json({ ok: true, merged: next.merged || (typeof body.folders === 'string' && folderMerge.merged) })
 })
+
+/**
+ * One project written into an account, by the same merge as PUT /api/data —
+ * what the MCP tools that change a project without the runner use
+ * (server/mcp/project-edits.js). The account's other tabs are told, like
+ * after any write that changed something.
+ */
+function writeOneProject(userId, project) {
+  const file = userDataFile(userId)
+  const stored = readJson(file, { projects: null, design: null })
+  const next = mergeStoredProjects(JSON.stringify([project]), stored.projects ?? null)
+  writeJson(file, { ...stored, projects: next.projects, updatedAt: Date.now() })
+  if (next.projects !== (stored.projects ?? null)) dataEvents.notify(userId)
+}
 
 /*
  * The account's other writers, as they happen (server/data-events.js). Watching
@@ -3112,15 +3138,24 @@ const mcpServer = createMcpServerRoutes({
   }),
   dataDir: DATA_DIR,
   origin: MOCKY_ORIGIN,
-  // Read only: an assistant lists the account's templates and starts a new
-  // project from one; it never saves, renames or deletes one.
-  templates: { list: (userId) => templates.list(userId), get: (userId, id) => templates.get(userId, id) },
+  // An assistant lists the account's templates, starts a new project from one,
+  // and rewrites one's CONTENT from the project that edits it (update_template).
+  // It never saves a new one, renames or deletes one.
+  templates: {
+    list: (userId) => templates.list(userId),
+    get: (userId, id) => templates.get(userId, id),
+    replace: (userId, id, content) => templates.replace(userId, id, content),
+  },
   findUser: (id) => loadUsers().find((u) => u.id === id),
   listUsers: () => loadUsers(),
   sessionUser,
   requireUser,
   requireAdmin,
   readProjects: (userId) => readJson(userDataFile(userId), { projects: null }).projects ?? null,
+  // The account's DESIGN.md blob: what a project without a direction of its own
+  // follows, so a template written back from one keeps meaning the same thing.
+  readGlobalDesign: (userId) => readJson(userDataFile(userId), { design: null }).design ?? null,
+  writeProject: (userId, project) => writeOneProject(userId, project),
   maintenance: () => maintenance.on,
   audit,
   auditActor,

@@ -39,6 +39,12 @@ export const GUIDED_TOOLS = [
   'fill_fields',
   'write_publication_pack',
   'check_document',
+  'update_project',
+  'rename_screen',
+  'duplicate_screen',
+  'delete_screen',
+  'edit_template',
+  'update_template',
 ]
 
 /**
@@ -220,14 +226,42 @@ These take one generation per screen — several minutes. Call \`get_design\`
 while the answer says it is still running, and never start the same request
 twice.
 
-## Adding to an existing project
+## Working in an existing project
 
-Only when the person **explicitly** asks for a project — by its name or its
-link. Then: \`list_projects\` to find its id, and \`add_screen\` with that
-\`project_id\`. The new screen follows that project's art direction. **Never
-choose a project yourself because it looks related**: a new design in an
-unrelated project inherits its look, and that is a mistake the person has to
-clean up. When in doubt, \`create_design\`.
+When the person refers to a project — by its name, its link, or plainly: "my
+bakery site", "the project from yesterday", "the flyers we made" —
+\`list_projects\` finds it (match the name and the screens; when two could be
+meant, ask which one in one short question). Then:
+
+- **"Add a page / a post to it"** → \`add_screen\` with that \`project_id\`. The
+  new screen follows the project's art direction.
+- **"Rename the project"**, **"change its colours / its typeface / its tone for
+  what comes next"**, **"from now on, never…"** → \`update_project\`: \`name\`,
+  \`design\` (the whole new DESIGN.md — read the current one first with
+  \`get_project\` and \`direction: true\`, and change only what was asked) or
+  \`rules\` (the whole list, one per line). Screens already made keep their look:
+  to bring one in line with the new direction, \`edit_design\` it afterwards.
+- **"Rename this screen"** → \`rename_screen\`. **"Make a copy to try something"**
+  → \`duplicate_screen\`, then work on the copy.
+- **"Delete this screen"** → \`delete_screen\`, ONLY when the person asked for it:
+  name the screen back to them and wait for their yes. It cannot be undone from
+  here.
+
+**Never choose a project yourself because it looks related** to a NEW request
+that does not mention it: a new design in an unrelated project inherits its
+look, and that is a mistake the person has to clean up. When in doubt,
+\`create_design\`.
+
+## Changing a template
+
+A template is changed the way a person changes one in Mocky: \`edit_template\`
+opens it as a project linked to it (the same project again if it is already
+open), you change that project with the usual tools — \`edit_design\`,
+\`add_screen\`, \`polish_design\`, \`rename_screen\`, \`delete_screen\`,
+\`update_project\` — and \`update_template\` with its \`project_id\` writes it back.
+Until then the template is exactly what it was. The template keeps its name and
+section; projects made from it earlier do not change. Call \`update_template\`
+when the person is happy with the result, and tell them it is done.
 
 ## Starting from a template
 
@@ -303,13 +337,19 @@ a rule.
 | \`list_projects\` | To find a project the person named, or to answer "what do I have in Mocky". |
 | \`get_project\` | The screens of one project (ids, names, links). |
 | \`create_design\` | Every new design. Always a new project. |
-| \`add_screen\` | A new screen in a project the person explicitly asked for. |
+| \`add_screen\` | A new screen in a project the person refers to. |
+| \`update_project\` | A project's name, its own art direction (DESIGN.md) or its rules. |
+| \`rename_screen\` | A screen's name. |
+| \`duplicate_screen\` | A copy of a screen, beside it. |
+| \`delete_screen\` | Remove a screen — only when asked, after naming it. |
+| \`edit_template\` | Open a template as a project, to change it. |
+| \`update_template\` | Write that project back into its template. |
 | \`create_campaign\` | One brief made into several formats (poster, flyer, posts, story), in a new project. |
 | \`create_publication\` | A magazine or a book: four pages (covers and two inside pages) under one art direction, in a new project; \`add_screen\` then adds pages one at a time. |
 | \`get_design\` | To wait for a design that is still running. |
 | \`get_screenshot\` | A picture of a screen that already exists. |
 | \`export_screen\` | A screen as a file to download: \`png\`, \`pptx\`, \`pptx-edit\` (Canva, taken apart) or \`pdf\`. |
-| \`list_templates\` | The account's project templates, to start a new project from one (\`template_id\`). |
+| \`list_templates\` | The account's project templates, to start a new project from one (\`template_id\`) or to change one (\`edit_template\`). |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at. |
 | \`add_image\` | Put one picture in the account's library, to pass to a design. |
 | \`edit_design\` | Change an existing screen as the person asks. |
@@ -371,7 +411,8 @@ ${client ? CLIENT_SECTION : ''}## Other options
 
 ## Never
 
-- Never pick an existing project on your own.
+- Never put a new, unrelated design into an existing project on your own.
+- Never delete a screen the person did not ask you to delete.
 - Never write \`brief\` as an instruction to Mocky ("create in Mocky…"): it is the
   screen's content.
 - Never leave a post or a document without a picture when one was asked for:

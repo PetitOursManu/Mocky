@@ -243,8 +243,16 @@ export function createMcpServerRoutes(d) {
         // The account's project templates (server/templates.js): listed for the
         // assistant, and read whole when a new project starts from one.
         templates: d.templates
-          ? { list: () => d.templates.list(userId), get: (id) => d.templates.get(userId, id) }
+          ? {
+              list: () => d.templates.list(userId),
+              get: (id) => d.templates.get(userId, id),
+              ...(d.templates.replace ? { replace: (id, content) => d.templates.replace(userId, id, content) } : {}),
+            }
           : null,
+        // A project changed without the runner (project-edits.js): the same
+        // merge as PUT /api/data. Absent, those tools refuse.
+        ...(d.writeProject ? { writeProject: (project) => d.writeProject(userId, project) } : {}),
+        readGlobalDesign: () => d.readGlobalDesign?.(userId) ?? null,
         origin,
         pictures: d.pictures,
         // An OAuth connection reaches every tool, as it always has; a key, the

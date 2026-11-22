@@ -137,6 +137,7 @@ export default function Bibliotheque({
   onApplyDirection,
   onNewProjectWithDirection,
   onNewProjectFromTemplate,
+  onEditTemplate,
 }: {
   variant?: 'modal' | 'page'
   projectId?: string
@@ -170,6 +171,8 @@ export default function Bibliotheque({
   onApplyDirection?: (markdown: string) => void
   onNewProjectWithDirection?: (entry: DesignEntry) => void
   onNewProjectFromTemplate?: (template: ProjectTemplate) => void
+  /** Media → Design → Edit: open a template as a project linked to it. */
+  onEditTemplate?: (template: ProjectTemplate) => void
 }) {
   const t = useT()
   const [lang] = useLang()
@@ -1110,6 +1113,7 @@ export default function Bibliotheque({
       onApplyDirection={onApplyDirection}
       onNewProjectWithDirection={onNewProjectWithDirection}
       onNewProjectFromTemplate={onNewProjectFromTemplate}
+      onEditTemplate={onEditTemplate}
     />
   ) : filmGrid
   // Above the clips, on their tab only: what it imports lands in that grid.

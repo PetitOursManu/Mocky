@@ -105,7 +105,7 @@ import { DesignViews } from './DesignWebPreview'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
 import Bibliotheque, { type MediaTab } from './Bibliotheque'
-import { SaveTemplateDialog } from './DesignModels'
+import { SaveTemplateDialog, TemplateEditBar } from './DesignModels'
 import { instantiateScreens, type ProjectTemplate } from '../lib/templates'
 import ImageLightbox from './ImageLightbox'
 import FilmLightbox from './FilmLightbox'
@@ -329,6 +329,7 @@ export default function ProjectView({
   onSetCreative,
   onSetRules,
   onSetCreations,
+  onSetTemplateLink,
   allProjects,
   onUpdateScreenIn,
   initialFocusScreenId,
@@ -371,6 +372,8 @@ export default function ProjectView({
   onSetRules?: (rules: string | undefined) => void
   /** The project may make what the kit lacks (lib/creations). */
   onSetCreations?: (on: boolean) => void
+  /** Link the project to the template it edits, or (null) let it go (`TemplateEditBar`). */
+  onSetTemplateLink?: (templateId: string | null) => void
   /** Every project of the account: a block's change reaches its copies in the others too (lib/blocks.ts). */
   allProjects?: Project[]
   /** Write a screen of ANOTHER project. Only a block update does, and only on a click. */
@@ -5733,6 +5736,10 @@ export default function ProjectView({
             anybody can act on. Long messages scroll inside the banner rather than
             pushing the composer off the screen, and the banner can be dismissed.
           */}
+          {project.templateId && onSetTemplateLink && (
+            <TemplateEditBar project={project} onDetach={() => onSetTemplateLink(null)} />
+          )}
+
           {error && (
             <div className="mb-2 flex items-start justify-between gap-3 rounded-lg border border-danger/50 bg-danger/10 px-3 py-2 text-body-sm text-danger">
               <span className="flex min-w-0 items-start gap-2">

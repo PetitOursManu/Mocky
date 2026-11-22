@@ -276,6 +276,59 @@ export function createTemplateStore(dataDir, { now = () => Date.now(), budget = 
       return summaryOf(userId, next)
     },
 
+    /**
+     * Rewrite a template's CONTENT — its direction, settings, reference screen
+     * and screens — from a project that edited it (Media → Design → Edit, or
+     * an assistant's update_template). The name, the section and the creation
+     * date are the template's own and stay: they say where it is kept, and the
+     * project that edited it was only ever a place to change what it holds.
+     *
+     * The pictures of screens the new set no longer has are removed, so a
+     * screen that came back under a new id is photographed again rather than
+     * shown as it was before the edit.
+     */
+    replace(userId, id, input) {
+      const file = fileOf(userId, id)
+      const current = file ? readFile(file) : null
+      if (!current) return null
+      const screensIn = input?.screens
+      if (!Array.isArray(screensIn)) throw fail('Bad screens.')
+      if (screensIn.length > MAX_TEMPLATE_SCREENS) throw fail('This project has too many screens for a template.', 413)
+      const screens = screensIn.map(cleanScreen)
+      const design = typeof input.design === 'string' && input.design.trim() ? input.design : undefined
+      if (design && Buffer.byteLength(design, 'utf8') > MAX_TEMPLATE_DESIGN_BYTES) throw fail('The direction is too large for a template.', 413)
+      const ids = new Set(screens.map((s) => s.id))
+      const reference = typeof input.referenceScreenId === 'string' && ids.has(input.referenceScreenId) ? input.referenceScreenId : undefined
+      const next = {
+        id: current.id,
+        name: current.name,
+        createdAt: current.createdAt,
+        updatedAt: now(),
+        ...(design ? { design } : {}),
+        settings: cleanSettings(input.settings),
+        ...(current.section ? { section: current.section } : {}),
+        ...(reference ? { referenceScreenId: reference } : {}),
+        screens,
+      }
+      const size = Buffer.byteLength(JSON.stringify(next))
+      if (size > MAX_TEMPLATE_BYTES) throw fail('This project is too large to keep as a template.', 413)
+      if (budget?.wouldExceed(Math.max(0, size - sizeOfFile(file)))) throw fail('This instance has reached its storage limit.', 507)
+      rewrite(file, next)
+      const dir = thumbDirOf(userId, id)
+      let freed = 0
+      try {
+        for (const n of fs.readdirSync(dir)) {
+          if (n.endsWith('.jpg') && ids.has(n.slice(0, -4))) continue
+          freed += sizeOfFile(path.join(dir, n))
+          fs.rmSync(path.join(dir, n), { force: true })
+        }
+      } catch {
+        /* no pictures */
+      }
+      budget?.remove(freed)
+      return summaryOf(userId, next)
+    },
+
     rename(userId, id, rawName) {
       return this.update(userId, id, { name: rawName })
     },

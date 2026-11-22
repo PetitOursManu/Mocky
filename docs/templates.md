@@ -58,6 +58,22 @@ identifiers for every screen and link, in the folder the projects page was
 showing, and opens it. Editing the new project never touches the template, and
 the reverse.
 
+### Changing a template
+
+`Edit` on a template's card (Media → Design) opens it as a project **linked to
+it**: the same screens, direction and settings, and a bar above the composer
+that says which template it edits. Change it there with everything Mocky has —
+edit, add or delete screens, polish, change the direction or the rules — then
+click `Update the template`. Mocky asks first, then replaces the template's
+screens, direction and settings with the project's; its name and section stay.
+Until then the template is exactly what it was.
+
+`Edit` on a template that is already open for editing opens that same project
+again rather than a second copy. Projects made earlier with `New project from
+this template` do not change. `Detach` turns the editing project into an
+ordinary one; the template stays as it was last updated. An assistant connected
+through [MCP](mcp.md) does the same with `edit_template` and `update_template`.
+
 Each template's card shows **the pictures of its screens** — the layout reference
 large, up to three more beside it — taken in your browser when it is saved. A
 template saved before pictures were kept gets them the first time Media shows it.

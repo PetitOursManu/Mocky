@@ -179,7 +179,15 @@ export function settingsAsProjectFields(settings: TemplateSettings): Pick<Projec
 /** A new project made from a template. Fresh ids throughout; nothing of the source project's history. */
 export function projectFromTemplate(
   template: ProjectTemplate,
-  opts: { name?: string; folderId?: string | null; folderLabel?: string; now?: number; idOf?: () => string } = {},
+  opts: {
+    name?: string
+    folderId?: string | null
+    folderLabel?: string
+    now?: number
+    idOf?: () => string
+    /** Opened to EDIT the template (Media → Design → Edit): the project remembers it, and can write it back. */
+    editing?: boolean
+  } = {},
 ): Project {
   const now = opts.now ?? Date.now()
   const idOf = opts.idOf ?? newId
@@ -197,6 +205,7 @@ export function projectFromTemplate(
     ...(design ? { design } : {}),
     ...(productName ? { productName } : {}),
     ...settingsAsProjectFields(template.settings || {}),
+    ...(opts.editing ? { templateId: template.id } : {}),
   }
 }
 
@@ -228,6 +237,22 @@ export async function getTemplate(id: string): Promise<ProjectTemplate> {
 
 export async function saveTemplate(draft: TemplateDraft): Promise<TemplateSummary> {
   return (await call<{ template: TemplateSummary }>('/api/templates', json('POST', draft))).template
+}
+
+/**
+ * Replace a template's CONTENT (screens, direction, settings, reference) —
+ * its name and section stay. What "Update the template" sends from the project
+ * that edits it.
+ */
+export async function updateTemplate(id: string, content: Omit<TemplateDraft, 'name' | 'section'>): Promise<TemplateSummary> {
+  return (await call<{ template: TemplateSummary }>(`/api/templates/${encodeURIComponent(id)}`, json('PUT', content))).template
+}
+
+/** A project's content as its template's, ready for `updateTemplate`. */
+export function templateContentFromProject(project: Project, globalDesign?: string): Omit<TemplateDraft, 'name' | 'section'> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { name: _name, ...content } = templateFromProject(project, project.name, globalDesign)
+  return content
 }
 
 export async function renameTemplate(id: string, name: string): Promise<TemplateSummary> {

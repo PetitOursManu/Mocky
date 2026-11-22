@@ -463,6 +463,15 @@ export interface Project {
    */
   rules?: string
   /**
+   * The template this project EDITS (lib/templates.ts): set when a template is
+   * opened from Media → Design → Edit, or by an assistant's edit_template.
+   * "Update the template" writes the project back into it; until then the
+   * template is unchanged. Absent on every other project — including one made
+   * with "New project from this template", which is a copy and owes the
+   * template nothing. On Project for the reason `folder` is.
+   */
+  templateId?: string
+  /**
    * Créatif instead of Normal (lib/creative.ts): bolder layouts for new
    * screens, in Muse's dossier and in the generation. Absent is Normal, the
    * behaviour every project had before. On Project for the reason `folder` is.
@@ -1426,6 +1435,19 @@ export function useProjects() {
     )
   }, [])
 
+  /** Link a project to the template it edits, or (null) let it go. */
+  const setProjectTemplateLink = useCallback((projectId: string, templateId: string | null) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId || (p.templateId ?? null) === templateId) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (templateId) next.templateId = templateId
+        else delete next.templateId
+        return next
+      }),
+    )
+  }, [])
+
   const setProjectCreations = useCallback((projectId: string, on: boolean) => {
     setProjects((prev) =>
       prev.map((p) => {
@@ -1492,6 +1514,7 @@ export function useProjects() {
     setProjectUseBrand,
     setProjectCreative,
     setProjectCreations,
+    setProjectTemplateLink,
     setProjectRules,
   }
 }
