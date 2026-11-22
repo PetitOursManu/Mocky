@@ -14,6 +14,7 @@
  *   edit_design     change a screen as the person asks           (write)
  *   polish_design   the quality pass on a screen                  (write)
  *   audit_design    the SEO / accessibility report of a screen    (read)
+ *   audit_project   a whole project against a grid (decision model) (read)
  *   fix_accessibility  that report's own correction              (write)
  *   translate_screen   a translated COPY beside a screen            (write)
  *   fill_fields     a screen's fields filled: copies, a series, or here (write)
@@ -72,6 +73,7 @@ import {
   templateContentFromProject,
 } from './project-edits.js'
 import { buildViewHtml, VIEW_MIME, VIEW_URI } from './view.js'
+import { auditReport, auditStructured } from './audit-report.js'
 
 export { SCREEN_TYPES }
 
@@ -1326,6 +1328,49 @@ export function buildMcpServer(deps) {
     },
     async (args) => startPass('audit', args),
   )
+
+  /*
+   * The audit of a whole project (server/decision/, docs/decision-model.md):
+   * the same engine as the Audit panel's "Le projet" tab. READ: it reuses the
+   * grid and the last run the project keeps, so a second audit compares with
+   * the person's own, and it stores nothing — the history is the panel's.
+   */
+  {
+    server.registerTool(
+      'audit_project',
+      {
+        title: 'Audit a whole project against a grid',
+        description:
+          'Audits every page of a project: Muse draws up a grid from the project\'s goal (clarity of the offer, organisation, faithfulness to the brief and the brand, coherence across pages, repetitions and contradictions, expected elements such as a date, a place, a price), a decision model scores each page against it, and Muse writes the strengths, the observed problems and the priority improvements, each tied to its pages. ' +
+          'Reuses the grid the project already has, so a second audit says what moved; new_grid starts over. Changes nothing. ' +
+          'Scores are 0–4 with a confidence; an element not found was not found in the source, which does not prove it is absent. Several model calls: tens of seconds.',
+        inputSchema: {
+          project_id: z.string().min(1).max(64).describe('The project id, from list_projects.'),
+          goal: z.string().max(600).optional().describe('The project\'s goal in one sentence, in the person\'s words — used when there is no grid yet, or with new_grid.'),
+          expected: z.array(z.string().max(120)).max(12).optional().describe('Elements the pages must show (a date, a price, contact details…), in the person\'s words.'),
+          new_grid: z.boolean().optional().describe('Draw up a new grid instead of reusing the project\'s. The comparison with the last audit is lost.'),
+          language: z.enum(['fr', 'en']).optional().describe('The language of the report. Default: the project\'s.'),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: false },
+      },
+      async ({ project_id, goal, expected, new_grid, language }) => {
+        if (!deps.auditProject) return refuse('Project audits are not available on this Mocky.')
+        const p = findProject(project_id)
+        if (!p) return refuse('No such project in this account.')
+        const pages = (p.screens || []).filter((s) => s && typeof s.code === 'string' && s.code.trim())
+        const lang = language || (briefLanguage(pages.map((s) => s.prompt || '').join(' ')) === 'en' ? 'en' : 'fr')
+        const fr = lang === 'fr'
+        if (!pages.length) return refuse(fr ? 'Ce projet n’a aucun écran à auditer.' : 'This project has no screen to audit.')
+        let run
+        try {
+          run = await deps.auditProject(p, { lang, goal, expected, newGrid: new_grid === true })
+        } catch (err) {
+          return refuse(fr ? `L’audit n’a pas abouti : ${err instanceof Error ? err.message : String(err)}` : `The audit failed: ${err instanceof Error ? err.message : String(err)}`)
+        }
+        return { content: [text(auditReport(run, p, lang))], structuredContent: auditStructured(run, p) }
+      },
+    )
+  }
 
   server.registerTool(
     'fix_accessibility',

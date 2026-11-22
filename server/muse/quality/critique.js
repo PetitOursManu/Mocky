@@ -21,6 +21,7 @@
 
 import { JUDGED_RULES, JUDGED_MAP } from './catalog.js'
 import { dispositionFor } from './policy.js'
+import { decideVerdicts, explainFailures } from '../../decision/verdicts.js'
 
 /**
  * How much source the judge is shown. A screen far past this is unusual, and
@@ -107,7 +108,9 @@ function toFinding(verdict, disposition) {
  *
  * @param {((req:object)=>Promise<any>)|null} llm  Injected client (`makeLlm`).
  * @param {string} code  The generated component source.
- * @param {{onNotice?:(m:string)=>void, signal?:AbortSignal}} [opts]
+ * @param {{onNotice?:(m:string)=>void, signal?:AbortSignal, decision?:object|null}} [opts]
+ *   `decision`: the decision model ({target, fetchImpl?, onUsage?}) — it gives
+ *   the verdicts when set, and the text model only writes the failures' notes.
  * @returns {Promise<{findings: object[], verdicts: object[], available: boolean}>}
  */
 export async function critiqueScreen(llm, code, opts = {}) {
@@ -115,8 +118,11 @@ export async function critiqueScreen(llm, code, opts = {}) {
   const hasDirection = opts.hasDirection === true
   const ultra = opts.ultra === true
   const empty = { findings: [], verdicts: [], available: false }
+  // The administrator's decision model (server/decision/), when this account
+  // may use it: it gives the verdicts, the text model only names what failed.
+  const decision = opts.decision || null
 
-  if (!llm) {
+  if (!llm && !decision) {
     onNotice('Quality: no model configured — the judged rules were skipped.')
     return empty
   }
@@ -133,6 +139,24 @@ export async function critiqueScreen(llm, code, opts = {}) {
 
   const truncated = code.length > MAX_CODE_CHARS
   const shown = truncated ? code.slice(0, MAX_CODE_CHARS) : code
+
+  if (decision) {
+    try {
+      const decided = await decideVerdicts(decision, { code: shown, truncated, rules: asked })
+      const failed = decided.filter((v) => !v.pass).map((v) => JUDGED_MAP[v.rule])
+      const notes = await explainFailures(llm, { code: shown, truncated, failed, role: 'a strict but fair design critic', signal: opts.signal })
+      const verdicts = decided.map((v) => ({ rule: v.rule, pass: v.pass, note: notes.get(v.rule) || '', confidence: v.confidence }))
+      const findings = verdicts
+        .filter((v) => !v.pass)
+        .map((v) => toFinding(v, dispositionFor(v.rule, { hasDirection, ultra })))
+      return { findings, verdicts, available: true, judgedBy: 'decision' }
+    } catch (err) {
+      if (opts.signal?.aborted) return empty
+      // Degrade to the pass this always was, and say so.
+      onNotice(`Quality: the decision model did not answer (${err?.code || 'error'}) — the text model judged instead.`)
+      if (!llm) return empty
+    }
+  }
 
   let raw
   try {
@@ -171,5 +195,5 @@ export async function critiqueScreen(llm, code, opts = {}) {
   const findings = verdicts
     .filter((v) => !v.pass)
     .map((v) => toFinding(v, dispositionFor(v.rule, { hasDirection, ultra })))
-  return { findings, verdicts, available: true }
+  return { findings, verdicts, available: true, judgedBy: 'text' }
 }

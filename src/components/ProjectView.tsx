@@ -48,6 +48,7 @@ import { type QualityFinding } from '../lib/quality'
 import { editScreen, fixScreenAudit, polishScreenCode, screenCapabilities } from '../lib/pipeline/screenPasses'
 import { ultraLoss } from '../lib/ultra/check'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
+import type { ProjectAnalysis } from '../lib/projectAnalysis'
 import { followRecolor } from '../lib/designFollow'
 import { planPropagation, propagateInto, tokenChanges, type PropagationPlan } from '../lib/tokenPropagate'
 import { LANG_NAMES, translateCode, type TranslateLang } from '../lib/translate'
@@ -328,6 +329,7 @@ export default function ProjectView({
   onSetUseBrand,
   onSetCreative,
   onSetRules,
+  onSetAnalysis,
   onSetCreations,
   onSetTemplateLink,
   allProjects,
@@ -370,6 +372,8 @@ export default function ProjectView({
   onSetCreative?: (on: boolean) => void
   /** Replace the project's rules (lib/rules.ts). */
   onSetRules?: (rules: string | undefined) => void
+  /** The project's audits (lib/projectAnalysis.ts), from the Audit panel's "Le projet" tab. */
+  onSetAnalysis?: (analysis: ProjectAnalysis | undefined) => void
   /** The project may make what the kit lacks (lib/creations). */
   onSetCreations?: (on: boolean) => void
   /** Link the project to the template it edits, or (null) let it go (`TemplateEditBar`). */
@@ -5415,6 +5419,9 @@ export default function ProjectView({
               // than one that says it is unavailable.
               busy={busy}
               onClose={() => setRightSlot((s) => closeSlot(s, 'audit'))}
+              project={project}
+              direction={directionMd || undefined}
+              onSaveAnalysis={onSetAnalysis}
             />
           )}
 

@@ -20,6 +20,7 @@
  */
 
 import { AUDIT_MAP, AUDIT_QUESTIONS } from './audit-questions.js'
+import { decideVerdicts, explainFailures } from '../../decision/verdicts.js'
 
 /** Same ceiling as the design critique: past this the model stops reading anyway. */
 const MAX_CODE_CHARS = 24000
@@ -83,11 +84,39 @@ function buildUser(code, truncated) {
 /**
  * Ask the model the judgement questions about one screen.
  *
+ * When the administrator set up a decision model (server/decision/) and this
+ * account may use it, IT gives the verdicts and the text model only writes the
+ * sentence of each failed one; a decision model that does not answer falls
+ * back to the text-model pass below, which is the pass this always was.
+ *
  * @param {string} code
- * @param {{llm: ((opts:object)=>Promise<any>)|null}} deps
- * @returns {Promise<{findings: object[], notices: string[]}>}
+ * @param {{llm: ((opts:object)=>Promise<any>)|null, decision?: object|null}} deps
+ * @returns {Promise<{findings: object[], notices: string[], judged: boolean, judgedBy?: string}>}
  */
-export async function judgeAudit(code, { llm } = {}) {
+export async function judgeAudit(code, { llm, decision = null } = {}) {
+  const decisionNotices = []
+  if (decision) {
+    const truncated = code.length > MAX_CODE_CHARS
+    const body = truncated ? code.slice(0, MAX_CODE_CHARS) : code
+    try {
+      const decided = await decideVerdicts(decision, { code: body, truncated, rules: AUDIT_QUESTIONS })
+      const failed = decided.filter((v) => !v.pass).map((v) => AUDIT_MAP[v.rule])
+      const notes = await explainFailures(typeof llm === 'function' ? llm : null, {
+        code: body,
+        truncated,
+        failed,
+        role: 'an accessibility and technical-SEO auditor',
+      })
+      return {
+        findings: failed.map((q) => toAuditFinding(q, notes.get(q.id) || '')),
+        notices: truncated ? ['The screen was longer than the model reads; the deep pass judged only its first part.'] : [],
+        judged: true,
+        judgedBy: 'decision',
+      }
+    } catch (err) {
+      decisionNotices.push(`The decision model did not answer (${err?.code || 'error'}); the text model judged instead.`)
+    }
+  }
   if (typeof llm !== 'function') {
     // `judged: false` is the load-bearing field, not the notice. A caller that
     // infers "a model looked at this" from a 200 cannot tell an unconfigured
@@ -95,7 +124,7 @@ export async function judgeAudit(code, { llm } = {}) {
     // exists to keep.
     return {
       findings: [],
-      notices: ['No text model is configured, so the deep pass did not run.'],
+      notices: [...decisionNotices, 'No text model is configured, so the deep pass did not run.'],
       judged: false,
     }
   }
@@ -129,7 +158,7 @@ export async function judgeAudit(code, { llm } = {}) {
     })
   } catch (err) {
     // Degrade: the report is already complete without this.
-    return { findings: [], notices: [err instanceof Error ? err.message : String(err)], judged: false }
+    return { findings: [], notices: [...decisionNotices, err instanceof Error ? err.message : String(err)], judged: false }
   }
 
   const verdicts = Array.isArray(parsed?.verdicts) ? parsed.verdicts : []
@@ -141,29 +170,13 @@ export async function judgeAudit(code, { llm } = {}) {
     // finding, however confidently it is phrased.
     if (!q || v.pass !== false || seen.has(q.id)) continue
     seen.add(q.id)
-    findings.push({
-      rule: q.id,
-      source: 'critique',
-      name: q.name,
-      // The model's own sentence, or nothing. NOT a fallback to `q.question`:
-      // that is the prompt we sent, answering instruction and all, and printing
-      // it as the explanation of a defect showed the user the question rather
-      // than the answer — in English, under a French heading. With this empty
-      // the browser substitutes a translated description (see judgeScreen).
-      description: typeof v.note === 'string' && v.note.trim() ? v.note.trim().slice(0, 400) : '',
-      severity: q.severity,
-      dimension: q.dimension,
-      // From the catalogue, never from the model. The verdict is allowed to say
-      // whether the screen passes; where the finding is filed in the panel is
-      // not the model's to decide, and a made-up family would be a heading
-      // nobody wrote appearing in the report.
-      family: q.family,
-    })
+    findings.push(toAuditFinding(q, typeof v.note === 'string' ? v.note : ''))
   }
 
-  const notices = truncated
-    ? ['The screen was longer than the model reads; the deep pass judged only its first part.']
-    : []
+  const notices = [
+    ...decisionNotices,
+    ...(truncated ? ['The screen was longer than the model reads; the deep pass judged only its first part.'] : []),
+  ]
   // An answer with no usable verdicts is indistinguishable from a clean screen
   // unless it says so. Providers that ignore the schema — most of them, outside
   // Ollama — return exactly this, and `critique.js` reports the same case.
@@ -171,5 +184,27 @@ export async function judgeAudit(code, { llm } = {}) {
     notices.push('The deep pass returned no verdicts; nothing was judged.')
     return { findings, notices, judged: false }
   }
-  return { findings, notices, judged: true }
+  return { findings, notices, judged: true, judgedBy: 'text' }
+}
+
+/** A failed question as a finding — the same shape whichever model decided it. */
+function toAuditFinding(q, note) {
+  return {
+    rule: q.id,
+    source: 'critique',
+    name: q.name,
+    // The model's own sentence, or nothing. NOT a fallback to `q.question`:
+    // that is the prompt we sent, answering instruction and all, and printing
+    // it as the explanation of a defect showed the user the question rather
+    // than the answer — in English, under a French heading. With this empty
+    // the browser substitutes a translated description (see judgeScreen).
+    description: note.trim() ? note.trim().slice(0, 400) : '',
+    severity: q.severity,
+    dimension: q.dimension,
+    // From the catalogue, never from the model. The verdict is allowed to say
+    // whether the screen passes; where the finding is filed in the panel is
+    // not the model's to decide, and a made-up family would be a heading
+    // nobody wrote appearing in the report.
+    family: q.family,
+  }
 }

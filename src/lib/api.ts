@@ -30,6 +30,18 @@ export interface AuthUser {
 }
 
 /** Admin → Users → Kosmy Board. The secret is write-only: only `hasSecret` comes back. */
+/** Admin → Providers → Decision model (server/decision/config.js). The key never comes back. */
+export interface DecisionModelSettings {
+  providers: Array<{ id: string; label: string; baseUrl: string; model: string }>
+  provider: string
+  baseUrl: string
+  model: string
+  images: boolean
+  hasApiKey: boolean
+  configured: boolean
+  persistError?: boolean
+}
+
 export interface KosmyBoardSettings {
   issuer: string
   clientId: string
@@ -728,6 +740,14 @@ export const api = {
       shotUrl: (hash: string) => `/api/admin/mcp/runner/shots/${encodeURIComponent(hash)}`,
     },
     getConfig: () => req('/api/admin/config') as Promise<AdminConfig>,
+    decision: {
+      get: () => req('/api/admin/decision/config') as Promise<DecisionModelSettings>,
+      /** An empty `apiKey` keeps the stored one; null clears it. */
+      set: (patch: { provider?: string; baseUrl?: string; model?: string; apiKey?: string | null; images?: boolean }) =>
+        req('/api/admin/decision/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<DecisionModelSettings>,
+      test: () =>
+        req('/api/admin/decision/test', { method: 'POST' }) as Promise<{ ok: boolean; model?: string; ms?: number; code?: string; error?: string }>,
+    },
     kosmyBoard: {
       get: () => req('/api/admin/kosmy-board') as Promise<KosmyBoardSettings>,
       /** An empty `clientSecret` keeps the stored one. */

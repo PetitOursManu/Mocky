@@ -1,5 +1,5 @@
 ---
-source_hash: 462b8a24d1f3
+source_hash: 207370e9cb6e
 ---
 
 # Connecter un assistant (MCP)
@@ -42,6 +42,7 @@ clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
 | `edit_design` | Modifie un écran existant comme la personne le demande — « mets l'en-tête en sombre » — en gardant le reste. Rend une image et le lien. |
 | `polish_design` | La [passe de qualité](quality.md) de Mocky sur un écran : corrige ce qu'elle trouve et note l'écran sur 20. Dit ce qu'elle a corrigé et ce qui reste. |
 | `audit_design` | Le [rapport SEO et accessibilité](seo-accessibility.md) d'un écran : deux notes et les constats nommés. Ne change rien ; `deep` ajoute les questions jugées par le modèle. |
+| `audit_project` | L'[audit d'un projet entier](decision-model.md) selon une grille tirée de son objectif : points forts, problèmes observés, améliorations prioritaires, éléments attendus trouvés ou non. Reprend la grille du projet, donc se compare au dernier audit. Ne change rien. |
 | `fix_accessibility` | La correction propre à ce rapport : corrige le balisage, l'écran restant identique à l'œil. |
 | `translate_screen` | Une [copie traduite](interface.md#le-menu-contextuel-dun-écran) d’un écran dans `language` (fr, en, es, de, it, pt, nl, pl, sv, da, ca), posée à sa droite ; l’original ne change pas, et seuls les mots changent. |
 | `fill_fields` | De nouvelles valeurs dans les [champs à remplir](templates.md#écrans-à-remplir) d’un écran, par nom de champ, dans `rows` : une ligne donne une copie remplie à côté de l’écran (`into: "here"` remplit l’écran lui-même, annulable), plusieurs lignes une [série](templates.md#une-série-depuis-un-tableau), une copie chacune. Aucun modèle n’est appelé ; un champ image prend un `image_id` d’`add_image`. Un écran sans champs est refusé, avec la façon de les choisir. |
@@ -424,7 +425,7 @@ compte et son travail unique à la fois, la maintenance.
 
 | Niveau | Ce qu'il atteint |
 |---|---|
-| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
+| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `audit_project`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
 | **Lecture + écriture** | Tous les outils permis au compte, comme avec une connexion OAuth. |
 
 La liste de lecture est **fermée**, dans le code (`server/mcp/levels.js`) : un

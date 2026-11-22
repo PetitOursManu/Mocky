@@ -1,3 +1,4 @@
+import type { ProjectAnalysis } from './projectAnalysis'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { scheduleSync, reportStorageFailure, SERVER_FOLDERS_EVENT, SERVER_PROJECTS_EVENT } from './sync'
 import { visibleProjects, mergeFolders, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
@@ -484,6 +485,12 @@ export interface Project {
    * Project for the reason `folder` is.
    */
   creations?: boolean
+  /**
+   * The project's audits (lib/projectAnalysis.ts): the grid they ask, once, and
+   * the last few runs, newest first — what lets a second audit say what the
+   * changes since the first one moved. On Project for the reason `folder` is.
+   */
+  analysis?: ProjectAnalysis
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -1423,6 +1430,19 @@ export function useProjects() {
   }, [])
 
   /** Put one project in Créatif, or back to Normal. */
+  /** The project's audits (lib/projectAnalysis.ts); undefined forgets them. */
+  const setProjectAnalysis = useCallback((projectId: string, analysis: ProjectAnalysis | undefined) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId || p.analysis === analysis) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (analysis) next.analysis = analysis
+        else delete next.analysis
+        return next
+      }),
+    )
+  }, [])
+
   const setProjectCreative = useCallback((projectId: string, on: boolean) => {
     setProjects((prev) =>
       prev.map((p) => {
@@ -1516,5 +1536,6 @@ export function useProjects() {
     setProjectCreations,
     setProjectTemplateLink,
     setProjectRules,
+    setProjectAnalysis,
   }
 }

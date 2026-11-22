@@ -71,7 +71,16 @@ export interface AuditReport {
    */
   parsed: boolean
   /** Whether the model half contributed. Named after `coverage` in the quality audit (Q4). */
-  coverage: { deterministic: boolean; judged: boolean }
+  coverage: {
+    deterministic: boolean
+    judged: boolean
+    /**
+     * Who gave the judged verdicts: the administrator's decision model
+     * (server/decision/) or the text model. Absent on older servers, and when
+     * nothing was judged.
+     */
+    judgedBy?: 'decision' | 'text'
+  }
   /** Soft failures — a deep pass that could not run says so here. */
   notices: string[]
 }
@@ -101,6 +110,7 @@ export async function auditScreen(code: string, opts: AuditOptions = {}): Promis
   const findings = toFindings(hits)
   const notices: string[] = []
   let judged = false
+  let judgedBy: 'decision' | 'text' | undefined
   // Which family each judged finding belongs to, when the route said so. Empty
   // is the ordinary case — no deep pass ran, or the server predates the field —
   // and the cost is contained: those findings still show in the list and still
@@ -118,6 +128,7 @@ export async function auditScreen(code: string, opts: AuditOptions = {}): Promis
       // "judged" is the one thing Q4 forbids: a screen nobody looked at would
       // read exactly like a spotless one.
       judged = deep.judged
+      judgedBy = deep.judged ? deep.judgedBy : undefined
       notices.push(...deep.notices)
     } catch (err) {
       // Degrade, never fail: the deterministic half is a complete report on its
@@ -132,7 +143,7 @@ export async function auditScreen(code: string, opts: AuditOptions = {}): Promis
     a11y: scoreDimension(findings, 'a11y'),
     families: scoreFamilies(findings, facts, judgedFamilies),
     parsed: facts.parsed,
-    coverage: { deterministic: facts.parsed, judged },
+    coverage: { deterministic: facts.parsed, judged, ...(judgedBy ? { judgedBy } : {}) },
     notices,
   }
 }
@@ -165,6 +176,7 @@ async function judgeScreen(
   findings: QualityFinding[]
   notices: string[]
   judged: boolean
+  judgedBy?: 'decision' | 'text'
   families: Record<string, AuditFamily>
 }> {
   const res = await fetch('/api/muse/audit', {
@@ -189,6 +201,7 @@ async function judgeScreen(
   // Older servers predate the field. Treating a missing `judged` as false is
   // the safe direction: it under-claims coverage instead of inventing it.
   const judged = data?.judged === true
+  const judgedBy: 'decision' | 'text' | undefined = data?.judgedBy === 'decision' ? 'decision' : data?.judgedBy === 'text' ? 'text' : undefined
   const findings = raw
     .filter((f: any) => f && typeof f.rule === 'string' && typeof f.description === 'string')
     .map(
@@ -240,7 +253,7 @@ async function judgeScreen(
     if (known.has(f.family)) families[f.rule] = f.family as AuditFamily
   }
 
-  return { findings, notices, judged, families }
+  return { findings, notices, judged, judgedBy, families }
 }
 
 /**

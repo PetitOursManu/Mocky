@@ -36,6 +36,7 @@ account makes for itself, read-only or read and write.
 | `edit_design` | Changes an existing screen as the person asks — "make the header dark" — keeping the rest. Returns a picture and the link. |
 | `polish_design` | Mocky's [quality pass](quality.md) on a screen: corrects what it finds and scores it out of 20. Says what it fixed and what is left. |
 | `audit_design` | The [SEO and accessibility report](seo-accessibility.md) of a screen: two scores and the named findings. Changes nothing; `deep` adds the model-judged questions. |
+| `audit_project` | The [audit of a whole project](decision-model.md) against a grid drawn from its goal: strengths, observed problems, priority improvements, expected elements found or not. Reuses the project's grid, so it compares with the last audit. Changes nothing. |
 | `fix_accessibility` | That report's own correction: fixes the markup, the screen looking the same. |
 | `translate_screen` | A [translated copy](interface.md#the-screen-context-menu) of a screen in `language` (fr, en, es, de, it, pt, nl, pl, sv, da, ca), placed right of it; the original does not change and only the words do. |
 | `fill_fields` | New values in a screen's [fields to fill](templates.md#screens-to-fill-in), by field name, in `rows`: one row is one filled copy beside the screen (`into: "here"` fills the screen itself, revertible), several rows a [series](templates.md#a-series-from-a-table), one copy each. No model is called; a picture field takes an `image_id` from `add_image`. A screen without fields is refused, with how to choose them. |
@@ -382,7 +383,7 @@ maintenance.
 
 | Level | What it reaches |
 |---|---|
-| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `search_free_images` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
+| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `audit_project`, `search_free_images` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
 | **Read and write** | Every tool the account may use, as with an OAuth connection. |
 
 The read-only list is **closed**, in code (`server/mcp/levels.js`): a tool

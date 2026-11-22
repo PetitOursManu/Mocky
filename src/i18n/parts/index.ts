@@ -40,11 +40,13 @@ import { lock } from './lock'
 import { rules } from './rules'
 import { blocks } from './blocks'
 import { responsive } from './responsive'
+import { analysis } from './analysis'
+import { decision } from './decision'
 
-const AREAS = [app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard, composer, chime, docExport, mcp, plan, spend, frames, versions, review, flows, campaign, publication, fonts, brand, workspace, templates, translate, fill, lock, rules, blocks, responsive]
+const AREAS = [app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard, composer, chime, docExport, mcp, plan, spend, frames, versions, review, flows, campaign, publication, fonts, brand, workspace, templates, translate, fill, lock, rules, blocks, responsive, analysis, decision]
 
 export const partsFr: Record<string, string> = Object.assign({}, ...AREAS.map((a) => a.fr))
 export const partsEn: Record<string, string> = Object.assign({}, ...AREAS.map((a) => a.en))
 
 /** Exposed for the parity test, which checks each area separately. */
-export const AREA_DICTS = { app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard, composer, chime, docExport, mcp, plan, spend, frames, versions, review, flows, campaign, publication, fonts, brand, workspace, translate, fill, lock, rules, blocks, responsive }
+export const AREA_DICTS = { app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard, composer, chime, docExport, mcp, plan, spend, frames, versions, review, flows, campaign, publication, fonts, brand, workspace, translate, fill, lock, rules, blocks, responsive, analysis, decision }

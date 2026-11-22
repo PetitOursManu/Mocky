@@ -39,6 +39,8 @@ export const READ_TOOLS = Object.freeze([
   'get_design',
   'get_screenshot',
   'audit_design',
+  // A whole project against a grid: reads the project, stores nothing.
+  'audit_project',
   'search_free_images',
   // A file of a screen, and the list of templates: neither changes the account.
   'export_screen',
