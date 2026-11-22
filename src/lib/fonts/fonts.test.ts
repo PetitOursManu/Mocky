@@ -112,3 +112,30 @@ describe('what the model is told', () => {
     expect(FONTS_PROMPT.length).toBeLessThan(5200)
   })
 })
+
+describe('Japanese and Chinese characters', () => {
+  const jp = fontByName('Noto Sans JP')!
+  const sc = fontByName('Noto Serif SC')!
+
+  it('are carried by two families, each with its own chunk ranges', () => {
+    expect(jp.category).toBe('sans')
+    expect(sc.category).toBe('serif')
+    expect(Object.keys(jp.ranges ?? {}).length).toBeGreaterThan(50)
+    // Every chunk a face lists has a range to declare it with.
+    for (const f of [jp, sc]) for (const key of Object.keys(f.faces[0].files)) if (key.startsWith('[')) expect(f.ranges?.[key], key).toBeTruthy()
+  })
+
+  it('are declared chunk by chunk, so a page downloads only the chunks it writes', () => {
+    const css = fontFaceCss([jp])
+    const chunkRules = css.split('\n').filter((r) => /noto-sans-jp-\d+-wght-normal/.test(r))
+    expect(chunkRules.length).toBe(Object.keys(jp.ranges!).length)
+    expect(chunkRules.every((r) => /unicode-range:U\+/.test(r) && r.includes('font-display:swap'))).toBe(true)
+    // The Latin subsets keep the shared range and `block`.
+    expect(css).toMatch(/noto-sans-jp-latin-wght-normal[^}]*font-display|font-display:block[^}]*noto-sans-jp-latin-wght-normal/)
+  })
+
+  it('are offered to the model as a face stacked after the Latin one', () => {
+    expect(FONTS_PROMPT).toContain('Noto Sans JP and Noto Serif SC carry them')
+    expect(names(`<p style={{ fontFamily: "'Inter Tight', 'Noto Sans JP', sans-serif" }}>戻る</p>`)).toEqual(['Inter Tight', 'Noto Sans JP'])
+  })
+})

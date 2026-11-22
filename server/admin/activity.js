@@ -30,6 +30,9 @@ export const PURPOSES = new Set([
   'generate',
   'edit',
   'fix',
+  // The one correction pass of a new screen whose brief imposed what the
+  // first answer left out (lib/briefCheck.ts) — not a person's edit.
+  'brief-fix',
   'polish',
   'audit-fix',
   'fit',
@@ -306,7 +309,7 @@ export function createActivity({ now = Date.now, windowMs = 60 * 60 * 1000, maxE
  * the time of the first byte, which is what "how fast does this provider
  * answer" means for a streamed generation whose END is the length of the page.
  */
-export function createTracker({ activity, userOf, providerOf = () => ({ provider: 'unknown' }) }) {
+export function createTracker({ activity, userOf, providerOf = () => ({ provider: 'unknown' }), onEnd = null }) {
   return function track(req, res, next) {
     const c = classifyRequest(req)
     if (!c) return next()
@@ -337,7 +340,17 @@ export function createTracker({ activity, userOf, providerOf = () => ({ provider
     }
     res.once('close', () => {
       const last = where()
-      activity.end(id, { status: res.statusCode, aborted: !res.writableFinished, ttfb, provider: last.provider, source: last.source })
+      const ev = activity.end(id, { status: res.statusCode, aborted: !res.writableFinished, ttfb, provider: last.provider, source: last.source })
+      // The finished event, for a listener that files it elsewhere too (the
+      // per-generation trace, server/admin/runs.js). Watching must not break
+      // the request it watches.
+      if (onEnd && ev) {
+        try {
+          onEnd(user, req, ev)
+        } catch {
+          /* a trace that cannot be written is not a failed request */
+        }
+      }
     })
     next()
   }

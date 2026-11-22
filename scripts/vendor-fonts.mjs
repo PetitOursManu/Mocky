@@ -86,7 +86,7 @@ export const FAMILIES = {
     'hanken-grotesk', 'schibsted-grotesk', 'space-grotesk', 'archivo', 'urbanist', 'red-hat-display', 'epilogue',
     'be-vietnam-pro', 'albert-sans', 'barlow', 'josefin-sans', 'cabin', 'fira-sans', 'pt-sans', 'exo-2', 'jost',
     'league-spartan', 'chivo', 'bricolage-grotesque', 'atkinson-hyperlegible', 'overpass', 'libre-franklin',
-    'mona-sans',
+    'mona-sans', 'noto-sans-jp',
   ],
   condensed: [
     'oswald', 'barlow-condensed', 'bebas-neue', 'anton', 'roboto-condensed', 'fjalla-one', 'league-gothic',
@@ -96,7 +96,7 @@ export const FAMILIES = {
   serif: [
     'lora', 'merriweather', 'source-serif-4', 'eb-garamond', 'cormorant-garamond', 'crimson-pro',
     'libre-baskerville', 'literata', 'newsreader', 'pt-serif', 'spectral', 'cardo', 'libre-caslon-text',
-    'frank-ruhl-libre', 'domine', 'vollkorn', 'alegreya', 'gelasio', 'ibm-plex-serif',
+    'frank-ruhl-libre', 'domine', 'vollkorn', 'alegreya', 'gelasio', 'ibm-plex-serif', 'noto-serif-sc',
   ],
   'serif-display': [
     'playfair-display', 'fraunces', 'dm-serif-display', 'abril-fatface', 'bodoni-moda', 'instrument-serif',
@@ -161,6 +161,19 @@ export const ALLOWED_LICENSES = ['OFL-1.1', 'Apache-2.0', 'UFL-1.0']
 
 const SUBSETS = ['latin', 'latin-ext']
 
+/**
+ * The families that carry Japanese or Chinese characters, and therefore their
+ * CJK files too — every numbered chunk Fontsource cuts them into ("[0]" …
+ * "[119]"), each with its own unicode-range, so a page downloads only the
+ * chunks holding the characters it writes (a kanji title costs a few of them,
+ * not the 6 MB of the family). Added for briefs that set Japanese labels in a
+ * Latin page (bench/briefs/vasari.md): stacked after the Latin face, they draw
+ * only the glyphs it lacks. Everything else stays Latin-only, for the reason
+ * at the top of this file.
+ */
+const CJK_IDS = new Set(['noto-sans-jp', 'noto-serif-sc'])
+const CJK_CHUNK = /^\[(\d+)\]$/
+
 const hash = (buf) => crypto.createHash('sha256').update(buf).digest('hex').slice(0, 10)
 
 function packageDir(id) {
@@ -222,8 +235,26 @@ export function plan() {
       }
       const unicode = JSON.parse(fs.readFileSync(path.join(pkg.dir, 'unicode.json'), 'utf8'))
       const files = new Set(fs.readdirSync(path.join(pkg.dir, 'files')))
+      // A CJK family's own ranges: one per chunk, carried on the family since
+      // no other family shares them.
+      const chunks = CJK_IDS.has(id)
+        ? Object.keys(unicode)
+            .filter((k) => CJK_CHUNK.test(k))
+            .sort((a, b) => Number(a.slice(1, -1)) - Number(b.slice(1, -1)))
+        : []
+      const ownRanges = {}
       const faces = facesOf(id, meta, pkg.variable, category, files).map((face) => {
         const out = {}
+        for (const key of chunks) {
+          const name = `${id}-${key.slice(1, -1)}-${face.rest}.woff2`
+          if (!files.has(name)) continue
+          const src = path.join(pkg.dir, 'files', name)
+          const bytes = fs.readFileSync(src)
+          const rel = `${id}/${name.replace(/\.woff2$/, '')}.${hash(bytes)}.woff2`
+          copies.push({ src, rel, size: bytes.length })
+          out[key] = rel
+          ownRanges[key] = unicode[key]
+        }
         for (const subset of SUBSETS) {
           const name = `${id}-${subset}-${face.rest}.woff2`
           if (!files.has(name)) continue
@@ -246,6 +277,7 @@ export function plan() {
         version,
         license,
         faces,
+        ...(Object.keys(ownRanges).length ? { ranges: ownRanges } : {}),
       })
       licences.push({ family: meta.family, package: pkg.name, version, license, text: fs.readFileSync(path.join(pkg.dir, 'LICENSE'), 'utf8') })
     }

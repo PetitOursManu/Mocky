@@ -1,5 +1,5 @@
 ---
-source_hash: 27384b58e836
+source_hash: bfc238064b09
 ---
 
 # Invariants
@@ -12,7 +12,7 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a onze séries :
+Il y a douze séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
@@ -26,6 +26,7 @@ Il y a onze séries :
 - **C1 à C3**, apportés par la Campagne.
 - **P1 à P3**, apportés par les dépliants et les publications.
 - **A1 à A4**, introduites par ce qu’un modèle fabrique lui-même.
+- **S1 à S5**, apportées par les sites interactifs.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1546,6 +1547,77 @@ création parce qu’elle a passé ces règles : elle s’exécute là où s’e
 écran généré, sous I2, et n’atteint jamais le serveur, un autre compte ni un film
 Motion Ultra.
 
+
+---
+
+## Série S — les sites interactifs
+
+Une page que le visiteur manipule : une étagère qu’on fait glisser, un produit qui
+voyage le long de la page, une galerie qu’on parcourt. Doc utilisateur :
+[Sites interactifs](../interactive-sites.md).
+
+### S1. Les images du brief l’emportent
+
+**La règle.** Une image que le brief nomme par son adresse est utilisée à cette
+adresse exacte (`lib/briefMedia.ts`), et tant que le brief en impose une, Muse
+n’ajoute ni image de page ni planche d’ambiance, les images d’un site ne sont pas
+remplacées et Motion Ultra ne fait pas de série (`briefImposesPictures` dans
+`runNewScreen`). Une image omise par le code est signalée après la génération
+(`lib/briefCheck.ts`).
+
+**Ce qu’elle protège.** La consigne de base demandait des aplats à la place des
+images externes : un brief venu avec ses planches revenait gris alors que
+l’aperçu pouvait les afficher. Et une série générée à côté d’images imposées est
+payée deux fois et se dispute les mêmes emplacements.
+
+### S2. Un passage de correction au plus, gardé seulement s’il est meilleur
+
+**La règle.** Quand un contrôle de S1 échoue sur un brief qui imposait des images,
+UN passage de retouche peut suivre (motif `brief-fix`). Il n’est gardé que s’il a
+corrigé quelque chose sans rien aggraver de ce que les contrôles voient ; sinon la
+première réponse reste et les messages disent ce qui manque. Jamais sur le code
+d’un assistant (moteur « client » du MCP), jamais sur une réponse tronquée,
+jamais sur une page qui dit seulement « carrousel ».
+
+**Ce qu’elle protège.** Le budget de l’utilisateur : décidé avec lui, un appel de
+plan et au plus un passage. Une boucle qui réessaie jusqu’à réussir n’a pas de
+prix.
+
+### S3. La profondeur en CSS avant le WebGL, et chaque volume est atteignable
+
+**La règle.** Le pack `interact` dessine ses volumes, ses caméras et ses objets
+qui voyagent en CSS `preserve-3d` et ne crée jamais de contexte WebGL. Un volume
+qui a un `onClick` est un bouton au clavier. Sous « Sans animation », le
+mouvement réduit et une capture, tout arrive d’un coup à son état final.
+
+**Ce qu’elle protège.** Le budget de contextes du canevas (`GL_BUDGET`) reste
+celui de `<Scene3D>` ; un clic touche l’élément réellement sous le pointeur, et
+une fiche grandit depuis son vrai rectangle ; une image n’a pas besoin de CORS
+pour être dessinée. Et une étagère qu’on ne peut ouvrir qu’à la souris n’est pas
+une étagère.
+
+### S4. Un seul objet qui voyage, jamais deux copies
+
+**La règle.** `<AnchorTravel>` est UN élément fixé au-dessus de la page, mesuré à
+nouveau à chaque image sur les emplacements qu’il occupe. L’image plate de
+l’étape où il se trouve est masquée par la page ; une seconde copie n’est jamais
+dessinée.
+
+**Ce qu’elle protège.** Deux copies ne sont jamais au même endroit au moment du
+relais, et l’œil voit le saut. La mesure à chaque image est ce qui suit
+l’inclinaison d’une carte au survol, un redimensionnement et le retour en
+arrière.
+
+### S5. Une trace de génération nomme, n’autorise jamais, et ne contient rien
+
+**La règle.** `x-mocky-run` range un appel sous une génération
+(`server/admin/runs.js`) ; seul le compte qui l’a envoyé la relit, elle est gardée
+en mémoire, bornée, et note le motif, le fournisseur, le modèle, les durées et
+les comptes — jamais un prompt ni une réponse (D1). Sur la clé d’une personne,
+elle ne garde aucun chiffre (F4).
+
+**Ce qu’elle protège.** Mesurer « un prompt » en appels, en secondes et en argent
+sans devenir un second journal de ce que les gens ont demandé.
 ---
 
 ## Les deux règles sans numéro

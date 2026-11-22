@@ -247,6 +247,11 @@
       "fallback": "sans-serif"
     },
     {
+      "family": "Noto Sans JP",
+      "category": "sans",
+      "fallback": "sans-serif"
+    },
+    {
       "family": "Oswald",
       "category": "condensed",
       "fallback": "sans-serif"
@@ -428,6 +433,11 @@
     },
     {
       "family": "IBM Plex Serif",
+      "category": "serif",
+      "fallback": "serif"
+    },
+    {
+      "family": "Noto Serif SC",
       "category": "serif",
       "fallback": "serif"
     },

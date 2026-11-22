@@ -184,7 +184,7 @@ export function stripDataUrl(dataUrl: string): string {
  * polishing a screen" rather than "Alice called the model"; nothing else changes
  * with it, and the header is never forwarded to the provider.
  */
-export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan' | 'creation-propose' | 'creation-review' | 'translate' | 'responsive' | 'publication-pack'
+export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'brief-fix' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts' | 'publication-plan' | 'creation-propose' | 'creation-review' | 'translate' | 'responsive' | 'publication-pack'
 
 export async function chat(
   s: Settings,
@@ -672,6 +672,7 @@ PRESERVE EVERYTHING THAT THE USER DID NOT EXPLICITLY ASK TO CHANGE.
 - Do NOT redesign, refactor, rename, reformat, reorder, restyle, "clean up", "improve", or modernise anything that was not requested.
 - Do NOT add, remove, or rename features, sections, props, or imports beyond the requested change.
 - One thing is PART of a change, not beyond it: when the requested change adds or alters something that changes the screen's data (an add form, a delete button, a status toggle), every count, badge, total or list on the screen that shows that data must follow it — derive them from the same state, even where they were written by hand before. A new "add ticket" button whose ticket never reaches the "open tickets" badge is an unfinished change.
+- Keep every element id, every picture address and every crop box exactly as written, and every interaction (a gesture, a transition, a 3D placement, a shared state): links, crops and animations hang on them, and a screen that loses one still renders but no longer works.
 - If the instruction is ambiguous, make the smallest possible change that satisfies it and leave the rest untouched.
 - Return the COMPLETE updated component (the whole file, not a diff), keeping the same component name and export.
 - Use the same sentinel format: <<<MOCKY>>> ... <<<END>>>. No prose, no fences.`
@@ -838,6 +839,8 @@ export async function editComponent(
   signal?: AbortSignal,
   onChunk?: (partialCode: string) => void,
   caps?: Capability[],
+  /** What the call is filed under (server/admin/activity.js) — a brief's correction pass is not a person's edit. */
+  purpose: ChatPurpose = 'edit',
 ): Promise<GeneratedComponent> {
   const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
   const baseSystem = [extraSystem, SYSTEM_PROMPT, EDIT_RULES].filter(Boolean).join('\n\n')
@@ -867,7 +870,7 @@ export async function editComponent(
     signal,
     onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
     meta,
-    'edit',
+    purpose,
   )
   const kept = await keepLocks(existingCode, await guardMotion(extractCode(content)))
   return { raw: content, ...kept, componentName: detectComponentName(kept.code), truncated: meta.truncated }

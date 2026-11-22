@@ -29,7 +29,7 @@ import { CREATIVE_SECTION, CREATIVE_TEMPERATURE } from '../creative'
 import { askModel, creationsSection, inlineCreations, runCreationStage, type Creation } from '../creations/stage'
 import { listCreations, renderInSandbox, saveCreation } from '../creations/browser'
 import type { Settings } from '../settings'
-import { buildDocumentInspirationReference, buildDocumentLayoutReference, buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
+import { buildDocumentInspirationReference, buildDocumentLayoutReference, buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, editComponent, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Project, type Screen, type ScreenUltra } from '../project'
 import { filmMedia } from '../screenMedia'
 import { resolveDirection } from '../direction'
@@ -99,6 +99,9 @@ import { withAnimations } from '../animations'
 import { readLinkedReferences } from '../linkedImage'
 import { lintSlop } from '../lint'
 import { buildProvidedPicturesSection, type ProvidedPicture } from '../providedPictures'
+import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
+import { currentUsageRun, setUsageRun } from '../proxy'
+import { briefFixInstruction, briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
 
 /** What the run is busy with, for the composer's progress line. */
@@ -319,6 +322,8 @@ export interface NewScreenOutcome {
    * sheet, the one the rest of the publication will follow.
    */
   direction?: string
+  /** The trace of this run on the server (`GET /api/runs/:id`): its calls, timings and tokens. */
+  runId?: string
 }
 
 export function joinSystem(parts: Array<string | undefined>): string | undefined {
@@ -349,7 +354,34 @@ export function identityOrLayoutReference(
  * cleans up after itself first: a screen that was added but never received a
  * character is removed, while one with code in it is kept as the work it is.
  */
+/**
+ * Every model call of one new screen carries one run id (`x-mocky-run`), so
+ * the server can answer "what did this prompt cost" — calls, seconds, tokens
+ * (plans/sites-interactifs.md, §6). The id is released when the run ends,
+ * whatever way it ends.
+ */
 export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks): Promise<NewScreenOutcome> {
+  const runId = newRunId()
+  setUsageRun(runId)
+  try {
+    const out = await runNewScreenStages(req, hooks)
+    try {
+      ;(globalThis as { __mockyLastRun?: string }).__mockyLastRun = runId
+    } catch {
+      /* not a browser */
+    }
+    return { ...out, runId }
+  } finally {
+    if (currentUsageRun() === runId) setUsageRun(null)
+  }
+}
+
+function newRunId(): string {
+  const rnd = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Math.random().toString(36).slice(2) + Date.now().toString(36)
+  return `run_${rnd.slice(0, 24)}`
+}
+
+async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks): Promise<NewScreenOutcome> {
   const {
     text,
     settings,
@@ -460,7 +492,15 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
      * switches off every NEW picture outside Motion Ultra — Muse's, a site's
      * replaced ones — and leaves the project's existing pictures on offer.
      */
-    const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff
+    /*
+     * Pictures the brief imposes by address (lib/briefMedia.ts) are the page's
+     * pictures: Muse's page pictures, its mood plate, a site's replacements and
+     * a Motion Ultra series would be paid for and then compete with them for the
+     * same slots (cahier, "les illustrations imposées gardent la priorité").
+     * Read here, before any of those stages, with no model.
+     */
+    const briefImposesPictures = !reproducing && !pipe.document && briefImageCount(extractBriefMedia(text)) > 0
+    const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff && !briefImposesPictures
     const pictureSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
     const formHint = withScreenTheme(pipe.format ? documentHint(pipe.format, runFold) : preset.hint, runTheme)
     /** Motion Ultra for THIS run: the project's setting, unless the screen is a document. */
@@ -996,8 +1036,10 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         const total = board.images.length
         hooks.setUltraStage(t('project.ultraStageImages', { done: 0, total }))
         const failures: string[] = []
-        const finder = effectiveImageSource === 'stock' ? await stockFinder(ultraCount) : undefined
-        const made = await generateUltraImages(board, project.id, {
+        const finder = effectiveImageSource === 'stock' && !briefImposesPictures ? await stockFinder(ultraCount) : undefined
+        // The brief brought its own pictures: the storyboard keeps its sections
+        // and recipes, and the series is not made (see briefImposesPictures).
+        const made = briefImposesPictures ? [] : await generateUltraImages(board, project.id, {
           signal: signal,
           onImage: (_im, done) => hooks.setUltraStage(t('project.ultraStageImages', { done, total })),
           onError: (msg) => failures.push(msg),
@@ -1007,14 +1049,14 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         })
         // In storyboard order, since the finder runs one picture at a time.
         if (finder) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
-        if (made.length < total) {
+        if (!briefImposesPictures && made.length < total) {
           hooks.setMuseImageError(
             t('project.ultraImagesMissing', { made: made.length, total, reason: failures[0] || '—' }),
           )
         }
         ultraFilmSection = ultraVideo ? filmSectionOf(board.sections, board.mode) : null
         planSection = [
-          buildUltraPreamble(board, made, { filmSection: ultraFilmSection }),
+          buildUltraPreamble(briefImposesPictures ? { ...board, images: [] } : board, made, { filmSection: ultraFilmSection }),
           modeToPromptSection(mode),
         ].join('\n\n')
         ultraRecord = {
@@ -1154,6 +1196,18 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // own picture, and only when there are some.
     const provided = req.providedPictures?.length ? req.providedPictures : null
     if (provided) planSection = [planSection, buildProvidedPicturesSection(provided)].filter(Boolean).join('\n\n')
+    // Media the brief names by address (lib/briefMedia.ts): allowed by their
+    // exact address, and what the preview cannot play is said by name. Not on
+    // a reproduction, whose pictures are read off the screenshot and replaced.
+    const briefMedia = reproducing ? [] : extractBriefMedia(text)
+    if (!reproducing) {
+      const mediaSection = buildBriefMediaSection(briefMedia)
+      if (mediaSection) planSection = [planSection, mediaSection].filter(Boolean).join('\n\n')
+      for (const m of briefMedia) {
+        if (m.kind === 'video') hooks.notice(t('project.briefVideoBlocked', { url: m.url }))
+        else if (m.kind === 'script') hooks.notice(t('project.briefScriptBlocked', { url: m.url }))
+      }
+    }
     // Last, so on a reproduction it is the final word over the base rules' taste.
     if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
     if (req.flowContext) planSection = [planSection, req.flowContext].filter(Boolean).join('\n\n')
@@ -1303,6 +1357,44 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     hooks.screenWritten(screenId)
     // Every picture of the series was paid for; one the page left out is
     // worth a sentence (see lib/ultra/check.ts).
+    // What the brief imposed and the code left out (lib/briefCheck.ts), and
+    // the ONE correction pass that may follow — decided with the user: at most
+    // one, only when a check failed, only on a brief that imposed pictures (a
+    // page that merely says "carousel" never pays for it), never on an
+    // assistant's own code (MCP "client" engine) nor on a cut answer. Kept only
+    // if it fixed something and broke nothing the checks can see; otherwise the
+    // first answer stays and the notices say what is still missing.
+    {
+      let missing = missingBriefImages(result.code, briefMedia)
+      let unused = interactUnused(result.code, capIds)
+      const worth = !req.writer && !result.truncated && briefImposesPictures && (missing.length > 0 || unused)
+      if (worth) {
+        const first = result.code
+        try {
+          const fixed = await editComponent(
+            settings, briefFixInstruction(text, missing, unused), first, extraSystem, undefined, signal,
+            (partial) => hooks.updateScreen(screenId, { code: partial }), caps, 'brief-fix',
+          )
+          const m2 = fixed.code.trim() && !fixed.truncated ? missingBriefImages(fixed.code, briefMedia) : null
+          const u2 = m2 ? interactUnused(fixed.code, capIds) : true
+          const better = m2 !== null && m2.length <= missing.length && (!u2 || unused) && (m2.length < missing.length || (unused && !u2))
+          if (better) {
+            result.code = fixed.code
+            result.componentName = fixed.componentName
+            hooks.notice(t('project.briefFixed', { fixed: missing.length - m2.length + (unused && !u2 ? 1 : 0) }))
+            missing = m2
+            unused = u2
+          }
+          hooks.updateScreen(screenId, { code: result.code, componentName: result.componentName })
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') throw err
+          if (signal.aborted) throw err
+          hooks.updateScreen(screenId, { code: first })
+        }
+      }
+      if (missing.length) hooks.notice(t('project.briefImagesUnused', { count: missing.length, total: briefImageCount(briefMedia), list: missing.slice(0, 3).join(' · ') }))
+      if (unused) hooks.notice(t('project.interactUnused'))
+    }
     if (ultraRecord) {
       const said: string[] = []
       const unused = missingUltraImages(result.code, ultraRecord)

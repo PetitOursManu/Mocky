@@ -24,6 +24,7 @@ import { ultraLoss } from '../ultra/check'
 import type { ScreenQuality, Screen } from '../project'
 import type { Settings } from '../settings'
 import { joinSystem } from './newScreen'
+import { interactLoss, type InteractLoss } from '../briefCheck'
 
 /**
  * The capabilities a pass on this screen may use: the ones it already has, or —
@@ -46,6 +47,8 @@ export interface EditedScreen {
   loss: ReturnType<typeof ultraLoss> | null
   /** Locked elements the edit had changed, written back as they were (lib/locks.ts). */
   locksRestored?: string[]
+  /** What an interactive screen lost to the edit (lib/briefCheck.ts) — said, never undone. */
+  interactLost?: InteractLoss | null
 }
 
 /**
@@ -73,6 +76,7 @@ export async function editScreen(req: {
     caps: capabilitiesFor(capIds, res.code),
     loss: screen.ultra ? ultraLoss(screen.code, res.code, screen.ultra) : null,
     locksRestored: res.locksRestored,
+    interactLost: interactLoss(screen.code, res.code),
   }
 }
 

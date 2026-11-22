@@ -110,7 +110,12 @@ export function capabilitiesUsedBy(code: string): string[] {
       // `<Animated`, `<Icon.Mail`, `Icon.Mail`, or the bare identifier in an
       // expression. Escaped because a name could in principle contain a dot.
       const n = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      if (new RegExp(`<\\s*${n}[\\s/>.]|\\b${n}\\s*\\.`).test(code)) {
+      // A lowercase name is a hook or a function (`useGlideTrack(…)`,
+      // `sheetCropSvg(…)`): it is called, never written as a tag. Capitalised
+      // names keep the tag-or-namespace rule, because `function Counter(` is
+      // how a screen declares its OWN component.
+      const called = /^[a-z]/.test(name) ? `|\\b${n}\\s*\\(` : ''
+      if (new RegExp(`<\\s*${n}[\\s/>.]|\\b${n}\\s*\\.${called}`).test(code)) {
         out.add(cap.id)
         break
       }

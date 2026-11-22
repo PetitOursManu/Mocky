@@ -270,6 +270,7 @@ export default function Canvas({
   onOpenScreenNotes,
   onContentHeight,
   onDocPages,
+  onCropProblem,
   onDownloadDocument,
   animations,
   onDownloadScreen,
@@ -341,6 +342,8 @@ export default function Canvas({
   onContentHeight?: (screenId: string, height: number) => void
   /** A DOCUMENT's page kit reported its pages — raw, see Preview's `onDocPages`. */
   onDocPages?: (screenId: string, count: unknown, overflow: unknown, format: unknown, fold?: unknown) => void
+  /** A crop of a picture sheet the screen could not draw — see Preview's `onCropProblem`. */
+  onCropProblem?: (screenId: string, problem: { name: string; problem: string; box: string }) => void
   /** Open the download dialog of a DOCUMENT screen. Absent = no button. */
   onDownloadDocument?: (screenId: string) => void
   /** false = "Sans animation" — passed through to every preview. */
@@ -1405,6 +1408,7 @@ export default function Canvas({
                     // them — and would narrow the page it is measuring.
                     hideScrollbars={s.device === 'iphone' || !!s.page}
                     onDocPages={s.page ? (count, overflow, format, fold) => onDocPages?.(s.id, count, overflow, format, fold) : undefined}
+                    onCropProblem={onCropProblem ? (p) => onCropProblem(s.id, p) : undefined}
                     radius={s.page ? '0' : '1rem'}
                     captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
                     onCaptureRect={onCaptureRect}
