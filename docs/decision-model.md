@@ -72,11 +72,21 @@ sentence you can read in **The grid**, under the results.
 A decision model does not write. It answers short, typed questions: a yes or a
 no, a score on a scale described in words, one option from a list. It answers
 fast and cheaply, and it reports how confident it is. Mocky supports one today:
-**Jev**, from [TypeSafe](https://docs.typesafe.ai).
+**Jev**, from [TypeSafe](https://docs.typesafe.ai). TypeSafe sells it, and so do
+gateways that resell it under the same API:
+
+| Provider | Key | Model filled in |
+|---|---|---|
+| TypeSafe | console.typesafe.ai | `jev-latest` |
+| [OpenRouter](https://openrouter.ai/docs/guides/community/typesafe-sdk) | your OpenRouter key | `~typesafe/jev-latest` |
+| [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/sdks-and-apis/typesafe) | an AI Gateway key | `typesafe-ai/jev` |
+| [Opper](https://opper.ai/typesafe/jev-1-14-0) | your Opper key (Jev is "premium" there: a card on file) | `typesafe/jev-1.14.0` |
+| Another System One–compatible gateway | that gateway's key | to fill in, with its address |
 
 Set it up in **Admin → Providers → Decision model**. Choose the provider, paste
-an API key from console.typesafe.ai, save, then **Test**. The key never leaves
-the server and is never shown again.
+its API key, save, then **Test**. Each provider keeps its own address, model and
+key, so switching from one to another loses nothing. A key never leaves the
+server and is never shown again.
 
 When a decision model is set up, it answers every evaluation of the audit.
 Muse's text model still writes the grid and the synthesis. When none is set up,
@@ -109,8 +119,11 @@ Who reaches it:
 - **Accounts on the free plan do not**, and neither do accounts on their own
   key. The decision model is billed to the instance ([the free plan](free-plan.md)).
   Their text model answers instead.
-- **Its calls are counted** in **Spending**, under the provider `typesafe`,
-  priced from the input tokens ($42 per billion; output is free).
+- **Its calls are counted** in **Spending**, under the provider you chose. The
+  price is the one the gateway reports when it reports one (OpenRouter,
+  Vercel), otherwise the list price on the input tokens ($42 per billion at
+  TypeSafe; output is free). A gateway typed by hand has no list price: its
+  calls are counted without one.
 - **Pictures are off.** TypeSafe still presents picture input as not ready for
   production, and the audit sends none.
 

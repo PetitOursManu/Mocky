@@ -6,42 +6,62 @@
 // takes prose (the grid, the explanations, the synthesis); this model takes the
 // many short, repetitive judgements an audit is made of (docs/decision-model.md).
 //
-// The first, and today the only, provider is TypeSafe's Jev
-// (https://docs.typesafe.ai). Its API is its own — not OpenAI-shaped — which is
-// why this is a store of its own and not a fourth text profile: a text profile
-// is something `/__provider` and `museChat` can both speak to, and neither can
-// speak to this.
+// The model today is TypeSafe's Jev, and it is served by TypeSafe itself and by
+// gateways that resell it. Every gateway below implements TypeSafe's System
+// One request and response shapes at `<baseUrl>/v1/systemone` — checked
+// 2026-11-22 against each one's own documentation (the URL is on each entry) —
+// so a provider here is DATA: an address, a model id, how it reports a price.
+// Its API is not OpenAI-shaped, which is why this is a store of its own and not
+// a fourth text profile: neither `/__provider` nor `museChat` can speak to it.
 //
-// Same trust model as server/text/config.js: the key lives server-side, is only
-// ever writable by an administrator, and `publicView()` never returns it. The
-// base URL is an administrator's, so it is trusted past the SSRF guard like the
-// text provider's — and like it, it is never anything a browser sent.
+// Left out on purpose: Cloudflare AI Gateway (no official page for Jev found),
+// and OpenRouter's and Vercel's native decision APIs (`/api/alpha/decisions`,
+// `/v1/evaluate`) — each gateway's System One surface is the one shape all of
+// them share, and a second dialect would buy nothing.
+//
+// Same trust model as server/text/config.js: keys live server-side, are only
+// ever writable by an administrator, and `publicView()` never returns one. Each
+// provider keeps its OWN record, so switching from TypeSafe to OpenRouter and
+// back does not lose a key. The base URL is an administrator's, trusted past
+// the SSRF guard like the text provider's, and never anything a browser sent.
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 
-/** The providers an administrator can choose. One for now; data, not code. */
+/**
+ * The providers an administrator can choose, in the order shown.
+ *
+ * `price` is what the spending ledger charges per input token when the answer
+ * carries no cost of its own (output is free on every one of them); `null`
+ * means "the answer says". `cost` names where an answer carries its cost:
+ * OpenRouter puts it in `usage.cost`, Vercel in `provider_metadata.gateway.cost`.
+ */
 export const DECISION_PROVIDERS = [
-  {
-    id: 'typesafe',
-    label: 'TypeSafe (Jev)',
-    baseUrl: 'https://api.typesafe.ai',
-    model: 'jev-latest',
-    // $42 per billion input tokens, output free (typesafe.ai pricing, 2026-11).
-    // What the spending ledger prices a call at, since the API reports tokens
-    // and not a price.
-    inputPricePerToken: 42e-9,
-  },
+  // https://docs.typesafe.ai/api — the maker's own API. $42 per billion input tokens.
+  { id: 'typesafe', label: 'TypeSafe (Jev)', baseUrl: 'https://api.typesafe.ai', model: 'jev-latest', price: 42e-9 },
+  // https://openrouter.ai/docs/guides/community/typesafe-sdk — "implements
+  // TypeSafe's request and response shapes"; an OpenRouter key; bare TypeSafe
+  // ids are mapped, `~typesafe/jev-latest` follows the newest release.
+  { id: 'openrouter', label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api', model: '~typesafe/jev-latest', price: 42e-9, cost: 'usage' },
+  // https://vercel.com/docs/ai-gateway/sdks-and-apis/typesafe — an AI Gateway
+  // key; the docs name the model `typesafe-ai/jev` and no version.
+  { id: 'vercel', label: 'Vercel AI Gateway', baseUrl: 'https://ai-gateway.vercel.sh/typesafe', model: 'typesafe-ai/jev', price: 42e-9, cost: 'gateway' },
+  // https://opper.ai/typesafe/jev-1-14-0 — its cURL example posts the TypeSafe
+  // shape to /v3/compat/v1/systemone. $0.04 per million input tokens there.
+  { id: 'opper', label: 'Opper', baseUrl: 'https://api.opper.ai/v3/compat', model: 'typesafe/jev-1.14.0', price: 40e-9 },
+  // Last, always: another gateway that serves the System One shape, by hand.
+  { id: 'systemone-compatible', label: 'Compatible System One (autre passerelle)', baseUrl: '', model: '', price: null },
 ]
 export const DECISION_PROVIDER_IDS = DECISION_PROVIDERS.map((p) => p.id)
 const byId = (id) => DECISION_PROVIDERS.find((p) => p.id === id) || null
 
 export function defaultDecisionConfig() {
-  const def = DECISION_PROVIDERS[0]
   // `images` is OFF by default: TypeSafe labels its image input as not yet
   // ready for production (the `TypeSafe-Danger-Zone-Images` header). Mocky's
   // audit reads source and words, so nothing is lost by leaving it off.
-  return { provider: '', baseUrl: def.baseUrl, model: def.model, apiKey: '', images: false }
+  const c = { provider: '', images: false }
+  for (const def of DECISION_PROVIDERS) c[def.id] = { baseUrl: def.baseUrl, model: def.model, apiKey: '' }
+  return c
 }
 
 const str = (v, fallback = '') => (typeof v === 'string' ? v.trim() : fallback)
@@ -54,49 +74,68 @@ const secret = (next, prev) => {
   return s === '' ? prev : s
 }
 
-export function mergeDecisionConfig(current, patch) {
-  const base = { ...defaultDecisionConfig(), ...(current && typeof current === 'object' ? current : {}) }
-  const p = patch && typeof patch === 'object' ? patch : {}
-  const provider = p.provider === '' || DECISION_PROVIDER_IDS.includes(p.provider) ? p.provider : base.provider
-  const def = byId(provider) || DECISION_PROVIDERS[0]
-  return {
-    provider: DECISION_PROVIDER_IDS.includes(provider) || provider === '' ? provider : '',
-    baseUrl: str(p.baseUrl, base.baseUrl) || def.baseUrl,
-    model: str(p.model, base.model) || def.model,
-    apiKey: secret(p.apiKey, typeof base.apiKey === 'string' ? base.apiKey : ''),
-    images: p.images !== undefined ? p.images === true : base.images === true,
-  }
+/**
+ * The first version of this file kept ONE flat record, for TypeSafe — the only
+ * provider then. Lift it into TypeSafe's own record so a saved key survives.
+ */
+function liftFlat(raw) {
+  if (!raw || typeof raw !== 'object') return raw
+  if (raw.typesafe || !('apiKey' in raw || 'baseUrl' in raw || 'model' in raw)) return raw
+  const { baseUrl, model, apiKey, ...rest } = raw
+  return { ...rest, typesafe: { baseUrl, model, apiKey } }
 }
 
-/** Browser-safe projection: the key replaced by a boolean. */
+export function mergeDecisionConfig(current, patch) {
+  const base = { ...defaultDecisionConfig(), ...(liftFlat(current) || {}) }
+  const p = liftFlat(patch && typeof patch === 'object' ? patch : {}) || {}
+  const out = {
+    provider: p.provider === '' || DECISION_PROVIDER_IDS.includes(p.provider) ? p.provider : DECISION_PROVIDER_IDS.includes(base.provider) ? base.provider : '',
+    images: p.images !== undefined ? p.images === true : base.images === true,
+  }
+  for (const def of DECISION_PROVIDERS) {
+    const cur = base[def.id] && typeof base[def.id] === 'object' ? base[def.id] : {}
+    const next = p[def.id] && typeof p[def.id] === 'object' ? p[def.id] : {}
+    out[def.id] = {
+      baseUrl: str(next.baseUrl, str(cur.baseUrl, def.baseUrl)),
+      model: str(next.model, str(cur.model, def.model)),
+      apiKey: secret(next.apiKey, typeof cur.apiKey === 'string' ? cur.apiKey : ''),
+    }
+  }
+  return out
+}
+
+/** Browser-safe projection: keys replaced by booleans. */
 export function publicDecisionConfig(cfg) {
   const c = mergeDecisionConfig(cfg, {})
-  return {
+  const out = {
     providers: DECISION_PROVIDERS.map((p) => ({ id: p.id, label: p.label, baseUrl: p.baseUrl, model: p.model })),
     provider: c.provider,
-    baseUrl: c.baseUrl,
-    model: c.model,
     images: c.images,
-    hasApiKey: Boolean(c.apiKey),
     configured: Boolean(resolveDecisionTarget(c)),
   }
+  for (const def of DECISION_PROVIDERS) {
+    out[def.id] = { baseUrl: c[def.id].baseUrl, model: c[def.id].model, hasApiKey: Boolean(c[def.id].apiKey) }
+  }
+  return out
 }
 
 /**
  * The target a call goes to, or null when no decision model is set up — and
  * null means the caller asks Muse's text model instead (decide.js). A provider
- * chosen with no key is not a target: TypeSafe refuses every unauthenticated
- * call, and a target that can only fail would turn every audit into a retry.
+ * chosen with no key is not a target: every one of them refuses an
+ * unauthenticated call, and a target that can only fail would turn every audit
+ * into a retry.
  */
 export function resolveDecisionTarget(cfg) {
-  const c = cfg || {}
+  const c = liftFlat(cfg) || {}
   const def = byId(c.provider)
   if (!def) return null
-  const baseUrl = str(c.baseUrl, def.baseUrl).replace(/\/+$/, '')
-  const model = str(c.model, def.model)
-  const apiKey = str(c.apiKey)
+  const v = c[def.id] && typeof c[def.id] === 'object' ? c[def.id] : {}
+  const baseUrl = str(v.baseUrl, def.baseUrl).replace(/\/+$/, '')
+  const model = str(v.model, def.model)
+  const apiKey = str(v.apiKey)
   if (!baseUrl || !model || !apiKey) return null
-  return { id: def.id, baseUrl, model, apiKey, images: c.images === true, inputPricePerToken: def.inputPricePerToken }
+  return { id: def.id, baseUrl, model, apiKey, images: c.images === true, inputPricePerToken: def.price, cost: def.cost || null }
 }
 
 export class DecisionConfigStore {
@@ -131,7 +170,7 @@ export class DecisionConfigStore {
     try {
       fs.mkdirSync(path.dirname(this.file), { recursive: true })
       const tmp = `${this.file}.${crypto.randomBytes(6).toString('hex')}.tmp`
-      // 0600: the key is in clear text, as in text-config.json.
+      // 0600: the keys are in clear text, as in text-config.json.
       fs.writeFileSync(tmp, JSON.stringify(this.config, null, 2), { mode: 0o600 })
       fs.renameSync(tmp, this.file)
     } catch (err) {

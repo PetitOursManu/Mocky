@@ -32,14 +32,22 @@ export interface AuthUser {
 /** Admin → Users → Kosmy Board. The secret is write-only: only `hasSecret` comes back. */
 /** Admin → Providers → Decision model (server/decision/config.js). The key never comes back. */
 export interface DecisionModelSettings {
+  /** TypeSafe and the gateways that resell Jev, each with its default address and model. */
   providers: Array<{ id: string; label: string; baseUrl: string; model: string }>
+  /** The chosen one, or '' (Muse's text model answers). */
   provider: string
-  baseUrl: string
-  model: string
   images: boolean
-  hasApiKey: boolean
   configured: boolean
   persistError?: boolean
+  /** Each provider's own record: switching does not lose a key. */
+  [id: string]: unknown
+}
+
+/** One provider's record in `DecisionModelSettings`. */
+export interface DecisionProviderRecord {
+  baseUrl: string
+  model: string
+  hasApiKey: boolean
 }
 
 export interface KosmyBoardSettings {
@@ -742,8 +750,8 @@ export const api = {
     getConfig: () => req('/api/admin/config') as Promise<AdminConfig>,
     decision: {
       get: () => req('/api/admin/decision/config') as Promise<DecisionModelSettings>,
-      /** An empty `apiKey` keeps the stored one; null clears it. */
-      set: (patch: { provider?: string; baseUrl?: string; model?: string; apiKey?: string | null; images?: boolean }) =>
+      /** Per provider: an empty `apiKey` keeps the stored one; null clears it. */
+      set: (patch: { provider?: string; images?: boolean } & Record<string, unknown>) =>
         req('/api/admin/decision/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<DecisionModelSettings>,
       test: () =>
         req('/api/admin/decision/test', { method: 'POST' }) as Promise<{ ok: boolean; model?: string; ms?: number; code?: string; error?: string }>,

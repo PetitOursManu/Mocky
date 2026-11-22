@@ -233,7 +233,8 @@ The Audit panel's "Le projet" tab, and the MCP tool `audit_project` (read).
 User doc `docs/decision-model.md`.
 
 ```
-server/decision/config.js    the admin's decision model (TypeSafe's Jev); the key never leaves
+server/decision/config.js    the admin's decision model: Jev from TypeSafe, OpenRouter, Vercel,
+                             Opper or a gateway typed by hand — one record (key) each
 server/decision/jev.js       POST /v1/systemone: score / noul / choice, answers checked
 server/decision/decide.js    one door: Jev when set up, else Muse's text model, same answer shape
 server/decision/grid.js      six criteria with FIXED ids, wording tailored by Muse

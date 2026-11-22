@@ -1,7 +1,7 @@
 ---
 description: Auditer toutes les pages d’un projet selon une même grille tirée de son objectif. Un modèle de décision note les pages ; Muse explique ce que disent les notes.
 badge: Nouveau
-source_hash: 9185ba75ffba
+source_hash: cb1da804d3a1
 ---
 
 # Audit de projet et modèle de décision
@@ -76,10 +76,21 @@ Un modèle de décision n’écrit pas. Il répond à des questions courtes et t
 un oui ou un non, une note sur une échelle décrite en mots, une option parmi une
 liste. Il répond vite, à bas coût, et indique son niveau de confiance. Mocky en
 prend un en charge aujourd’hui : **Jev**, de [TypeSafe](https://docs.typesafe.ai).
+TypeSafe le vend, ainsi que des passerelles qui le revendent avec la même API :
+
+| Fournisseur | Clé | Modèle prérempli |
+|---|---|---|
+| TypeSafe | console.typesafe.ai | `jev-latest` |
+| [OpenRouter](https://openrouter.ai/docs/guides/community/typesafe-sdk) | votre clé OpenRouter | `~typesafe/jev-latest` |
+| [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/sdks-and-apis/typesafe) | une clé AI Gateway | `typesafe-ai/jev` |
+| [Opper](https://opper.ai/typesafe/jev-1-14-0) | votre clé Opper (Jev y est « premium » : une carte doit être enregistrée) | `typesafe/jev-1.14.0` |
+| Autre passerelle compatible System One | la clé de cette passerelle | à remplir, avec son adresse |
 
 Configurez-le dans **Admin → Fournisseurs → Modèle de décision**. Choisissez le
-fournisseur, collez une clé d’API créée sur console.typesafe.ai, enregistrez, puis
-**Testez**. La clé ne quitte jamais le serveur et n’est plus jamais affichée.
+fournisseur, collez sa clé d’API, enregistrez, puis **Testez**. Chaque
+fournisseur garde sa propre adresse, son modèle et sa clé : passer de l’un à
+l’autre ne fait rien perdre. Une clé ne quitte jamais le serveur et n’est plus
+jamais affichée.
 
 Quand un modèle de décision est configuré, il répond à toutes les évaluations de
 l’audit. Le modèle de texte de Muse écrit toujours la grille et la synthèse.
@@ -113,9 +124,11 @@ Qui y a accès :
 - **Pas les comptes du plan gratuit**, ni ceux qui utilisent leur propre clé. Le
   modèle de décision est facturé à l’instance ([le plan gratuit](free-plan.md)).
   Leur modèle de texte répond à sa place.
-- **Ses appels sont comptés** dans **Dépenses**, sous le fournisseur
-  `typesafe`, au prix des jetons d’entrée (42 $ le milliard ; la sortie est
-  gratuite).
+- **Ses appels sont comptés** dans **Dépenses**, sous le fournisseur choisi.
+  Le prix est celui qu’indique la passerelle quand elle l’indique (OpenRouter,
+  Vercel), sinon le prix catalogue des jetons d’entrée (42 $ le milliard chez
+  TypeSafe ; la sortie est gratuite). Une passerelle saisie à la main n’a pas de
+  prix catalogue : ses appels sont comptés sans prix.
 - **Les images sont désactivées.** TypeSafe présente encore la lecture d’images
   comme non prête pour la production, et l’audit n’en envoie pas.
 

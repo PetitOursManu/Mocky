@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { DecisionConfigStore, mergeDecisionConfig, publicDecisionConfig, resolveDecisionTarget } from './config.js'
-import { askSystemOne, fromSystemOneAnswer, toSystemOneQuestions } from './jev.js'
+import { askSystemOne, costOf, fromSystemOneAnswer, toSystemOneQuestions } from './jev.js'
 import { cleanQuestions, readAnswer } from './questions.js'
 import { askTextModel, makeDecider } from './decide.js'
 import { cleanGrid, CRITERIA_IDS, defaultGrid, tailorGrid } from './grid.js'
@@ -27,24 +27,65 @@ describe('the decision-model setting', () => {
   it('is not a target without a key, and never shows the key', () => {
     const none = mergeDecisionConfig({}, { provider: 'typesafe' })
     expect(resolveDecisionTarget(none)).toBeNull()
-    const set = mergeDecisionConfig(none, { apiKey: 'secret-1' })
+    const set = mergeDecisionConfig(none, { typesafe: { apiKey: 'secret-1' } })
     expect(resolveDecisionTarget(set)).toMatchObject({ id: 'typesafe', model: 'jev-latest', apiKey: 'secret-1' })
     const view = publicDecisionConfig(set)
     expect(JSON.stringify(view)).not.toContain('secret-1')
-    expect(view).toMatchObject({ hasApiKey: true, configured: true, images: false })
+    expect(view).toMatchObject({ typesafe: { hasApiKey: true }, configured: true, images: false })
+  })
+
+  it('offers every gateway that serves the System One shape, each with its own address', () => {
+    const view = publicDecisionConfig({})
+    expect(view.providers.map((p) => p.id)).toEqual(['typesafe', 'openrouter', 'vercel', 'opper', 'systemone-compatible'])
+    expect(view.openrouter).toMatchObject({ baseUrl: 'https://openrouter.ai/api', model: '~typesafe/jev-latest', hasApiKey: false })
+    expect(view.vercel.baseUrl).toBe('https://ai-gateway.vercel.sh/typesafe')
+  })
+
+  it('keeps each provider\u2019s key when switching between them', () => {
+    let c = mergeDecisionConfig({}, { provider: 'typesafe', typesafe: { apiKey: 't' } })
+    c = mergeDecisionConfig(c, { provider: 'openrouter', openrouter: { apiKey: 'o' } })
+    expect(resolveDecisionTarget(c)).toMatchObject({ id: 'openrouter', baseUrl: 'https://openrouter.ai/api', apiKey: 'o', cost: 'usage' })
+    c = mergeDecisionConfig(c, { provider: 'typesafe' })
+    expect(resolveDecisionTarget(c)?.apiKey).toBe('t')
+  })
+
+  it('needs an address and a model for a gateway typed by hand', () => {
+    const c = mergeDecisionConfig({}, { provider: 'systemone-compatible', 'systemone-compatible': { apiKey: 'k' } })
+    expect(resolveDecisionTarget(c)).toBeNull()
+    const set = mergeDecisionConfig(c, { 'systemone-compatible': { baseUrl: 'https://gw.example/api/', model: 'jev' } })
+    expect(resolveDecisionTarget(set)).toMatchObject({ baseUrl: 'https://gw.example/api', model: 'jev', inputPricePerToken: null })
   })
 
   it('keeps a key on an empty field and clears it on null', () => {
-    const set = mergeDecisionConfig({}, { provider: 'typesafe', apiKey: 'a' })
-    expect(mergeDecisionConfig(set, { apiKey: '' }).apiKey).toBe('a')
-    expect(mergeDecisionConfig(set, { apiKey: null }).apiKey).toBe('')
+    const set = mergeDecisionConfig({}, { provider: 'typesafe', typesafe: { apiKey: 'a' } })
+    expect(mergeDecisionConfig(set, { typesafe: { apiKey: '' } }).typesafe.apiKey).toBe('a')
+    expect(mergeDecisionConfig(set, { typesafe: { apiKey: null } }).typesafe.apiKey).toBe('')
     expect(mergeDecisionConfig(set, { provider: 'nope' }).provider).toBe('typesafe')
+  })
+
+  it('lifts the first, flat shape into TypeSafe\u2019s record', () => {
+    const c = mergeDecisionConfig({ provider: 'typesafe', baseUrl: 'https://api.typesafe.ai', model: 'jev-1.14.0', apiKey: 'old' }, {})
+    expect(resolveDecisionTarget(c)).toMatchObject({ id: 'typesafe', model: 'jev-1.14.0', apiKey: 'old' })
   })
 
   it('persists to a 0600 file and reads it back', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mocky-decision-'))
-    new DecisionConfigStore(dir).update({ provider: 'typesafe', apiKey: 'z' })
-    expect(new DecisionConfigStore(dir).target()?.apiKey).toBe('z')
+    new DecisionConfigStore(dir).update({ provider: 'opper', opper: { apiKey: 'z' } })
+    expect(new DecisionConfigStore(dir).target()).toMatchObject({ id: 'opper', baseUrl: 'https://api.opper.ai/v3/compat', apiKey: 'z' })
+  })
+})
+
+describe('what a call cost', () => {
+  it('reads the gateway\u2019s own figure, else the list price, else nothing', () => {
+    expect(costOf({ usage: { cost: 0.00003 } }, { cost: 'usage', inputPricePerToken: 42e-9 }, 1000)).toBe(0.00003)
+    expect(costOf({ provider_metadata: { gateway: { cost: '0.00001155' } } }, { cost: 'gateway', inputPricePerToken: 42e-9 }, 1000)).toBe(0.00001155)
+    expect(costOf({ usage: {} }, { cost: 'usage', inputPricePerToken: 42e-9 }, 1000)).toBeCloseTo(0.000042, 9)
+    expect(costOf({}, { inputPricePerToken: null }, 1000)).toBeNull()
+  })
+
+  it('names an account out of credit', async () => {
+    const q = cleanQuestions([{ id: 'a', type: 'check', instructions: 'x' }])
+    await expect(askSystemOne(TARGET, { state: 'x', questions: q }, { fetchImpl: status(402) })).rejects.toMatchObject({ code: 'credits' })
   })
 })
 
@@ -93,7 +134,8 @@ describe('questions and answers', () => {
     expect(capture.headers.authorization).toBe('Bearer k')
     expect(capture.body).toMatchObject({ model: 'jev-latest', state: 'Site down' })
     expect(Object.keys(answers)).toEqual(['urgent'])
-    expect(usage[0]).toMatchObject({ model: 'jev-1.14.0', input: 1000, output: 5, cost: expect.closeTo(0.000042, 9) })
+    // The id asked for, not the snapshot echoed back: one ledger line per model.
+    expect(usage[0]).toMatchObject({ model: 'jev-latest', input: 1000, output: 5, cost: expect.closeTo(0.000042, 9) })
   })
 
   it('throws with a code a fallback can read', async () => {
