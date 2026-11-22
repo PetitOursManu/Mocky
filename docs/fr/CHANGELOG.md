@@ -14,6 +14,12 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `fonts` | Noto Sans JP et Noto Serif SC, surcoût du brief annoncé au composeur | `7d965bb` |
+| `interact` | passage de correction borné, documentation et invariants S1–S5 | `f73c952` |
+| `interact` | trace par génération, découpes signalées, retouches surveillées | `dc779b0` |
+| `interact` | objet qui voyage entre sections, contrôles après génération | `b1f7bb2` |
+| `interact` | 3D en CSS — pavés, caméra, murs en anneau | `d650a29` |
+| `interact` | socle des sites interactifs et médias imposés par le brief | `8317891` |
 | `admin` | barre de recherche dans tous les réglages | `af25a24` |
 | `muse` | Jev chez plusieurs fournisseurs | `1756add` |
 | `muse` | modèle de décision (Jev) et audit de projet | `2c92f9d` |
