@@ -158,7 +158,7 @@ export default function AssistantsSection() {
             )}
           </div>
 
-          <label className={`flex items-start gap-3 rounded-lg border border-line-soft bg-ink/5 p-3 ${locked ? 'opacity-60' : 'cursor-pointer'}`}>
+          <label data-admin-setting="mcp" className={`flex items-start gap-3 rounded-lg border border-line-soft bg-ink/5 p-3 ${locked ? 'opacity-60' : 'cursor-pointer'}`}>
             <input
               type="checkbox"
               className="mt-0.5 h-4 w-4 accent-accent"
@@ -173,7 +173,7 @@ export default function AssistantsSection() {
           </label>
 
           {/* Assistant keys: a door of their own, closed by default (X8). */}
-          <label className={`flex items-start gap-3 rounded-lg border border-line-soft bg-ink/5 p-3 ${locked ? 'opacity-60' : 'cursor-pointer'}`}>
+          <label data-admin-setting="mcp-keys" className={`flex items-start gap-3 rounded-lg border border-line-soft bg-ink/5 p-3 ${locked ? 'opacity-60' : 'cursor-pointer'}`}>
             <input
               type="checkbox"
               className="mt-0.5 h-4 w-4 accent-accent"
@@ -267,34 +267,38 @@ export default function AssistantsSection() {
           {/* Who writes the code. One choice of three rather than two boxes:
               "neither" is not a state an MCP server that makes designs can be in,
               and the server refuses it anyway (config.js). */}
-          <Field label={t('mcp.admin.engines')} hint={t('mcp.admin.enginesHelp')}>
-            {(p) => (
-              <Select
-                {...p}
-                value={draft.engines?.client ? (draft.engines.mocky ? 'both' : 'client') : 'mocky'}
-                onChange={(e) => {
-                  const v = e.currentTarget.value
-                  setDraft({ ...draft, engines: { mocky: v !== 'client', client: v !== 'mocky' } })
-                }}
-              >
-                <option value="mocky">{t('mcp.admin.engines.mocky')}</option>
-                <option value="both">{t('mcp.admin.engines.both')}</option>
-                <option value="client">{t('mcp.admin.engines.client')}</option>
-              </Select>
-            )}
-          </Field>
+          <div data-admin-setting="mcp-engines">
+            <Field label={t('mcp.admin.engines')} hint={t('mcp.admin.enginesHelp')}>
+              {(p) => (
+                <Select
+                  {...p}
+                  value={draft.engines?.client ? (draft.engines.mocky ? 'both' : 'client') : 'mocky'}
+                  onChange={(e) => {
+                    const v = e.currentTarget.value
+                    setDraft({ ...draft, engines: { mocky: v !== 'client', client: v !== 'mocky' } })
+                  }}
+                >
+                  <option value="mocky">{t('mcp.admin.engines.mocky')}</option>
+                  <option value="both">{t('mcp.admin.engines.both')}</option>
+                  <option value="client">{t('mcp.admin.engines.client')}</option>
+                </Select>
+              )}
+            </Field>
+          </div>
 
-          <Field label={t('mcp.admin.quota')} hint={t('mcp.admin.quotaHelp')}>
-            {(p) => (
-              <Input
-                {...p}
-                type="number"
-                min={1}
-                value={draft.dailyQuota ?? ''}
-                onChange={(e) => setDraft({ ...draft, dailyQuota: e.currentTarget.value === '' ? null : Number(e.currentTarget.value) })}
-              />
-            )}
-          </Field>
+          <div data-admin-setting="mcp-quota">
+            <Field label={t('mcp.admin.quota')} hint={t('mcp.admin.quotaHelp')}>
+              {(p) => (
+                <Input
+                  {...p}
+                  type="number"
+                  min={1}
+                  value={draft.dailyQuota ?? ''}
+                  onChange={(e) => setDraft({ ...draft, dailyQuota: e.currentTarget.value === '' ? null : Number(e.currentTarget.value) })}
+                />
+              )}
+            </Field>
+          </div>
 
           <Button
             variant="primary"
@@ -309,7 +313,7 @@ export default function AssistantsSection() {
       </div>
 
       <div className="mt-10">
-        <div className="section-head">
+        <div data-admin-setting="mcp-connections" className="section-head">
           <span className="kicker">{t('mcp.admin.connections')}</span>
           <span className="ml-auto font-mono text-caption text-accent-ink">{view.connections.length}</span>
         </div>

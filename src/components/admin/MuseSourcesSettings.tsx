@@ -91,7 +91,7 @@ export default function MuseSourcesSettings() {
   }
 
   const head = (
-    <header className="rule-thin mb-4 border-accent/40 pb-2">
+    <header data-admin-setting="muse-sources" className="rule-thin mb-4 border-accent/40 pb-2">
       <span className="kicker text-muse-ink">Muse</span>
       <h3 className="mt-1 text-h3 text-ink">{t('settings.museSources.title')}</h3>
     </header>

@@ -52,6 +52,7 @@ export default function AuditSection() {
   return (
     <section>
       <SectionHead
+        data-admin-setting="audit-log"
         kicker={t('dashboard.nav.audit')}
         title={t('dashboard.audit.title')}
         blurb={t('dashboard.audit.blurb')}

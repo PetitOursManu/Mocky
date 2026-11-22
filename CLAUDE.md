@@ -1323,6 +1323,11 @@ Six things that will bite you:
    call that builds its own headers instead of using it is filed "outside a
    project" — `museDossier` was one such hand-built call, for a different bug.
 
+**The search bar is a hand-kept index** (`src/components/admin/settingsIndex.ts`):
+a new settings block gets `data-admin-setting="<id>"` on its element AND an
+entry there, or `settingsIndex.test.ts` fails — both directions, one element
+per id.
+
 The heartbeat (`POST /api/presence`) is in maintenance's `ALWAYS_ALLOWED`: it
 writes nothing. `docker-compose.gpu.yml` is the NVIDIA override; it is its own
 file because a GPU reservation makes Compose refuse to start on a host without the

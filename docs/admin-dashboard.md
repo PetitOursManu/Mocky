@@ -22,6 +22,24 @@ moving between sections costs no request.
 The code is in `server/admin/` (one file per store, each explaining itself in its
 header) and `src/components/admin/`.
 
+## Searching the settings
+
+The search bar at the top of the menu finds any setting, whatever section holds
+it. Type a word you remember: the setting's name ("sign-ups"), a provider
+("Pexels", "OpenRouter", "Jev"), or what it does ("quota", "read-only"). Press
+`/` anywhere on the page to put the cursor in it.
+
+- **Both languages work.** On the French page, "signups" finds
+  **Inscriptions**. Accents and capitals do not matter.
+- **Every word must match**, at the start of a word: "clé openrouter" finds the
+  text models and the decision model.
+- **Choosing a result** opens its section, scrolls to the block and outlines it
+  for a moment. Arrows move through the results, Enter opens one, Escape clears.
+
+The list of settings is in `src/components/admin/settingsIndex.ts`. A test
+requires every block the page marks (`data-admin-setting`) to be in it, and
+every entry in it to be on the page.
+
 ## Presence
 
 "Connected" needs a signal from the browser. Generation runs in the browser and

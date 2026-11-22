@@ -402,7 +402,7 @@ export default function TextProviderSettings() {
   }
 
   return (
-    <section>
+    <section data-admin-setting="text-models">
       <header className="rule-thin mb-4 border-accent/40 pb-2">
         <span className="kicker">{t('settings.instance')}</span>
         <h3 className="mt-1 text-h3 text-ink">{t('settings.textModelsTitle')}</h3>

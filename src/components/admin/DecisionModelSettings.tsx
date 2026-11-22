@@ -103,7 +103,7 @@ export default function DecisionModelSettings() {
   const dirty = provider !== s.provider || (record != null && (baseUrl !== record.baseUrl || model !== record.model || apiKey !== ''))
 
   return (
-    <form onSubmit={save} className="space-y-3">
+    <form data-admin-setting="decision-model" onSubmit={save} className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="kicker">{t('decision.admin.title')}</h3>
         <span className={`text-caption ${s.configured ? 'text-ok' : 'text-ink-faint'}`}>

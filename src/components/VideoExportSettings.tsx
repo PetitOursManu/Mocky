@@ -233,7 +233,7 @@ export default function VideoExportSettings() {
     }
 
   const header = (
-    <header className="rule-thin mb-4 border-accent/40 pb-2">
+    <header data-admin-setting="video-export" className="rule-thin mb-4 border-accent/40 pb-2">
       <span className="kicker">{t('settings.instance')}</span>
       <h3 className="mt-1 text-h3 text-ink">{t('video.sectionTitle')}</h3>
     </header>
@@ -576,7 +576,7 @@ function RenderPower({
   const t = useT()
   const [lang] = useLang()
   return (
-    <div className="mt-4 border border-line-soft bg-ink/5 p-3">
+    <div data-admin-setting="video-tier" className="mt-4 border border-line-soft bg-ink/5 p-3">
       <span className="block text-body font-medium text-ink">{t('video.tierTitle')}</span>
       <span className="measure block text-body-sm text-ink-muted">{t('video.tierHelp')}</span>
       <div className="mt-3 space-y-2" role="radiogroup" aria-label={t('video.tierTitle')}>

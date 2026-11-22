@@ -80,7 +80,7 @@ export default function SpendSection() {
 
   return (
     <section>
-      <SectionHead kicker={t('dashboard.nav.spend')} title={t('spend.title')} blurb={t('spend.blurb')} />
+      <SectionHead data-admin-setting="spend" kicker={t('dashboard.nav.spend')} title={t('spend.title')} blurb={t('spend.blurb')} />
       {error && (
         <Banner tone="danger" title={t('common.error')} className="mb-4">
           {error}
@@ -389,7 +389,7 @@ function PriceTable({
 
   return (
     <div className="mt-10 border-t border-line pt-8">
-      <div className="section-head">
+      <div data-admin-setting="prices" className="section-head">
         <span className="kicker">{t('spend.prices')}</span>
       </div>
       <p className="measure mb-3 text-body-sm text-ink-muted">{t('spend.pricesBlurb')}</p>

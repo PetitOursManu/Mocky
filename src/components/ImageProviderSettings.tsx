@@ -683,7 +683,7 @@ function StockForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
   }
 
   return (
-    <div className="border border-line-soft p-4">
+    <div data-admin-setting="stock-photos" className="border border-line-soft p-4">
       <h4 className="text-h4 text-ink">{t('settings.stockTitle')}</h4>
       <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.stockBlurb')}</p>
 
@@ -891,7 +891,7 @@ function StockImagesForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: I
   }
 
   return (
-    <div className="border border-line-soft p-4">
+    <div data-admin-setting="stock-images" className="border border-line-soft p-4">
       <h4 className="text-h4 text-ink">{t('settings.stockImagesTitle')}</h4>
       <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.stockImagesBlurb')}</p>
       <p className={`mt-2 text-body-sm ${keyed.length ? 'text-ok' : 'text-warn'}`}>
@@ -973,7 +973,7 @@ export default function ImageProviderSettings() {
   }
 
   return (
-    <section>
+    <section data-admin-setting="images">
       <header className="rule-thin mb-4 border-accent/40 pb-2">
         <span className="kicker">{t('settings.instance')}</span>
         <h3 className="mt-1 text-h3 text-ink">{t('settings.imagesSectionTitle')}</h3>
@@ -1039,7 +1039,7 @@ export default function ImageProviderSettings() {
           may use which are one subject, and they were three more cards at the
           foot of a column of image profiles. Generation on one side, the free
           libraries and the access lists on the other — about the same height. */}
-      <header className="rule-thin mb-4 mt-10 border-accent/40 pb-2">
+      <header data-admin-setting="videos" className="rule-thin mb-4 mt-10 border-accent/40 pb-2">
         <span className="kicker">{t('settings.instance')}</span>
         <h3 className="mt-1 text-h3 text-ink">{t('settings.videosSectionTitle')}</h3>
       </header>

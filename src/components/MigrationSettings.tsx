@@ -101,7 +101,7 @@ function MaintenanceBlock() {
   }
 
   return (
-    <div className="mt-6 space-y-3 border border-line-soft bg-ink/5 p-3">
+    <div data-admin-setting="maintenance" className="mt-6 space-y-3 border border-line-soft bg-ink/5 p-3">
       <div className="flex flex-wrap items-center gap-3">
         <span className="kicker">{t('migration.maintenance.title')}</span>
         {state?.on && (
@@ -198,7 +198,7 @@ function SourceBlock({ size }: { size: (n: number) => string }) {
   }
 
   return (
-    <div>
+    <div data-admin-setting="migration-source">
       <h3 className="text-h3 text-ink">{t('migration.source.title')}</h3>
       <p className="measure mt-1 text-body-sm text-ink-muted">{t('migration.source.help')}</p>
       {error && (
@@ -360,7 +360,7 @@ function ImportBlock({ size }: { size: (n: number) => string }) {
   const pass = status?.pass
 
   return (
-    <div>
+    <div data-admin-setting="migration-import">
       <h3 className="text-h3 text-ink">{t('migration.import.title')}</h3>
       <p className="measure mt-1 text-body-sm text-ink-muted">{t('migration.import.help')}</p>
       {error && (

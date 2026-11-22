@@ -1,5 +1,5 @@
 ---
-source_hash: f63a46bcc7fa
+source_hash: f1707a3082c7
 ---
 
 # Le tableau de bord d’administration
@@ -25,6 +25,26 @@ secondes sans recharger, et passer d’une section à l’autre ne coûte aucune
 
 Le code est dans `server/admin/` (un fichier par magasin, chacun s’explique en
 tête) et `src/components/admin/`.
+
+## Rechercher un réglage
+
+La barre de recherche en haut du menu trouve n’importe quel réglage, quelle que
+soit la section qui le contient. Tapez un mot dont vous vous souvenez : le nom
+du réglage (« inscriptions »), un fournisseur (« Pexels », « OpenRouter »,
+« Jev ») ou ce qu’il fait (« quota », « lecture seule »). Appuyez sur `/`
+n’importe où sur la page pour y placer le curseur.
+
+- **Les deux langues fonctionnent.** Sur la page en français, « signups »
+  trouve **Inscriptions**. Les accents et les majuscules ne comptent pas.
+- **Chaque mot doit correspondre**, au début d’un mot : « clé openrouter »
+  trouve les modèles de texte et le modèle de décision.
+- **Choisir un résultat** ouvre sa section, fait défiler jusqu’au bloc et
+  l’entoure un instant. Les flèches parcourent les résultats, Entrée en ouvre
+  un, Échap efface.
+
+La liste des réglages est dans `src/components/admin/settingsIndex.ts`. Un test
+exige que chaque bloc marqué sur la page (`data-admin-setting`) y figure, et que
+chaque entrée de la liste soit sur la page.
 
 ## La présence
 

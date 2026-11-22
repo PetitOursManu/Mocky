@@ -60,6 +60,7 @@ export default function SessionsSection() {
   return (
     <section>
       <SectionHead
+        data-admin-setting="sessions"
         kicker={t('dashboard.nav.sessions')}
         title={t('dashboard.sessions.title')}
         blurb={t('dashboard.sessions.blurb')}
