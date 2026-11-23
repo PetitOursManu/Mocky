@@ -29,6 +29,7 @@ export const auth = {
       'Le jeton ne visait pas cette instance Mocky. Vérifiez MOCKY_ORIGIN et SSO_ALLOWED_REDIRECTS.',
     'auth.sso.wrongIssuer': 'Le jeton n’a pas été émis par Dashy.',
     'auth.sso.unknown': 'La connexion avec Dashy a échoué pour une raison inconnue.',
+    'auth.sso.disabled': 'Ce compte Mocky est désactivé : son accès a été retiré dans Kosmy Board. Adressez-vous à un administrateur.',
 
     // ---- Kosmy Board (OpenID Connect) — server/kosmy-board.js ----
     'auth.kosmy.signIn': 'Se connecter avec Kosmy Board',
@@ -45,6 +46,8 @@ export const auth = {
     'auth.kosmy.reason.session': 'Votre session Mocky a changé pendant la liaison. Reconnectez-vous puis recommencez.',
     'auth.kosmy.reason.already_linked': 'Ce compte Kosmy Board est déjà relié à un autre compte Mocky.',
     'auth.kosmy.reason.other_linked': 'Ce compte Mocky est déjà relié à un autre compte Kosmy Board. Défaites d’abord ce lien.',
+    'auth.kosmy.reason.disabled': 'Ce compte Mocky est désactivé : son accès a été retiré dans Kosmy Board. Adressez-vous à un administrateur.',
+    'auth.kosmy.reason.access': 'L’accès donné par Kosmy Board n’a pas pu être appliqué à votre compte Mocky. Adressez-vous à un administrateur.',
     'auth.kosmy.sectionTitle': 'Kosmy Board',
     'auth.kosmy.linkBlurb': 'Reliez ce compte à votre Kosmy Board pour vous connecter d’un clic, depuis la page de connexion ou le bouton « Ouvrir » du Board.',
     'auth.kosmy.link': 'Relier à Kosmy Board',
@@ -132,6 +135,7 @@ export const auth = {
       'The token was not meant for this Mocky instance. Check MOCKY_ORIGIN and SSO_ALLOWED_REDIRECTS.',
     'auth.sso.wrongIssuer': 'The token was not issued by Dashy.',
     'auth.sso.unknown': 'Sign-in with Dashy failed for an unknown reason.',
+    'auth.sso.disabled': 'This Mocky account is disabled: its access was withdrawn in Kosmy Board. Ask an administrator.',
 
     // ---- Kosmy Board (OpenID Connect) — server/kosmy-board.js ----
     'auth.kosmy.signIn': 'Sign in with Kosmy Board',
@@ -148,6 +152,8 @@ export const auth = {
     'auth.kosmy.reason.session': 'Your Mocky session changed while linking. Sign in again and retry.',
     'auth.kosmy.reason.already_linked': 'This Kosmy Board account is already linked to another Mocky account.',
     'auth.kosmy.reason.other_linked': 'This Mocky account is already linked to another Kosmy Board account. Unlink it first.',
+    'auth.kosmy.reason.disabled': 'This Mocky account is disabled: its access was withdrawn in Kosmy Board. Ask an administrator.',
+    'auth.kosmy.reason.access': 'The access given in Kosmy Board could not be applied to your Mocky account. Ask an administrator.',
     'auth.kosmy.sectionTitle': 'Kosmy Board',
     'auth.kosmy.linkBlurb': 'Link this account to your Kosmy Board to sign in with one click, from the sign-in page or the Board’s “Open” button.',
     'auth.kosmy.link': 'Link to Kosmy Board',

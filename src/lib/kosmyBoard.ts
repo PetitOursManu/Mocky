@@ -51,6 +51,8 @@ const REASONS = new Set([
   'session',
   'already_linked',
   'other_linked',
+  'disabled',
+  'access',
 ])
 
 /** The translation key for a reason code; unknown codes read as a generic failure. */

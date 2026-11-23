@@ -77,6 +77,8 @@ export interface AdminUser {
   /** Linked to a Kosmy Board account. */
   kosmyBoard?: boolean
   hasPassword?: boolean
+  /** Access withdrawn from Kosmy Board: signed out, and unable to sign in until the Board gives it back. */
+  disabled?: boolean
   /** "API perso": the provider and model this account declared for its own key. Never the key. */
   ownText?: { provider: string; model: string | null } | null
 }
