@@ -23,7 +23,7 @@ import type { PageFormatId } from '../lib/pageFormats'
 import type { FoldId } from '../lib/folds'
 import FoldControl from './FoldControl'
 import BrandPicker from './BrandPicker'
-import { OPTION_TILE, OptionTile, OptionTileAction, OptionTileChoice } from './ComposerOptions'
+import { ComposerModeSwitch, OPTION_TILE, OptionTile, OptionTileAction, OptionTileChoice } from './ComposerOptions'
 import { FromMyDesigns } from './DesignModels'
 import type { ProjectTemplate } from '../lib/templates'
 
@@ -115,6 +115,12 @@ type Props = {
   /** "Améliorer le prompt", shared with the floating bar so an Undo survives the switch. */
   enhancer: PromptEnhancer
   onEnhance: () => void
+  /**
+   * The composer's Auto mode (lib/composerAuto.ts), present only where a
+   * decision model is. In Auto the options it decides are one tile; the
+   * pictures stay a choice here.
+   */
+  auto?: { mode: 'manual' | 'auto'; onMode: (m: 'manual' | 'auto') => void; summary: string | null }
 }
 
 export default function Welcome({
@@ -183,6 +189,7 @@ export default function Welcome({
   onThemeChange,
   enhancer,
   onEnhance,
+  auto,
 }: Props) {
   const t = useT()
   const [dragOver, setDragOver] = useState(false)
@@ -200,14 +207,18 @@ export default function Welcome({
    */
   const museHint = !museConfig.enabled
 
+  /** Auto is on: the options it decides are ONE tile, the pictures stay a choice. */
+  const autoOn = auto?.mode === 'auto'
+
   /** How many option tiles are drawn — the first composer lays them out in two rows. */
-  const tileCount =
-    3 + // DESIGN.md, Muse, the screenshots
-    (ultraCounts === undefined || ultraCounts.length > 0 ? 1 : 0) +
-    (onToggleBrand ? 1 : 0) +
-    (onToggleCreative ? 1 : 0) +
-    (onToggleFlows ? 1 : 0) +
-    (pageFormat || imageChoiceAvailable ? 1 : 0)
+  const tileCount = autoOn
+    ? 3 + (onToggleBrand ? 1 : 0) + (pageFormat || imageChoiceAvailable ? 1 : 0) // DESIGN.md, Auto, the screenshots
+    : 3 + // DESIGN.md, Muse, the screenshots
+      (ultraCounts === undefined || ultraCounts.length > 0 ? 1 : 0) +
+      (onToggleBrand ? 1 : 0) +
+      (onToggleCreative ? 1 : 0) +
+      (onToggleFlows ? 1 : 0) +
+      (pageFormat || imageChoiceAvailable ? 1 : 0)
 
   function toggleMuse() {
     onMuseChange({ ...museConfig, enabled: !museConfig.enabled })
@@ -309,6 +320,23 @@ export default function Welcome({
             onMode={onSiteMode}
             onRemove={onRemoveSiteShot}
           />
+          {/* Manual or Auto, above the options it governs: drawn only where
+              the instance has a decision model (lib/composerAuto.ts). */}
+          {auto && (
+            <ComposerModeSwitch
+              className="mx-auto mb-3 w-full max-w-xs px-1 pt-3 text-center"
+              mode={auto.mode}
+              onChange={auto.onMode}
+              labels={{
+                group: t('workspace.mode'),
+                manual: t('workspace.modeManual'),
+                auto: t('workspace.modeAuto'),
+                hint: t(autoOn ? 'workspace.modeAutoHint' : 'workspace.modeManualHint'),
+                manualTitle: t('workspace.modeManualTitle'),
+                autoTitle: t('workspace.modeAutoTitle'),
+              }}
+            />
+          )}
           {/* HOW the screen is made: one row of equal tiles under the field, in
               the order of the groups — what the screen follows, what helps
               write it, where its pictures come from (see OptionTile for why not
@@ -346,7 +374,14 @@ export default function Welcome({
                 ) : undefined}
               </OptionTile>
             )}
-            {onToggleCreative && (
+            {/* In Auto, the decision model chooses these four for each request;
+                Manual's switches are left as they were, for the way back. */}
+            {autoOn && (
+              <OptionTileChoice icon="sparkle" label={t('workspace.autoTile')} hint={t('workspace.autoTileHint')} lit>
+                <span className="text-caption text-accent-ink">{auto?.summary || t('workspace.autoPending')}</span>
+              </OptionTileChoice>
+            )}
+            {!autoOn && onToggleCreative && (
               <OptionTile
                 icon="sparkle"
                 label={t('workspace.creative.toggle')}
@@ -356,6 +391,7 @@ export default function Welcome({
                 title={t(creativeOn ? 'workspace.creative.onTitle' : 'workspace.creative.offTitle')}
               />
             )}
+            {!autoOn && (
             <OptionTile
               icon="muse"
               label={t('muse.title')}
@@ -365,8 +401,10 @@ export default function Welcome({
               sweep={museHint}
               title={museHint ? t('auth.welcome.museHint') : t('auth.welcome.museTitle')}
             />
+            )}
             {/* The first screen is the one Motion Ultra matters most for: it
                 is usually the landing page, and it sets the tone. */}
+            {!autoOn && (
             <UltraControl
               variant="tile"
               ultra={ultra}
@@ -376,7 +414,8 @@ export default function Welcome({
               videoAvailable={ultraVideoAvailable}
               allowedCounts={ultraCounts}
             />
-            {onToggleFlows && (
+            )}
+            {!autoOn && onToggleFlows && (
               <OptionTile
                 icon="cable"
                 label={t('flows.toggle')}

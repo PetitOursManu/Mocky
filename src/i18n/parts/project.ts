@@ -199,6 +199,11 @@ export const project = {
 
     // ---- busy & brief ----
     'project.busyMuse': 'Muse…',
+    'project.busyAuto': 'Jev choisit les options…',
+    'project.autoChose': 'Auto : Jev a activé {list}.',
+    'project.autoChoseNone': 'Auto : Jev n’a activé aucune option pour cette demande.',
+    'project.autoByText': 'Jev n’a pas répondu ; le modèle de texte a choisi à sa place.',
+    'project.autoFailed': 'Auto : Jev n’a pas pu choisir les options ({error}). Vos réglages manuels ont été utilisés.',
     'project.busyPlanning': 'Planification…',
     'project.busySite': 'Lecture du site…',
     'project.busySitePictures': 'Images du site…',
@@ -634,6 +639,11 @@ export const project = {
 
     // ---- busy & brief ----
     'project.busyMuse': 'Muse…',
+    'project.busyAuto': 'Jev is choosing the options…',
+    'project.autoChose': 'Auto: Jev switched on {list}.',
+    'project.autoChoseNone': 'Auto: Jev switched on no option for this request.',
+    'project.autoByText': 'Jev did not answer; the text model chose instead.',
+    'project.autoFailed': 'Auto: Jev could not choose the options ({error}). Your manual settings were used.',
     'project.busyPlanning': 'Planning…',
     'project.busySite': 'Reading the site…',
     'project.busySitePictures': 'Site pictures…',

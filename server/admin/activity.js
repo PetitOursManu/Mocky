@@ -57,6 +57,7 @@ const POST_ROUTES = new Map([
   ['/api/muse/quality', ['muse', 'quality']],
   ['/api/muse/audit', ['muse', 'audit']],
   ['/api/muse/project-audit', ['muse', 'project-audit']],
+  ['/api/muse/composer-auto', ['muse', 'composer-auto']],
   ['/api/images/generate', ['image', 'generate']],
   ['/api/images/stock/pick', ['stock', 'pick']],
   ['/api/images/stock/candidates', ['stock', 'candidates']],

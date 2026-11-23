@@ -262,6 +262,15 @@ from Jev, and the text model writes a sentence for the FAILED ones only. Jev
 writes no text, and a finding that repeats its question is the defect
 audit-judge.js already records. Jev down → the old text-model pass, unchanged.
 
+**The composer's Auto mode** (`server/decision/composer.js`,
+`src/lib/composerAuto.ts`, `POST /api/muse/composer-auto`): shown only where
+`decisionTargetFor` answers, Manual by default. Jev answers one yes/no per
+option the composer could switch on, for ONE new screen; nothing it decides is
+written back to a preference or the project (`runOptionsFor`, and Motion Ultra
+reaches the run through a copy of the project). The pictures are never asked:
+Auto starts on the free libraries and the person may still pick "AI" — the
+user's rule. In Manual the request is byte-identical to what it was.
+
 ## Motion Ultra
 
 A **project** setting (`Project.ultra`, paused per session from the composer)

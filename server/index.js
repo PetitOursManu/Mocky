@@ -744,7 +744,7 @@ function providerFor({ kind, action }, req) {
     case 'mocky':
       return textProviderFor(req, profileFromRequest(req))
     case 'muse':
-      return textProviderFor(req, action === 'dossier' || action === 'project-audit' ? 'inspiration' : 'generation')
+      return textProviderFor(req, action === 'dossier' || action === 'project-audit' || action === 'composer-auto' ? 'inspiration' : 'generation')
     case 'image': {
       const p = req.body?.profile === 'inspiration' || req.body?.profile === 'edit' ? req.body.profile : 'content'
       return { provider: images.configStore.profile(p)?.provider || images.configStore.profile('content')?.provider }
@@ -2726,6 +2726,8 @@ app.use(
 // The audit of a project (server/decision/): a grid, one decision per page, a
 // synthesis. Ten a minute — each is up to thirty pages' worth of calls.
 app.use('/api/muse/project-audit', authRateLimit(10, 60_000, 'muse-project-audit'))
+// The composer's Auto mode: one decision before each new screen, typed by hand.
+app.use('/api/muse/composer-auto', authRateLimit(30, 60_000, 'muse-composer-auto'))
 app.use(
   '/api',
   createDecisionRouter({
