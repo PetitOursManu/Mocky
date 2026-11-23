@@ -62,32 +62,22 @@ export function createJtiStore({ now = () => Date.now(), skewMs = 30_000 } = {})
 }
 
 /**
- * @param {object} d
- * @param {() => object} d.loadConfig
- * @param {() => object[]} d.loadUsers       the raw accounts: `kosmySub` and `role` are read here
- * @param {ReturnType<import('../kosmy-board.js').createOidcClient>} d.oidc   the one sign-in uses
- * @param {(req) => string|null} d.clientIp
- * Plus everything `createSections` reads — see the call in server/index.js.
+ * The Board's token, for one request — shared by the admin API and the users API
+ * (kosmy.board-users.v1, ./users.js), which uses the same token on its own paths.
+ * `jtis` is ONE store for both: a token is spent wherever it was spent.
+ *
+ * @param {{ loadConfig: () => object, loadUsers: () => object[], oidc: object }} d
+ * @param {ReturnType<typeof createJtiStore>} jtis
+ * @returns {(req, path: string, t: Function) => Promise<{ user: object, base: string, sub: string }>}
  */
-export function createBoardAdmin(d) {
-  const jtis = d.jtis || createJtiStore()
-  const sections = createSections(d)
-  const parseJson = express.json({ limit: '1mb', type: () => true })
-
-  function json(res, status, body) {
-    res.status(status)
-    res.setHeader('Cache-Control', 'no-store')
-    res.setHeader('Content-Type', 'application/json; charset=utf-8')
-    res.end(JSON.stringify(body))
-  }
-
+export function createBoardAuth(d, jtis) {
   /**
    * The order of docs/admin-api.md: signature (the sign-in JWKS), typ, iss, aud,
    * exp — in `oidc.verifyAdminToken` — then htm, htu, jti, and last the account.
    * Every refusal of the token itself is the same 401: which check failed is
    * written to the log for the administrator, not handed to the caller.
    */
-  async function authenticate(req, path, t) {
+  return async function authenticate(req, path, t) {
     const settings = settingsOf(d.loadConfig())
     if (!settings.ready) throw new BoardAdminError(401, 'invalid_token', t('err.notConfigured'))
     const m = /^Bearer[ ]+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/.exec(String(req.headers.authorization || ''))
@@ -120,9 +110,34 @@ export function createBoardAdmin(d) {
     const user = d.loadUsers().find((u) => u.kosmySub && u.kosmySub === claims.sub)
     if (!user) throw new BoardAdminError(403, 'not_linked', t('err.notLinked'))
     if ((user.role || 'user') !== 'admin') throw new BoardAdminError(403, 'forbidden', t('err.forbidden'))
+    // Access withdrawn from the Board (server/board-admin/users.js): an
+    // administrator's rights go with it, here as everywhere else.
+    if (user.disabled) throw new BoardAdminError(403, 'forbidden', t('err.forbidden'))
     // The instance's address as the Board knows it: `htu` minus the path asked for.
     const htu = claims.htu.split(/[?#]/)[0]
-    return { user, base: htu.slice(0, htu.length - path.length) }
+    return { user, sub: claims.sub, base: htu.slice(0, htu.length - path.length) }
+  }
+}
+
+/**
+ * @param {object} d
+ * @param {() => object} d.loadConfig
+ * @param {() => object[]} d.loadUsers       the raw accounts: `kosmySub` and `role` are read here
+ * @param {ReturnType<import('../kosmy-board.js').createOidcClient>} d.oidc   the one sign-in uses
+ * @param {(req) => string|null} d.clientIp
+ * Plus everything `createSections` reads — see the call in server/index.js.
+ */
+export function createBoardAdmin(d) {
+  const jtis = d.jtis || createJtiStore()
+  const authenticate = createBoardAuth(d, jtis)
+  const sections = createSections(d)
+  const parseJson = express.json({ limit: '1mb', type: () => true })
+
+  function json(res, status, body) {
+    res.status(status)
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.end(JSON.stringify(body))
   }
 
   async function serve(req, res) {

@@ -353,6 +353,12 @@ export default function UsersSection({
                       {new Date(u.createdAt).toLocaleDateString()}
                       {p?.lastSeen && p.state === 'offline' ? ` · ${f.ago(p.lastSeen, live.data?.now)}` : ''}
                     </span>
+                    {u.disabled && (
+                      <span className="flex items-center gap-1 text-caption text-danger" title={t('settings.disabledBadgeTitle')}>
+                        <Icon name="warning" size={14} />
+                        {t('settings.disabledBadge')}
+                      </span>
+                    )}
                     {u.mustChangePassword && (
                       <span className="flex items-center gap-1 text-caption text-warn" title={t('settings.mustChangeBadgeTitle')}>
                         <Icon name="warning" size={14} />

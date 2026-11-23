@@ -224,6 +224,7 @@ function ssoErrorKey(code: string): string | null {
     'Wrong issuer': 'auth.sso.wrongIssuer',
     'unknown-error': 'auth.sso.unknown',
     maintenance: 'migration.maintenance.ssoNewAccount',
+    disabled: 'auth.sso.disabled',
   }
   return map[code] ?? null
 }

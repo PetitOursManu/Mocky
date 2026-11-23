@@ -22,7 +22,14 @@
 //    who types somebody else's address into their Board take that account.
 //    Accounts are matched on `sub` ONLY (`kosmySub` on the user record).
 //  - grant administrator rights. An account created on first sign-in (off by
-//    default) is always a plain `user`.
+//    default) is always a plain `user`. The one exception is not decided here:
+//    an ID token carrying `kosmy_board_access` (kosmy.board-users.v1) holds
+//    the role a Board administrator chose, and server/board-admin/users.js
+//    applies it with the same checks as the Board's PUT.
+//  - let a disabled account in (access withdrawn from the Board). Only an ID
+//    token carrying `kosmy_board_access` gives it back: the Board signs that
+//    claim only for a person who has access to this instance again, and it is
+//    applied exactly as the PUT that reactivates.
 //  - redirect anywhere but this instance: `target_link_uri` is same-origin only.
 
 import crypto from 'node:crypto'
@@ -325,12 +332,17 @@ export function createOidcClient({ fetchImpl = fetch, now = () => Date.now() } =
     if (typeof payload.sub !== 'string' || !payload.sub) throw new KosmyError('token', 'ID token: missing sub')
 
     const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
+    // `kosmy_board_access` (kosmy.board-users.v1): the role and restrictions a
+    // Board administrator gave this person here. Handed over as it came — the
+    // caller checks every value as it would a PUT's (server/board-admin/users.js).
+    const access = payload.kosmy_board_access
     return {
       sub: payload.sub,
       name: str(payload.name),
       email: str(payload.email),
       preferred_username: str(payload.preferred_username),
       locale: str(payload.locale),
+      ...(access && typeof access === 'object' && !Array.isArray(access) ? { access } : {}),
     }
   }
 
@@ -429,18 +441,22 @@ export function resolveAccount(users, claims, { autoCreate }) {
   return { create: true }
 }
 
+/** A display name or an e-mail's local part, reduced to what a Mocky username may hold. */
+export function cleanUsername(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9_-]+/g, '')
+    .slice(0, 24)
+}
+
 /** A username derived from the Board's display name or e-mail, made unique among `users`. */
 export function deriveUsername(users, claims) {
   const fromEmail = String(claims.preferred_username || claims.email || '').split('@')[0]
-  const clean = (s) =>
-    String(s || '')
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9_-]+/g, '')
-      .slice(0, 24)
+  const clean = cleanUsername
   let base = clean(claims.name) || clean(fromEmail)
   if (base.length < 3) base = 'kosmy-user'
   let username = base
@@ -510,6 +526,12 @@ export function createKosmyBoardRoutes(deps) {
     isHttps,
     baseUrl,
     originSet = () => true,
+    /**
+     * `(claims, req) => { user, status } | { error }`: applies an ID token's
+     * `kosmy_board_access` (server/board-admin/users.js). Absent, the claim is
+     * ignored and sign-in works as it always has.
+     */
+    applyBoardAccess = null,
     oidc = createOidcClient(),
     flows = createFlowStore(),
   } = deps
@@ -656,10 +678,30 @@ export function createKosmyBoardRoutes(deps) {
         return res.redirect(303, u.href)
       }
 
+      // Access managed by the Board (kosmy.board-users.v1): the role and the
+      // restrictions an administrator gave this person, applied as a PUT would
+      // apply them — the account is created if the PUT never reached us. Never a
+      // link by e-mail here: that is only for a PUT, made by one of OUR admins.
+      if (claims.access && applyBoardAccess) {
+        const out = applyBoardAccess(claims, req)
+        if (out.error) return backWithError(res, base, 'login', out.error)
+        logAuth('success', req, out.user.username)
+        audit.record({
+          action: 'auth.kosmy-board',
+          actor: auditActor(out.user),
+          detail: { created: out.status === 'created', managed: true },
+          ip: clientIp(req),
+        })
+        setSession(res, out.user.id, req)
+        return res.redirect(303, new URL(flow.target || '/', base).href)
+      }
+
       const users = loadUsers()
       const found = resolveAccount(users, claims, { autoCreate: settings.autoCreate })
       if (found.error) return backWithError(res, base, 'login', found.error)
       let user = found.user
+      // Access withdrawn from the Board (DELETE /api/kosmy-board/users/{sub}).
+      if (user?.disabled) return backWithError(res, base, 'login', 'disabled')
       if (found.create) {
         // Signing in is allowed during maintenance; creating an account is a write,
         // and this GET is invisible to the method rule — the same guard as Dashy's.

@@ -808,6 +808,19 @@ Il faut que la connexion ci-dessus soit réglée, et que **votre compte Mocky so
 
 Les adresses sont `GET /api/kosmy-board/admin`, `GET` et `POST /api/kosmy-board/admin/{section}` ; derrière un reverse proxy, elles doivent atteindre Mocky comme le reste de `/api/*`.
 
+### Les utilisateurs gérés par le Board
+
+> **Pourquoi c'est ainsi —** C'est un administrateur du Board qui décide qui entre dans quelle instance : les comptes de Mocky peuvent donc découler du Board au lieu d'être créés à la main dans chaque appli. Le Board ne donne toujours aucun droit par lui-même : le même jeton de courte durée dit qui agit, et Mocky vérifie que cette personne est un de *ses* administrateurs actifs avant de créer, modifier ou désactiver qui que ce soit. Retirer l'accès désactive le compte au lieu de le supprimer : le rendre redonne à la personne ses projets.
+
+Mocky implémente `kosmy.board-users.v1` ([spécification](https://github.com/PetitOursManu/Kosmy-Board/blob/main/docs/users-api.md)) : `GET /api/kosmy-board/users`, `PUT` et `DELETE /api/kosmy-board/users/{sub}`, avec le jeton de l'admin et les mêmes conditions.
+
+- **Rôles** — *Administrateur* (les droits d'administration de Mocky) et *Utilisateur*.
+- **Restrictions** — le **forfait** (utilisateurs seulement) : *gratuit* (le modèle gratuit de l'instance, la limite quotidienne, les images des banques libres) ou *standard* ; et, tant qu'Admin → Assistants décide par une liste, **peut connecter un assistant IA (MCP)** — le compte est ajouté à cette liste ou en est retiré.
+- **Donner l'accès** (`PUT`) crée un compte sans mot de passe (il se connecte par le Board), relie un compte non relié qui a la même adresse e-mail (une adresse déjà prise par un autre compte du Board est refusée, 409), ou met à jour le rôle, le forfait, la liste des assistants et l'e-mail. Il réactive un compte désactivé.
+- **Retirer l'accès** (`DELETE`) **désactive** le compte : sessions fermées aussitôt, connexions et clés d'assistants révoquées, connexion refusée par mot de passe, Dashy et Kosmy Board, admin dans le Board refusée. Ses projets restent. Admin → Utilisateurs l'affiche *désactivé*.
+- Aucun administrateur ne peut se retirer ses propres droits ni son accès, et Mocky ne se retrouve jamais sans administrateur actif (409).
+- À la connexion, un ID token qui porte `kosmy_board_access` est appliqué comme un `PUT` — le compte est créé au besoin, mais jamais relié par l'e-mail.
+
 ## SSO — « Se connecter avec Dashy »
 
 > **Pourquoi c'est ainsi —** Le problème résolu n'est pas l'authentification mais la duplication : quelqu'un qui a déjà prouvé son identité à un service auto-hébergé ne devrait pas avoir à entretenir un second mot de passe pour le suivant. Dashy se charge donc de la preuve et émet une attestation courte et signée du résultat, que Mocky vérifie face à un secret que seuls les deux serveurs détiennent — c'est ce qui rend la copie qu'en garde le navigateur inutilisable pour qui la volerait. Exiger les deux moitiés de la configuration avant que tout cela ne s'active signifie qu'une installation à moitié faite se comporte exactement comme une instance sans SSO.

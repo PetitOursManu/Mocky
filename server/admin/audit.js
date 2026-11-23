@@ -37,6 +37,8 @@ export const AUDIT_ACTIONS = [
   'user.password-reset',
   'user.signout',
   'user.plan',
+  'user.provision',
+  'user.disable',
   'account.testPlan',
   'session.revoke',
   'config.registration',
