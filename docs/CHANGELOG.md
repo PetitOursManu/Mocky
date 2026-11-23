@@ -10,6 +10,8 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `composer` | mode Auto — Jev choisit les options de chaque nouvel écran | `3a1c0a7` |
+| `admin` | utilisateurs gérés par Kosmy Board (kosmy.board-users.v1) | `3ef804c` |
 | `fonts` | Noto Sans JP et Noto Serif SC, surcoût du brief annoncé au composeur | `7d965bb` |
 | `interact` | passage de correction borné, documentation et invariants S1–S5 | `f73c952` |
 | `interact` | trace par génération, découpes signalées, retouches surveillées | `dc779b0` |
@@ -67,6 +69,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `admin` | documenter les utilisateurs gérés par Kosmy Board | `fe49407` |
 | `readme` | audit de projet, modèle de décision et recherche Admin | `eb7b45f` |
 | `auth` | documenter la connexion avec Kosmy Board | `7840c72` |
 | `readme` | présenter les fonctionnalités ajoutées depuis novembre | `11728f3` |
