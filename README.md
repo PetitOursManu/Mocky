@@ -813,6 +813,19 @@ It requires the sign-in above to be configured, and **your Mocky account linked*
 
 The endpoints are `GET /api/kosmy-board/admin`, `GET` and `POST /api/kosmy-board/admin/{section}`; behind a reverse proxy they must reach Mocky like the rest of `/api/*`.
 
+### Users managed by the Board
+
+> **Why it works this way —** A Board administrator decides who gets into which instance, so Mocky's accounts can follow from the Board instead of being created by hand in each app. The Board still grants nothing on its own: the same short-lived token says who acts, and Mocky checks that this person is one of *its* active administrators before creating, changing or disabling anyone. Withdrawn access disables the account rather than deleting it, so giving it back restores the person's projects.
+
+Mocky implements `kosmy.board-users.v1` ([specification](https://github.com/PetitOursManu/Kosmy-Board/blob/main/docs/users-api.md)): `GET /api/kosmy-board/users`, `PUT` and `DELETE /api/kosmy-board/users/{sub}`, with the admin API's token and the same requirements.
+
+- **Roles** — *Administrator* (Mocky's admin rights) and *User*.
+- **Restrictions** — the **plan** (users only): *free* (the instance's free model, the daily limit, pictures from the free libraries) or *standard*; and, while Admin → Assistants decides by a list, **may connect an AI assistant (MCP)** — the account is put on or taken off that list.
+- **Giving access** (`PUT`) creates an account without a password (it signs in through the Board), links an unlinked account that has the same e-mail (an address already used by another Board account is refused, 409), or updates the role, the plan, the assistants list and the e-mail. It reactivates a disabled account.
+- **Withdrawing access** (`DELETE`) **disables** the account: sessions closed at once, assistant connections and keys revoked, sign-in refused by password, Dashy and Kosmy Board, Board admin refused. Its projects stay. Admin → Users shows it as *disabled*.
+- No administrator can remove their own admin rights or access, and Mocky never ends up without an active administrator (409).
+- At sign-in, an ID token carrying `kosmy_board_access` is applied like a `PUT` — the account is created if needed, but never linked by e-mail.
+
 ## SSO — "Sign in with Dashy"
 
 > **Why it works this way —** The problem being solved is not authentication but duplication: someone who has already proved who they are to one self-hosted service should not have to maintain a second password for the next one. So Dashy does the proving and issues a short, signed statement of the result, and Mocky checks that statement against a secret only the two servers hold — which is what makes the browser's copy of it useless to anybody who steals it. Requiring both halves of the configuration before any of this activates means a half-finished setup behaves exactly like an instance with no SSO at all.
