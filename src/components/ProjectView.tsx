@@ -22,7 +22,31 @@ import { useTimeAgo } from '../lib/timeAgo'
 import { getSyncState, onSyncState, type SyncState } from '../lib/sync'
 import { createPortal } from 'react-dom'
 import Inspector from './Inspector'
-import { OPTION_ROW, OptionAction, OptionGroup, OptionToggle } from './ComposerOptions'
+import {
+  AUTO_OPTION_ICON,
+  AUTO_OPTION_LABEL,
+  ComposerModeSwitch,
+  OPTION_ROW,
+  OptionAction,
+  OptionDecided,
+  OptionGroup,
+  OptionToggle,
+  autoOptionStatus,
+} from './ComposerOptions'
+import {
+  autoDocImageDefault,
+  autoImageDefault,
+  composerAutoAvailable,
+  decideComposerOptions,
+  loadComposerMode,
+  offeredOptions,
+  runOptionsFor,
+  saveComposerMode,
+  type AutoDecision,
+  type AutoOption,
+  type ComposerMode,
+  type RunOptions,
+} from '../lib/composerAuto'
 import { BarMenu, BarMenuItem, BarMenuLabel, BarMenuRule } from './ProjectBar'
 import { useAutoGrow } from '../lib/useAutoGrow'
 import { useWorkChime } from '../lib/useWorkChime'
@@ -395,7 +419,7 @@ export default function ProjectView({
   const composerField = useRef<HTMLTextAreaElement>(null)
   useAutoGrow(composerField, prompt, COMPOSER_MIN_H, COMPOSER_MAX_H)
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | 'docPicture' | null>(null)
+  const [phase, setPhase] = useState<'auto' | 'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | 'docPicture' | null>(null)
   /**
    * Motion Ultra paused for the next generations, from the composer.
    *
@@ -527,6 +551,42 @@ export default function ProjectView({
   const docImageShown = shownDocumentImageChoice(docImageChoice, docImageDoors)
   /** Null: this document gets no picture of its own. */
   const docPictureSource = documentPictureSource(docImageChoice, docImageDoors)
+  /*
+   * The composer's Auto mode (lib/composerAuto.ts): drawn only where this
+   * account has a decision model. Auto decides one run's options and writes
+   * no preference, so everything above stays Manual's.
+   */
+  const [composerMode, setComposerModeState] = useState<ComposerMode>(() => loadComposerMode())
+  const [autoAvail, setAutoAvail] = useState(false)
+  useEffect(() => {
+    const ac = new AbortController()
+    composerAutoAvailable(ac.signal).then((ok) => !ac.signal.aborted && setAutoAvail(ok))
+    return () => ac.abort()
+  }, [])
+  const autoMode = autoAvail && composerMode === 'auto'
+  /** What the last Auto run was asked and answered; null before one, or after switching modes. */
+  const [autoLast, setAutoLast] = useState<{ decision: AutoDecision | null; offered: AutoOption[] } | null>(null)
+  const setComposerMode = useCallback((m: ComposerMode) => {
+    setComposerModeState(m)
+    saveComposerMode(m)
+    setAutoLast(null)
+  }, [])
+  /*
+   * Auto's pictures: the free libraries by default, and still the person's to
+   * change — "AI" without going back to Manual (the user's rule). Kept for the
+   * page only: a reload starts Auto on free photos again.
+   */
+  const [autoImage, setAutoImage] = useState<ImageChoice | null>(null)
+  const [autoDocImage, setAutoDocImage] = useState<DocumentImageChoice | null>(null)
+  const autoImageChoices: ImageChoice[] = [
+    ...(freePlan ? [] : (['ai'] as const)),
+    ...(stockImagesUsable ? (['stock'] as const) : []),
+    'none',
+  ]
+  const autoImageShown: ImageChoice =
+    autoImage && autoImageChoices.includes(autoImage) ? autoImage : autoImageDefault(autoImageChoices)
+  const autoDocImageShown: DocumentImageChoice =
+    autoDocImage && docImageChoicesNow.includes(autoDocImage) ? autoDocImage : autoDocImageDefault(docImageChoicesNow)
   const [museAvail, setMuseAvail] = useState<boolean | null>(null)
   const [museResult, setMuseResult] = useState<MuseResult | null>(null)
   const [museImages, setMuseImages] = useState<GeneratedSlotImage[]>([])
@@ -1132,6 +1192,16 @@ export default function ProjectView({
   const siteShotsRef = useRef<SiteShot[]>([])
   /** Whether the choice is drawn: a real choice, and a pass that puts pictures in a screen is on. */
   const imageChoiceAvailable = imageChoices.length > 1 && (museConfig.enabled || ultraActive || siteShots.length > 0)
+  /*
+   * The Images choice the composer DRAWS: Auto's own while Auto is on — always
+   * shown there, since Muse or Motion Ultra may be switched on by the decision.
+   */
+  const imagePick = autoMode
+    ? { value: autoImageShown, choices: autoImageChoices, onChange: setAutoImage, available: autoImageChoices.length > 1 }
+    : { value: imageChoiceShown, choices: imageChoices, onChange: onImageChoice, available: imageChoiceAvailable }
+  const docImagePick = autoMode
+    ? { value: autoDocImageShown, choices: docImageChoicesNow, onChange: setAutoDocImage }
+    : { value: docImageShown, choices: docImageChoicesNow, onChange: setDocImageChoice }
   siteShotsRef.current = siteShots
   /**
    * The screenshots each screen was built from, for THIS session only.
@@ -2222,12 +2292,81 @@ export default function ProjectView({
         setSiteShots([])
         offerRule(text)
       } else {
+        /*
+         * The options this run uses. Manual's, unless the composer is on Auto:
+         * then the decision model reads the request first, and its answers
+         * replace Manual's for THIS run only (lib/composerAuto.ts). A decision
+         * that fails costs the run nothing but the notice — Manual's values
+         * stand in (Q1's rule: degrade, never fail).
+         */
+        const manual: RunOptions = {
+          redesign: redesigning,
+          creative: !!project.creative,
+          creations: !!project.creations,
+          muse: museConfig.enabled,
+          ultra: ultraActive,
+          flows: flowsOn,
+        }
+        let run = manual
+        if (autoMode) {
+          const offered = offeredOptions({
+            document: !!composerPage,
+            hasDirection: !!designMd?.trim(),
+            ultraAllowed: ultraCounts.length > 0,
+            creative: !!onSetCreative,
+            creations: !!onSetCreations,
+          })
+          setPhase('auto')
+          try {
+            const decision = await decideComposerOptions(
+              {
+                text,
+                lang: getLang() === 'en' ? 'en' : 'fr',
+                screenType: themeId,
+                document: !!composerPage,
+                site: siteNew ? site.mode : null,
+                project: { name: project.name, hasDirection: !!designMd?.trim(), screens: screens.length },
+                offered,
+              },
+              settings,
+              ac.signal,
+            )
+            run = runOptionsFor(decision, offered, manual)
+            setAutoLast({ decision, offered })
+            const on = offered.filter((o) => run[o]).map((o) => t(AUTO_OPTION_LABEL[o]))
+            setNotice(
+              [
+                on.length ? t('project.autoChose', { list: on.join(', ') }) : t('project.autoChoseNone'),
+                !decision.engines.includes('jev') && decision.engines.includes('llm') ? t('project.autoByText') : '',
+              ].filter(Boolean).join(' '),
+            )
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            setAutoLast({ decision: null, offered })
+            setNotice(t('project.autoFailed', { error: err instanceof Error ? err.message : String(err) }))
+          }
+        }
+        // Motion Ultra switched on by Auto in a project that never set it up:
+        // the run gets the first series size allowed, and the PROJECT is not
+        // changed — the storyboard reads `project.ultra`, so the request does.
+        const runUltra = run.ultra && ultraCounts.length > 0
+        const runProject = autoMode && runUltra && !project.ultra ? { ...project, ultra: { count: ultraCount as 3 | 6 } } : project
+        // Auto's pictures are the composer's own choice, free libraries first;
+        // "Aucune" yields to Motion Ultra as it does in Manual.
+        const runImages = autoMode
+          ? {
+              effectiveImageSource: autoImageShown === 'none' ? effectiveImageSource : autoImageShown,
+              picturesOff: autoImageShown === 'none' && !runUltra,
+              docPictureSource: documentPictureSource(autoDocImageShown, docImageDoors),
+              docImageChoice: autoDocImageShown,
+            }
+          : { effectiveImageSource, picturesOff: runPicturesOff, docPictureSource, docImageChoice }
         // A new screen: the whole pipeline is lib/pipeline/newScreen.ts, so a
         // caller with no composer (the MCP runner) runs the same stages.
         const request: NewScreenRequest = {
             text,
             settings,
-            project,
+            project: runProject,
             screens,
             images,
             annotationCount: annotations.length,
@@ -2236,29 +2375,26 @@ export default function ProjectView({
             presetId,
             themeId,
             pageFormatId,
-            redesign: redesigning,
-            museConfig,
+            redesign: run.redesign,
+            museConfig: run.muse === museConfig.enabled ? museConfig : { ...museConfig, enabled: run.muse },
             museAvail,
             museVision,
             pinnedImages,
             pinnedVideo,
             videoAvail,
             motionAvail,
-            ultraActive,
+            ultraActive: runUltra,
             ultraCount,
-            effectiveImageSource,
-            picturesOff: runPicturesOff,
-            docPictureSource,
-            docImageChoice,
+            ...runImages,
             imageGenOk,
             stockImagesUsable,
             // Absent rather than false when off, so the request is the one it
             // always was (snippets/Flow.ts).
-            ...(flowsOn ? { flows: true } : {}),
+            ...(run.flows ? { flows: true } : {}),
             ...(composerFold ? { foldId: composerFold } : {}),
             ...(projectBrand() ? { brand: projectBrand() } : {}),
-            ...(project.creative ? { creative: true } : {}),
-            ...(project.creations ? { creations: true } : {}),
+            ...(run.creative ? { creative: true } : {}),
+            ...(run.creations ? { creations: true } : {}),
           }
         const hooks: NewScreenHooks = {
             signal: ac.signal,
@@ -2343,7 +2479,7 @@ export default function ProjectView({
          * Not for a document, and not when the run left an error to read: a
          * screen that came back broken has no flow worth following yet.
          */
-        if (flowsOn && !outcome.error && !composerPage) {
+        if (run.flows && !outcome.error && !composerPage) {
           try {
             const made = await runFlowCompanions(request, hooks, outcome.screenId, outcome.code ?? '', {
               getProject: () => projectRef.current,
@@ -2381,7 +2517,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, addScreenAndShow, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode, flowsOn])
+  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, addScreenAndShow, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode, flowsOn, autoMode, autoImageShown, autoDocImageShown, ultraCounts, onSetCreative, onSetCreations])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -4247,6 +4383,14 @@ export default function ProjectView({
   }, [])
 
   const editing = selectedScreens.length > 0
+  /** The options Auto would be asked about right now: the rows the composer draws for it. */
+  const autoOffered = offeredOptions({
+    document: !!composerPage,
+    hasDirection: !!directionMd?.trim(),
+    ultraAllowed: ultraCounts.length > 0,
+    creative: !!onSetCreative,
+    creations: !!onSetCreations,
+  })
 
   // A rewrite is a NEW-screen brief. Selecting a screen mid-stream turns the
   // field into an edit instruction and unmounts the only Stop, so the stream
@@ -4298,7 +4442,9 @@ export default function ProjectView({
 
   /** Ce que fabrique Mocky en ce moment — sert de libelle ET de nom accessible. */
   const busyLabel = phase === 'ultra' && ultraStage ? ultraStage : t(
-    phase === 'site'
+    phase === 'auto'
+      ? 'project.busyAuto'
+      : phase === 'site'
       ? 'project.busySite'
       : phase === 'sitePictures'
       ? 'project.busySitePictures'
@@ -4601,6 +4747,13 @@ export default function ProjectView({
     />
   ) : null
 
+  /** The first composer's one line about the last Auto run, or null before one. */
+  const autoSummary = (() => {
+    if (!autoLast) return null
+    const on = autoLast.offered.filter((o) => autoLast.decision?.options[o]?.on).map((o) => t(AUTO_OPTION_LABEL[o]))
+    return on.length ? t('workspace.autoTileDone', { list: on.join(', ') }) : t('workspace.autoTileNone')
+  })()
+
   if (screens.length === 0) {
     return (
       <>
@@ -4660,13 +4813,16 @@ export default function ProjectView({
         onToggleUltraPause={() => setUltraPaused((v) => !v)}
         ultraVideoAvailable={ultraVideoAvailable}
         ultraCounts={ultraCounts}
-        imageChoice={imageChoiceShown}
-        imageChoices={imageChoices}
-        onImageChoice={onImageChoice}
-        imageChoiceAvailable={imageChoiceAvailable}
-        documentImage={{ value: docImageShown, choices: docImageChoicesNow, onChange: setDocImageChoice }}
+        imageChoice={imagePick.value}
+        imageChoices={imagePick.choices}
+        onImageChoice={imagePick.onChange}
+        imageChoiceAvailable={imagePick.available}
+        documentImage={docImagePick}
+        auto={autoAvail ? { mode: composerMode, onMode: setComposerMode, summary: autoSummary } : undefined}
         busyLabel={
-          phase === 'ultra'
+          phase === 'auto'
+            ? t('project.busyAuto')
+            : phase === 'ultra'
             ? ultraStage
             : phase === 'site'
               ? t('project.busySite')
@@ -6190,16 +6346,44 @@ export default function ProjectView({
                 edit reworks what a direction produced, and letting it rewrite
                 that direction would reattribute every other screen in the
                 project to a document written for a change to one of them. */}
-            {!editing && (
+            {/* Manual or Auto (lib/composerAuto.ts): only where a decision
+                model is, and only for new screens; an edit keeps its own. */}
+            {!editing && autoAvail && (
+              <ComposerModeSwitch
+                mode={composerMode}
+                onChange={setComposerMode}
+                labels={{
+                  group: t('workspace.mode'),
+                  manual: t('workspace.modeManual'),
+                  auto: t('workspace.modeAuto'),
+                  hint: t(autoMode ? 'workspace.modeAutoHint' : 'workspace.modeManualHint'),
+                  manualTitle: t('workspace.modeManualTitle'),
+                  autoTitle: t('workspace.modeAutoTitle'),
+                }}
+              />
+            )}
+            {/* What Auto decides, as rows that SAY what was decided. The
+                switches they stand in for are Manual's and stay as they were. */}
+            {!editing && autoMode && (
+              <OptionGroup label={t('workspace.autoTile')}>
+                {autoOffered.map((o) => {
+                  const st = autoOptionStatus(autoLast, o, t)
+                  return <OptionDecided key={o} icon={AUTO_OPTION_ICON[o]} label={t(AUTO_OPTION_LABEL[o])} status={st.status} on={st.on} title={st.title} />
+                })}
+              </OptionGroup>
+            )}
+            {!editing && (!autoMode || brandAvailable) && (
               <OptionGroup label={t('workspace.groupStyle')}>
-                <OptionToggle
-                  icon="wand"
-                  label={t('project.redesignChip')}
-                  hint={t('workspace.hintRedesign')}
-                  on={redesign}
-                  onClick={() => setRedesign((v) => !v)}
-                  title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
-                />
+                {!autoMode && (
+                  <OptionToggle
+                    icon="wand"
+                    label={t('project.redesignChip')}
+                    hint={t('workspace.hintRedesign')}
+                    on={redesign}
+                    onClick={() => setRedesign((v) => !v)}
+                    title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
+                  />
+                )}
                 {/* The account's brand, for this project (lib/brand.ts): offered
                     once a brand exists, remembered on the project. */}
                 {brandAvailable && (
@@ -6231,7 +6415,7 @@ export default function ProjectView({
                 />
               )}
               {/* New screens only, like Motion Ultra: an edit keeps its screen's look. */}
-              {!editing && onSetCreative && (
+              {!editing && !autoMode && onSetCreative && (
                 <OptionToggle
                   icon="sparkle"
                   label={t('workspace.creative.toggle')}
@@ -6241,7 +6425,7 @@ export default function ProjectView({
                   title={t(project.creative ? 'workspace.creative.onTitle' : 'workspace.creative.offTitle')}
                 />
               )}
-              {!editing && onSetCreations && (
+              {!editing && !autoMode && onSetCreations && (
                 <OptionToggle
                   icon="wand"
                   label={t('workspace.creations.toggle')}
@@ -6251,19 +6435,21 @@ export default function ProjectView({
                   title={t(project.creations ? 'workspace.creations.onTitle' : 'workspace.creations.offTitle')}
                 />
               )}
-              <OptionToggle
-                icon="muse"
-                label={t('muse.title')}
-                hint={t('workspace.hintMuse')}
-                on={museConfig.enabled}
-                onClick={toggleMuse}
-                sweep={museHint}
-                title={museHint ? t('project.museHint') : t('project.museToggle')}
-              />
+              {(editing || !autoMode) && (
+                <OptionToggle
+                  icon="muse"
+                  label={t('muse.title')}
+                  hint={t('workspace.hintMuse')}
+                  on={museConfig.enabled}
+                  onClick={toggleMuse}
+                  sweep={museHint}
+                  title={museHint ? t('project.museHint') : t('project.museToggle')}
+                />
+              )}
               {/* New screens only: an edit reworks a screen that already is, or
                   is not, Motion Ultra — the pass that builds one is a storyboard
                   and a series of pictures, not an instruction to an edit. */}
-              {!editing && (
+              {!editing && !autoMode && (
                 <UltraControl
                   variant="row"
                   ultra={project.ultra}
@@ -6275,7 +6461,7 @@ export default function ProjectView({
                 />
               )}
               {/* New screens only: an edit keeps the flow its screen already has. */}
-              {!editing && (
+              {!editing && !autoMode && (
                 <OptionToggle
                   icon="cable"
                   label={t('flows.toggle')}
@@ -6293,18 +6479,18 @@ export default function ProjectView({
                   (lib/documentPictures.ts). */}
               {!editing && composerPage ? (
                 <DocumentImageControl
-                  value={docImageShown}
-                  choices={docImageChoicesNow}
-                  onChange={setDocImageChoice}
+                  value={docImagePick.value}
+                  choices={docImagePick.choices}
+                  onChange={docImagePick.onChange}
                   className="flex w-full justify-between px-2 py-1.5 text-body-sm"
                 />
               ) : (
                 !editing &&
-                imageChoiceAvailable && (
+                imagePick.available && (
                   <ImageSourceControl
-                    value={imageChoiceShown}
-                    choices={imageChoices}
-                    onChange={onImageChoice}
+                    value={imagePick.value}
+                    choices={imagePick.choices}
+                    onChange={imagePick.onChange}
                     className="flex w-full justify-between px-2 py-1.5 text-body-sm"
                   />
                 )

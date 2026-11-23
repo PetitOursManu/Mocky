@@ -127,6 +127,40 @@ Who reaches it:
 - **Pictures are off.** TypeSafe still presents picture input as not ready for
   production, and the audit sends none.
 
+## The composer's Auto mode
+
+When the instance has a decision model, the composer shows two modes above its
+options: **Manual** and **Auto**. Manual is the composer as it always was: you
+set each option. In Auto, before each new screen, the decision model reads your
+request and chooses the options it runs with:
+
+- **Muse**, **Motion Ultra**, **Creative**, **Creations** and **Flows**;
+- **New direction**, only when the project already has one.
+
+Only the options the composer could switch on are asked: a document has no
+Motion Ultra and no flow. Each answer is a probability of "yes"; an option is
+switched on from 50 %, or 60 % for those that cost several more calls (Motion
+Ultra, Creations, Flows) or rewrite the direction. The composer shows each
+decision and its probability, and a line under the screen says what was
+switched on.
+
+Three things stay yours:
+
+- **The pictures.** In Auto they start on the free libraries, and you can
+  choose **AI** (or none) without going back to Manual. A paid picture is never
+  a guess.
+- **The brand and the rules.** They are the project's, not a way of writing one
+  screen.
+- **Your Manual settings.** Auto decides for one generation and changes none of
+  them: switching back to Manual finds them as you left them.
+
+Auto concerns new screens. While screens are selected, the composer shows
+Manual's options: an edit keeps its screen's own. If the decision model does not
+answer, Muse's text model chooses instead and the line says so; if neither
+answers, the screen is made with your Manual settings. Accounts on the free plan
+or on their own key do not see Auto. The mode is remembered by the browser;
+Manual is the default.
+
 ## From an assistant
 
 An assistant connected through [MCP](mcp.md) calls `audit_project`. It uses the

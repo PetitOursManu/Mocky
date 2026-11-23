@@ -1,6 +1,8 @@
 import { haptic } from '../lib/touch'
 import type { ReactNode } from 'react'
 import { Icon, type IconName } from '../ui'
+import type { TranslationKey } from '../i18n'
+import type { AutoDecision, AutoOption } from '../lib/composerAuto'
 
 /** A switch felt in the hand on a phone, then the switch itself. */
 const tapped = (fn: () => void) => () => {
@@ -230,4 +232,104 @@ export function OptionTileAction({
       <span className="text-caption leading-snug text-ink-faint">{hint}</span>
     </button>
   )
+}
+
+/**
+ * Manual or Auto (lib/composerAuto.ts), drawn only where a decision model is.
+ * Two buttons and not a switch: neither is "off" — each is a way of working,
+ * and the one in use is named under it.
+ */
+export function ComposerModeSwitch({
+  mode,
+  onChange,
+  labels,
+  className = '',
+}: {
+  mode: 'manual' | 'auto'
+  onChange: (mode: 'manual' | 'auto') => void
+  labels: { group: string; manual: string; auto: string; hint: string; manualTitle: string; autoTitle: string }
+  className?: string
+}) {
+  const one = (m: 'manual' | 'auto', label: string, title: string) => (
+    <button
+      type="button"
+      onClick={tapped(() => onChange(m))}
+      aria-pressed={mode === m}
+      title={title}
+      className={`flex-1 rounded-md px-3 py-1 text-body-sm font-medium transition ${
+        mode === m ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+      }`}
+    >
+      {label}
+    </button>
+  )
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <div role="group" aria-label={labels.group} className="flex gap-0.5 rounded-lg border border-line p-0.5">
+        {one('manual', labels.manual, labels.manualTitle)}
+        {one('auto', labels.auto, labels.autoTitle)}
+      </div>
+      <p className="mt-1 px-1 text-caption text-ink-faint">{labels.hint}</p>
+    </div>
+  )
+}
+
+/**
+ * An option Auto decides: the same row as a switch, with a state WORD in its
+ * place — "Jev decides" before a run, the answer and its probability after.
+ * Not a button: in Auto the person does not set it, and a dead switch would
+ * read as a broken one.
+ */
+export function OptionDecided({
+  icon,
+  label,
+  status,
+  on,
+  title,
+}: {
+  icon: IconName
+  label: string
+  status: string
+  /** null: not decided yet. */
+  on: boolean | null
+  title?: string
+}) {
+  return (
+    <div title={title} className={`${OPTION_ROW} hover:bg-transparent`}>
+      <Icon name={icon} size={16} className={`shrink-0 ${on ? 'text-accent-ink' : 'text-ink-faint'}`} />
+      <span className={`min-w-0 flex-1 truncate text-body-sm font-medium ${on ? 'text-ink' : 'text-ink-muted'}`}>{label}</span>
+      <span className={`shrink-0 text-caption tabular-nums ${on ? 'text-accent-ink' : 'text-ink-faint'}`}>{status}</span>
+    </div>
+  )
+}
+
+/** How each option Auto decides is named and drawn: the names Manual's own switches carry. */
+export const AUTO_OPTION_LABEL: Record<AutoOption, TranslationKey> = {
+  redesign: 'project.redesignChip',
+  creative: 'workspace.creative.toggle',
+  creations: 'workspace.creations.toggle',
+  muse: 'muse.title',
+  ultra: 'project.ultraChip',
+  flows: 'flows.toggle',
+}
+export const AUTO_OPTION_ICON: Record<AutoOption, IconName> = {
+  redesign: 'wand',
+  creative: 'sparkle',
+  creations: 'wand',
+  muse: 'muse',
+  ultra: 'film',
+  flows: 'cable',
+}
+
+/** What Auto said about one option on the last run, as its row shows it. */
+export function autoOptionStatus(
+  last: { decision: AutoDecision | null; offered: AutoOption[] } | null,
+  o: AutoOption,
+  t: (k: TranslationKey, v?: Record<string, string | number>) => string,
+): { status: string; on: boolean | null; title: string } {
+  if (!last || !last.offered.includes(o)) return { status: t('workspace.autoPending'), on: null, title: t('workspace.autoPendingTitle') }
+  const a = last.decision?.options[o]
+  if (!a) return { status: t('workspace.autoKept'), on: null, title: t('workspace.autoKeptTitle') }
+  const pct = Math.round(a.p * 100)
+  return { status: t(a.on ? 'workspace.autoOn' : 'workspace.autoOff', { pct }), on: a.on, title: t('workspace.autoTitle', { pct }) }
 }

@@ -15,6 +15,7 @@ import { credsFromReq, makeLlm } from '../muse/llm.js'
 import { makeDecider } from './decide.js'
 import { runProjectAudit } from './audit.js'
 import { langOf } from './grid.js'
+import { composerInputFrom, decideComposer } from './composer.js'
 
 const clip = (s, n) => (typeof s === 'string' ? s.slice(0, n) : '')
 
@@ -84,6 +85,53 @@ export function createDecisionRouter({ resolveTarget, decisionTarget, meter, dec
     try {
       const run = await runProjectAudit(input, { decider, llm, signal: ctrl.signal })
       res.json({ ...run, notices: [...new Set([...notices, ...run.notices])] })
+    } catch (err) {
+      if (ctrl.signal.aborted) return
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+    }
+  })
+
+  /*
+   * The composer's Auto mode (composer.js). Offered only where the DECISION
+   * model is — "when Jev is used", the user's words — so the status answers on
+   * the decision target alone, and a free account or one on its own key sees
+   * no Auto at all (F1, F4). A failed Jev call still falls back to the text
+   * model like every other decision: the person asked for Auto and gets an
+   * answer, and `engines` says who gave it.
+   */
+  router.get('/muse/composer-auto', (req, res) => {
+    res.json({ available: !!decisionTarget(req) })
+  })
+
+  router.post('/muse/composer-auto', async (req, res) => {
+    const target = decisionTarget(req)
+    if (!target) return res.status(403).json({ error: 'unavailable' })
+    const input = composerInputFrom(req.body)
+    if (!input.text) return res.status(400).json({ error: 'text' })
+
+    let admin = null
+    try {
+      admin = resolveTarget ? resolveTarget('inspiration', req) : null
+    } catch {
+      admin = null
+    }
+    const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
+    if (creds && meter) creds.onUsage = meter(req, 'inspiration')
+    const notices = []
+    const decider = makeDecider({
+      target,
+      llm: creds ? makeLlm(creds) : null,
+      fetchImpl,
+      onUsage: decisionMeter?.(req),
+      onNotice: (m) => notices.push(m),
+    })
+    const ctrl = new AbortController()
+    res.on('close', () => {
+      if (!res.writableEnded) ctrl.abort()
+    })
+    try {
+      const out = await decideComposer(input, { decider, signal: ctrl.signal })
+      res.json({ ...out, notices })
     } catch (err) {
       if (ctrl.signal.aborted) return
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
