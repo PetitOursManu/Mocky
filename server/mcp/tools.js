@@ -308,6 +308,8 @@ function readInstructions(user) {
  * @param {'read'|'write'} [deps.level]  what this connection may reach (levels.js); absent = read
  */
 export function buildMcpServer(deps) {
+  /** A picture handed to a design: from Sprixy, it is pixel art and must stay crisp (providedPictures.ts). */
+  const pictureForJob = (p) => ({ hash: p.image_id, use: p.use, ...(deps.pictures?.isPixelArt?.(p.image_id) ? { pixelArt: true } : {}) })
   const { user, readProjects, linkFor, runner } = deps
   const level = levelOf(deps.level)
   /**
@@ -877,7 +879,7 @@ export function buildMcpServer(deps) {
       // The size the assistant chose, else the one the request names. The page
       // keeps its type's own when the two are not of one family (documentMode.ts).
       pageFormat: PAGE_FORMATS[args.page_format] ? args.page_format : inferPageFormat(`${args.brief} ${args.kind || ''}`) || undefined,
-      pictures: images.length ? images.map((p) => ({ hash: p.image_id, use: p.use })) : undefined,
+      pictures: images.length ? images.map((p) => pictureForJob(p)) : undefined,
       pictureSource: ['auto', 'free', 'generated', 'none'].includes(args.picture_source) ? args.picture_source : 'auto',
       pictureSubject: typeof args.picture_subject === 'string' && args.picture_subject.trim() ? args.picture_subject.trim() : undefined,
       screenName: typeof args.screen_name === 'string' && args.screen_name.trim() ? args.screen_name.trim() : undefined,
@@ -1164,7 +1166,7 @@ export function buildMcpServer(deps) {
     const { job, existing } = runner.enqueue(user.id, {
       kind,
       brief: composeBrief(args, lang),
-      pictures: images.length ? images.map((p) => ({ hash: p.image_id, use: p.use })) : undefined,
+      pictures: images.length ? images.map((p) => pictureForJob(p)) : undefined,
       pictureSource: ['auto', 'free', 'generated', 'none'].includes(args.picture_source) ? args.picture_source : 'auto',
       pictureSubject: typeof args.picture_subject === 'string' && args.picture_subject.trim() ? args.picture_subject.trim() : undefined,
       projectName: args.project_name || undefined,
@@ -1571,16 +1573,62 @@ export function buildMcpServer(deps) {
   )
 
   server.registerTool(
+    'search_sprixy_assets',
+    {
+      title: 'Search my Sprixy game assets',
+      description:
+        'Searches the game assets (pixel-art sprites, characters, icons, tiles, UI elements) of the projects the person shares from their own Sprixy, and shows you thumbnails with their ids. ' +
+        (canWrite
+          ? 'Look at them, choose, then call add_image with sprixy_asset_id to use one in a design. '
+          : 'Look at them to suggest one: this connection cannot add a picture to the account. ') +
+        'Use it for game, retro or pixel-art designs, or when the person mentions their Sprixy assets. Read-only.',
+      inputSchema: {
+        query: z.string().max(200).optional().describe('Words matched against the asset names, tags and prompts: "goblin", "coin icon". Empty lists the most recent.'),
+        kind: z.enum(['character', 'sprite', 'object', 'icon', 'ui', 'environment', 'tileset', 'texture', 'animation']).optional(),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ query, kind }) => {
+      if (!deps.pictures?.sprixyAvailable?.(user)) {
+        return refuse('Sprixy is not connected to this Mocky account. The person connects it in Mocky, Settings → Sprixy, with a read-only catalog token from their Sprixy.')
+      }
+      try {
+        const out = await deps.pictures.searchSprixy(user, query || '', { kind })
+        if (!out.candidates.length) {
+          return {
+            content: [text(query ? `Nothing shared on Sprixy matches "${query}". Try other words, or none to see the most recent.` : 'Nothing is shared yet: in Sprixy, the person opens a project and clicks "Share with apps".')],
+            structuredContent: { candidates: [] },
+          }
+        }
+        const content = []
+        for (const c of out.candidates) {
+          const m = /^data:([^;]+);base64,(.+)$/.exec(c.thumb || '')
+          if (m) content.push({ type: 'image', data: m[2], mimeType: m[1] })
+          const frames = c.frames > 1 ? `, ${c.frames} frames (the first is used)` : ''
+          content.push(text(`${c.id} — ${c.title || 'untitled'} — ${c.kind}, ${c.width}×${c.height} px${frames} — project ${c.project}`))
+        }
+        return {
+          content,
+          structuredContent: { total: out.total, candidates: out.candidates.map(({ thumb: _t, ...rest }) => rest) },
+        }
+      } catch (err) {
+        return refuse(`The search failed: ${String(err?.message || err).slice(0, 200)}`)
+      }
+    },
+  )
+
+  server.registerTool(
     'add_image',
     {
       title: 'Add a picture to my Mocky library',
       description:
         'Puts one picture in the account\'s Mocky library so a design can use it, and returns its image_id for create_design / add_screen (the images field). ' +
-        'Give exactly one of: free_image_id (from search_free_images), image_file (a picture from this conversation — one you generated or one the person attached), or image_url (a public address of a JPEG, PNG or WebP). ' +
+        'Give exactly one of: free_image_id (from search_free_images), sprixy_asset_id (from search_sprixy_assets), image_file (a picture from this conversation — one you generated or one the person attached), or image_url (a public address of a JPEG, PNG or WebP). ' +
         'Only add pictures the person may use.',
       inputSchema: {
         use: z.string().min(1).max(200).describe('What the picture shows or is for, in a few words.'),
         free_image_id: z.string().max(40).optional().describe('An id from search_free_images, like "pexels:123".'),
+        sprixy_asset_id: z.string().max(80).optional().describe('An id from search_sprixy_assets, like "sprixy:ast_…". The design shows it as crisp pixel art.'),
         image_file: z.any().optional().describe('A picture from this conversation.'),
         image_url: z.string().url().max(2000).optional().describe('A public address of a JPEG, PNG or WebP picture.'),
       },
@@ -1594,11 +1642,14 @@ export function buildMcpServer(deps) {
       if (deps.maintenance()) return refuse('Mocky is in maintenance: try again later.')
       const file = args.image_file && typeof args.image_file === 'object' ? args.image_file : null
       const fileUrl = file && typeof file.download_url === 'string' ? file.download_url : null
-      const sources = [args.free_image_id, fileUrl || args.image_file, args.image_url].filter(Boolean)
-      if (sources.length !== 1) return refuse('Give exactly one of free_image_id, image_file or image_url.')
+      const sources = [args.free_image_id, args.sprixy_asset_id, fileUrl || args.image_file, args.image_url].filter(Boolean)
+      if (sources.length !== 1) return refuse('Give exactly one of free_image_id, sprixy_asset_id, image_file or image_url.')
       try {
         let hash
-        if (args.free_image_id) {
+        if (args.sprixy_asset_id) {
+          if (!deps.pictures.sprixyAvailable?.(user)) return refuse('Sprixy is not connected to this Mocky account (Settings → Sprixy).')
+          hash = await deps.pictures.importSprixy(user, args.sprixy_asset_id, args.use)
+        } else if (args.free_image_id) {
           if (!deps.pictures.freeAvailable(user)) return refuse('Free photos are not available to this account.')
           hash = await deps.pictures.importFree(user, args.free_image_id, args.use)
         } else {

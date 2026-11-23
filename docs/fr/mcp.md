@@ -1,5 +1,5 @@
 ---
-source_hash: 207370e9cb6e
+source_hash: 816166b5dfd2
 ---
 
 # Connecter un assistant (MCP)
@@ -38,7 +38,8 @@ clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
 | `export_screen` | Un écran en **fichier**, comme le fait la fenêtre Télécharger : `png` (pour publier — un post à ses pixels exacts), `pptx` (textes modifiables sur le design), `pptx-edit` (Canva / PowerPoint, chaque pièce séparée) ou `pdf` (documents). Rend un lien de téléchargement valable un jour ; ne change rien et n'appelle aucun modèle. |
 | `list_templates` | Les [modèles de projet](templates.md) du compte : noms, sections et écrans, jamais leur code. |
 | `search_free_images` | Des photos libres des banques auxquelles ce Mocky est relié (Pexels, Pixabay), en miniatures que l'assistant regarde. |
-| `add_image` | Met une image dans la bibliothèque du compte pour un design : une photo libre choisie ci-dessus, une image de la conversation (générée par ChatGPT, ou jointe par la personne), ou une adresse publique. |
+| `search_sprixy_assets` | Les assets de jeu de la personne venus de son [Sprixy](sprixy.md) — sprites, icônes, tuiles en pixel art des projets qu'elle partage — en miniatures que l'assistant regarde. Seulement une fois le Sprixy du compte relié. |
+| `add_image` | Met une image dans la bibliothèque du compte pour un design : une photo libre choisie ci-dessus, un [asset Sprixy](sprixy.md) (`sprixy_asset_id`, montré entier aux pixels nets), une image de la conversation (générée par ChatGPT, ou jointe par la personne), ou une adresse publique. |
 | `edit_design` | Modifie un écran existant comme la personne le demande — « mets l'en-tête en sombre » — en gardant le reste. Rend une image et le lien. |
 | `polish_design` | La [passe de qualité](quality.md) de Mocky sur un écran : corrige ce qu'elle trouve et note l'écran sur 20. Dit ce qu'elle a corrigé et ce qui reste. |
 | `audit_design` | Le [rapport SEO et accessibilité](seo-accessibility.md) d'un écran : deux notes et les constats nommés. Ne change rien ; `deep` ajoute les questions jugées par le modèle. |
@@ -425,7 +426,7 @@ compte et son travail unique à la fois, la maintenance.
 
 | Niveau | Ce qu'il atteint |
 |---|---|
-| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `audit_project`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
+| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `audit_project`, `search_free_images`, `search_sprixy_assets` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
 | **Lecture + écriture** | Tous les outils permis au compte, comme avec une connexion OAuth. |
 
 La liste de lecture est **fermée**, dans le code (`server/mcp/levels.js`) : un

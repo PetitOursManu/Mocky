@@ -497,6 +497,13 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     const none = await mcp.callTool({ name: 'search_free_images', arguments: { query: 'bakery' } })
     // No Pexels/Pixabay key in this test: said, not a crash.
     expect(none.isError).toBe(true)
+    // No Sprixy connected either: the answer says where to connect one.
+    const sprixy = await mcp.callTool({ name: 'search_sprixy_assets', arguments: { query: 'goblin' } })
+    expect(sprixy.isError).toBe(true)
+    expect(sprixy.content[0].text).toMatch(/Settings → Sprixy/)
+    const sprite = await mcp.callTool({ name: 'add_image', arguments: { use: 'x', sprixy_asset_id: 'sprixy:ast_goblin' } })
+    expect(sprite.isError).toBe(true)
+    expect(sprite.content[0].text).toMatch(/not connected/)
   })
 
   it('never puts a new design into an old project on its own', async () => {

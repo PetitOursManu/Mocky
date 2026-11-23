@@ -42,6 +42,8 @@ export const READ_TOOLS = Object.freeze([
   // A whole project against a grid: reads the project, stores nothing.
   'audit_project',
   'search_free_images',
+  // The person's own Sprixy assets, as thumbnails: nothing is stored.
+  'search_sprixy_assets',
   // A file of a screen, and the list of templates: neither changes the account.
   'export_screen',
   'list_templates',

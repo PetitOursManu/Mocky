@@ -1733,6 +1733,20 @@ idea (`statut: "idee"`): never validate, schedule or publish for the person.
 One post per piece: Calendy's Instagram + Facebook visual is ONE shared
 carousel, and a campaign's 4:5 post and 1.91:1 Facebook visual are two pictures.
 
+## Sprixy (the person's game assets)
+
+`server/sprixy.js`: shaped like Calendy — a per-account link in `sprixy.json`,
+the token never sent back, every call through the SSRF guard, no redirect.
+Only a READ-ONLY catalog token is kept: connecting checks against Sprixy that
+`/api/v1/projects` is refused, because a full token can spend the person's
+provider credit and would sit in a plain file. What may be used is decided in
+Sprixy ("Share with apps", per project), not here. Assets arrive as PNGs Sprixy
+already enlarged by a whole number (`ingestSprixy`, tags `sprixy` + `pixel-art`);
+the MCP job marks them `pixelArt` and `providedPictures.ts` asks for
+`object-contain [image-rendering:pixelated]` and no crop — `object-cover` cut the
+edges off sprites. `search_sprixy_assets` is a READ tool; the import is
+`add_image` with `sprixy_asset_id`. Doc: `docs/sprixy.md`.
+
 ## Conventions
 
 - **Comments explain why, not what.** The house style is unusually discursive:

@@ -32,7 +32,8 @@ account makes for itself, read-only or read and write.
 | `export_screen` | A screen as a **file**, as the Download dialog makes it: `png` (to publish — a post at its exact pixels), `pptx` (texts editable over the design), `pptx-edit` (Canva / PowerPoint with every piece taken apart) or `pdf` (documents). Answers a download link that works for a day; changes nothing and calls no model. |
 | `list_templates` | The account's [project templates](templates.md): names, sections and screens, never their code. |
 | `search_free_images` | Free photos from the libraries this Mocky is connected to (Pexels, Pixabay), as thumbnails the assistant looks at. |
-| `add_image` | Puts one picture in the account's library for a design: a free photo chosen above, a picture from the conversation (one ChatGPT generated, or one the person attached), or a public address. |
+| `search_sprixy_assets` | The person's own game assets from their [Sprixy](sprixy.md) — pixel-art sprites, icons, tiles of the projects they share — as thumbnails the assistant looks at. Only once the account connected its Sprixy. |
+| `add_image` | Puts one picture in the account's library for a design: a free photo chosen above, a [Sprixy asset](sprixy.md) (`sprixy_asset_id`, shown whole with crisp pixels), a picture from the conversation (one ChatGPT generated, or one the person attached), or a public address. |
 | `edit_design` | Changes an existing screen as the person asks — "make the header dark" — keeping the rest. Returns a picture and the link. |
 | `polish_design` | Mocky's [quality pass](quality.md) on a screen: corrects what it finds and scores it out of 20. Says what it fixed and what is left. |
 | `audit_design` | The [SEO and accessibility report](seo-accessibility.md) of a screen: two scores and the named findings. Changes nothing; `deep` adds the model-judged questions. |
@@ -383,7 +384,7 @@ maintenance.
 
 | Level | What it reaches |
 |---|---|
-| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `audit_project`, `search_free_images` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
+| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `audit_project`, `search_free_images`, `search_sprixy_assets` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
 | **Read and write** | Every tool the account may use, as with an OAuth connection. |
 
 The read-only list is **closed**, in code (`server/mcp/levels.js`): a tool

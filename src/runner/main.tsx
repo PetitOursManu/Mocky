@@ -112,7 +112,7 @@ export interface RunnerJob {
   /** A document's page size (PageFormatId), when the request named one; else the type's own. */
   pageFormat?: string
   /** Library hashes the server has checked belong to this account, with what each is for. */
-  pictures?: Array<{ hash: string; use: string }>
+  pictures?: Array<{ hash: string; use: string; pixelArt?: boolean }>
   /** Where Mocky finds a picture itself when none was supplied: the composer's "Images" choice. */
   pictureSource?: 'auto' | 'free' | 'generated' | 'none'
   /** What Mocky's own picture should show, in the assistant's words (English works best). */
@@ -349,7 +349,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
    */
   const provided = (job.pictures || [])
     .filter((p) => /^[a-f0-9]{64}$/.test(String(p?.hash)))
-    .map((p) => ({ hash: p.hash, url: absoluteUrl(imageUrl(p.hash)), use: String(p.use || '') }))
+    .map((p) => ({ hash: p.hash, url: absoluteUrl(imageUrl(p.hash)), use: String(p.use || ''), ...(p.pixelArt === true ? { pixelArt: true } : {}) }))
   const stockOk = stockUsable(await stockImageStatus().catch(() => null))
   const generationOk = await imageGenerationAvailable().catch(() => false)
   const wanted = job.pictureSource || 'auto'

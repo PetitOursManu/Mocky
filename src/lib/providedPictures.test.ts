@@ -26,4 +26,22 @@ describe('pictures handed to a generation', () => {
     const many = Array.from({ length: PROVIDED_PICTURES_MAX + 3 }, (_, i) => pic(i + 1))
     expect(buildProvidedPicturesSection(many).split('\n').filter((l) => /^\d+\. /.test(l))).toHaveLength(PROVIDED_PICTURES_MAX)
   })
+
+  it('keeps pixel art crisp and whole: no crop, no smoothing, a fixed size', () => {
+    const s = buildProvidedPicturesSection([{ ...pic(1, 'the hero sprite'), pixelArt: true }])
+    expect(s).toContain('1. the hero sprite [PIXEL ART] → https://m.example/api/images/1')
+    expect(s).toContain('[image-rendering:pixelated]')
+    expect(s).toContain('object-contain')
+    expect(s).toMatch(/Never crop it/)
+    // A screen with only sprites is never told to crop them.
+    expect(s).not.toContain('object-cover')
+  })
+
+  it('gives photos and sprites their own rule when both are supplied', () => {
+    const s = buildProvidedPicturesSection([pic(1, 'hero photo'), { ...pic(2, 'a coin icon'), pixelArt: true }])
+    expect(s).toContain('1. hero photo → ')
+    expect(s).toContain('2. a coin icon [PIXEL ART] → ')
+    expect(s).toMatch(/each other picture .*object-cover/)
+    expect(s).toContain('[image-rendering:pixelated]')
+  })
 })

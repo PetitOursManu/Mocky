@@ -23,7 +23,7 @@ import {
   videoPosterUrl,
   recutVideo,
   ACCEPTED_VIDEO_TYPES,
-  STOCK_LABELS,
+  CREDIT_LABELS,
   type LibraryVideo,
   type PinnedVideo,
 } from '../lib/videoLibrary'
@@ -841,7 +841,7 @@ export default function Bibliotheque({
                   img.credit.author
                 )}
                 {' · '}
-                {STOCK_LABELS[img.credit.source]}
+                {CREDIT_LABELS[img.credit.source]}
               </div>
             )}
             {isPage && usedBy(img) && (
@@ -938,7 +938,7 @@ export default function Bibliotheque({
               </div>
               <div className="mt-0.5 flex flex-wrap items-center gap-1">
                 <span className="rounded border border-line-soft px-1 text-caption text-ink-faint">
-                  {v.credit ? STOCK_LABELS[v.credit.source] : v.provider || 'upload'}
+                  {v.credit ? CREDIT_LABELS[v.credit.source] : v.provider || 'upload'}
                 </span>
                 <span className="rounded bg-ink/5 px-1 text-caption text-ink-muted">
                   {v.width}px · {v.fps} fps
@@ -958,10 +958,10 @@ export default function Bibliotheque({
                   {v.credit.author && ' · '}
                   {v.credit.pageUrl ? (
                     <a href={v.credit.pageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                      {STOCK_LABELS[v.credit.source]}
+                      {CREDIT_LABELS[v.credit.source]}
                     </a>
                   ) : (
-                    STOCK_LABELS[v.credit.source]
+                    CREDIT_LABELS[v.credit.source]
                   )}
                 </div>
               )}
