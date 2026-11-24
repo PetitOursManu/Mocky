@@ -289,6 +289,8 @@ export interface ImagesConfig {
    * under `video.stock` serve both. Absent from a server older than the feature.
    */
   stockImages?: { access: VideoAccessScope }
+  /** Generated pictures: who may ask for one. Absent from a server older than the list. */
+  generatedImages?: { access: VideoAccessScope }
 }
 
 /** Partial update. Omit (or send '') a secret to keep it; send null to clear. */
@@ -313,6 +315,7 @@ export interface ImagesConfigPatch {
   edit?: ImagesProfilePatch
   video?: ImagesVideoPatch
   stockImages?: { access?: Partial<VideoAccessScope> }
+  generatedImages?: { access?: Partial<VideoAccessScope> }
 }
 
 /** Admin view of the text (LLM) provider. Secrets are never sent back. */

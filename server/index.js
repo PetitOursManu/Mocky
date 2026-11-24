@@ -857,6 +857,26 @@ app.get('/api/images/providers', requireUser, (req, res, next) => {
 })
 
 /*
+ * The administrator's list of who may generate pictures (Admin → Images,
+ * `generatedImagesAccessFor`). Same two doors as the free plan above, for the
+ * same reasons: refused by name at the routes that make a picture — a film's
+ * variants are pictures too — and told "no image model" where the client asks
+ * whether any exists, so the composer offers the free libraries instead of a
+ * button whose only outcome is a 403.
+ */
+app.post(['/api/images/generate', '/api/video/variants'], requireUser, (req, res, next) => {
+  if (images.configStore.generatedImagesAccessFor(req.user)) return next()
+  res.status(403).json({
+    code: 'no-access',
+    error: "Votre compte n'a pas accès à la génération d'images par IA — un administrateur peut l'ouvrir dans Admin → Images.",
+  })
+})
+app.get('/api/images/providers', requireUser, (req, res, next) => {
+  if (images.configStore.generatedImagesAccessFor(req.user)) return next()
+  res.json({ providers: [] })
+})
+
+/*
  * The server-side model routes spend the free model too — a Muse dossier is
  * several calls, a film composition one. They count against the same day as the
  * proxy, as calls rather than generations: they serve a screen, they are not one.

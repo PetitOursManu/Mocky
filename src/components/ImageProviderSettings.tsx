@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   api,
   type ImageProfile,
@@ -861,13 +861,94 @@ function VideoAccessForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: I
  */
 function StockImagesForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesConfig) => void }) {
   const t = useT()
+  const keyed = STOCK_PROVIDERS.filter((p) => cfg.video.stock?.[p]?.hasApiKey)
+  // The anchor stays a literal here: the settings index's test reads the
+  // sources for it (settingsIndex.test.ts).
+  return (
+    <div data-admin-setting="stock-images">
+      <ImageScopeForm
+        cfg={cfg}
+        onConfig={onConfig}
+        field="stockImages"
+        title="settings.stockImagesTitle"
+        blurb="settings.stockImagesBlurb"
+        status={
+          <p className={`mt-2 text-body-sm ${keyed.length ? 'text-ok' : 'text-warn'}`}>
+            {keyed.length
+              ? t('settings.stockImagesKeys', { names: keyed.map((p) => STOCK_LABELS[p]).join(', ') })
+              : t('settings.stockImagesNoKey')}
+          </p>
+        }
+        labels={{
+          title: 'settings.stockImagesAccess',
+          help: 'settings.stockImagesAccessHelp',
+          listTitle: 'settings.stockImagesAccessList',
+          empty: 'settings.videoAccessEmpty',
+          allNote: 'settings.videoAccessAllNote',
+        }}
+        footnote="settings.stockImagesNote"
+      />
+    </div>
+  )
+}
+
+/**
+ * Who may GENERATE a picture — the images' twin of "AI-generated videos".
+ *
+ * It was missing: the only per-account brake on a paid picture was the free
+ * plan, which also swaps the text model and counts a quota. An account left out
+ * here is told "no image model" (GET /api/images/providers) and refused by name
+ * if it asks anyway, so the composer falls back to the free libraries.
+ */
+function GeneratedImagesForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesConfig) => void }) {
+  return (
+    <div data-admin-setting="generated-images">
+      <ImageScopeForm
+        cfg={cfg}
+        onConfig={onConfig}
+        field="generatedImages"
+        title="settings.generatedImagesTitle"
+        blurb="settings.generatedImagesBlurb"
+        labels={{
+          title: 'settings.generatedImagesAccess',
+          help: 'settings.generatedImagesAccessHelp',
+          listTitle: 'settings.generatedImagesAccessList',
+          empty: 'settings.videoAccessEmpty',
+          allNote: 'settings.videoAccessAllNote',
+        }}
+        footnote="settings.generatedImagesNote"
+      />
+    </div>
+  )
+}
+
+/** One per-account image scope, as a card: the two above differ only in words. */
+function ImageScopeForm({
+  cfg,
+  onConfig,
+  field,
+  title,
+  blurb,
+  status,
+  labels,
+  footnote,
+}: {
+  cfg: ImagesConfig
+  onConfig: (c: ImagesConfig) => void
+  field: 'stockImages' | 'generatedImages'
+  title: string
+  blurb: string
+  status?: ReactNode
+  labels: ComponentProps<typeof AccountScope>['labels']
+  footnote: string
+}) {
+  const t = useT()
   const modes = cfg.video.accessModes ?? (['all', 'allowlist'] as VideoAccessMode[])
   const [users, setUsers] = useState<AdminUser[]>([])
-  const [scope, setScope] = useState<VideoAccessScope>(cfg.stockImages?.access ?? { mode: 'all', userIds: [] })
+  const [scope, setScope] = useState<VideoAccessScope>(cfg[field]?.access ?? { mode: 'all', userIds: [] })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const keyed = STOCK_PROVIDERS.filter((p) => cfg.video.stock?.[p]?.hasApiKey)
 
   useEffect(() => {
     api.admin
@@ -881,7 +962,7 @@ function StockImagesForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: I
     setError(null)
     setSaved(false)
     try {
-      onConfig(await api.admin.setImagesConfig({ stockImages: { access: scope } }))
+      onConfig(await api.admin.setImagesConfig({ [field]: { access: scope } }))
       setSaved(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -891,14 +972,10 @@ function StockImagesForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: I
   }
 
   return (
-    <div data-admin-setting="stock-images" className="border border-line-soft p-4">
-      <h4 className="text-h4 text-ink">{t('settings.stockImagesTitle')}</h4>
-      <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.stockImagesBlurb')}</p>
-      <p className={`mt-2 text-body-sm ${keyed.length ? 'text-ok' : 'text-warn'}`}>
-        {keyed.length
-          ? t('settings.stockImagesKeys', { names: keyed.map((p) => STOCK_LABELS[p]).join(', ') })
-          : t('settings.stockImagesNoKey')}
-      </p>
+    <div className="border border-line-soft p-4">
+      <h4 className="text-h4 text-ink">{t(title)}</h4>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t(blurb)}</p>
+      {status}
 
       <AccountScope
         modes={modes}
@@ -913,14 +990,8 @@ function StockImagesForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: I
           setScope((s) => ({ ...s, userIds: s.userIds.includes(id) ? s.userIds.filter((x) => x !== id) : [...s.userIds, id] }))
         }}
         users={users}
-        labels={{
-          title: 'settings.stockImagesAccess',
-          help: 'settings.stockImagesAccessHelp',
-          listTitle: 'settings.stockImagesAccessList',
-          empty: 'settings.videoAccessEmpty',
-          allNote: 'settings.videoAccessAllNote',
-        }}
-        footnote="settings.stockImagesNote"
+        labels={labels}
+        footnote={footnote}
       />
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -1032,6 +1103,7 @@ export default function ImageProviderSettings() {
         />
         {/* Found rather than made: the free alternative to the three profiles
             above, which is why it sits beside them and not under Videos. */}
+        <GeneratedImagesForm cfg={cfg} onConfig={setCfg} />
         <StockImagesForm cfg={cfg} onConfig={setCfg} />
       </div>
 
