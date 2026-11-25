@@ -700,6 +700,8 @@ export const api = {
         provider: string | null
         /** Set only when Muse runs on a different model than generation. */
         inspirationModel?: string | null
+        /** How many times longer the browser's stages wait for that model (lib/patience.ts). */
+        patience?: number
         /** The plan of the account asking: on `free`, the model above is the free one. */
         plan?: Plan
         /** This account answers with its own key, over the instance's model. */

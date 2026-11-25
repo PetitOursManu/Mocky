@@ -20,6 +20,7 @@
  *    a reason to hand back an ordinary one.
  */
 import type { Settings } from '../settings'
+import { patient } from '../patience'
 import { proxyFetch } from '../proxy'
 import { SCREEN_MODES, type ScreenMode } from '../plan'
 import {
@@ -320,7 +321,7 @@ export async function runStoryboard(
   } = {},
 ): Promise<UltraStoryboard> {
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), STORYBOARD_TIMEOUT_MS)
+  const timer = setTimeout(() => ctrl.abort(), patient(STORYBOARD_TIMEOUT_MS))
   const onAbort = () => ctrl.abort()
   opts.signal?.addEventListener('abort', onAbort)
   try {

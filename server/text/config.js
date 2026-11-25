@@ -167,9 +167,32 @@ export const TEXT_PROFILES = ['generation', 'inspiration', 'free']
  */
 export const DEFAULT_REASONING = { generation: 'auto', inspiration: 'auto', free: 'off' }
 
+/**
+ * PATIENCE: how many times longer than usual Mocky waits for this profile's
+ * model before it gives a stage up — Muse's dossier, the planner, the
+ * storyboard, the photo judge, the decision calls, the vision probe. Every one
+ * of those limits was set against a paid model writing hundreds of tokens a
+ * second; a free one writes a few dozen, so the same dossier came back after
+ * its deadline and the stage fell back to its pattern, every time.
+ *
+ * A closed list, so a typed value cannot turn a deadline into a day, and `free`
+ * starts at ×3 for the reason DEFAULT_REASONING starts it at `off`. Like that
+ * one, a STARTING value: a saved profile keeps what it saved. It scales the
+ * deadlines Mocky sets, never the provider's own, nor the 300 s that Node's
+ * fetch allows between two bytes of an answer.
+ */
+export const PATIENCE_FACTORS = [1, 2, 3, 5, 10]
+export const DEFAULT_PATIENCE = { generation: 1, inspiration: 1, free: 3 }
+
+/** A factor read strictly: one of PATIENCE_FACTORS, or `fallback`. */
+export function readPatience(v, fallback = 1) {
+  const n = Number(v)
+  return PATIENCE_FACTORS.includes(n) ? n : fallback
+}
+
 function emptyProfile(name = 'generation') {
   // `reasoning` belongs to the PROFILE — the model it serves.
-  const p = { provider: '', reasoning: DEFAULT_REASONING[name] || 'auto' } // '' = not configured
+  const p = { provider: '', reasoning: DEFAULT_REASONING[name] || 'auto', patience: DEFAULT_PATIENCE[name] || 1 } // '' = not configured
   for (const def of TEXT_PROVIDERS) {
     p[def.id] = { baseUrl: def.baseUrl, apiKey: '', model: def.model }
   }
@@ -208,6 +231,7 @@ function mergeProfile(current, patch, name) {
   const out = {
     provider: p.provider === '' || TEXT_PROVIDER_IDS.includes(p.provider) ? p.provider : base.provider,
     reasoning: p.reasoning !== undefined ? readReasoning(p.reasoning) : readReasoning(base.reasoning),
+    patience: readPatience(p.patience, readPatience(base.patience, DEFAULT_PATIENCE[name] || 1)),
   }
   for (const def of TEXT_PROVIDERS) {
     const cur = base[def.id] || {}
@@ -233,7 +257,7 @@ export function mergeTextConfig(current, patch) {
 
 function publicProfile(prof, name) {
   const c = { ...emptyProfile(name), ...(prof || {}) }
-  const out = { provider: c.provider || '', reasoning: readReasoning(c.reasoning) }
+  const out = { provider: c.provider || '', reasoning: readReasoning(c.reasoning), patience: readPatience(c.patience, DEFAULT_PATIENCE[name] || 1) }
   for (const def of TEXT_PROVIDERS) {
     const v = c[def.id] || {}
     out[def.id] = { baseUrl: v.baseUrl || '', model: v.model || '', hasApiKey: Boolean(v.apiKey) }
@@ -248,6 +272,7 @@ export function publicTextConfig(cfg) {
     providers: TEXT_PROVIDERS.map((p) => ({ id: p.id, label: p.label, group: p.group })),
     profiles: TEXT_PROFILES,
     reasoningLevels: REASONING_LEVELS,
+    patienceFactors: PATIENCE_FACTORS,
     generation: publicProfile(c.generation, 'generation'),
     inspiration: publicProfile(c.inspiration, 'inspiration'),
     free: publicProfile(c.free, 'free'),
@@ -255,14 +280,25 @@ export function publicTextConfig(cfg) {
 }
 
 function resolveProfile(prof, name = 'generation') {
-  const c = { reasoning: DEFAULT_REASONING[name] || 'auto', ...(prof || {}) }
+  const c = { reasoning: DEFAULT_REASONING[name] || 'auto', patience: DEFAULT_PATIENCE[name] || 1, ...(prof || {}) }
   const def = byId(c.provider)
   if (!def) return null
   const v = c[def.id] || {}
   const baseUrl = str(v.baseUrl, def.baseUrl)
   const model = str(v.model, def.model)
   if (!baseUrl || !model) return null // incomplete → don't hijack the request
-  return { id: def.id, kind: def.kind, auth: def.auth || 'bearer', baseUrl, apiKey: v.apiKey || '', model, ...(readReasoning(c.reasoning) !== 'auto' ? { reasoning: readReasoning(c.reasoning) } : {}) }
+  const patience = readPatience(c.patience)
+  return {
+    id: def.id,
+    kind: def.kind,
+    auth: def.auth || 'bearer',
+    baseUrl,
+    apiKey: v.apiKey || '',
+    model,
+    ...(readReasoning(c.reasoning) !== 'auto' ? { reasoning: readReasoning(c.reasoning) } : {}),
+    // Absent at ×1, so a target is what it always was (see PATIENCE_FACTORS).
+    ...(patience > 1 ? { patience } : {}),
+  }
 }
 
 /**

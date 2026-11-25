@@ -77,7 +77,8 @@ export async function museChat(creds, req) {
   let plan = upstreamFor(body)
 
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), req.timeoutMs ?? 40000)
+  // `patience`: the profile's own allowance for a slow model (server/text/config.js).
+  const timer = setTimeout(() => ctrl.abort(), (req.timeoutMs ?? 40000) * (creds.patience || 1))
   const onExternalAbort = () => ctrl.abort()
   req.signal?.addEventListener('abort', onExternalAbort)
   try {

@@ -58,6 +58,10 @@ export const settings = {
     'settings.reasoning.medium': 'Moyen',
     'settings.reasoning.high': 'Élevé',
     'settings.reasoningHint': 'Plus de réflexion : souvent de meilleurs écrans, mais plus lent et plus cher. Pris en compte par Ollama, OpenRouter, OpenAI (gpt-5, o3…), Gemini, Kimi K3 et Groq (gpt-oss) ; sans effet ailleurs, Anthropic compris pour l’instant.',
+    'settings.patience': 'Délais d’attente',
+    'settings.patience.option': '×{n}',
+    'settings.patience.optionDefault': '×1 (normal)',
+    'settings.patienceHint': 'Combien de fois plus longtemps Mocky attend ce modèle avant d’abandonner une étape (Muse, planificateur, storyboard, choix des photos). À monter pour un modèle lent, gratuit ou sur votre propre machine.',
     'settings.usePlanner': 'Utiliser le planificateur (plus lent, meilleure structure)',
     'settings.usePlannerHelp':
       'Une passe rapide qui planifie la mise en page, les sections et le contenu de l’écran avant l’écriture du code. Ajoute quelques secondes ; abandonnée automatiquement en cas d’échec ou de délai dépassé.',
@@ -444,6 +448,10 @@ export const settings = {
     'settings.reasoning.medium': 'Medium',
     'settings.reasoning.high': 'High',
     'settings.reasoningHint': 'More thinking: often better screens, but slower and more expensive. Honoured by Ollama, OpenRouter, OpenAI (gpt-5, o3…), Gemini, Kimi K3 and Groq (gpt-oss); no effect elsewhere, Anthropic included for now.',
+    'settings.patience': 'Waiting time',
+    'settings.patience.option': '×{n}',
+    'settings.patience.optionDefault': '×1 (normal)',
+    'settings.patienceHint': 'How many times longer Mocky waits for this model before giving a stage up (Muse, the planner, the storyboard, the photo choice). Raise it for a slow model: a free one, or one on your own machine.',
     'settings.usePlanner': 'Use the planner (slower, better structure)',
     'settings.usePlannerHelp':
       'A quick pass that plans the screen’s layout, sections and content before the code is written. Adds a few seconds; dropped automatically if it fails or times out.',

@@ -35,6 +35,7 @@
  * generated image costs. A model without vision skips step 3 and takes the
  * search engine's first result, which is the best judgement available blind.
  */
+import { patient } from './patience'
 import { absoluteUrl, type GeneratedSlotImage, type MuseImagerySlot } from './muse'
 import { stripDataUrl } from './generate'
 import { proxyFetch } from './proxy'
@@ -317,7 +318,7 @@ export async function judgeStockCandidates(
 ): Promise<{ pick: number; reason: string } | null> {
   if (!candidates.length) return null
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), JUDGE_TIMEOUT_MS)
+  const timer = setTimeout(() => ctrl.abort(), patient(JUDGE_TIMEOUT_MS))
   const onAbort = () => ctrl.abort()
   signal?.addEventListener('abort', onAbort)
   try {

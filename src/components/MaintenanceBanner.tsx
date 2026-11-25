@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { setModelPatience } from '../lib/patience'
 import { api } from '../lib/api'
 import { getMaintenance, onMaintenance, setMaintenance } from '../lib/maintenance'
 import { setAnnouncement } from '../lib/announcement'
@@ -36,6 +37,9 @@ export default function MaintenanceBanner({ isAdmin }: { isAdmin: boolean }) {
           if (stopped) return
           setMaintenance(cfg.maintenance)
           setAnnouncement(cfg.announcement)
+          // The one poll of /api/config the app keeps running: the model's
+          // patience rides on it rather than on a second one (lib/patience.ts).
+          setModelPatience(cfg.textProvider?.patience)
         })
         .catch(() => {
           /* offline: the next poll, or the next refused write, will tell */

@@ -13,6 +13,10 @@ import { useT } from '../i18n'
 import ReasoningSelect from './ReasoningSelect'
 import { readReasoning, type ReasoningLevel } from '../lib/reasoning'
 
+/** Mirrors PATIENCE_FACTORS in server/text/config.js, which reads it strictly. */
+const PATIENCE_FACTORS = [1, 2, 3, 5, 10]
+const readPatience = (v: unknown) => (PATIENCE_FACTORS.includes(Number(v)) ? Number(v) : 1)
+
 /** Translation keys, resolved at render — `useT` only runs inside a component. */
 const HINT_KEYS: Record<string, string> = {
   '': 'settings.textHintNone',
@@ -101,6 +105,7 @@ function ProfileForm({
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [reasoning, setReasoning] = useState<ReasoningLevel>(readReasoning(section.reasoning))
+  const [patience, setPatience] = useState<number>(readPatience(section.patience))
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -122,6 +127,7 @@ function ProfileForm({
     setModel(e.model)
     setApiKey('')
     setReasoning(readReasoning(s.reasoning))
+    setPatience(readPatience(s.patience))
   }
 
   useEffect(() => {
@@ -143,7 +149,7 @@ function ProfileForm({
     setSaved(false)
     setTest(null)
     try {
-      const patch: Record<string, unknown> = { provider, reasoning }
+      const patch: Record<string, unknown> = { provider, reasoning, patience }
       if (provider) patch[provider] = { baseUrl, model, apiKey: apiKey || undefined }
       await push(patch, provider)
       setSaved(true)
@@ -335,6 +341,18 @@ function ProfileForm({
             </div>
           </label>
           <ReasoningSelect value={reasoning} onChange={setReasoning} />
+          {/* How much longer Mocky waits for THIS model (server/text/config.js, PATIENCE_FACTORS). */}
+          <label className="block">
+            <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.patience')}</span>
+            <select className="input w-full" value={patience} onChange={(e) => setPatience(Number(e.target.value))}>
+              {PATIENCE_FACTORS.map((n) => (
+                <option key={n} value={n}>
+                  {n === 1 ? t('settings.patience.optionDefault') : t('settings.patience.option', { n })}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-caption text-ink-faint">{t('settings.patienceHint')}</span>
+          </label>
         </div>
       )}
 
