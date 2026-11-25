@@ -319,7 +319,10 @@ function mockyVisualLayout(family, rawDoc, W, H) {
   }
 
   if (fam === 'steps' || (fam === 'timeline' && !wide)) {
-    if (wide) {
+    // Side by side only while a column can hold a label and its sentence: six
+    // steps on a square post came back as six slivers with their details gone.
+    var rowOfSteps = wide && (bw - u * 1.6 * (n - 1)) / Math.max(1, n) >= u * 9;
+    if (rowOfSteps) {
       var g = u * 1.6, cw = (bw - g * (n - 1)) / Math.max(1, n);
       var d = Math.min(cw * 0.42, bh * 0.2, u * 4.4);
       for (var i = 0; i < n; i++) {
