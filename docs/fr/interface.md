@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 3d55b68414df
+source_hash: d2678e430025
 ---
 
 # L’interface
@@ -1061,7 +1061,7 @@ fait réellement.
 | `Télécharger le document` | La pastille `Télécharger` d’un document, ou `Télécharger…` dans son menu | Trois boutons — PDF, `.pptx`, PNG — et un lien `Enregistrer « {file} »` une fois le fichier prêt, parce qu’un navigateur peut bloquer un deuxième téléchargement automatique. Ce qui n’a pas pu être exporté parfaitement est listé dessous. Voir [Documents](documents.md#telecharger). | libre |
 | `Partager cet écran` | `Partager (QR code)` | Une durée de `1 heure`, `24 heures` ou `7 jours`, un QR code, et `Révoquer`. | serveur |
 | `Médias de « {name} »` | `Changer les médias…` | **Deux sections, jamais une liste.** `Images dans le code de l’écran` : par image, `Remplacer`, ou `Partout ({n})` quand le même fichier apparaît plusieurs fois, ou un emplacement à la fois — cela **réécrit la source**, et `Revenir à la version précédente` l’annule. `Média attaché à l’écran (hors du code)` : un montage ou une séquence à poser sur la carte du canevas, et `Détacher` — cela **ne touche pas au code**. `Importer un fichier` est libre ; `Générer` appelle le fournisseur d’images. | libre / image |
-| `Visuel — {name}` | `Visuel…` | `Décliner dans un autre format` : une copie à côté du visuel, dans une autre de ses tailles. `Proposés pour ce contenu` (la famille dessinée et celles que la génération a proposées), puis `Autres familles` ; une famille qui ne peut pas dessiner ce contenu est grisée avec la raison (`Il faut exactement 4 éléments`, `Chaque élément doit avoir un chiffre`…). `Rendu` : `Plat`, `Relief`, `3D`, `Verre`, `Dégradé`. `Cases` : `Teintées`, `Pleines`, `Contour`. | libre |
+| `Visuel — {name}` | `Visuel…` | `Décliner dans un autre format` : une copie à côté du visuel, dans une autre de ses tailles. `Proposés pour ce contenu` (la famille dessinée et celles que la génération a proposées), puis `Autres familles` ; une famille qui ne peut pas dessiner ce contenu est grisée avec la raison (`Il faut exactement 4 éléments`, `Chaque élément doit avoir un chiffre`…). `Rendu` : `Plat`, `Relief`, `3D`, `Verre`, `Dégradé`, `Néon`. `Cases` : `Teintées`, `Pleines`, `Contour`. | libre |
 | `Cadres — {name}` | `Cadres…` | `Les cadres de l’écran` : par cadre, `Forme` ouvre les 73 formes par famille et la grille 3 × 3 du `Cadrage`, `Image` le sélecteur d’images, `Ombre` une case à cocher. `Les images à mettre dans un cadre` : chaque `<img>` à l’adresse écrite, et `Mettre dans un cadre`. Un cadre répété dans une liste change pour tous les éléments, et son image, que le code calcule, reste l’affaire du modèle. | libre |
 | `Traduire « {name} »` | `Traduire…` | `Langue de la copie` : onze langues qui ne demandent pas d’autre écriture. `Traduire` ferme la fenêtre et lance ; l’avis dit combien de textes ont été traduits et combien sont restés dans la langue d’origine. | modèle |
 | `Tailles d’écran — {name}` | `Comparer mobile, tablette, bureau…` | Trois aperçus vivants, animations coupées, avec `Défilement synchronisé`. Chaque colonne dit `Rien ne dépasse` ou `{n} débordement(s)`. | gratuit ; modèle pour la correction |

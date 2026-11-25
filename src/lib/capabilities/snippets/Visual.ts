@@ -1080,6 +1080,44 @@ function mockyVisualLayout(family, rawDoc, W, H, opts) {
       node('dot', axX - dZ / 2, yZ + rhZ / 2 - dZ / 2, dZ, dZ, 'dot', { num: items[zi].icon ? '' : String(zi + 1), icon: items[zi].icon }, zi, { shape: 'circle', pad: 0, padY: 0 });
       node('card', leftZ ? bx : axX + dZ / 2 + u * 1.4, yZ, cwZ, rhZ, 'card', runs(items[zi]), zi, { align: leftZ ? 'right' : 'left' });
     }
+  } else if (fam === 'winding-road') {
+    // A road that climbs to a milestone and dips to the next in wide U-turns:
+    // flat on each pin, a steep stretch between, and every corner rounded (a
+    // normalised logistic step, never an angle). The texts take the free space
+    // above the crests and below the troughs.
+    var slotW = bw / n, dW = Math.min(u * 2.2, slotW * 0.22), roadW = Math.max(u * 1.6, Math.min(u * 2.6, bh * 0.05));
+    var pinH = dW * 2.4, textH = Math.min(bh * 0.21, u * 6.2);
+    var peakY = by + textH + pinH + u * 0.6, troughY = by + bh - textH - roadW / 2 - u * 0.8;
+    var midW = (peakY + troughY) / 2;
+    var wx = items.map(function (it, i) { return bx + slotW * (i + 0.5); }), wy = items.map(function (it, i) { return i % 2 === 0 ? peakY : troughY; });
+    // Level stretches through the pins, joined by climbs and drops: each bend a
+    // quarter circle of a large radius, so the road turns like a road and never
+    // like a corner.
+    var roadPts = [[bx, wy[0]]];
+    var arcTo = function (cx0, cy0, r, a0, a1) {
+      for (var qa = 1; qa <= 12; qa++) { var aa = a0 + (a1 - a0) * qa / 12; roadPts.push([cx0 + r * Math.cos(aa), cy0 + r * Math.sin(aa)]); }
+    };
+    for (var kw = 0; kw < n - 1; kw++) {
+      var x0w = wx[kw], y0w = wy[kw], x1w = wx[kw + 1], y1w = wy[kw + 1], xm = (x0w + x1w) / 2;
+      var dir = y1w > y0w ? 1 : -1, R = Math.min(slotW * 0.32, Math.abs(y1w - y0w) / 2);
+      roadPts.push([x0w, y0w], [xm - R, y0w]);
+      // into the climb (or the drop), then out of it onto the next level
+      arcTo(xm - R, y0w + dir * R, R, -dir * Math.PI / 2, 0);
+      roadPts.push([xm, y1w - dir * R]);
+      arcTo(xm + R, y1w - dir * R, R, Math.PI, dir > 0 ? Math.PI / 2 : Math.PI * 1.5);
+    }
+    roadPts.push([wx[n - 1], wy[n - 1]], [bx + bw, wy[n - 1]]);
+    links.push({ points: roadPts, arrow: false, asphalt: true, width: roadW });
+    var twW = Math.min(slotW * 1.5, bw * 0.42) - u * 0.4;
+    items.forEach(function (it, i) {
+      node('dot', wx[i] - dW / 2, wy[i] - dW / 2, dW, dW, 'dot', { num: String(i + 1) }, i, { shape: 'circle', pad: 0, padY: 0, pin: true, alwaysPin: true });
+      var txW = Math.max(bx, Math.min(bx + bw - twW, wx[i] - twW / 2));
+      if (i % 2 === 0) node('card', txW, by, twW, peakY - pinH - u * 0.6 - by, 'card', runs(it, { kicker: true }), i, { plain: true, valign: 'end' });
+      else {
+        var belowY = troughY + roadW / 2 + u * 0.8;
+        node('card', txW, belowY, twW, by + bh - belowY, 'card', runs(it, { kicker: true }), i, { plain: true, valign: 'start' });
+      }
+    });
   }
 
   // A box in relief keeps the same rectangle and gives part of it to its edge:
@@ -1152,7 +1190,7 @@ function Visual(props) {
   }, []);
 
   var W = size[0], H = size[1];
-  var look = ['raised', 'block', 'glass', 'gradient'].indexOf(p.look) >= 0 ? p.look : 'flat';
+  var look = ['raised', 'block', 'glass', 'gradient', 'neon'].indexOf(p.look) >= 0 ? p.look : 'flat';
   var lay = mockyVisualLayout(p.family, p.doc, W, H, { look: look });
   var u = lay.u;
   var variant = p.variant === 'solid' || p.variant === 'outline' ? p.variant : 'soft';
@@ -1169,7 +1207,13 @@ function Visual(props) {
     var c = tone(Math.max(0, nd.tone));
     var solid = nd.solid || variant === 'solid';
     var fill, border = 'none', text, mark;
-    if (nd.plain) { fill = 'transparent'; text = mockyVisualInkOn(ground, [ink]); mark = mockyVisualMark(c, ground, ink, 3); }
+    // Neon is a dark glass whatever the variant: the text is measured on the
+    // tint it really shows, the colour carried by the edge and the glow.
+    if (look === 'neon' && !nd.plain) {
+      fill = mockyVisualMix(ground, c, solid ? 0.3 : 0.16);
+      text = mockyVisualInkOn(fill, [ink, '#ffffff']);
+      mark = mockyVisualMark(light(c, 0.25), fill, ink, 3);
+    } else if (nd.plain) { fill = 'transparent'; text = mockyVisualInkOn(ground, [ink]); mark = mockyVisualMark(c, ground, ink, 3); }
     else if (solid) { fill = c; text = mockyVisualInkOn(c, [ground, ink]); mark = text; }
     else if (variant === 'outline' && !nd.soft) { fill = ground; border = Math.max(1.5, u * 0.13).toFixed(1) + 'px solid ' + c; text = mockyVisualInkOn(ground, [ink]); mark = mockyVisualMark(c, ground, ink, 3); }
     else { fill = mockyVisualMix(ground, c, nd.soft && variant === 'solid' ? 0.12 : 0.16); text = mockyVisualInkOn(fill, [ink]); mark = mockyVisualMark(c, fill, ink, 3); }
@@ -1238,12 +1282,14 @@ function Visual(props) {
     e('defs', null, e('marker', { id: marker, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, e('path', { d: 'M0 0 L10 5 L0 10 z', fill: line }))),
     drawn.map(function (l, i) {
       var col = linkCol(l), sw = linkW(l);
-      if (l.road && (look === 'raised' || look === 'block')) {
-        // Asphalt with a dashed centre line: the roadmap as a road.
-        var asphalt = mockyVisualLum(ground) > 0.4 ? '#3f3f46' : '#52525b';
+      if (l.asphalt || (l.road && (look === 'raised' || look === 'block'))) {
+        // Asphalt with a dashed centre line: the roadmap as a road. Under neon
+        // the road glows in the first colour instead.
+        var asphalt = look === 'neon' ? rgba(tone(0), 0.35) : mockyVisualLum(ground) > 0.4 ? '#3f3f46' : '#52525b';
+        var rw = l.width || stroke * 6;
         return e('g', { key: i },
-          e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: asphalt, strokeWidth: stroke * 6, strokeLinecap: 'round', strokeLinejoin: 'round' }),
-          e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: '#ffffff', strokeWidth: Math.max(1.5, stroke * 0.8), strokeDasharray: stroke * 3 + ' ' + stroke * 3 }));
+          e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: asphalt, strokeWidth: rw, strokeLinecap: 'round', strokeLinejoin: 'round', style: look === 'neon' ? { filter: 'drop-shadow(0 0 ' + u * 0.6 + 'px ' + tone(0) + ')' } : undefined }),
+          e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: '#ffffff', strokeWidth: Math.max(1.5, rw * 0.09), strokeDasharray: rw * 0.45 + ' ' + rw * 0.45, strokeLinecap: 'round' }));
       }
       if (l.fill) return e('path', { key: i, d: mockyVisualPath(l.points) + ' Z', fill: mockyVisualMix(ground, l.tone != null ? tone(l.tone) : ink, 0.22), stroke: l.nostroke ? 'none' : col, strokeWidth: sw, strokeLinejoin: 'round' });
       var st = straightOf(l);
@@ -1269,15 +1315,16 @@ function Visual(props) {
     if (nd.kind === 'dot') {
       var dc = mockyVisualInkOn(c, [ground, ink]);
       var content = nd.t.icon ? iconOf(nd.t.icon, nd.w * 0.5, dc) : null;
-      if (nd.pin && (look === 'raised' || look === 'block')) {
+      if (nd.pin && (nd.alwaysPin || look === 'raised' || look === 'block')) {
         // A map pin standing on the road, its tip on the milestone.
         var pinS = nd.w * 1.25, pcx = nd.x + nd.w / 2, pcy = nd.y + nd.h / 2;
         children.push(e('div', { key: key, 'aria-hidden': 'true', style: { position: 'absolute', left: pcx - pinS / 2, top: pcy - pinS * 1.45, width: pinS, height: pinS, borderRadius: '50% 50% 50% 0', transform: 'rotate(-45deg)', background: look === 'block' ? sphere(c) : c, boxShadow: '0 ' + u * 0.3 + 'px ' + u * 0.6 + 'px rgba(0,0,0,0.25)' } }));
         children.push(e('div', { key: key + 'h', style: { position: 'absolute', left: pcx - pinS * 0.3, top: pcy - pinS * 1.25, width: pinS * 0.6, height: pinS * 0.6, borderRadius: '50%', background: '#ffffff', color: mockyVisualMark(c, '#ffffff', ink, 3), display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: pinS * 0.3, lineHeight: 1 } }, nd.t.num || null));
         return;
       }
-      var dotBg = look === 'raised' || look === 'block' ? sphere(c) : look === 'gradient' ? gradientUnder(c, dc) : look === 'glass' ? rgba(c, 0.72) : c;
-      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: dotBg, color: dc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: nd.w * 0.42, lineHeight: 1, boxShadow: look === 'raised' || look === 'block' ? '0 ' + u * 0.25 + 'px ' + u * 0.5 + 'px rgba(0,0,0,0.22)' : undefined }) }, content || nd.t.num || null));
+      var dotBg = look === 'raised' || look === 'block' ? sphere(c) : look === 'gradient' ? gradientUnder(c, dc) : look === 'glass' ? rgba(c, 0.72) : look === 'neon' ? rgba(c, 0.3) : c;
+      if (look === 'neon') dc = mockyVisualInkOn(mockyVisualMix(ground, c, 0.3), ['#ffffff', ink]);
+      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: dotBg, color: dc, border: look === 'neon' ? '1.5px solid ' + light(c, 0.4) : undefined, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: nd.w * 0.42, lineHeight: 1, boxShadow: look === 'neon' ? '0 0 ' + u * 0.9 + 'px ' + rgba(c, 0.8) + ', inset 0 0 ' + u * 0.5 + 'px ' + rgba(c, 0.6) : look === 'raised' || look === 'block' ? '0 ' + u * 0.25 + 'px ' + u * 0.5 + 'px rgba(0,0,0,0.22)' : undefined }) }, content || nd.t.num || null));
       return;
     }
     if (nd.kind === 'disc') {
@@ -1312,6 +1359,10 @@ function Visual(props) {
       var eh = Math.min(nd.w * 0.32, u * 1.6, nd.h);
       children.push(e('div', { key: key, style: Object.assign({}, base, { top: nd.y + eh / 2, height: Math.max(0, nd.h - eh / 2), background: 'linear-gradient(90deg, ' + dark(c, 0.28) + ', ' + c + ' 35%, ' + light(c, 0.3) + ' 55%, ' + c + ' 75%, ' + dark(c, 0.3) + ')', borderRadius: '0 0 50% 50% / 0 0 ' + eh / 2 + 'px ' + eh / 2 + 'px' }) }));
       children.push(e('div', { key: key + 't', style: { position: 'absolute', left: nd.x, top: nd.y, width: nd.w, height: eh, borderRadius: '50%', background: light(c, 0.38) } }));
+      return;
+    }
+    if (nd.kind === 'bar' && look === 'neon') {
+      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : nd.h / 2, background: 'linear-gradient(' + (nd.col ? '180deg' : '90deg') + ', ' + rgba(c, 0.85) + ', ' + rgba(c, 0.35) + ')', border: '1px solid ' + light(c, 0.45), boxShadow: '0 0 ' + u * 1.1 + 'px ' + rgba(c, 0.6) }) }));
       return;
     }
     if (nd.kind === 'bar' && (look === 'raised' || look === 'block' || look === 'gradient' || look === 'glass')) {
@@ -1372,6 +1423,17 @@ function Visual(props) {
     var dep = nd.depth || 0;
     if (face && !nd.vertical && nd.kind !== 'text') {
       if (look === 'gradient') style.background = gradientUnder(face, pnt.text);
+      if (look === 'neon') {
+        // Glass lit from its edges: a bright rim, light caught at the top and
+        // the bottom, a glow of the colour around — the panel of a dark UI.
+        style.background = 'linear-gradient(180deg, ' + rgba(c, 0.26) + ', ' + rgba(c, 0.05) + ' 55%, ' + rgba(c, 0.14) + ')';
+        style.border = '1px solid ' + rgba(light(c, 0.6), 0.8);
+        style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 ' + u * 1.8 + 'px ' + rgba(c, 0.3) + ', 0 0 ' + u * 1.4 + 'px ' + rgba(c, 0.45);
+        var streak = function (top, k) {
+          return e('div', { key: key + k, 'aria-hidden': 'true', style: { position: 'absolute', left: nd.x + nd.w * 0.18, top: top, width: nd.w * 0.64, height: 2, borderRadius: 1, background: 'linear-gradient(90deg, transparent, #ffffff, transparent)', boxShadow: '0 0 ' + u * 0.9 + 'px ' + u * 0.2 + 'px ' + light(c, 0.3), pointerEvents: 'none' } });
+        };
+        nd.neonStreaks = [streak(nd.y - 1, 'nt'), streak(nd.y + nd.h - 1, 'nb')];
+      }
       if (look === 'glass') {
         style.background = 'linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.04)), ' + rgba(face, 0.62);
         style.backdropFilter = 'blur(10px)';
@@ -1400,6 +1462,7 @@ function Visual(props) {
       return;
     }
     children.push(e('div', { key: key, style: style }, runsOut));
+    if (nd.neonStreaks) children.push.apply(children, nd.neonStreaks);
   });
 
   if (lay.footer) {

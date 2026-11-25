@@ -55,6 +55,7 @@ export const visuals = {
     'visuals.look.block': '3D',
     'visuals.look.glass': 'Verre',
     'visuals.look.gradient': 'Dégradé',
+    'visuals.look.neon': 'Néon',
     'visuals.decline': 'Décliner dans un autre format',
     'visuals.declineHint': 'Une copie à côté, même contenu, mise en page recalculée pour la taille choisie. Sans appel au modèle.',
     'visuals.declineFailed': 'Ce visuel n’a pas pu être décliné : sa page n’a pas de format écrit dans le code.',
@@ -163,6 +164,8 @@ export const visuals = {
     'visuals.family.kanban.desc': 'Le travail par statut',
     'visuals.family.zigzag': 'Liste alternée',
     'visuals.family.zigzag.desc': 'Des points clés, à gauche puis à droite',
+    'visuals.family.winding-road': 'Route sinueuse',
+    'visuals.family.winding-road.desc': 'Des jalons sur une route qui serpente',
   },
   en: {
     'visuals.menu': 'Visual…',
@@ -211,6 +214,7 @@ export const visuals = {
     'visuals.look.block': '3D',
     'visuals.look.glass': 'Glass',
     'visuals.look.gradient': 'Gradient',
+    'visuals.look.neon': 'Neon',
     'visuals.decline': 'Make it in another size',
     'visuals.declineHint': 'A copy beside it, same content, laid out again for the chosen size. No model call.',
     'visuals.declineFailed': 'This visual could not be made in another size: its page has no format written in the code.',
@@ -319,5 +323,7 @@ export const visuals = {
     'visuals.family.kanban.desc': 'Work by status',
     'visuals.family.zigzag': 'Zigzag list',
     'visuals.family.zigzag.desc': 'Key points, left then right',
+    'visuals.family.winding-road': 'Winding road',
+    'visuals.family.winding-road.desc': 'Milestones on a road that winds',
   },
 }

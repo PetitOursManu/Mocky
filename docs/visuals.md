@@ -72,9 +72,10 @@ would be a call for nothing.
 | Roadmap | Milestones along a road |
 | Kanban | Work by status |
 | Zigzag list | Key points, left then right of a line |
+| Winding road | Milestones on a road that winds, every turn rounded |
 
 :::why
-The forty-four families were chosen from what the tools of this kind draw —
+The forty-five families were chosen from what the tools of this kind draw —
 Napkin, PowerPoint's SmartArt, the open-source AntV Infographic and Mermaid, the
 template galleries of draw.io and Miro — and kept where a business or teaching
 text actually takes that shape. Each is drawn by Mocky's own layout; none of
@@ -196,6 +197,7 @@ direction, and can be switched in **Visual…** → **Rendering** at no cost:
 | 3D | Fake 3D in CSS: boxes with a top and a side face, columns as cylinders, dots as spheres, a roadmap as a road with pins |
 | Glass | Frosted, translucent boxes — on a dark or photographic background |
 | Gradient | Soft gradients, always running away from the text's colour |
+| Neon | Dark glass panels lit from their edges, with a glow of the colour — on a dark background |
 
 A rendering moves nothing: the boxes keep their places and their text, which
 stays flat, readable and editable in PowerPoint. The faces of the 3D and the

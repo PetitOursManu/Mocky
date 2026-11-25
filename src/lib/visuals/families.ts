@@ -86,6 +86,7 @@ export const VISUAL_FAMILIES = [
   'roadmap',
   'kanban',
   'zigzag',
+  'winding-road',
 ] as const
 
 export type VisualFamily = (typeof VISUAL_FAMILIES)[number]
@@ -96,7 +97,7 @@ export type VisualFamily = (typeof VISUAL_FAMILIES)[number]
  * pins), frosted glass, gradients. The model picks it from the request and the
  * project's direction; the person switches it in "Visual…" for free.
  */
-export const VISUAL_LOOKS = ['flat', 'raised', 'block', 'glass', 'gradient'] as const
+export const VISUAL_LOOKS = ['flat', 'raised', 'block', 'glass', 'gradient', 'neon'] as const
 export type VisualLook = (typeof VISUAL_LOOKS)[number]
 export function isVisualLook(v: unknown): v is VisualLook {
   return typeof v === 'string' && (VISUAL_LOOKS as readonly string[]).includes(v)
@@ -221,6 +222,7 @@ export const VISUAL_BOUNDS: Record<VisualFamily, FamilyBounds> = {
   roadmap: { min: 3, max: 8 },
   kanban: { min: 2, max: 5, children: true },
   zigzag: { min: 3, max: 8 },
+  'winding-road': { min: 3, max: 6 },
 }
 
 /** The most items any family draws; the schema refuses more. */
@@ -278,6 +280,7 @@ export const FAMILY_USE: Record<VisualFamily, string> = {
   roadmap: 'milestones along a road (a product roadmap, a plan for the year): the date or period in the label',
   kanban: 'work by status (to do, doing, done): each item a column, its cards as children',
   zigzag: 'a short list of key points read in turn, alternating left and right of a line',
+  'winding-road': 'a journey of milestones drawn as a winding road with pins (a product roadmap, the stages of a project, a career path): the date or period in the label, three to six stops',
 }
 
 export type RefusalReason = 'tooFew' | 'tooMany' | 'exact' | 'values' | 'children' | 'relations' | 'positions' | 'scores' | 'spans'

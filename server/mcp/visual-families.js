@@ -49,6 +49,7 @@ export const VISUAL_FAMILY_USES = {
   roadmap: 'milestones along a road (a product roadmap, a plan for the year): the date or period in the label',
   kanban: 'work by status (to do, doing, done): each item a column, its cards as children',
   zigzag: 'a short list of key points read in turn, alternating left and right of a line',
+  'winding-road': 'a journey of milestones drawn as a winding road with pins (a product roadmap, the stages of a project, a career path): the date or period in the label, three to six stops',
 }
 
 export const VISUAL_FAMILY_IDS = Object.keys(VISUAL_FAMILY_USES)

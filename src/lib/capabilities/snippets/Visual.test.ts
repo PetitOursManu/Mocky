@@ -163,7 +163,7 @@ describe('<Visual> colour', () => {
 
 describe('<Visual> looks', () => {
   const html = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(lib.Visual, props))
-  const LOOKS = ['flat', 'raised', 'block', 'glass', 'gradient']
+  const LOOKS = ['flat', 'raised', 'block', 'glass', 'gradient', 'neon']
 
   it('renders every family in every look, with nothing undefined', () => {
     for (const family of VISUAL_FAMILIES) {

@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: ac860aedc5ff
+source_hash: c4a279a6c416
 ---
 
 # Visuels
@@ -75,9 +75,10 @@ image, le dossier serait un appel pour rien.
 | Feuille de route | Des jalons sur une route |
 | Kanban | Le travail par statut |
 | Liste alternée | Des points clés, à gauche puis à droite d’une ligne |
+| Route sinueuse | Des jalons sur une route qui serpente, tous les virages arrondis |
 
 :::why
-Les quarante-quatre familles ont été choisies parmi ce que dessinent les outils de
+Les quarante-cinq familles ont été choisies parmi ce que dessinent les outils de
 ce genre — Napkin, les SmartArt de PowerPoint, les projets libres AntV
 Infographic et Mermaid, les galeries de modèles de draw.io et de Miro — et
 gardées quand un texte professionnel ou pédagogique prend vraiment cette forme.
@@ -208,6 +209,7 @@ projet, et se change dans **Visuel…** → **Rendu** sans frais :
 | 3D | De la fausse 3D en CSS : des cases avec une face du dessus et une face de côté, des colonnes en cylindres, des pastilles en sphères, une feuille de route en vraie route avec des épingles |
 | Verre | Des cases translucides en verre dépoli — sur un fond sombre ou photographique |
 | Dégradé | Des dégradés doux, toujours dans le sens qui épargne la couleur du texte |
+| Néon | Des panneaux de verre sombre éclairés par leurs bords, avec un halo de la couleur — sur fond sombre |
 
 Un rendu ne déplace rien : les cases gardent leur place et leur texte, qui reste
 à plat, lisible et modifiable dans PowerPoint. Les faces de la 3D et le verre y
