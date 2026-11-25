@@ -388,7 +388,11 @@ administrator's level for that profile (Admin → Providers, one per model:
 generation, Muse, free plan); on a person's own key, the level in their
 Settings. A person cannot raise the level of a model an administrator pays for.
 
-`Auto` is what Mocky did before the choice existed, and the default. Any other
+`Auto` is what Mocky did before the choice existed, and the default — except
+on the **free plan** profile, which starts at `Off`: a model that costs nothing
+is usually slow, and its thinking made every screen wait. It is only a starting
+value: an instance that had already saved its free profile keeps the level it
+saved, so choose `Off` there once. Any other
 level replaces the model's default where the vendor documents a parameter for
 it — Ollama (`think`), OpenRouter (`reasoning`), and `reasoning_effort` on
 OpenAI's gpt-5 and o-series, Gemini, Kimi K3 and Groq's gpt-oss — and does

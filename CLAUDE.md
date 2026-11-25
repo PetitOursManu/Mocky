@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Twelve series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications), A1–A4 (what a model makes for itself), S1–S5 (interactive sites). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Twelve series: I1–I10 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications), A1–A4 (what a model makes for itself), S1–S5 (interactive sites). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |

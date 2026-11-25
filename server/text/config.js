@@ -154,10 +154,22 @@ export function looksLikeImageModel(id) {
  */
 export const TEXT_PROFILES = ['generation', 'inspiration', 'free']
 
-function emptyProfile() {
-  // `reasoning` belongs to the PROFILE — the model it serves — and `auto` is
-  // what every profile did before it could be chosen (dialect.js).
-  const p = { provider: '', reasoning: 'auto' } // '' = not configured
+/**
+ * The level of thinking a profile starts with, before an administrator chooses.
+ *
+ * `auto` is what every profile did before the level could be chosen
+ * (dialect.js) — except `free`, which starts at `off`: a model that costs
+ * nothing is a free tier or a model on the server itself, both slow, and a
+ * screen that waited minutes for its thinking was the complaint (decided with
+ * the user). It is only a STARTING value: an administrator's choice, `auto`
+ * included, is stored and kept like any other — which is also why an instance
+ * that already saved its free profile keeps the `auto` it saved.
+ */
+export const DEFAULT_REASONING = { generation: 'auto', inspiration: 'auto', free: 'off' }
+
+function emptyProfile(name = 'generation') {
+  // `reasoning` belongs to the PROFILE — the model it serves.
+  const p = { provider: '', reasoning: DEFAULT_REASONING[name] || 'auto' } // '' = not configured
   for (const def of TEXT_PROVIDERS) {
     p[def.id] = { baseUrl: def.baseUrl, apiKey: '', model: def.model }
   }
@@ -165,7 +177,7 @@ function emptyProfile() {
 }
 
 export function defaultTextConfig() {
-  return { generation: emptyProfile(), inspiration: emptyProfile(), free: emptyProfile() }
+  return { generation: emptyProfile('generation'), inspiration: emptyProfile('inspiration'), free: emptyProfile('free') }
 }
 
 /**
@@ -176,7 +188,7 @@ function liftLegacy(raw) {
   if (!raw || typeof raw !== 'object') return null
   if (raw.generation || raw.inspiration || raw.free) return raw // already the new shape
   if (typeof raw.provider !== 'string') return null
-  return { generation: raw, inspiration: emptyProfile(), free: emptyProfile() }
+  return { generation: raw, inspiration: emptyProfile('inspiration'), free: emptyProfile('free') }
 }
 
 const str = (v, fallback = '') => (typeof v === 'string' ? v.trim() : fallback)
@@ -190,8 +202,8 @@ const secret = (next, prev) => {
 }
 
 /** Merge one profile (the previous single-config logic). */
-function mergeProfile(current, patch) {
-  const base = { ...emptyProfile(), ...(current || {}) }
+function mergeProfile(current, patch, name) {
+  const base = { ...emptyProfile(name), ...(current || {}) }
   const p = patch && typeof patch === 'object' ? patch : {}
   const out = {
     provider: p.provider === '' || TEXT_PROVIDER_IDS.includes(p.provider) ? p.provider : base.provider,
@@ -213,14 +225,14 @@ export function mergeTextConfig(current, patch) {
   const base = liftLegacy(current) || { ...defaultTextConfig(), ...(current || {}) }
   const p = liftLegacy(patch) || (patch && typeof patch === 'object' ? patch : {})
   return {
-    generation: mergeProfile(base.generation, p.generation),
-    inspiration: mergeProfile(base.inspiration, p.inspiration),
-    free: mergeProfile(base.free, p.free),
+    generation: mergeProfile(base.generation, p.generation, 'generation'),
+    inspiration: mergeProfile(base.inspiration, p.inspiration, 'inspiration'),
+    free: mergeProfile(base.free, p.free, 'free'),
   }
 }
 
-function publicProfile(prof) {
-  const c = { ...emptyProfile(), ...(prof || {}) }
+function publicProfile(prof, name) {
+  const c = { ...emptyProfile(name), ...(prof || {}) }
   const out = { provider: c.provider || '', reasoning: readReasoning(c.reasoning) }
   for (const def of TEXT_PROVIDERS) {
     const v = c[def.id] || {}
@@ -236,14 +248,14 @@ export function publicTextConfig(cfg) {
     providers: TEXT_PROVIDERS.map((p) => ({ id: p.id, label: p.label, group: p.group })),
     profiles: TEXT_PROFILES,
     reasoningLevels: REASONING_LEVELS,
-    generation: publicProfile(c.generation),
-    inspiration: publicProfile(c.inspiration),
-    free: publicProfile(c.free),
+    generation: publicProfile(c.generation, 'generation'),
+    inspiration: publicProfile(c.inspiration, 'inspiration'),
+    free: publicProfile(c.free, 'free'),
   }
 }
 
-function resolveProfile(prof) {
-  const c = prof || {}
+function resolveProfile(prof, name = 'generation') {
+  const c = { reasoning: DEFAULT_REASONING[name] || 'auto', ...(prof || {}) }
   const def = byId(c.provider)
   if (!def) return null
   const v = c[def.id] || {}
@@ -269,7 +281,7 @@ function resolveProfile(prof) {
  */
 export function resolveTextTarget(cfg, profile = 'generation') {
   const c = liftLegacy(cfg) || cfg || {}
-  if (profile === 'free') return resolveProfile(c.free)
+  if (profile === 'free') return resolveProfile(c.free, 'free')
   if (profile === 'inspiration') {
     return resolveProfile(c.inspiration) || resolveProfile(c.generation)
   }
@@ -297,7 +309,7 @@ export function configuredProviders(cfg) {
         credentials.set(def.id, { baseUrl: str(v.baseUrl, def.baseUrl) || def.baseUrl, apiKey })
       }
     }
-    const active = resolveProfile(prof)
+    const active = resolveProfile(prof, profile)
     if (active) models.push({ provider: active.id, model: active.model })
   }
   return { credentials, models }

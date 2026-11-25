@@ -122,6 +122,25 @@ describe('PUT /api/data merges', () => {
     expect(stored.design).toBe('# D')
   })
 
+  it('refuses a copy written for another account, and says whose session answered', async () => {
+    // A tab left open while somebody else signed in on the same browser: its
+    // copy names its own account, the session is someone else's.
+    const stored = await (await call('GET', '/api/data')).json()
+    expect(typeof stored.account).toBe('string')
+    const res = await call(
+      'PUT',
+      '/api/data',
+      { projects: JSON.stringify([project('someone-elses', Date.now())]), design: null },
+      { 'x-mocky-account': 'another-account' },
+    )
+    expect(res.status).toBe(409)
+    const after = JSON.parse((await (await call('GET', '/api/data')).json()).projects)
+    expect(after.map((p) => p.id)).not.toContain('someone-elses')
+    // Its own account's copy goes through.
+    const ok = await call('PUT', '/api/data', { projects: JSON.stringify([]), design: null }, { 'x-mocky-account': stored.account })
+    expect(ok.status).toBe(200)
+  })
+
   it('does not let an older copy win over a newer one', async () => {
     const now = Date.now() + 1000
     await call('PUT', '/api/data', { projects: JSON.stringify([project('race', now, { name: 'newer' })]), design: null })

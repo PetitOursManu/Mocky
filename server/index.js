@@ -518,6 +518,9 @@ function setPassword(user, password) {
   user.passwordChangedAt = Date.now()
 }
 const publicUser = (u) => ({
+  // The account's own id, shown to the account itself: the browser marks its
+  // copy of the projects with it (src/lib/localOwner.ts).
+  id: u.id,
   username: u.username,
   role: u.role || 'user',
   // Which plan the account is on, so the composer can offer only what the
@@ -2676,7 +2679,10 @@ app.delete('/api/reviews/:token', requireUser, (req, res) => {
 app.get('/api/data', (req, res) => {
   const user = currentUser(req)
   if (!user) return res.status(401).json({ error: 'Not signed in.' })
-  res.json(readJson(userDataFile(user.id), { projects: null, design: null }))
+  // `account`: which account answered — a tab checks it against the one whose
+  // copy it holds, because the session cookie is shared by every tab and may be
+  // somebody else's by now (src/lib/localOwner.ts).
+  res.json({ ...readJson(userDataFile(user.id), { projects: null, design: null }), account: user.id })
 })
 
 /*
@@ -2692,6 +2698,11 @@ app.get('/api/data', (req, res) => {
 app.put('/api/data', (req, res) => {
   const user = currentUser(req)
   if (!user) return res.status(401).json({ error: 'Not signed in.' })
+  // A copy written for ANOTHER account: a tab left open while somebody else
+  // signed in on the same browser. Merging it is how one person's projects
+  // reached another's account (src/lib/localOwner.ts). Absent = an older tab.
+  const claimed = req.get('x-mocky-account')
+  if (claimed && claimed !== user.id) return res.status(409).json({ error: 'This copy belongs to another account.' })
   const body = req.body || {}
   const file = userDataFile(user.id)
   const stored = readJson(file, { projects: null, design: null })
