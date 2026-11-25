@@ -1,5 +1,5 @@
 ---
-source_hash: 1b30c3674180
+source_hash: 26f5a93b59de
 ---
 
 # Invariants
@@ -14,8 +14,9 @@ mises par écrit ; cette page les explique.
 
 Il y a treize séries :
 
-- **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
-  confidentialité des notes d'un écran.
+- **I1 à I10**, les invariants d'origine, reconstitués à partir du code, la
+  confidentialité des notes d'un écran, et à qui appartient la copie d'un
+  navigateur.
 - **M1 à M8**, apportés par Muse.
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
@@ -332,6 +333,33 @@ canevas, la vue projet — et échoue sur toute mention ailleurs dans `src/`,
 `server/` ou `worker/`. Les notes voyagent bien dans le blob de projets que le
 serveur stocke pour la synchronisation, qu'il garde comme une chaîne opaque et
 ne parse jamais.
+
+---
+
+### I10. La copie d'un navigateur ne se fusionne que dans le compte à qui elle appartient
+
+**La règle.** Les projets, le DESIGN.md et les dossiers qu'un navigateur garde
+portent l'identifiant du compte auquel ils appartiennent (`mocky.owner.v1`,
+`src/lib/localOwner.ts`). La connexion ne fusionne cette copie dans le compte que
+si elle est la sienne ; celle d'un autre compte est oubliée, et une copie que
+personne n'a réclamée ne garde que les projets que le serveur détient déjà pour
+ce compte. La déconnexion envoie ce qui reste, oublie la copie — la clé
+personnelle avec — et recharge la page.
+
+**Ce qu'elle protège.** La déconnexion laissait la copie en place (« vos projets
+restent sur cet appareil ») et la connexion fusionnait ce qui s'y trouvait dans
+le compte qui se connectait, puis l'envoyait : sur un ordinateur partagé par deux
+personnes, chaque compte finissait par détenir les projets de l'autre, sur le
+serveur, pour de bon. Le cookie de session est commun à tous les onglets, si bien
+qu'un onglet resté ouvert pendant que quelqu'un d'autre se connecte est la même
+fuite par un autre chemin : un envoi porte `x-mocky-account` et `PUT /api/data`
+le refuse avec `409` sur la session d'un autre compte, et `GET /api/data` dit
+quel compte a répondu pour qu'une relecture puisse le refuser aussi.
+
+**Ce qui la tient.** `src/lib/sync.test.ts` (« a browser shared by two
+accounts ») et `tests/data-merge-e2e.test.js`. Les copies fusionnées avant cette
+règle sont déjà dans les fichiers du serveur : oublier la copie du navigateur ne
+les retire pas d'un compte.
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-source_hash: 93598195fca0
+source_hash: ed3cacfdd8a0
 ---
 
 # Déploiement
@@ -706,6 +706,38 @@ cookie, aucun en-tête CORS, jamais de redirection, et l'action d'un
 administrateur passe la maintenance comme dans Admin. Aucun mot de passe, clé ni
 secret client n'est jamais renvoyé ; un mot de passe que Mocky génère pour un
 compte est montré une seule fois.
+
+### Les utilisateurs gérés par le Board
+
+Le Board peut aussi créer, modifier et désactiver les comptes de Mocky
+(protocole `kosmy.board-users.v1`,
+[docs/users-api.md](https://github.com/PetitOursManu/Kosmy-Board/blob/main/docs/users-api.md)),
+avec le même jeton et les mêmes contrôles que l'admin ci-dessus — un seul
+registre de `jti` pour les deux — et à la même place dans la chaîne
+(`server/board-admin/users.js`) :
+
+```
+GET    /api/kosmy-board/users          rôles, restrictions, comptes reliés
+PUT    /api/kosmy-board/users/{sub}    créer, relier ou mettre à jour le compte de {sub}
+DELETE /api/kosmy-board/users/{sub}    le désactiver
+```
+
+Les rôles sont `admin` et `user`. Les restrictions ne sont que ce que Mocky
+applique déjà par compte : `plan` (`free` ou `standard`, utilisateurs seulement
+— lu par chaque contrôle du forfait gratuit) et, tant que l'accès MCP se décide
+par la liste, `assistants` (le compte sur cette liste ou non). Un `PUT` crée un
+compte sans mot de passe, ou relie un compte non relié qui a le même e-mail, ou
+le met à jour ; un e-mail déjà pris par un autre compte relié au Board donne un
+`409`. Un `DELETE` pose `disabled: true` sur le compte dans `users.json` (sans
+ce champ, le compte est actif : pas de migration) : ses sessions, ses connexions
+et ses clés d'assistants sont révoquées, et `sessionUser`, la connexion par mot
+de passe, Dashy, Kosmy Board et l'admin du Board le refusent. Un `PUT` le
+lève. Se retirer ses propres droits ou son accès, ou ce qui laisserait Mocky
+sans administrateur actif, est refusé par un `409`. Un ID token qui porte
+`kosmy_board_access` est appliqué à la connexion comme un `PUT`, sans liaison
+par l'e-mail ; une revendication que Mocky ne peut pas appliquer refuse la
+connexion (`reason=access`). Le journal d'audit note `user.provision` et
+`user.disable`.
 
 ---
 

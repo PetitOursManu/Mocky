@@ -14,6 +14,15 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `text` | réflexion désactivée par défaut sur le profil du forfait gratuit | `32c0175` |
+| `composer` | mode Auto — Jev choisit les options de chaque nouvel écran | `3a1c0a7` |
+| `admin` | utilisateurs gérés par Kosmy Board (kosmy.board-users.v1) | `3ef804c` |
+| `fonts` | Noto Sans JP et Noto Serif SC, surcoût du brief annoncé au composeur | `7d965bb` |
+| `interact` | passage de correction borné, documentation et invariants S1–S5 | `f73c952` |
+| `interact` | trace par génération, découpes signalées, retouches surveillées | `dc779b0` |
+| `interact` | objet qui voyage entre sections, contrôles après génération | `b1f7bb2` |
+| `interact` | 3D en CSS — pavés, caméra, murs en anneau | `d650a29` |
+| `interact` | socle des sites interactifs et médias imposés par le brief | `8317891` |
 | `admin` | barre de recherche dans tous les réglages | `af25a24` |
 | `muse` | Jev chez plusieurs fournisseurs | `1756add` |
 | `muse` | modèle de décision (Jev) et audit de projet | `2c92f9d` |
@@ -52,6 +61,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `sync` | la copie d'un navigateur ne se fusionne plus dans le compte d'un autre | `cbe6011` |
 | `capture` | le code généré ne partage plus l'origine de Mocky | `889884a` |
 | `animations` | « Ajouter des animations » n'utilise plus le pack retiré | `b5672cd` |
 | `muse` | la référence liée survit à un modèle sans vision et guide l'aspect | `7048753` |
@@ -65,6 +75,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `admin` | documenter les utilisateurs gérés par Kosmy Board | `fe49407` |
 | `readme` | audit de projet, modèle de décision et recherche Admin | `eb7b45f` |
 | `auth` | documenter la connexion avec Kosmy Board | `7840c72` |
 | `readme` | présenter les fonctionnalités ajoutées depuis novembre | `11728f3` |

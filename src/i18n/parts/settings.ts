@@ -108,6 +108,8 @@ export const settings = {
     'settings.mustChangeBadge': 'mot de passe à changer',
     'settings.mustChangeBadgeTitle':
       'Un nouveau mot de passe sera demandé à la prochaine connexion',
+    'settings.disabledBadge': 'désactivé',
+    'settings.disabledBadgeTitle': 'Accès retiré dans Kosmy Board : ce compte ne peut plus se connecter. Le Board le lui rend.',
     'settings.you': 'vous',
 
     // ---- admin: password reset ----
@@ -499,6 +501,8 @@ export const settings = {
     'settings.deleteAccountOf': 'Delete the account “{name}”',
     'settings.mustChangeBadge': 'password to change',
     'settings.mustChangeBadgeTitle': 'A new password will be requested on the next sign-in',
+    'settings.disabledBadge': 'disabled',
+    'settings.disabledBadgeTitle': 'Access withdrawn in Kosmy Board: this account cannot sign in. The Board gives it back.',
     'settings.you': 'you',
 
     // ---- admin: password reset ----

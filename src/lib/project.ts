@@ -548,6 +548,11 @@ function scheduleSaveProjects(projects: Project[]) {
   }
 }
 
+/** Write a queued save now — before sign-out forgets the browser's copy (App.tsx). */
+export function flushPendingSave(): void {
+  flushProjectsNow()
+}
+
 /** Queue a debounced write of the whole project list to localStorage. */
 export function saveProjects(projects: Project[]): void {
   scheduleSaveProjects(projects)

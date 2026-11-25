@@ -587,6 +587,43 @@ export function createMcpServerRoutes(d) {
     }),
     adminRevokeKey,
     adminRevokeConnection,
+    /**
+     * Kosmy Board's users API (server/board-admin/users.js): whether the list
+     * decides who may connect an assistant — any mode but 'all', since the
+     * scope fails closed — and who is on it.
+     */
+    accessList: () => {
+      const a = config.get().access
+      return { listed: a.mode !== 'all', userIds: [...a.userIds] }
+    },
+    /**
+     * One account on or off that list, as Admin's own PUT does it: the config
+     * written, what the account may no longer use revoked at once, the same
+     * audit line. Throws when the config cannot be written.
+     */
+    setUserAccess: (userId, allowed, by) => {
+      const before = config.get()
+      const ids = before.access.userIds
+      if (ids.includes(userId) === allowed) return
+      const after = config.update({
+        access: { mode: before.access.mode, userIds: allowed ? [...ids, userId] : ids.filter((id) => id !== userId) },
+      })
+      const cut = revokeDisallowed()
+      const fields = changedMcpFields(before, after)
+      if (fields.length) {
+        d.audit.record({
+          action: 'mcp.config',
+          actor: d.auditActor(by.user),
+          detail: { fields, connectionsRevoked: cut.connections, keysRevoked: cut.keys, ...(by.detail || {}) },
+          ip: by.ip,
+        })
+      }
+    },
+    /** An account disabled (Kosmy Board): its assistants are signed out; its preferences stay. */
+    onUserDisabled: (userId) => {
+      store.revokeUser(userId)
+      keys.revokeUser(userId)
+    },
     /** An account deleted: whatever it granted goes with it. */
     onUserDeleted: (userId) => {
       store.revokeUser(userId)

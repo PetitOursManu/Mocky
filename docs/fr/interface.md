@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 64d16380c569
+source_hash: 2383c21d2e1a
 ---
 
 # L’interface
@@ -57,7 +57,7 @@ projet : ce n’est que navigation, thème et compte.
 | | `Admin` | Rendu seulement si votre compte est administrateur — et la route revérifie, si bien qu’une URL tapée à la main tombe sur `Réservé aux administrateurs.` et non sur le panneau. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg> | `Docs` | La seule entrée qui soit un vrai lien : elle ouvre `https://mocky-docs.emanuelvigreux.fr` dans un nouvel onglet. La petite flèche est là pour le dire. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg> | Thème | `Passer au thème Papier` / `Passer au thème Encre`. **L’icône est la destination, pas l’état courant** : un soleil veut dire « aller vers le clair », et il s’affiche pendant que vous êtes dans le thème sombre. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0"/></svg> | Compte | `Connecté — cliquez pour vous déconnecter`. Une confirmation est demandée d’abord, et la déconnexion laisse vos projets sur cet appareil. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0"/></svg> | Compte | `Connecté — cliquez pour vous déconnecter`. Une confirmation est demandée d’abord ; vos projets restent dans votre compte et le navigateur oublie sa copie, pour que la personne suivante sur un ordinateur partagé ne les récupère pas. | libre |
 | | `Se connecter` | Ouvre la modale d’authentification. `Connectez-vous pour retrouver vos projets sur tous vos appareils`. | libre |
 
 **Quitter un projet n’est pas sans conséquence, même si le bouton l’est.**

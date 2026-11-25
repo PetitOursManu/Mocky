@@ -9,6 +9,8 @@ import { getLang, translate } from '../i18n'
 export type Plan = 'free' | 'standard'
 
 export interface AuthUser {
+  /** The account's id — what marks this browser's copy as its own (lib/localOwner.ts). */
+  id: string
   username: string
   role: 'admin' | 'user'
   /** Absent from a server older than the free plan: read it as standard. */
@@ -77,6 +79,8 @@ export interface AdminUser {
   /** Linked to a Kosmy Board account. */
   kosmyBoard?: boolean
   hasPassword?: boolean
+  /** Access withdrawn from Kosmy Board: signed out, and unable to sign in until the Board gives it back. */
+  disabled?: boolean
   /** "API perso": the provider and model this account declared for its own key. Never the key. */
   ownText?: { provider: string; model: string | null } | null
 }
@@ -216,6 +220,8 @@ async function req(path: string, options?: RequestInit): Promise<any> {
 export interface ServerData {
   projects: string | null
   design: string | null
+  /** The account the session answered for (lib/localOwner.ts). Absent from an older server. */
+  account?: string
   /** The account's folders (lib/folderTree.ts). */
   folders?: string | null
   /**
@@ -671,11 +677,13 @@ export const api = {
    * reads the data back (sync.ts). `tab` keeps the write's own tab from being
    * told about it.
    */
-  putData: (projects: string | null, design: string | null, tab?: string, folders?: string | null) =>
+  putData: (projects: string | null, design: string | null, tab?: string, folders?: string | null, account?: string | null) =>
     req('/api/data', {
       method: 'PUT',
       body: JSON.stringify({ projects, design, folders: folders ?? undefined }),
-      headers: tab ? { 'x-mocky-tab': tab } : undefined,
+      // `x-mocky-account`: whose copy this is — the server refuses it on another
+      // account's session (lib/localOwner.ts).
+      headers: { ...(tab ? { 'x-mocky-tab': tab } : {}), ...(account ? { 'x-mocky-account': account } : {}) },
     }) as Promise<{ ok: boolean; merged?: boolean }>,
 
   /** Public config for the sign-in screen. */
