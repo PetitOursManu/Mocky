@@ -58,6 +58,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { registerPrompts } from './prompts.js'
 import { parseProjects } from '../merge.js'
+import { VISUAL_FAMILY_IDS, VISUAL_FAMILY_USES, VISUAL_FORMATS } from './visual-families.js'
 import { SCREEN_TYPES, PAGE_FORMATS, FOLDS, CAMPAIGN_FORMATS, PUBLICATION_KINDS, inferPageFormat } from './screen-types.js'
 import { buildGuide } from './guide.js'
 import { gateTools, levelOf, READ_TOOLS } from './levels.js'
@@ -1126,6 +1127,69 @@ export function buildMcpServer(deps) {
       const project = findProject(args.project_id)
       if (!project) return refuse(briefLanguage(args.brief) === 'fr' ? 'Aucun projet de ce compte ne porte cet identifiant.' : 'No such project in this account.')
       return startDesign(args, project, 'add_screen')
+    },
+  )
+
+  /*
+   * A visual of a text (Napkin's job, in Mocky): the person's words become ONE
+   * diagram, drawn by Mocky's layout from a family the model picks. A thin
+   * door onto `startDesign` with the Visual type: no questions (the text IS the
+   * brief), no Muse and no pictures (a diagram needs neither), and always a NEW
+   * project — the reason `create_design` and `add_screen` are two tools holds
+   * here too; `add_screen` with screen_type "visual" puts one in a project.
+   */
+  server.registerTool(
+    'create_visual',
+    {
+      title: 'Turn a text into a visual (diagram) in a new Mocky project',
+      description:
+        'Makes ONE visual of a text — its ideas as steps, a cycle, a timeline, a comparison, a hub, a mind map, a flowchart, key figures, a chart, a Venn, a SWOT, a tree… — in a NEW project, and returns a picture and a link. ' +
+        'Pass the person\'s text itself, not a summary: the figures it shows must be in it (a figure the text does not give is removed). ' +
+        'family only when the person asked for a shape ("as a timeline"); otherwise Mocky picks it and offers others that switch without a new generation. ' +
+        'For an existing project, use add_screen with screen_type "visual". Same waiting as create_design.',
+      inputSchema: {
+        text: z.string().min(20).max(12000).describe('The text to draw, as the person wrote it.'),
+        family: z.enum(VISUAL_FAMILY_IDS).optional().describe('The shape the person asked for; list_visual_families says what each is for.'),
+        page_format: z.enum(VISUAL_FORMATS).optional().describe('The size: slides (16:9, the default), social-landscape, social-square, social-portrait, a4-landscape or a4.'),
+        project_name: z.string().max(120).optional().describe('A short name for the new project.'),
+        screen_name: designFields.screen_name,
+        ...(designFields.engine ? { engine: designFields.engine } : {}),
+      },
+      _meta: VIEW_META,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async (args) =>
+      startDesign(
+        {
+          brief: args.family ? `${args.text}\n\n(Draw it as the "${args.family}" family.)` : args.text,
+          kind: 'a visual (diagram) of this text',
+          screen_type: 'visual',
+          page_format: args.page_format || 'slides',
+          picture_source: 'none',
+          muse: false,
+          project_name: args.project_name,
+          screen_name: args.screen_name,
+          engine: args.engine,
+        },
+        null,
+        'create_visual',
+      ),
+  )
+
+  server.registerTool(
+    'list_visual_families',
+    {
+      title: 'The shapes a Mocky visual can take',
+      description: 'The families of a Mocky visual and what each one is for — the shape to ask for when the person named one. Changes nothing.',
+      inputSchema: {},
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async () => {
+      const families = VISUAL_FAMILY_IDS.map((id) => ({ id, use: VISUAL_FAMILY_USES[id] }))
+      return {
+        content: [text(families.map((f) => `- ${f.id}: ${f.use}`).join('\n'))],
+        structuredContent: { families, formats: VISUAL_FORMATS },
+      }
     },
   )
 

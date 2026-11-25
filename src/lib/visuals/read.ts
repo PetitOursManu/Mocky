@@ -207,6 +207,38 @@ export async function changeScreenVisual(source: string, index: number, change: 
 }
 
 /**
+ * The source with its `<Doc format>` set to another page — what "Decline"
+ * writes into a COPY of a visual. A visual measures its own box, so the same
+ * content laid out again at another size is the whole job: no model. Null when
+ * the code has no `<Doc>` with a written format, or it already says this one.
+ */
+export async function setDocFormat(source: string, format: string): Promise<string | null> {
+  if (!/^[a-z0-9-]{2,24}$/.test(format)) return null
+  let edit: Edit | null = null
+  try {
+    const Babel = await import('@babel/standalone')
+    const transform = Babel.transform ?? (Babel as any).default?.transform
+    if (typeof transform !== 'function') return null
+    const plugin = () => ({
+      visitor: {
+        JSXOpeningElement(path: any) {
+          if (edit || path.node?.name?.type !== 'JSXIdentifier' || path.node.name.name !== 'Doc') return
+          const attr = attrOf(path.node, 'format')
+          if (!attr || literal(attr) == null || typeof attr.start !== 'number') return
+          edit = { start: attr.start, end: attr.end, text: `format="${format}"` }
+        },
+      },
+    })
+    transform(source, { plugins: [plugin], parserOpts: { plugins: ['jsx'] }, code: false, filename: 'mocky-component.jsx' })
+  } catch {
+    return null
+  }
+  if (!edit) return null
+  const out = apply(source, [edit])
+  return out === source ? null : out
+}
+
+/**
  * The source with the `value` and `unit` of some items taken out of one
  * visual's doc — the figures the text never gave (`numbers.ts`). The item
  * stays: its words were the text's, only the number was made up. Null when

@@ -58,7 +58,7 @@ import {
   hintForScreen,
   pageFormatName,
 } from '../lib/documentMode'
-import { getPageFormat, type PageFormatId } from '../lib/pageFormats'
+import { docFrameHeight, getPageFormat, type PageFormatId } from '../lib/pageFormats'
 import { fitFindings, fitVerdict, measureFit, pageExcessPx, type FitReport, type FitVerdict } from '../lib/docExport/fit'
 import DocumentDownloadDialog from './DocumentDownloadDialog'
 import { captureRegion } from '../lib/capture'
@@ -220,6 +220,7 @@ import { updateCampaignPiece } from '../lib/pipeline/campaignUpdate'
 import { CAMPAIGN_FORMAT_IDS, type Campaign, type CampaignFormatId } from '../lib/campaign'
 import type { PackCaption, PackNetwork } from '../lib/publicationPack'
 import CampaignPanel, { type PieceResult } from './CampaignPanel'
+import { setDocFormat } from '../lib/visuals/read'
 import IllustratePanel from './IllustratePanel'
 import { blockName, type TextBlock } from '../lib/visuals/textBlocks'
 import { VISUAL_THEME } from '../lib/visuals/families'
@@ -1727,6 +1728,38 @@ export default function ProjectView({
       createdAt: Date.now(),
       links: [],
     })
+  }
+
+  /**
+   * A visual at another size: a COPY beside it whose `<Doc format>` says the
+   * new page (lib/visuals/read.ts). The visual measures its own box, so the
+   * layout follows with no model call; the original is untouched. Links and
+   * notes stay behind, as in a duplicate.
+   */
+  async function declineVisual(screenId: string, page: PageFormatId) {
+    const s = screensRef.current.find((x) => x.id === screenId)
+    if (!s) return
+    const code = await setDocFormat(s.code, page)
+    if (!code) {
+      setError(t('visuals.declineFailed'))
+      return
+    }
+    const format = getPageFormat(page)
+    const { id: _id, x: _x, y: _y, links: _links, userNotes: _notes, previousCode: _prev, ...rest } = s
+    addScreenAndShow(
+      {
+        ...rest,
+        id: newId(),
+        name: `${s.name} — ${t(`composer.pageFormat.${page}`)}`,
+        code,
+        page,
+        w: format.w,
+        h: docFrameHeight(format, 1),
+        createdAt: Date.now(),
+        links: [],
+      },
+      { beside: s.id },
+    )
   }
 
   /** The screen whose share dialog is open, if any. */
@@ -4777,7 +4810,9 @@ export default function ProjectView({
           screenName={visualScreen.name}
           code={visualScreen.code}
           // The same write as a frame: an attribute at parser offsets, previousCode for Revert.
+          page={visualScreen.page}
           onChange={(code) => writeScreenFrames(visualScreen.id, code, 'versions.note.visual')}
+          onDecline={(page) => void declineVisual(visualScreen.id, page)}
           onClose={() => setVisualForScreen(null)}
         />
       )}

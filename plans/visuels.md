@@ -57,6 +57,18 @@ lecteur quand la page n'en déclare pas (« 92 % »).
 Non vérifié : le .pptx ouvert dans PowerPoint et Canva (compté dans le fichier :
 formes et zones de texte, images pour les seules liaisons).
 
+## État au 25/11/2026 — phase 3 livrée
+
+| Plan (§12, phase 3) | Réalisé |
+|---|---|
+| `create_visual` MCP | **`create_visual`** (écrivain : un texte → un visuel dans un NOUVEAU projet, sans questions, sans Muse ni images, `family` et `page_format` optionnels) et **`list_visual_families`** (lecture, dans `READ_TOOLS`). Familles en miroir dans `server/mcp/visual-families.js`, tenues par un test. Un projet existant : `add_screen` avec le type `visual` |
+| .pptx natif par famille | **Partiel, et suffisant pour l'usage courant** : les liaisons droites sont des boîtes HTML, donc des formes dans le .pptx décomposé ; restent en images les courbes, les pointes de flèche et l'anneau. Le .pptx écrit directement en DrawingML (connecteurs reliés) n'est pas fait |
+| Déclinaison campagne | **« Décliner dans un autre format »** depuis « Visuel… » : une copie à côté, `<Doc format>` réécrit, aucun modèle |
+| Visuel → film | **Non fait** |
+
+Restent : visuel → film, .pptx DrawingML, familles §3 restantes, icônes Lucide,
+« illustrer un texte » par MCP (plusieurs visuels d'un coup).
+
 ## État au 25/11/2026 — phase 2 livrée
 
 | Plan (§12, phase 2) | Réalisé |

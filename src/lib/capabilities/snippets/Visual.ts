@@ -757,10 +757,43 @@ function Visual(props) {
 
   // Connectors first, so every box is painted over them.
   var marker = id + '-arrow';
+  /*
+   * A straight connector — the step arrows, a timeline's axis, a tree's bus —
+   * is a thin BOX, drawn in HTML: the .pptx "everything as separate elements"
+   * export turns a box into a shape and an <svg> into a picture, so drawn here
+   * a line stays a line in PowerPoint. Curves, and the tip of an arrow, stay SVG.
+   */
+  var drawn = lay.links.filter(function (l) { return l.points && l.points.length > 1; });
+  var straightOf = function (l) {
+    var a0 = l.points[0], a1 = l.points[l.points.length - 1];
+    var flatY = l.points.every(function (p) { return Math.abs(p[1] - a0[1]) < 0.5; });
+    var flatX = l.points.every(function (p) { return Math.abs(p[0] - a0[0]) < 0.5; });
+    return flatY ? { h: true, a: a0, b: a1 } : flatX ? { h: false, a: a0, b: a1 } : null;
+  };
+  drawn.forEach(function (l, i) {
+    var st = straightOf(l);
+    if (!st) return;
+    var col = l.tone != null ? mockyVisualMark(tone(l.tone), ground, ink, 3) : line;
+    var x0 = Math.min(st.a[0], st.b[0]), y0 = Math.min(st.a[1], st.b[1]);
+    var len = st.h ? Math.abs(st.b[0] - st.a[0]) : Math.abs(st.b[1] - st.a[1]);
+    // An arrow's shaft stops short of its tip, which the SVG draws.
+    var shaft = l.arrow ? Math.max(0, len - stroke * 2.2) : len;
+    var fromEnd = l.arrow && (st.h ? st.b[0] < st.a[0] : st.b[1] < st.a[1]);
+    children.push(e('div', { key: 'sl' + i, 'aria-hidden': 'true', style: st.h
+      ? { position: 'absolute', left: x0 + (fromEnd ? len - shaft : 0), top: st.a[1] - stroke / 2, width: shaft, height: stroke, background: col, borderRadius: stroke / 2, pointerEvents: 'none' }
+      : { position: 'absolute', left: st.a[0] - stroke / 2, top: y0 + (fromEnd ? len - shaft : 0), width: stroke, height: shaft, background: col, borderRadius: stroke / 2, pointerEvents: 'none' } }));
+  });
   children.push(e('svg', { key: 'links', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' } },
     e('defs', null, e('marker', { id: marker, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, e('path', { d: 'M0 0 L10 5 L0 10 z', fill: line }))),
-    lay.links.filter(function (l) { return l.points && l.points.length > 1; }).map(function (l, i) {
+    drawn.map(function (l, i) {
       var col = l.tone != null ? mockyVisualMark(tone(l.tone), ground, ink, 3) : line;
+      var st = straightOf(l);
+      if (st && !l.arrow) return null;
+      if (st) {
+        // The tip alone: a hair of path whose only visible part is its marker.
+        var b = st.b, dx = Math.sign(st.b[0] - st.a[0]) * 0.01, dy = Math.sign(st.b[1] - st.a[1]) * 0.01;
+        return e('path', { key: i, d: 'M' + (b[0] - dx).toFixed(2) + ' ' + (b[1] - dy).toFixed(2) + ' L' + b[0].toFixed(2) + ' ' + b[1].toFixed(2), fill: 'none', stroke: col, strokeWidth: stroke, markerEnd: 'url(#' + marker + ')' });
+      }
       return e('path', { key: i, d: mockyVisualPath(l.points), fill: 'none', stroke: col, strokeWidth: stroke, strokeLinecap: 'round', strokeLinejoin: 'round', markerEnd: l.arrow ? 'url(#' + marker + ')' : undefined });
     })));
   lay.links.forEach(function (l, i) {

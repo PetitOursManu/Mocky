@@ -1177,6 +1177,11 @@ families of `lib/visuals/families.ts` and writes the CONTENT; the layout in
 "Illustrate a text" (`IllustratePanel.tsx`, `lib/visuals/textBlocks.ts`) cuts a
 text into blocks with no model and runs `runNewScreen` once per block; a screen
 remembers its block by DIGEST (`Screen.illustrates`), never by position.
+"Make it in another size" (`setDocFormat`) is a copy whose `<Doc format>` changed
+— no model, because the layout measures its box. Straight connectors are thin
+HTML boxes (shapes in the .pptx); only curves and arrow tips are SVG. MCP:
+`create_visual` (writer) and `list_visual_families` (in `READ_TOOLS`), the
+families mirrored in `server/mcp/visual-families.js`.
 
 ## Fonts in a generated page
 

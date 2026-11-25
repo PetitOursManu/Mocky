@@ -25,6 +25,8 @@ export const GUIDED_TOOLS = [
   'add_screen',
   'create_campaign',
   'create_publication',
+  'create_visual',
+  'list_visual_families',
   'get_design',
   'get_screenshot',
   'export_screen',
@@ -113,6 +115,7 @@ write access. Talk to the person in THEIR language.
 | \`audit_project\` | A whole project audited against a grid drawn from its goal: strengths, observed problems, priority improvements, expected elements found or not. Changes nothing. |
 | \`check_document\` | The check of a document before printing or posting: picture sharpness, margins, bleed, cut text, QR codes. Changes nothing. |
 | \`get_design\` | The answer of work still running for this account — an audit, or a design started elsewhere. |
+| \`list_visual_families\` | The shapes a Mocky visual can take, and what each is for. |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at — to suggest, not to add. |
 
 ## Never
@@ -354,6 +357,8 @@ a rule.
 | \`update_template\` | Write that project back into its template. |
 | \`create_campaign\` | One brief made into several formats (poster, flyer, posts, story), in a new project. |
 | \`create_publication\` | A magazine or a book: four pages (covers and two inside pages) under one art direction, in a new project; \`add_screen\` then adds pages one at a time. |
+| \`create_visual\` | A text made into ONE visual (a diagram: steps, timeline, comparison, key figures, chart…), in a new project. Pass the text itself. |
+| \`list_visual_families\` | The shapes a visual can take, to pass \`family\` when the person asked for one. |
 | \`get_design\` | To wait for a design that is still running. |
 | \`get_screenshot\` | A picture of a screen that already exists. |
 | \`export_screen\` | A screen as a file to download: \`png\`, \`pptx\`, \`pptx-edit\` (Canva, taken apart) or \`pdf\`. |

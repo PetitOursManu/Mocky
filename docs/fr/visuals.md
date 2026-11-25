@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: f50a09d5d3e8
+source_hash: 11eb49bbef2b
 ---
 
 # Visuels
@@ -144,7 +144,27 @@ Un visuel est un document : il se télécharge en PNG, PDF, SVG ou PowerPoint co
 les autres ([Télécharger](documents.md#télécharger)). Ses cases sont dessinées
 comme des éléments de la page, pas comme une seule image : **Tout en éléments
 séparés** dans l’export PowerPoint rend chaque case en forme et chaque libellé en
-zone de texte. Les liaisons et l’anneau sortent en images.
+zone de texte. Une liaison droite (la flèche entre deux étapes, l’axe d’une frise,
+les branches d’un arbre) est aussi une forme fine ; seules les liaisons courbes,
+les pointes de flèche et l’anneau sortent en images.
+
+## Dans un autre format
+
+:::why
+Un visuel mesure la boîte qu’on lui donne et se remet en page : le même contenu à
+une autre taille n’est pas un nouveau design, il ne demande aucun modèle.
+:::
+
+**Visuel…** → **Décliner dans un autre format** pose une copie à côté du visuel,
+à la taille choisie (post carré, portrait, A4…). L’original ne change pas ; la
+copie est un écran comme les autres, à changer, retoucher ou exporter seul.
+
+## Depuis un assistant
+
+Avec Mocky connecté à Claude, ChatGPT ou un autre assistant ([Mocky dans votre
+assistant](mcp.md)), `create_visual` fait un visuel d’un texte dans un nouveau
+projet, et `add_screen` avec le type `visual` en ajoute un à un projet existant.
+`list_visual_families` dit à l’assistant à quoi sert chaque famille.
 
 ## Limites
 

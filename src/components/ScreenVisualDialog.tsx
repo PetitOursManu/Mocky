@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { VISUAL_FAMILIES, VISUAL_VARIANTS, familyRefusal, type VisualFamily, type VisualVariant } from '../lib/visuals/families'
+import { VISUAL_FAMILIES, VISUAL_THEME, VISUAL_VARIANTS, familyRefusal, type VisualFamily, type VisualVariant } from '../lib/visuals/families'
+import { themeDocumentFormats } from '../lib/screenThemes'
+import type { PageFormatId } from '../lib/pageFormats'
 import { changeScreenVisual, findScreenVisuals, type ScreenVisual, type VisualChange } from '../lib/visuals/read'
 import { Banner, Button, Modal, Spinner } from '../ui'
 import { useT } from '../i18n'
@@ -62,14 +64,20 @@ export function FamilyGlyph({ family, className }: { family: VisualFamily; class
 export default function ScreenVisualDialog({
   screenName,
   code,
+  page,
   onChange,
+  onDecline,
   onClose,
 }: {
   screenName: string
   /** The screen's current source; the lists follow it. */
   code: string
+  /** The screen's page, when it is a document: the sizes it can be declined in are the others. */
+  page?: PageFormatId
   /** Hands the rewritten source back; the caller owns previousCode and Revert. */
   onChange: (nextCode: string) => void
+  /** A copy of the screen at another size, beside it — no model. */
+  onDecline?: (page: PageFormatId) => void
   onClose: () => void
 }) {
   const t = useT()
@@ -120,6 +128,22 @@ export default function ScreenVisualDialog({
       ) : !visuals.length ? (
         <p className="mt-4 text-body-sm text-ink-faint">{t('visuals.empty')}</p>
       ) : null}
+
+      {page && onDecline && visuals && visuals.length > 0 && (
+        <section className="mt-5 border-t border-line-soft pt-4">
+          <p className="kicker">{t('visuals.decline')}</p>
+          <p className="mt-1 text-caption text-ink-faint">{t('visuals.declineHint')}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(themeDocumentFormats(VISUAL_THEME) ?? [])
+              .filter((f) => f !== page)
+              .map((f) => (
+                <Button key={f} size="sm" variant="ghost" onClick={() => onDecline(f)}>
+                  {t(`composer.pageFormat.${f}`)}
+                </Button>
+              ))}
+          </div>
+        </section>
+      )}
 
       {visuals?.map((v) => {
         const current = v.family

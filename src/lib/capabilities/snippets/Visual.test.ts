@@ -164,6 +164,13 @@ describe('<Visual> rendered', () => {
     }
   })
 
+  it('draws a straight connector as a box, leaving only its tip to the SVG', () => {
+    const out = html({ family: 'steps', doc: docFor('steps', 4), width: 1180, height: 620 })
+    const paths = [...out.matchAll(/<path[^>]* d="M([\d.]+) ([\d.]+) L([\d.]+) ([\d.]+)"/g)].map((m) => m.slice(1).map(Number))
+    expect(paths).toHaveLength(3)
+    for (const [x0, y0, x1, y1] of paths) expect(Math.hypot(x1 - x0, y1 - y0)).toBeLessThan(0.1)
+  })
+
   it('draws boxes in HTML and only connectors and a donut in SVG', () => {
     const out = html({ family: 'steps', doc: docFor('steps', 4), width: 1180, height: 620 })
     expect(out.match(/<svg/g)).toHaveLength(1)

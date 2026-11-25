@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeScreenVisual, dropVisualValues, findScreenVisuals } from './read'
+import { changeScreenVisual, dropVisualValues, findScreenVisuals, setDocFormat } from './read'
 import { checkVisualFigures } from './check'
 
 const SCREEN = `export default function App() {
@@ -86,5 +86,15 @@ describe('taking a made-up figure out', () => {
     expect(out.dropped.map((d) => d.label)).toEqual(['Bénévoles', 'Taux de réussite'])
     const [v] = await findScreenVisuals(out.code)
     expect(v.doc?.items.map((i) => i.value)).toEqual([240, undefined, undefined])
+  })
+})
+
+describe('making a visual in another size', () => {
+  it('rewrites the page format of the document and nothing else', async () => {
+    const next = await setDocFormat(SCREEN, 'social-square')
+    expect(next).toBe(SCREEN.replace('<Doc format="slides">', '<Doc format="social-square">'))
+    expect(await setDocFormat(SCREEN, 'slides')).toBeNull()
+    expect(await setDocFormat('export default () => <div />', 'a4')).toBeNull()
+    expect(await setDocFormat(SCREEN, 'x" onClick="')).toBeNull()
   })
 })

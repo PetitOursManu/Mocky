@@ -134,7 +134,27 @@ A visual is a document: it downloads as PNG, PDF, SVG or PowerPoint like any
 other ([Downloading](documents.md#downloading)). Its boxes are drawn as page
 elements, not as one picture, so **Everything as separate elements** in the
 PowerPoint export gives each box back as a shape and each label as a text box.
-The connectors and the donut come out as pictures.
+A straight connector (a step's arrow, a timeline's axis, a tree's branches) is a
+thin shape too; only curved connectors, arrow tips and the donut come out as
+pictures.
+
+## In another size
+
+:::why
+A visual measures the box it is given and lays itself out again, so the same
+content at another size is not a new design: it needs no model.
+:::
+
+**Visual…** → **Make it in another size** puts a copy beside the visual, in the
+size you pick (a square post, a portrait, A4…). The original does not change; the
+copy is an ordinary screen, to switch, edit or export on its own.
+
+## From an assistant
+
+With Mocky connected to Claude, ChatGPT or another assistant ([Mocky in your
+assistant](mcp.md)), `create_visual` makes a visual of a text in a new project,
+and `add_screen` with the type `visual` adds one to an existing project.
+`list_visual_families` tells the assistant what each family is for.
 
 ## Limits
 
