@@ -123,6 +123,7 @@ const TYPE_WORDS = [
   ['certificate', /\bcertificats?\b|\bcertificates?\b|\bdipl[ôo]mes?\b|\bdiplomas?\b/],
   ['menu', /menu (?:de|du|d['’]un) restaurant|carte (?:de|du|d['’]un) restaurant|restaurant menu/],
   ['report', /\brapports?\b|annual report/],
+  ['visual', /\binfographi(?:e|c)s?\b/],
   ['documentation', /\bdocumentation\b|guide utilisateur|user guide/],
   ['dashboard', /tableau de bord|dashboard/],
   ['kanban', /kanban/],

@@ -34,6 +34,7 @@ import { DocumentSource, DOCUMENT_EXPORTS } from '../capabilities/snippets/Docum
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from '../capabilities/snippets/ShapeFrame'
 import { FlowSource, FLOW_EXPORTS } from '../capabilities/snippets/Flow'
 import { OrnamentSource, ORNAMENT_EXPORTS } from '../capabilities/snippets/Ornament'
+import { VisualSource, VISUAL_EXPORTS } from '../capabilities/snippets/Visual'
 import { InteractSource, INTERACT_EXPORTS } from '../capabilities/snippets/Interact'
 import { Interact3DSource, INTERACT3D_EXPORTS } from '../capabilities/snippets/Interact3D'
 import { cnSource } from '../capabilities/snippets/cn'
@@ -208,6 +209,15 @@ export function ornamentsJsx(): string {
 }
 
 /**
+ * src/components/ui/visuals.jsx — `<Visual family doc>`, a text as a diagram.
+ * Plain React and the same layout arithmetic as in Mocky; its icons are the
+ * exported icon pack's, imported here because in Mocky they are a global.
+ */
+export function visualsJsx(): string {
+  return packJsx(VisualSource, VISUAL_EXPORTS, "import { Icon } from './icons'")
+}
+
+/**
  * src/components/ui/flow.jsx — `useFlowState`, `MockyFlow`, `<FlowLink>`.
  *
  * In an exported project every screen is a component of ONE page, so the
@@ -263,6 +273,7 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('document', documentJsx(), DOCUMENT_EXPORTS),
     ...pack('frames', framesJsx(), SHAPEFRAME_EXPORTS),
     ...pack('ornaments', ornamentsJsx(), ORNAMENT_EXPORTS),
+    ...pack('visuals', visualsJsx(), VISUAL_EXPORTS),
     ...pack('flow', flowJsx(), FLOW_EXPORTS),
     ...pack('interact', interactJsx(), [...INTERACT_EXPORTS, ...INTERACT3D_EXPORTS]),
   ]

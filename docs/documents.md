@@ -73,6 +73,7 @@ any conflict, and the look stays your direction's.
 | `Flyer` | A4 (A6 to A3, DL, square) | Flat or [folded](#flyers-sizes-and-folds). One striking page: a huge headline, the key facts (date, place, price) as their own block, highlights, a call to action printed as words beside a QR-code placeholder, colourful shapes bleeding off the edges. A tear-off coupon of fields only when the request is a sign-up. |
 | `Poster` | A3 | One page read from three metres away: one dominant element, the essential facts in one block, no body text. |
 | `Report` | A4 | A cover, a contents block, an executive summary of key figures, body pages with numbered sections, charts and a table, running headers and page numbers. Figures consistent from page to page. |
+| `Visual` | 16:9 slide (square, portrait or landscape post, A4) | One page that IS a diagram of the text: steps, a cycle, a timeline, a comparison, key figures, a chart… drawn by Mocky's layout from the content the model writes. See [Visuals](visuals.md). |
 | `Documentation` | A4 | A title page with a version, a table of contents, numbered sections, procedures as numbered steps, note / tip / warning callouts, a reference table. |
 | `Résumé / CV` | A4 | One page in two columns: profile, experience with achievements, education, skills, languages. Sober and legible. |
 | `Invoice / quote` | A4 | The issuer, the client, a line-item table with VAT, totals that add up exactly, payment terms. A quote gets an acceptance block made of fillable fields. |

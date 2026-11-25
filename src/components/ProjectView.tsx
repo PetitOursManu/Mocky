@@ -138,6 +138,7 @@ import ImageLightbox from './ImageLightbox'
 import FilmLightbox from './FilmLightbox'
 import ScreenImagesDialog from './ScreenImagesDialog'
 import ScreenFramesDialog from './ScreenFramesDialog'
+import ScreenVisualDialog from './ScreenVisualDialog'
 import VideoExportDialog from './VideoExportDialog'
 import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
@@ -643,6 +644,8 @@ export default function ProjectView({
    *  dialog must follow the record as it is rewritten, not a stale copy. */
   const [imagesForScreen, setImagesForScreen] = useState<string | null>(null)
   const [framesForScreen, setFramesForScreen] = useState<string | null>(null)
+  /** The screen whose "Visuel…" dialog is open (ScreenVisualDialog). */
+  const [visualForScreen, setVisualForScreen] = useState<string | null>(null)
   /** The screen whose "Traduire…" dialog is open, if any. */
   const [translateFor, setTranslateFor] = useState<string | null>(null)
   // The size comparison's screen (ResponsiveCompare).
@@ -1962,6 +1965,7 @@ export default function ProjectView({
   // from under it.
   const imageSwapScreen = imagesForScreen ? screens.find((s) => s.id === imagesForScreen) ?? null : null
   const framesScreen = framesForScreen ? screens.find((s) => s.id === framesForScreen) ?? null : null
+  const visualScreen = visualForScreen ? screens.find((s) => s.id === visualForScreen) ?? null : null
 
   // Revert a screen to its previousCode (saved before the last edit).
   function onRevertScreen(screenId: string) {
@@ -4244,10 +4248,10 @@ export default function ProjectView({
     setNotice(copies.length ? `${t('fill.series.done', { n: copies.length, name: screen.name })}${refused}` : `${t('fill.nothing')}${refused}`)
   }
 
-  function writeScreenFrames(screenId: string, nextCode: string) {
+  function writeScreenFrames(screenId: string, nextCode: string, note: TranslationKey = 'versions.note.frames') {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
-    noteChange(screenId, t('versions.note.frames'))
+    noteChange(screenId, t(note))
     onUpdateScreen(screenId, {
       code: nextCode,
       componentName: detectComponentName(nextCode),
@@ -4647,6 +4651,15 @@ export default function ProjectView({
           projectId={project.id}
           onChange={(code) => writeScreenFrames(framesScreen.id, code)}
           onClose={() => setFramesForScreen(null)}
+        />
+      )}
+      {visualScreen && (
+        <ScreenVisualDialog
+          screenName={visualScreen.name}
+          code={visualScreen.code}
+          // The same write as a frame: an attribute at parser offsets, previousCode for Revert.
+          onChange={(code) => writeScreenFrames(visualScreen.id, code, 'versions.note.visual')}
+          onClose={() => setVisualForScreen(null)}
         />
       )}
       {reviseFilmScreenId && (
@@ -7074,6 +7087,10 @@ export default function ProjectView({
                       <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                       <MenuItem icon="library" label={t('project.changeImages')} onClick={() => { close(); setImagesForScreen(s.id) }} />
                       <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
+                      {/* Only where there is a visual to switch: the menu is long enough. */}
+                      {s.code.includes('<Visual') && (
+                        <MenuItem icon="branch" label={t('visuals.menu')} disabled={busy} onClick={() => { close(); setVisualForScreen(s.id) }} />
+                      )}
                       <MenuItem icon="translate" label={t('translate.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setTranslateFor(s.id) }} />
                       <MenuItem icon="list" label={t('fill.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setFillFor(s.id) }} />
                       <MenuItem icon="template" label={t('blocks.insertMenu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setBlockInsert({ screenId: s.id }) }} />

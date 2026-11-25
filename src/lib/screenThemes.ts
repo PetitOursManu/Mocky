@@ -49,6 +49,7 @@ export const SCREEN_THEME_IDS = [
   'flyer',
   'poster',
   'report',
+  'visual',
   'documentation',
   'resume',
   'invoice',
@@ -322,6 +323,20 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - A conclusions or recommendations page as a numbered list, and an optional appendix or methodology note.
 - Figures consistent from one page to the next — the summary quotes what the charts show — and realistic for the subject; never placeholders.
 - Usually four to eight pages, each composed on its own and never overfilled.`,
+  },
+  {
+    id: 'visual',
+    icon: 'branch',
+    name: 'visual / infographic from a text',
+    document: { page: 'slides', formats: ['slides', 'social-landscape', 'social-square', 'social-portrait', 'a4-landscape', 'a4'] },
+    brief: `A VISUAL: the request's text turned into ONE diagram that makes its structure obvious at a glance — a process, a cycle, a timeline, a comparison, a hierarchy, key figures or a chart.
+- ONE <Page>, and the page IS the visual: a <Visual> fills it inside the page's margin (a flex column, the visual in a \`flex-1 min-h-0\` box with \`className="w-full h-full"\`). Nothing else on the page but, at most, a small wordmark or credit line in a corner.
+- Never draw the diagram yourself — no boxes, arrows, SVG or chart of your own: the <Visual> component draws it from its \`doc\`.
+- Read the text for its STRUCTURE first, then choose the family: steps for an ordered how-to, cycle only when the end leads back to the start, timeline for dates, comparison or pros-cons for options, hub or mind map for a topic and its parts, stats or a chart only for figures the text gives.
+- The visual's title says the point in a few words; the subtitle, when useful, the one sentence that frames it. Labels are short (a few words), details one short sentence; drop what the text does not say rather than pad.
+- Figures: a \`value\` only when the text states that very number. Never invent, round, total or convert one.
+- Offer two or three \`alternatives\` the same content would also suit.
+- The page's background and the visual's \`ground\` are the same colour, its \`ink\` the page's text colour, its \`colors\` the palette's accents.`,
   },
   {
     id: 'documentation',

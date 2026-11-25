@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 36f512c90dcd
+source_hash: 7ec245bbd615
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -77,6 +77,7 @@ l’emportent en cas de conflit, et le style reste celui de votre direction.
 | `Flyer` | A4 (A6 à A3, DL, carré) | À plat ou [plié](#flyers-tailles-et-plis). Une page frappante : un titre énorme, les infos clés (date, lieu, prix) en bloc à part, des points forts, un appel à l’action imprimé en toutes lettres à côté d’un emplacement de QR code, des formes colorées qui débordent des bords. Un coupon détachable fait de champs seulement quand la demande est une inscription. |
 | `Affiche` | A3 | Une page lue à trois mètres : un seul élément dominant, les infos essentielles en un bloc, aucun texte courant. |
 | `Rapport` | A4 | Une couverture, un sommaire, une synthèse de chiffres clés, des pages de corps aux sections numérotées, des graphiques et un tableau, des en-têtes courants et des numéros de page. Des chiffres cohérents d’une page à l’autre. |
+| `Visuel` | Diapositive 16:9 (post carré, portrait ou paysage, A4) | Une page qui EST le schéma du texte : étapes, cycle, frise, comparaison, chiffres clés, graphique… dessiné par la mise en page de Mocky à partir du contenu écrit par le modèle. Voir [Visuels](visuals.md). |
 | `Documentation` | A4 | Une page de titre avec une version, une table des matières, des sections numérotées, des procédures en étapes numérotées, des encadrés note / astuce / attention, un tableau de référence. |
 | `CV` | A4 | Une page en deux colonnes : profil, expériences et réalisations, formation, compétences, langues. Sobre et lisible. |
 | `Facture / devis` | A4 | L’émetteur, le client, un tableau de lignes avec TVA, des totaux qui tombent juste, les conditions de paiement. Un devis reçoit un bloc « bon pour accord » fait de champs à remplir. |

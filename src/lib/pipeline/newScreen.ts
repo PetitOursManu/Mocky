@@ -103,6 +103,8 @@ import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
 import { currentUsageRun, setUsageRun } from '../proxy'
 import { briefFixInstruction, briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
+import { VISUAL_THEME, VISUALS_CAP } from '../visuals/families'
+import { checkVisualFigures } from '../visuals/check'
 
 /** What the run is busy with, for the composer's progress line. */
 export type NewScreenPhase = 'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | 'docPicture'
@@ -1235,6 +1237,9 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     // A document: what cannot live on paper out, the page kit in. Identity
     // for every other screen.
     capIds = pipe.caps(capIds)
+    // A visual: the component that draws it, whatever the shortlist said (the
+    // pack is never a guess — `forcedOnly`, see the registry).
+    if (runTheme === VISUAL_THEME && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
     // A working prototype: the kit and its rules, on a screen (never a page of
     // a document — paper has no next page to open).
     if (req.flows && !pipe.document && !capIds.includes('flow')) capIds = [...capIds, 'flow']
@@ -1355,6 +1360,24 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
       ...(pipe.document ? { caps: capabilitiesFor(capIds, result.code) } : {}),
     })
     hooks.screenWritten(screenId)
+    // A visual shows only the figures the request gave (lib/visuals/check.ts):
+    // one it made up is taken out before anybody reads it as a fact. On every
+    // screen that draws one, the assistant's own code included — no model call.
+    if (result.code.includes('<Visual') && !result.truncated) {
+      try {
+        const checked = await checkVisualFigures(result.code, text)
+        if (checked.dropped.length) {
+          result.code = checked.code
+          hooks.updateScreen(screenId, { code: result.code })
+          hooks.notice(t('visuals.figuresDropped', {
+            count: checked.dropped.length,
+            list: checked.dropped.slice(0, 3).map((d) => `${d.label} (${d.value}${d.unit ? ` ${d.unit}` : ''})`).join(' · '),
+          }))
+        }
+      } catch {
+        // Q1: a check that cannot run is not a finding.
+      }
+    }
     // Every picture of the series was paid for; one the page left out is
     // worth a sentence (see lib/ultra/check.ts).
     // What the brief imposed and the code left out (lib/briefCheck.ts), and

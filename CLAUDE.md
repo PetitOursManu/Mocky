@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Twelve series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications), A1–A4 (what a model makes for itself), S1–S5 (interactive sites). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Thirteen series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X9 (MCP server, assistant keys), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns), P1–P3 (folds, publications), A1–A4 (what a model makes for itself), S1–S5 (interactive sites), G1–G4 (visuals). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1152,6 +1152,25 @@ data: URL of the path. Three things:
    to suspect. In both files a text box's slack stops at a frame's edge
    (`avoidAround`): written above the frames, a caption's margin lying over the
    photo beside it is what a dropped photo meets first.
+
+## Visuals (a text as a diagram)
+
+The screen type `visual` and `<Visual family doc>` (user doc `docs/visuals.md`,
+invariants G1–G4, roadmap `plans/visuels.md`). The model names one of the
+families of `lib/visuals/families.ts` and writes the CONTENT; the layout in
+`snippets/Visual.ts` draws it. Three things:
+
+1. **One catalogue, read everywhere.** `VISUAL_BOUNDS` is injected into the
+   snippet as JSON, the model's card is built from it, the dialog's refusals come
+   from it. A bound retyped elsewhere drifts; `Visual.test.ts` holds the copy.
+2. **Boxes in HTML, connectors in SVG.** The .pptx decomposition turns a box
+   into a shape and an `<svg>` into a picture: drawn in HTML, a visual stays
+   editable in PowerPoint. Do not move a box into the SVG layer.
+3. **The figures check runs in `runNewScreen` on every screen naming
+   `<Visual`** (`lib/visuals/check.ts`), the assistant's code included: a value
+   not found in the request is removed at parser offsets, never guessed. The
+   pack is `forcedOnly` (the word is a model's own component name half the time)
+   and forced by the type, then kept by `Screen.caps`.
 
 ## Fonts in a generated page
 

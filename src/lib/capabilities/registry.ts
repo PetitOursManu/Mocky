@@ -18,6 +18,8 @@ import { FRAME_FAMILIES, FRAME_SHAPES } from '../frameShapes'
 import { OrnamentSource, ORNAMENT_EXPORTS } from './snippets/Ornament'
 import { ORNAMENTS, ORNAMENT_OUTLINE_IDS } from '../ornaments'
 import { FIELD_TYPES, PAGE_FORMAT_IDS } from '../pageFormats'
+import { VisualSource, VISUAL_EXPORTS } from './snippets/Visual'
+import { FAMILY_USE, VISUAL_BOUNDS, VISUAL_DETAIL_WORDS, VISUAL_FAMILIES, VISUAL_LABEL_WORDS, VISUALS_CAP } from '../visuals/families'
 
 const quoted = (names: readonly string[]) => names.map((n) => `"${n}"`).join(', ')
 
@@ -343,6 +345,34 @@ export const CAPABILITIES: Capability[] = [
           .map((o) => `"${o.id}"`)
           .join(', ')}. Any other name draws nothing. \`color\` is a hex from your palette; without it the shape takes the text colour, so a \`text-*\` class colours it too. Size it like an image: a WIDTH (\`w-40\`) keeps the proportions it was drawn for, a width AND a height stretch it; a texture needs both (\`w-64 h-40\`, or \`absolute inset-0\` to fill a block) and \`density\` (3–40) sets how many dots, lines or squares run across it. A stroke takes \`weight\` in px (default 3) and keeps it whatever the size; "scribble-circle", "underline" and "squiggle" are made to sit around or under a word — put them in a \`relative\` wrapper with the word, absolutely positioned. \`accent\` is a second hex for the fluid shapes, the moving signs and the two-tone textures ("checker", "confetti", "harlequin", "pinwheels", "cubes"…); without it they use \`color\` at half strength. The abstract solids ("arc-band", "rainbow", "half-circles", "target", "cog", "wave-band"…) are the vocabulary of a Bauhaus, Swiss or Memphis poster: big, flat, overlapping, bleeding off the edges. \`outline\` draws any solid or fluid shape as its contour only, a stroke of \`weight\` px like the strokes (\`<Ornament shape="blob-3" outline color="#0f766e" />\`) — for a line-drawn, airy look; several outlined blobs overlapping make a composition of your own. Optional: \`rotate\` in degrees, \`flip\` ("x" or "y"), \`opacity\` 0–1, and \`draw\` (with \`delay\` in seconds) on a stroke to trace it when it scrolls into view — never on a printed document. Place it with your own classes, most often \`absolute\` inside a \`relative\` block and behind the content (\`-z-0\`, or before it in the markup), several bleeding off an edge. It is decorative: it is hidden from screen readers and carries no text. Never write your own <svg> path for a shape this list has.`,
         tags: ['shape', 'decoration', 'ornament', 'blob', 'squiggle', 'doodle', 'pattern', 'texture', 'arrow', 'confetti'],
+      },
+    ],
+  },
+  {
+    /**
+     * A text's ideas drawn as a process, a cycle, a comparison, a chart… out
+     * of the closed catalogue of `lib/visuals/families.ts` (user doc
+     * `docs/visuals.md`). Force-added by the "Visual" screen type and kept by
+     * `Screen.caps` for every later pass; `forcedOnly` because `Visual` is a
+     * word a model gives its own components, and inferred from an unrelated
+     * screen's code the pack's `function Visual` would collide with it.
+     */
+    id: VISUALS_CAP,
+    kind: 'snippet-pack',
+    forcedOnly: true,
+    triggers: { keywords: [], intents: [] },
+    snippets: [{ source: VisualSource, exports: [...VISUAL_EXPORTS] }],
+    components: [
+      {
+        name: 'Visual',
+        signature: '<Visual family="steps" variant="soft" alternatives={["timeline", "cycle"]} colors={["#0f766e", "#f59e0b"]} ink="#111827" ground="#ffffff" doc={{ title: "…", subtitle: "…", items: [{ label: "…", detail: "…", icon: "Users" }] }} className="w-full h-full" />',
+        description: `A text's ideas laid out for you — never draw a diagram, a chart or an infographic yourself, with boxes, SVG or CSS: write its CONTENT in \`doc\` and name a \`family\`, and the layout, the type sizes, the connectors and the contrast are computed. \`family\` is EXACTLY one of: ${VISUAL_FAMILIES.map((f) => {
+          const b = VISUAL_BOUNDS[f]
+          const count = b.exact ? `exactly ${b.min} items` : `${b.min}–${b.max} items`
+          const needs = [b.values ? 'every item has a value' : '', b.children ? 'every item has children' : ''].filter(Boolean).join(', ')
+          return `"${f}" (${FAMILY_USE[f]}; ${count}${needs ? `; ${needs}` : ''})`
+        }).join('; ')}. Pick the family the text's STRUCTURE calls for, not the prettiest. \`doc\` is plain data, written inline: \`title\` (the visual's headline, a few words), \`subtitle\` (one sentence), \`items\` — each \`{ label, detail?, icon?, value?, unit?, children?, emphasis? }\`: \`label\` at most ${VISUAL_LABEL_WORDS} words, \`detail\` at most ${VISUAL_DETAIL_WORDS} words, \`icon\` a name of the Icon namespace, \`value\` a NUMBER (not a string) only when the text states that figure — never invent, round or compute one — with its \`unit\` ("%", "€", "k"), \`children\` an array of short strings, \`emphasis\` true on at most one item; \`relations\` (flow only) \`[{ from, to, label? }]\` by item index from 0; \`axes\` (matrix only) \`{ x, y }\`; \`source\` a short "Source: …" line when the text names one. Write the words in the language of the request. \`alternatives\` lists two or three OTHER families that would also suit this content, best first — the person can switch to them without a new generation, so only name families whose item count and requirements this \`doc\` meets. \`variant\` is "soft" (tinted boxes, the default), "solid" (filled boxes) or "outline". \`colors\` are one to four hexes of YOUR palette, in order of importance; \`ink\` and \`ground\` are the hexes of the text and of the background the visual sits on — every text is then measured and kept readable. Size it with its parent: give it a box with a height (\`className="w-full h-full"\` inside a flex-1 area); with no height it takes 16:9 of its width.`,
+        tags: ['visual', 'infographic', 'diagram', 'process', 'timeline', 'cycle', 'comparison', 'chart', 'mind map', 'flowchart'],
       },
     ],
   },
