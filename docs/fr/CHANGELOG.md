@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `text` | réflexion désactivée par défaut sur le profil du forfait gratuit | `32c0175` |
 | `composer` | mode Auto — Jev choisit les options de chaque nouvel écran | `3a1c0a7` |
 | `admin` | utilisateurs gérés par Kosmy Board (kosmy.board-users.v1) | `3ef804c` |
 | `fonts` | Noto Sans JP et Noto Serif SC, surcoût du brief annoncé au composeur | `7d965bb` |
@@ -60,6 +61,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `sync` | la copie d'un navigateur ne se fusionne plus dans le compte d'un autre | `cbe6011` |
 | `capture` | le code généré ne partage plus l'origine de Mocky | `889884a` |
 | `animations` | « Ajouter des animations » n'utilise plus le pack retiré | `b5672cd` |
 | `muse` | la référence liée survit à un modèle sans vision et guide l'aspect | `7048753` |
