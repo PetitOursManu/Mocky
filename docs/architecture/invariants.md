@@ -10,8 +10,8 @@ explains them.
 
 There are twelve series:
 
-- **I1 to I9**, the original invariants, reconstructed from the code, and the
-  privacy of a screen's notes.
+- **I1 to I10**, the original invariants, reconstructed from the code, the
+  privacy of a screen's notes, and whose copy a browser holds.
 - **M1 to M8**, introduced by Muse.
 - **Q1 to Q5**, introduced by the quality pass.
 - **U1 to U5**, introduced by Motion Ultra.
@@ -309,6 +309,31 @@ named in six files — the type, its rules, the dialog, the canvas, the project
 view — and fails on a mention anywhere else in `src/`, `server/` or `worker/`.
 The notes do travel in the projects blob the server stores for sync, which the
 server keeps as an opaque string and never parses.
+
+---
+
+### I10. A browser's copy is merged only into the account that owns it
+
+**The rule.** The projects, DESIGN.md and folders a browser keeps carry the id
+of the account they belong to (`mocky.owner.v1`, `src/lib/localOwner.ts`).
+Sign-in merges that copy into the account only when it is that account's;
+another account's copy is forgotten, and a copy nobody claimed keeps only the
+projects the server already holds for this account. Signing out pushes what is
+left, forgets the copy — the personal key with it — and reloads.
+
+**What it protects.** Sign-out used to leave the copy behind ("your projects
+stay on this device") and sign-in merged whatever was there into the account
+signing in, then pushed it: on a computer two people share, each account ended
+up holding the other's projects, on the server, for good. The session cookie is
+shared by every tab, so a tab left open while somebody else signs in is the
+same leak a second way: a push carries `x-mocky-account` and `PUT /api/data`
+refuses it with `409` on another account's session, and `GET /api/data` says
+which account answered so a read-back can refuse it too.
+
+**How it is held.** `src/lib/sync.test.ts` ("a browser shared by two accounts")
+and `tests/data-merge-e2e.test.js`. Copies merged before this rule existed are
+already in the server files: forgetting the browser's copy does not take them
+back out of an account.
 
 ---
 

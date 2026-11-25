@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { discardPendingSave, shownProjectName, useProjects } from './lib/project'
+import { discardPendingSave, flushPendingSave, shownProjectName, useProjects } from './lib/project'
 import { loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
-import { enableSync, installUnloadGuard, reconcileOnLogin } from './lib/sync'
+import { enableSync, installUnloadGuard, pushNow, reconcileOnLogin } from './lib/sync'
+import { forgetAccountData } from './lib/localOwner'
 import { checkSsoReturn, cleanSsoQueryParams } from './lib/sso'
 import { rememberLinkNotice, takeKosmyReturn } from './lib/kosmyBoard'
 import { loadMuseConfig, setMuseVideoPin, type MuseVideoPin } from './lib/muse'
@@ -95,6 +96,18 @@ function reloadForMergedData(): boolean {
   }
   window.location.reload()
   return true
+}
+
+/**
+ * The browser held ANOTHER account's copy, and `reconcileOnLogin` just forgot
+ * it. The running stores still hold it, so this reload is not optional — the
+ * once-per-session guard above does not apply: staying would let the next save
+ * write the other account's projects back, into this one.
+ */
+function reloadForAnotherAccount(): void {
+  discardPendingSave()
+  clearReconcileReloadMark()
+  window.location.reload()
 }
 
 /** Called once a load settles, so a genuine later merge can reload again. */
@@ -253,8 +266,9 @@ function MockyApp() {
           // array `useProjects` reads at mount could be pushed to the server
           // before the server's own copy had even been read — and on a fresh
           // origin that means replacing every project the account owns with [].
-          const changed = await reconcileOnLogin()
-          enableSync(true)
+          const changed = await reconcileOnLogin(user.id)
+          if (changed === 'switched') return reloadForAnotherAccount()
+          enableSync(true, user.id)
           if (!changed) clearReconcileReloadMark()
           if (!changed || !reloadForMergedData()) setDataReady(true)
         }
@@ -314,15 +328,29 @@ function MockyApp() {
     return () => window.removeEventListener('wheel', refusePageZoom)
   }, [])
 
+  /**
+   * Sign out, and forget this browser's copy of the account (lib/localOwner.ts).
+   * It used to stay — "your projects stay on this device" — and the next person
+   * to sign in on the same computer had it merged into their own account.
+   * What this tab has not pushed yet goes up first; the reload empties the
+   * running stores, which still hold every project.
+   */
   async function logout() {
+    flushPendingSave()
+    try {
+      await pushNow()
+    } catch {
+      if (!confirm(t('account.signOutUnsynced'))) return
+    }
     try {
       await api.logout()
     } catch {
       /* ignore */
     }
     enableSync(false)
-    setAccount(null)
-    setAuthOpen(true)
+    discardPendingSave()
+    forgetAccountData()
+    window.location.reload()
   }
 
   function toggleTheme() {
@@ -1119,10 +1147,13 @@ function MockyApp() {
             setAuthOpen(false)
             setSsoError(null)
             // Same ordering as the startup path above: merge first, arm sync
-            // only once the server's copy is in hand.
-            reconcileOnLogin()
+            // only once the server's copy is in hand. Off in between: the
+            // session may be a DIFFERENT account than the one this tab synced.
+            enableSync(false)
+            reconcileOnLogin(user.id)
               .then((changed) => {
-                enableSync(true)
+                if (changed === 'switched') return reloadForAnotherAccount()
+                enableSync(true, user.id)
                 if (!changed) clearReconcileReloadMark()
                 if (!changed || !reloadForMergedData()) setDataReady(true)
               })

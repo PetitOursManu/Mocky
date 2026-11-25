@@ -2,12 +2,20 @@ import { api } from './api'
 import { mergeFolders, mergeProjects, parseProjects } from './merge'
 import { FOLDERS_KEY, parseFolders } from './folderTree'
 import { isMaintenanceError, onMaintenance } from './maintenance'
+import { forgetAccountData, hasAccountData, localOwner, setLocalOwner } from './localOwner'
 
 const PROJECTS_KEY = 'mocky.projects.v1'
 const DESIGN_KEY = 'mocky.design.v1'
 
 let enabled = false
 let timer: number | null = null
+/**
+ * The account sync was switched on FOR. Every push and every read-back checks
+ * that the browser's copy still belongs to it (lib/localOwner.ts): the session
+ * cookie is shared by every tab, so a tab left open while somebody else signs
+ * in elsewhere would otherwise push its account's projects into theirs.
+ */
+let account: string | null = null
 
 /**
  * This tab, as the server knows it: its writes carry it, and the events stream
@@ -26,8 +34,9 @@ export const TAB_ID = (() => {
  * Turn server-sync on/off (on when signed in). On also opens the stream that
  * says when another writer changed the account (see `startDataEvents`).
  */
-export function enableSync(on: boolean) {
+export function enableSync(on: boolean, accountId: string | null = null) {
   enabled = on
+  account = on ? accountId : null
   if (on) startDataEvents()
   else stopDataEvents()
 }
@@ -146,9 +155,28 @@ export async function pushNow(): Promise<void> {
   }
 }
 
+/**
+ * The copy in this browser is no longer the one sync was switched on for:
+ * another account signed in, here or in another tab. Stop rather than write
+ * one account's projects into another's.
+ */
+function ownerMoved(): boolean {
+  if (!account || localOwner() === account) return false
+  stopForAnotherAccount()
+  return true
+}
+
+function stopForAnotherAccount() {
+  dirty = false
+  if (timer) clearTimeout(timer)
+  timer = null
+  enableSync(false)
+}
+
 async function doPushWithRetry(): Promise<void> {
   const maxAttempts = 5
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (ownerMoved()) return
     // Read INSIDE the loop: a retry sequence can span ~15 seconds, and the user
     // keeps working during it. Reading once up front pushed a snapshot that was
     // already stale by the time it landed.
@@ -157,7 +185,7 @@ async function doPushWithRetry(): Promise<void> {
     const design = localStorage.getItem(DESIGN_KEY)
     const folders = localStorage.getItem(FOLDERS_KEY)
     try {
-      const answer = await api.putData(projects, design, TAB_ID, folders)
+      const answer = await api.putData(projects, design, TAB_ID, folders, account)
       // The server kept something this copy did not have — a project another
       // device or the MCP runner wrote. Read it back so it appears here.
       if (answer?.merged) void pullNow()
@@ -169,6 +197,11 @@ async function doPushWithRetry(): Promise<void> {
       if (isMaintenanceError(err)) {
         dirty = true
         throw err
+      }
+      // The session is somebody else's now (server/index.js, PUT /api/data).
+      if ((err as { status?: number })?.status === 409) {
+        stopForAnotherAccount()
+        return
       }
       if (attempt === maxAttempts - 1) {
         // Mark dirty again so the next scheduleSync/pushNow retries from scratch
@@ -213,8 +246,24 @@ export function installUnloadGuard(): () => void {
  * Returns true when localStorage changed (the caller reloads so the running
  * stores pick the new data up).
  */
-export async function reconcileOnLogin(): Promise<boolean> {
+export async function reconcileOnLogin(accountId: string): Promise<boolean | 'switched'> {
   const server = await api.getData()
+  // A copy that is not this account's is never merged into it (lib/localOwner.ts).
+  // Another account's is forgotten whole. One nobody claimed — written before
+  // the owner existed — keeps only the projects the server already holds FOR
+  // THIS account: those are certainly its own, possibly with a newer edit, and
+  // every other one may be whoever used this browser before.
+  const owner = localOwner()
+  const switched = owner !== accountId
+  let hadData = false
+  if (switched) {
+    hadData = hasAccountData()
+    const known = new Set(parseProjects(server.projects).map((p) => p.id))
+    const kept = owner === null ? parseProjects(localStorage.getItem(PROJECTS_KEY)).filter((p) => known.has(p.id)) : []
+    forgetAccountData({ keepSettings: owner === null })
+    if (kept.length) localStorage.setItem(PROJECTS_KEY, JSON.stringify(kept))
+    setLocalOwner(accountId)
+  }
   const localRaw = localStorage.getItem(PROJECTS_KEY)
   const localDesign = localStorage.getItem(DESIGN_KEY)
 
@@ -227,7 +276,8 @@ export async function reconcileOnLogin(): Promise<boolean> {
   // otherwise the local one stands.
   const localNewest = merged.reduce((max, p) => Math.max(max, p.updatedAt || 0), 0)
   const serverIsNewer = typeof server.updatedAt === 'number' && server.updatedAt > localNewest
-  const nextDesign = serverIsNewer && server.design != null ? server.design : localDesign
+  // A forgotten copy has no DESIGN.md of its own to defend: the account's stands.
+  const nextDesign = switched ? (server.design ?? null) : serverIsNewer && server.design != null ? server.design : localDesign
 
   const projectsChanged = mergedRaw !== (localRaw ?? '')
   const designChanged = (nextDesign ?? '') !== (localDesign ?? '')
@@ -256,6 +306,8 @@ export async function reconcileOnLogin(): Promise<boolean> {
     }
   }
 
+  // Whatever was forgotten is still in the running stores: only a reload clears them.
+  if (switched && hadData) return 'switched'
   return projectsChanged || designChanged || foldersChanged
 }
 
@@ -293,6 +345,11 @@ export async function pullNow(): Promise<void> {
   pulling = (async () => {
     try {
       const server = await api.getData()
+      // Read with the tab's session, which another sign-in may have replaced.
+      if (ownerMoved() || (account && server.account && server.account !== account)) {
+        stopForAnotherAccount()
+        return
+      }
       window.dispatchEvent(new CustomEvent(SERVER_PROJECTS_EVENT, { detail: parseProjects(server.projects) }))
       window.dispatchEvent(new CustomEvent(SERVER_FOLDERS_EVENT, { detail: parseFolders(server.folders) }))
     } catch {
