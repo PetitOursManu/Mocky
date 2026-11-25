@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 11eb49bbef2b
+source_hash: 648c2ffbdf0d
 ---
 
 # Visuels
@@ -51,6 +51,39 @@ image, le dossier serait un appel pour rien.
 | Avant / après | Un changement d’un état à l’autre |
 | Arbre | Une hiérarchie qui se ramifie (organigramme, décomposition) |
 | Oignon | Des couches autour d’un cœur |
+| Serpentin | Un long processus (six à douze étapes), en rangées qui tournent |
+| Escalier | Une progression qui monte |
+| Convergence | Plusieurs causes ou apports, un résultat |
+| Divergence | Une source, plusieurs effets |
+| Équation | Quelques ingrédients qui donnent un résultat |
+| Arbre de décision | Des questions oui/non jusqu’à leurs issues |
+| Parcours client | Les étapes, et ce que l’on ressent à chacune |
+| Arête de poisson | Les causes d’un problème (Ishikawa) |
+| Treemap | Les parts d’un tout, à l’échelle |
+| Pile de couches | Une architecture ou une pile, couche par couche |
+| Carte conceptuelle | Des notions et leurs liens nommés |
+| Champ de forces | Les forces pour et contre un changement |
+| Positionnement | Des éléments placés sur deux axes (impact / effort…) |
+| Tableau comparatif | Des options × des critères, avec des coches |
+| Radar | Un profil noté sur plusieurs axes |
+| Histogramme | Des quantités en colonnes |
+| Courbe | Une tendance dans le temps |
+| Jauges | Des taux d’atteinte |
+| Pictogramme | « 7 sur 10 » en icônes |
+| Grille de cartes | Des points égaux (bénéfices, fonctionnalités), avec icônes |
+| Gantt | Un planning avec des durées |
+| Feuille de route | Des jalons sur une route |
+| Kanban | Le travail par statut |
+| Liste alternée | Des points clés, à gauche puis à droite d’une ligne |
+
+:::why
+Les quarante-quatre familles ont été choisies parmi ce que dessinent les outils de
+ce genre — Napkin, les SmartArt de PowerPoint, les projets libres AntV
+Infographic et Mermaid, les galeries de modèles de draw.io et de Miro — et
+gardées quand un texte professionnel ou pédagogique prend vraiment cette forme.
+Chacune est dessinée par la mise en page de Mocky ; aucun de leurs codes n’est
+utilisé.
+:::
 
 ## Illustrer un texte long
 
@@ -119,6 +152,10 @@ en écrivant (1 200 et 1,2 k, 12 % et 0,12). Celui qu’on ne trouve pas est ret
 du visuel, son élément gardé, et un avis le nomme. Les chiffres écrits en lettres
 (« douze ») ne sont pas reconnus : écrivez-les en chiffres.
 
+Les positions ne sont pas des chiffres : la note d’un élément sur un
+positionnement, le ressenti d’une étape d’un parcours, la semaine où commence une
+barre de Gantt sont lus par la famille et ne sont pas comparés à votre texte.
+
 Cette vérification ne tourne ni sur un rapport ou un post qui dessine un visuel,
 ni après une retouche : ces pages doivent inventer des chiffres d’exemple
 réalistes quand vous n’en donnez pas, et vider leurs graphiques serait la
@@ -173,6 +210,6 @@ projet, et `add_screen` avec le type `visual` en ajoute un à un projet existant
 - La vérification des chiffres lit la demande que vous avez tapée. Un chiffre qui
   ne venait que d’une image ou d’un PDF joint n’est pas dans ce texte, et il est
   retiré.
-- Une famille dessine un nombre fixe d’éléments au plus (dix sur une frise ou un
-  graphique en barres, huit dans la plupart des autres) ; le reste n’est pas
-  dessiné.
+- Une famille dessine un nombre fixe d’éléments au plus (vingt sur une courbe,
+  dix ou douze sur une frise, des barres ou un serpentin, huit dans la plupart des
+  autres) ; le reste n’est pas dessiné.

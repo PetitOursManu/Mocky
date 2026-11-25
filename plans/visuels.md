@@ -57,6 +57,27 @@ lecteur quand la page n'en déclare pas (« 92 % »).
 Non vérifié : le .pptx ouvert dans PowerPoint et Canva (compté dans le fichier :
 formes et zones de texte, images pour les seules liaisons).
 
+## État au 26/11/2026 — 44 familles
+
+24 familles de plus, choisies d'après un relevé des catalogues de Napkin (aucun
+publié), des SmartArt de PowerPoint (~150 dispositions), d'AntV Infographic (MIT,
+30 structures, 276 modèles) et de Mermaid (32 types), et des galeries draw.io et
+Miro. Aucun code repris : chaque mise en page est écrite ici.
+
+- Processus : `snake`, `staircase`, `converging`, `diverging`, `equation`, `decision-tree`, `user-journey`
+- Hiérarchie / structure : `fishbone`, `treemap`, `layers`
+- Relations : `concept-map`, `force-field`, `quadrant-chart`
+- Comparaison : `comparison-table`, `radar`
+- Données : `columns`, `line`, `progress`, `pictogram`
+- Listes : `card-grid`, `kanban`, `zigzag`
+- Temps : `gantt`, `roadmap`
+
+Le schéma gagne des POSITIONS (`x`, `y`, `start`, `end`, `total` sur un élément ;
+`criteria`, `quadrants` sur le document), jamais vérifiées comme des chiffres, et
+quatre conditions de famille (`relations`, `positions`, `scores`, `spans`).
+Restent au relevé : Sankey, nuage de mots, carte géographique, couloirs, canvas,
+RACI, engrenages, nid d'abeille.
+
 ## État au 25/11/2026 — phase 3 livrée
 
 | Plan (§12, phase 3) | Réalisé |

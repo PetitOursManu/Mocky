@@ -44,13 +44,23 @@ function docFor(family: VisualFamily, count: number, long = false): VisualDoc {
       ? 'Une phrase de détail assez longue pour remplir deux lignes au moins dans une carte de taille ordinaire.'
       : 'Une phrase courte de détail.',
     ...(b.values ? { value: (count - i) * 12.5, unit: '%' } : {}),
-    ...(b.children || family === 'mindmap' || family === 'tree' || family === 'before-after' ? { children: ['Premier point', 'Deuxième point', 'Troisième'].slice(0, 1 + (i % 3)) } : {}),
+    ...(b.children || ['mindmap', 'tree', 'before-after', 'fishbone', 'layers'].includes(family) ? { children: ['Premier point', 'Deuxième point', 'Troisième'].slice(0, 1 + (i % 3)) } : {}),
+    // Positions spread over the plane, spans that overlap like a real plan.
+    x: (i * 7) % 11,
+    y: family === 'user-journey' ? ((i * 3) % 5) - 2 : (i * 4) % 11,
+    start: i * 2,
+    end: i * 2 + 3,
+    total: 10,
   }))
   return {
     title: 'Notre méthode en quelques étapes',
     subtitle: 'Ce que nous faisons pour chaque projet, du premier appel à la mise en ligne.',
     items,
-    ...(family === 'matrix' ? { axes: { x: 'Effort', y: 'Impact' } } : {}),
+    ...(family === 'matrix' || family === 'quadrant-chart' ? { axes: { x: 'Effort', y: 'Impact' } } : {}),
+    ...(family === 'quadrant-chart' ? { quadrants: ['À planifier', 'Priorités', 'À oublier', 'Gains rapides'] } : {}),
+    ...(family === 'comparison-table' ? { criteria: ['Prix', 'Délai', 'Support'] } : {}),
+    ...(family === 'decision-tree' ? { relations: Array.from({ length: count - 1 }, (_, i) => ({ from: Math.floor(i / 2), to: i + 1, label: i % 2 ? 'Non' : 'Oui' })) } : {}),
+    ...(family === 'concept-map' ? { relations: Array.from({ length: count - 1 }, (_, i) => ({ from: i, to: i + 1, label: 'mène à' })) } : {}),
     ...(family === 'flow' ? { relations: [{ from: 0, to: 1 }, ...(count > 2 ? [{ from: 0, to: 2, label: 'non' }, { from: count - 1, to: 0, label: 'retour' }] : [])] } : {}),
     source: 'Source : étude interne, 2025',
   }

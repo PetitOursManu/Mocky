@@ -9,7 +9,8 @@ describe('the visual families', () => {
   it('bound every family sensibly', () => {
     for (const f of VISUAL_FAMILIES) {
       const b = VISUAL_BOUNDS[f]
-      expect(b.min, f).toBeGreaterThanOrEqual(2)
+      // A pictogram may make ONE proportion its whole point.
+      expect(b.min, f).toBeGreaterThanOrEqual(f === 'pictogram' ? 1 : 2)
       expect(b.max, f).toBeGreaterThanOrEqual(b.min)
       if (b.exact) expect(b.max, f).toBe(b.min)
     }

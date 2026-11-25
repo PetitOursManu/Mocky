@@ -62,6 +62,30 @@ export const VISUAL_FAMILIES = [
   'before-after',
   'tree',
   'onion',
+  'snake',
+  'staircase',
+  'converging',
+  'diverging',
+  'equation',
+  'decision-tree',
+  'user-journey',
+  'fishbone',
+  'treemap',
+  'layers',
+  'concept-map',
+  'force-field',
+  'quadrant-chart',
+  'comparison-table',
+  'radar',
+  'columns',
+  'line',
+  'progress',
+  'pictogram',
+  'card-grid',
+  'gantt',
+  'roadmap',
+  'kanban',
+  'zigzag',
 ] as const
 
 export type VisualFamily = (typeof VISUAL_FAMILIES)[number]
@@ -89,6 +113,14 @@ export interface VisualItem {
   children?: (string | { label: string; detail?: string })[]
   /** The centre of a hub, the item a comparison recommends. One per document. */
   emphasis?: boolean
+  /** A position, not a figure: a quadrant chart's x and y, a journey's feeling (y, −2 to 2). */
+  x?: number
+  y?: number
+  /** A Gantt bar's span, in the unit of `axes.x` (week 1 to week 4). */
+  start?: number
+  end?: number
+  /** What `value` is a part of, for a pictogram ("7 out of 10"). */
+  total?: number
 }
 
 /** The content, the same for every family. */
@@ -102,6 +134,10 @@ export interface VisualDoc {
   axes?: { x?: string; y?: string }
   /** "Source: …" under a chart. */
   source?: string
+  /** A comparison table's rows; each option's children are its cells, in this order. */
+  criteria?: string[]
+  /** A quadrant chart's four zones, top-left, top-right, bottom-left, bottom-right. */
+  quadrants?: string[]
 }
 
 /**
@@ -118,6 +154,14 @@ export interface FamilyBounds {
   children?: true
   /** Exactly `min` items (`pros-cons` is two, `matrix` four). */
   exact?: true
+  /** The document gives `relations` (a decision tree, a concept map). */
+  relations?: true
+  /** Every item carries `x` and `y` (a quadrant chart). */
+  positions?: true
+  /** Every item carries `y`, a feeling from −2 to 2 (a customer journey). */
+  scores?: true
+  /** Every item carries `start` and `end` (a Gantt chart). */
+  spans?: true
 }
 
 export const VISUAL_BOUNDS: Record<VisualFamily, FamilyBounds> = {
@@ -141,6 +185,30 @@ export const VISUAL_BOUNDS: Record<VisualFamily, FamilyBounds> = {
   'before-after': { min: 2, max: 2, exact: true },
   tree: { min: 2, max: 6 },
   onion: { min: 3, max: 5 },
+  snake: { min: 5, max: 12 },
+  staircase: { min: 3, max: 6 },
+  converging: { min: 3, max: 6 },
+  diverging: { min: 3, max: 6 },
+  equation: { min: 3, max: 5 },
+  'decision-tree': { min: 3, max: 12, relations: true },
+  'user-journey': { min: 3, max: 8, scores: true },
+  fishbone: { min: 3, max: 7 },
+  treemap: { min: 2, max: 12, values: true },
+  layers: { min: 3, max: 6 },
+  'concept-map': { min: 4, max: 10, relations: true },
+  'force-field': { min: 2, max: 2, children: true, exact: true },
+  'quadrant-chart': { min: 3, max: 12, positions: true },
+  'comparison-table': { min: 2, max: 4, children: true },
+  radar: { min: 3, max: 8, values: true },
+  columns: { min: 2, max: 12, values: true },
+  line: { min: 3, max: 20, values: true },
+  progress: { min: 2, max: 6, values: true },
+  pictogram: { min: 1, max: 3, values: true },
+  'card-grid': { min: 3, max: 9 },
+  gantt: { min: 2, max: 10, spans: true },
+  roadmap: { min: 3, max: 8 },
+  kanban: { min: 2, max: 5, children: true },
+  zigzag: { min: 3, max: 8 },
 }
 
 /** The most items any family draws; the schema refuses more. */
@@ -174,9 +242,33 @@ export const FAMILY_USE: Record<VisualFamily, string> = {
   'before-after': 'a change from one state to another: exactly two items, before then after, with their points as children',
   tree: 'a hierarchy that branches (an org chart, a breakdown): the root marked `emphasis` (or it is the title), each branch an item, its leaves the children',
   onion: 'nested layers from a core outwards (an ecosystem, circles of influence): the FIRST item is the core, the last the outer ring',
+  snake: 'a long process (six to twelve steps) laid in rows that turn back, like a board game',
+  staircase: 'a progression that climbs (maturity levels, a career, growing stakes), lowest step first',
+  converging: 'several causes, inputs or contributions that lead to ONE result: the result is the item marked `emphasis` (or the last)',
+  diverging: 'ONE source that leads to several outcomes or uses: the source is the item marked `emphasis` (or the first)',
+  equation: 'a few ingredients that add up to a result (A + B + C = D): the result is the last item',
+  'decision-tree': 'questions answered yes or no that lead to outcomes: the first item is the first question, `relations` go from a question to its answers with the answer ("Oui", "Non") as label',
+  'user-journey': 'a customer or user journey: each stage an item, with `y` how it feels from −2 (bad) to 2 (good) — judged from the text, not a figure',
+  fishbone: 'the causes of one problem (an Ishikawa diagram): the problem is the item marked `emphasis` (or the title), each other item a category of causes with the causes as children',
+  treemap: 'a whole split into parts of very different sizes (a budget, market shares): every item a value in the same unit',
+  layers: 'a stack of layers, the top one first (an architecture, a tech stack, levels of a system): an item per layer, its parts as children',
+  'concept-map': 'notions linked by named relations (a course, an ecosystem): `relations` between item indexes, each with a short verb as label',
+  'force-field': 'forces for and against a change: exactly two items, the driving forces then the restraining ones, each force a child',
+  'quadrant-chart': 'things placed on two axes (impact/effort, price/quality, power/interest): each item with `x` and `y` from 0 to 10, the two axes in `axes`, the four zones in `quadrants` (top-left, top-right, bottom-left, bottom-right)',
+  'comparison-table': 'options compared on several criteria in a grid: each item an option, `criteria` the rows, each option\'s children its cells in that order ("Oui", "Non" or a short value)',
+  radar: 'a profile scored on several axes (skills, a product on five criteria): every item an axis with a value in the same unit',
+  columns: 'quantities over a few periods or categories, as vertical columns: every item a value in the same unit — not for a long series (that is a line)',
+  line: 'a trend over time (months, years): every item a period with a value in the same unit, in order',
+  progress: 'rates or completion (goals reached, scores): every item a value, a percentage when the unit is "%"',
+  pictogram: 'one striking proportion ("7 people out of 10"): an item per proportion, `value` the part and `total` the whole when it is not a percentage',
+  'card-grid': 'a set of equal points (benefits, features, services), each an item with an icon — not for a sequence',
+  gantt: 'a schedule of tasks with durations: each task with `start` and `end` in one unit (week numbers, months), the unit in `axes.x`',
+  roadmap: 'milestones along a road (a product roadmap, a plan for the year): the date or period in the label',
+  kanban: 'work by status (to do, doing, done): each item a column, its cards as children',
+  zigzag: 'a short list of key points read in turn, alternating left and right of a line',
 }
 
-export type RefusalReason = 'tooFew' | 'tooMany' | 'exact' | 'values' | 'children'
+export type RefusalReason = 'tooFew' | 'tooMany' | 'exact' | 'values' | 'children' | 'relations' | 'positions' | 'scores' | 'spans'
 
 /** Why a family cannot draw this document, or null when it can. */
 export function familyRefusal(family: VisualFamily, doc: VisualDoc | null): { reason: RefusalReason; n: number } | null {
@@ -188,6 +280,11 @@ export function familyRefusal(family: VisualFamily, doc: VisualDoc | null): { re
   if (n > b.max) return { reason: 'tooMany', n: b.max }
   if (b.values && !items.every((it) => typeof it.value === 'number' && Number.isFinite(it.value))) return { reason: 'values', n: 0 }
   if (b.children && !items.every((it) => Array.isArray(it.children) && it.children.length > 0)) return { reason: 'children', n: 0 }
+  const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+  if (b.relations && !(Array.isArray(doc?.relations) && doc!.relations.length > 0)) return { reason: 'relations', n: 0 }
+  if (b.positions && !items.every((it) => isNum(it.x) && isNum(it.y))) return { reason: 'positions', n: 0 }
+  if (b.scores && !items.every((it) => isNum(it.y))) return { reason: 'scores', n: 0 }
+  if (b.spans && !items.every((it) => isNum(it.start) && isNum(it.end))) return { reason: 'spans', n: 0 }
   return null
 }
 

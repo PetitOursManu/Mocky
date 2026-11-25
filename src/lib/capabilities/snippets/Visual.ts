@@ -230,6 +230,7 @@ function mockyVisualRing(n, box, cw0, ch0, u, avoid, start) {
 function mockyVisualClean(doc) {
   var d = doc && typeof doc === 'object' ? doc : {};
   var str = function (v) { return typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : ''; };
+  var num = function (v) { return typeof v === 'number' && isFinite(v) ? v : null; };
   var items = (Array.isArray(d.items) ? d.items : []).filter(function (it) { return it && typeof it === 'object' && str(it.label); }).map(function (it) {
     return {
       label: str(it.label),
@@ -237,6 +238,7 @@ function mockyVisualClean(doc) {
       icon: typeof it.icon === 'string' ? it.icon : '',
       value: typeof it.value === 'number' && isFinite(it.value) ? it.value : null,
       unit: str(it.unit),
+      x: num(it.x), y: num(it.y), start: num(it.start), end: num(it.end), total: num(it.total),
       emphasis: !!it.emphasis,
       children: (Array.isArray(it.children) ? it.children : []).map(function (c) {
         return typeof c === 'string' ? c.trim() : c && typeof c === 'object' ? [str(c.label), str(c.detail)].filter(Boolean).join(' — ') : '';
@@ -246,11 +248,46 @@ function mockyVisualClean(doc) {
   return {
     title: str(d.title), subtitle: str(d.subtitle), source: str(d.source),
     axes: d.axes && typeof d.axes === 'object' ? { x: str(d.axes.x), y: str(d.axes.y) } : { x: '', y: '' },
+    criteria: (Array.isArray(d.criteria) ? d.criteria : []).map(str).slice(0, 10),
+    quadrants: (Array.isArray(d.quadrants) ? d.quadrants : []).map(str).slice(0, 4),
     relations: (Array.isArray(d.relations) ? d.relations : []).filter(function (r) {
       return r && typeof r.from === 'number' && typeof r.to === 'number' && r.from !== r.to && r.from >= 0 && r.to >= 0 && r.from < items.length && r.to < items.length;
     }).map(function (r) { return { from: Math.round(r.from), to: Math.round(r.to), label: str(r.label) }; }),
     items: items,
   };
+}
+
+/** A squarified treemap: rectangles whose areas follow the values, as square as can be. */
+function mockyVisualSquarify(values, x, y, w, h) {
+  var out = [], total = values.reduce(function (a, v) { return a + v; }, 0);
+  if (!total || !values.length) return out;
+  var scale = (w * h) / total;
+  var areas = values.map(function (v) { return v * scale; });
+  var rect = { x: x, y: y, w: w, h: h }, row = [], i = 0;
+  function worst(r, side) {
+    var s = 0, mx = 0, mn = Infinity;
+    r.forEach(function (a) { s += a; mx = Math.max(mx, a); mn = Math.min(mn, a); });
+    return Math.max(side * side * mx / (s * s), (s * s) / (side * side * mn));
+  }
+  function place(r) {
+    var s = r.reduce(function (a, v) { return a + v; }, 0);
+    if (rect.w >= rect.h) {
+      var cw = s / rect.h, yy = rect.y;
+      r.forEach(function (a) { var hh = a / cw; out.push({ x: rect.x, y: yy, w: cw, h: hh }); yy += hh; });
+      rect = { x: rect.x + cw, y: rect.y, w: rect.w - cw, h: rect.h };
+    } else {
+      var ch = s / rect.w, xx = rect.x;
+      r.forEach(function (a) { var ww = a / ch; out.push({ x: xx, y: rect.y, w: ww, h: ch }); xx += ww; });
+      rect = { x: rect.x, y: rect.y + ch, w: rect.w, h: rect.h - ch };
+    }
+  }
+  while (i < areas.length) {
+    var side = Math.min(rect.w, rect.h);
+    if (!row.length || worst(row.concat([areas[i]]), side) <= worst(row, side)) { row.push(areas[i]); i++; }
+    else { place(row); row = []; }
+  }
+  if (row.length) place(row);
+  return out;
 }
 
 /**
@@ -272,7 +309,7 @@ function mockyVisualLayout(family, rawDoc, W, H) {
   // which then is not set a second time above the drawing.
   var items = all.slice(0, bounds.max);
   if (centerIdx >= items.length) centerIdx = -1;
-  var titleIsCentre = (fam === 'hub' || fam === 'mindmap' || fam === 'tree') && centerIdx < 0;
+  var titleIsCentre = (fam === 'hub' || fam === 'mindmap' || fam === 'tree' || fam === 'fishbone') && centerIdx < 0;
   var n = items.length;
 
   // ---- header and footer ----
@@ -363,7 +400,7 @@ function mockyVisualLayout(family, rawDoc, W, H) {
       var w = fam === 'funnel' ? bw * (1 - 0.55 * k) : bw * (0.38 + 0.62 * k);
       node('band', bx + (bw - w) / 2, by + b * (bandH + gb), w, bandH, 'band', runs(items[b], { value: true }), b, { valueScale: 1.15 });
     }
-  } else if (fam === 'comparison' || fam === 'pros-cons') {
+  } else if (fam === 'comparison' || fam === 'pros-cons' || fam === 'kanban') {
     var kc = n, gc = u * 1.4, colW = (bw - gc * (kc - 1)) / Math.max(1, kc);
     var headH = Math.min(bh * 0.28, u * 6.5);
     var M = 1;
@@ -655,12 +692,397 @@ function mockyVisualLayout(family, rawDoc, W, H) {
       var ang = -Math.PI / 2.6 + (Math.PI / 1.3) * (n > 1 ? oi / (n - 1) : 0.5);
       links.push({ points: [[ocx + rMid * Math.cos(ang), ocy + rMid * Math.sin(ang)], [olx - u * 0.6, ry2 + orow / 2]], arrow: false });
     }
+  } else if (fam === 'snake') {
+    // A long process in rows that turn back on themselves, like a board game.
+    var perRow = Math.max(2, Math.min(n, Math.floor(bw / (u * 13))));
+    var rowsS = Math.ceil(n / perRow);
+    perRow = Math.ceil(n / rowsS);
+    var gsx = u * 2.4, gsy = u * 2.4;
+    var cwSn = (bw - gsx * (perRow - 1)) / perRow, chSn = Math.min(u * 8, (bh - gsy * (rowsS - 1)) / rowsS);
+    var topSn = by + (bh - (rowsS * chSn + (rowsS - 1) * gsy)) / 2;
+    var snR = [];
+    for (var si2 = 0; si2 < n; si2++) {
+      var srow = Math.floor(si2 / perRow), scol = si2 % perRow;
+      if (srow % 2 === 1) scol = perRow - 1 - scol;
+      snR.push({ x: bx + scol * (cwSn + gsx), y: topSn + srow * (chSn + gsy), w: cwSn, h: chSn });
+      var rs = runs(items[si2], { icon: true });
+      rs.mark = String(si2 + 1);
+      node('card', snR[si2].x, snR[si2].y, cwSn, chSn, 'card', rs, si2, { align: 'left' });
+    }
+    for (si2 = 0; si2 < n - 1; si2++) {
+      var A1 = snR[si2], B1 = snR[si2 + 1];
+      if (Math.abs(A1.y - B1.y) < 1) {
+        var lr = B1.x > A1.x;
+        links.push({ points: [[lr ? A1.x + A1.w + u * 0.4 : A1.x - u * 0.4, A1.y + A1.h / 2], [lr ? B1.x - u * 0.4 : B1.x + B1.w + u * 0.4, B1.y + B1.h / 2]], arrow: true });
+      } else {
+        links.push({ points: [[A1.x + A1.w / 2, A1.y + A1.h + u * 0.4], [B1.x + B1.w / 2, B1.y - u * 0.4]], arrow: true });
+      }
+    }
+  } else if (fam === 'staircase') {
+    var gst = u * 0.6, swS = (bw - gst * (n - 1)) / n, riser = n > 1 ? bh * 0.5 / (n - 1) : 0;
+    for (var st2 = 0; st2 < n; st2++) {
+      var stop2 = by + (n - 1 - st2) * riser;
+      node('card', bx + st2 * (swS + gst), stop2, swS, by + bh - stop2, 'card', runs(items[st2], { icon: true, value: true }), st2, { align: 'left', valign: 'start' });
+    }
+  } else if (fam === 'converging' || fam === 'diverging') {
+    var conv = fam === 'converging';
+    var keyIdx = centerIdx >= 0 ? centerIdx : conv ? n - 1 : 0;
+    var others = items.filter(function (it, i) { return i !== keyIdx; });
+    var no = others.length, colW3 = bw * 0.38, keyW = bw * 0.32, keyH = Math.min(bh * 0.55, u * 10);
+    var gr3 = u * 0.8, rh3 = Math.min(u * 6.5, (bh - gr3 * (no - 1)) / Math.max(1, no));
+    var top3 = by + (bh - (no * rh3 + (no - 1) * gr3)) / 2;
+    var keyX = conv ? bx + bw - keyW : bx, keyY = by + bh / 2 - keyH / 2;
+    node('centre', keyX, keyY, keyW, keyH, 'centre', runs(items[keyIdx], { icon: true }), keyIdx, { solid: true });
+    for (var o3 = 0; o3 < no; o3++) {
+      var ox = conv ? bx : bx + bw - colW3, oy = top3 + o3 * (rh3 + gr3);
+      node('card', ox, oy, colW3, rh3, 'card', runs(others[o3], { icon: true }), items.indexOf(others[o3]), { align: 'left' });
+      var p0 = conv ? [ox + colW3 + u * 0.4, oy + rh3 / 2] : [keyX + keyW + u * 0.4, keyY + keyH / 2];
+      var p3 = conv ? [keyX - u * 0.4, keyY + keyH / 2] : [ox - u * 0.4, oy + rh3 / 2];
+      var mx3 = (p0[0] + p3[0]) / 2, curve3 = [];
+      for (var q3 = 0; q3 <= 24; q3++) {
+        var t3 = q3 / 24, m3 = 1 - t3;
+        curve3.push([m3 * m3 * m3 * p0[0] + 3 * m3 * m3 * t3 * mx3 + 3 * m3 * t3 * t3 * mx3 + t3 * t3 * t3 * p3[0], m3 * m3 * m3 * p0[1] + 3 * m3 * m3 * t3 * p0[1] + 3 * m3 * t3 * t3 * p3[1] + t3 * t3 * t3 * p3[1]]);
+      }
+      links.push({ points: curve3, arrow: true });
+    }
+  } else if (fam === 'equation') {
+    var resIdx = centerIdx >= 0 ? centerIdx : n - 1;
+    var terms = items.filter(function (it, i) { return i !== resIdx; }).concat([items[resIdx]]);
+    var opW = u * 3.4, cwE = (bw - opW * (n - 1)) / n, chE = Math.min(bh * 0.7, u * 12, cwE * 1.3), yE = by + (bh - chE) / 2;
+    for (var e2 = 0; e2 < n; e2++) {
+      var xE = bx + e2 * (cwE + opW);
+      node('card', xE, yE, cwE, chE, 'card', runs(terms[e2], { icon: true, value: true }), items.indexOf(terms[e2]), { solid: e2 === n - 1 });
+      if (e2 < n - 1) node('text', xE + cwE, yE + chE / 2 - u * 2, opW, u * 4, 'op', { label: e2 === n - 2 ? '=' : '+' }, -1, { pad: 0, padY: 0 });
+    }
+  } else if (fam === 'decision-tree') {
+    var relD = doc.relations.length ? doc.relations : items.slice(1).map(function (it, i) { return { from: 0, to: i + 1, label: '' }; });
+    var hasIn = items.map(function () { return false; });
+    relD.forEach(function (r) { hasIn[r.to] = true; });
+    var rootD = hasIn.indexOf(false);
+    if (rootD < 0) rootD = 0;
+    var lvl = items.map(function () { return -1; }), order = [[rootD]];
+    lvl[rootD] = 0;
+    for (var dl2 = 0; dl2 < order.length; dl2++) {
+      var nextL = [];
+      order[dl2].forEach(function (p) {
+        relD.forEach(function (r) { if (r.from === p && lvl[r.to] < 0) { lvl[r.to] = dl2 + 1; nextL.push(r.to); } });
+      });
+      if (nextL.length) order.push(nextL);
+    }
+    var lost = [];
+    lvl.forEach(function (v, i) { if (v < 0) lost.push(i); });
+    if (lost.length) order.push(lost);
+    var LD = order.length, gD = u * 2.6, lhD = Math.min(u * 6.5, (bh - gD * (LD - 1)) / LD);
+    var topD = by + (bh - (LD * lhD + (LD - 1) * gD)) / 2, placedD = [];
+    order.forEach(function (row, li) {
+      var k = row.length, nw = Math.min((bw - u * (k - 1)) / k, bw * 0.42);
+      var left = bx + (bw - (nw * k + u * (k - 1))) / 2;
+      row.forEach(function (idx, j) {
+        var leaf = !relD.some(function (r) { return r.from === idx; });
+        placedD[idx] = { x: left + j * (nw + u), y: topD + li * (lhD + gD), w: nw, h: lhD };
+        node('card', placedD[idx].x, placedD[idx].y, nw, lhD, 'card', runs(items[idx], { icon: true }), idx, { shape: leaf ? 'pill' : 'rect', solid: idx === rootD });
+      });
+    });
+    relD.forEach(function (r) {
+      var A = placedD[r.from], B = placedD[r.to];
+      if (!A || !B || B.y <= A.y) return;
+      var x0 = A.x + A.w / 2, y0 = A.y + A.h, x1 = B.x + B.w / 2, y1 = B.y, ym = (y0 + y1) / 2;
+      links.push({ points: Math.abs(x0 - x1) < 0.5 ? [[x0, y0], [x1, y1]] : [[x0, y0], [x0, ym], [x1, ym], [x1, y1]], arrow: true, label: r.label });
+    });
+  } else if (fam === 'user-journey') {
+    var gJ = u * 1.2, cwJ = (bw - gJ * (n - 1)) / n, chJ = Math.min(bh * 0.48, u * 9);
+    var zoneTop = by + chJ + u * 2.5, zoneH = by + bh - zoneTop - u * 0.5;
+    var ys = items.map(function (it) { return typeof it.y === 'number' ? it.y : 0; });
+    var lo = Math.min(-2, Math.min.apply(null, ys)), hi = Math.max(2, Math.max.apply(null, ys));
+    var dJ = Math.min(u * 2.2, cwJ * 0.3), ptsJ = [];
+    var zeroY = zoneTop + (hi / (hi - lo)) * zoneH;
+    links.push({ points: [[bx, zeroY], [bx + bw, zeroY]], arrow: false, faint: true });
+    for (var j2 = 0; j2 < n; j2++) {
+      var xJ = bx + j2 * (cwJ + gJ);
+      node('card', xJ, by, cwJ, chJ, 'card', runs(items[j2], { icon: true }), j2, { valign: 'start' });
+      var pyJ = zoneTop + (1 - (ys[j2] - lo) / (hi - lo)) * zoneH;
+      ptsJ.push([xJ + cwJ / 2, pyJ]);
+    }
+    links.push({ points: ptsJ, arrow: false, tone: 0, thick: true });
+    ptsJ.forEach(function (p, j) {
+      node('dot', p[0] - dJ / 2, p[1] - dJ / 2, dJ, dJ, 'dot', { num: ys[j] > 0 ? '+' : ys[j] < 0 ? '\\u2212' : '' }, ys[j] >= 0 ? 0 : 1, { shape: 'circle', pad: 0, padY: 0 });
+    });
+  } else if (fam === 'fishbone') {
+    var effect = centerIdx >= 0 ? items[centerIdx] : { label: doc.title || doc.subtitle || '' };
+    var causes = (centerIdx >= 0 ? items.filter(function (it, i) { return i !== centerIdx; }) : items).slice(0, 6);
+    var headW = bw * 0.2, headH = Math.min(bh * 0.3, u * 7.5), spineY = by + bh / 2;
+    node('centre', bx + bw - headW, spineY - headH / 2, headW, headH, 'centre', { label: effect.label }, centerIdx >= 0 ? centerIdx : 0, { solid: true });
+    links.push({ points: [[bx, spineY], [bx + bw - headW - u * 0.4, spineY]], arrow: true });
+    var topN = Math.ceil(causes.length / 2), botN = causes.length - topN;
+    var spanW = bw - headW - u * 3, boneDx = u * 3.5;
+    [[0, topN, -1], [topN, causes.length, 1]].forEach(function (side) {
+      var k = side[1] - side[0];
+      if (!k) return;
+      var slot = spanW / k, cw = slot - u * 1.2 - boneDx, ch = bh / 2 - u * 2.6;
+      for (var f = 0; f < k; f++) {
+        var it = causes[side[0] + f], fx = bx + f * slot;
+        var fy = side[2] < 0 ? by : spineY + u * 2.6;
+        node('card', fx, fy, cw, ch, 'card', runs(it, { list: true, kicker: true }), side[0] + f, { align: 'left', valign: side[2] < 0 ? 'start' : 'start' });
+        var bxA = fx + cw / 2, byA = side[2] < 0 ? fy + ch + u * 0.3 : fy - u * 0.3;
+        links.push({ points: [[bxA, byA], [bxA + boneDx, spineY]], arrow: false });
+      }
+    });
+  } else if (fam === 'treemap') {
+    var vals = items.map(function (it, i) { return { v: it.value != null && it.value > 0 ? it.value : 0, i: i }; }).filter(function (o) { return o.v > 0; });
+    vals.sort(function (a, b) { return b.v - a.v; });
+    var tiles = mockyVisualSquarify(vals.map(function (o) { return o.v; }), bx, by, bw, bh);
+    var gap2 = u * 0.25;
+    tiles.forEach(function (r, k) {
+      var idx = vals[k].i;
+      node('card', r.x + gap2, r.y + gap2, r.w - gap2 * 2, r.h - gap2 * 2, 'card', runs(items[idx], { value: true }), idx, { solid: true, align: 'left', valign: 'start', valueScale: 1.3 });
+    });
+  } else if (fam === 'layers') {
+    var gL = u * 0.6, lhL = Math.min(u * 7, (bh - gL * (n - 1)) / n), topL = by + (bh - (n * lhL + (n - 1) * gL)) / 2;
+    for (var l2 = 0; l2 < n; l2++) {
+      var itL = items[l2], yL = topL + l2 * (lhL + gL), kids2 = itL.children;
+      if (!kids2.length) {
+        node('card', bx, yL, bw, lhL, 'card', runs(itL, { icon: true }), l2, { align: 'left' });
+        continue;
+      }
+      var labW = bw * 0.26;
+      node('card', bx, yL, labW, lhL, 'head', runs(itL, { icon: true, noDetail: true }), l2, { solid: true, align: 'left' });
+      var m2 = kids2.length, tw = (bw - labW - u * 0.8 - u * 0.5 * (m2 - 1)) / m2;
+      for (var c2i = 0; c2i < m2; c2i++) node('card', bx + labW + u * 0.8 + c2i * (tw + u * 0.5), yL, tw, lhL, 'row', { label: kids2[c2i] }, l2, { soft: true });
+    }
+  } else if (fam === 'concept-map') {
+    var ringC = mockyVisualRing(n, box, Math.min(bw * 0.26, bw / (n <= 5 ? 3 : 4)), Math.min(bh * 0.22, bh / (n <= 6 ? 3.6 : 4.4)), u * 1.5, null, -Math.PI / 2);
+    ringC.rects.forEach(function (rc, i) { node('card', rc.x, rc.y, rc.w, rc.h, 'card', runs(items[i], { icon: true }), i); });
+    doc.relations.forEach(function (r) {
+      var A = ringC.rects[r.from], B = ringC.rects[r.to];
+      if (!A || !B) return;
+      var seg = mockyVisualTrim(mockyVisualSegment([A.x + A.w / 2, A.y + A.h / 2], [B.x + B.w / 2, B.y + B.h / 2], 80), ringC.rects, u * 0.4);
+      if (seg.length > 1) links.push({ points: seg, arrow: true, label: r.label });
+    });
+  } else if (fam === 'force-field') {
+    var headF = Math.min(u * 4.5, bh * 0.18), spineX = bx + bw / 2, sideW = bw * 0.38;
+    var mF = Math.max(items[0].children.length, items[1] ? items[1].children.length : 0, 1);
+    var gF = u * 0.7, rhF = Math.min(u * 5, (bh - headF - u * 1.2 - gF * (mF - 1)) / mF);
+    links.push({ points: [[spineX, by], [spineX, by + bh]], arrow: false });
+    [0, 1].forEach(function (s) {
+      var it = items[s];
+      if (!it) return;
+      var sx = s === 0 ? bx : bx + bw - sideW;
+      node('card', sx, by, sideW, headF, 'head', runs(it, { icon: true, noDetail: true }), s, { solid: true });
+      it.children.forEach(function (ch, k) {
+        var cy = by + headF + u * 1.2 + k * (rhF + gF);
+        node('card', sx, cy, sideW, rhF, 'row', { label: ch }, s, { soft: true, align: s === 0 ? 'right' : 'left' });
+        links.push({ points: s === 0 ? [[sx + sideW + u * 0.4, cy + rhF / 2], [spineX - u * 0.6, cy + rhF / 2]] : [[sx - u * 0.4, cy + rhF / 2], [spineX + u * 0.6, cy + rhF / 2]], arrow: true, tone: s });
+      });
+    });
+  } else if (fam === 'quadrant-chart') {
+    var awQ = doc.axes.y ? u * 2.4 : 0, ahQ = doc.axes.x ? u * 2.4 : 0;
+    var qx = bx + awQ, qy = by, qw = bw - awQ, qh = bh - ahQ;
+    var xs = items.map(function (it) { return typeof it.x === 'number' ? it.x : 0; }), ysQ = items.map(function (it) { return typeof it.y === 'number' ? it.y : 0; });
+    var xlo = Math.min(0, Math.min.apply(null, xs)), xhi = Math.max(10, Math.max.apply(null, xs));
+    var ylo = Math.min(0, Math.min.apply(null, ysQ)), yhi = Math.max(10, Math.max.apply(null, ysQ));
+    if (xhi - xlo > 10 || ylo < 0 || xlo < 0) { xlo = Math.min.apply(null, xs); xhi = Math.max.apply(null, xs); ylo = Math.min.apply(null, ysQ); yhi = Math.max.apply(null, ysQ); var px0 = (xhi - xlo) * 0.12 || 1, py0 = (yhi - ylo) * 0.12 || 1; xlo -= px0; xhi += px0; ylo -= py0; yhi += py0; }
+    links.push({ points: [[qx + qw / 2, qy], [qx + qw / 2, qy + qh]], arrow: false, faint: true });
+    links.push({ points: [[qx, qy + qh / 2], [qx + qw, qy + qh / 2]], arrow: false, faint: true });
+    links.push({ points: [[qx, qy + qh], [qx + qw, qy + qh]], arrow: true });
+    links.push({ points: [[qx, qy + qh], [qx, qy]], arrow: true });
+    var quads = doc.quadrants || [];
+    [[0, qx + u * 0.6, qy + u * 0.4], [1, qx + qw / 2 + u * 0.6, qy + u * 0.4], [2, qx + u * 0.6, qy + qh / 2 + u * 0.4], [3, qx + qw / 2 + u * 0.6, qy + qh / 2 + u * 0.4]].forEach(function (q) {
+      if (quads[q[0]]) node('tag', q[1], q[2], qw / 2 - u * 1.2, u * 2, 'none', { label: quads[q[0]] }, -1, {});
+    });
+    if (doc.axes.x) node('text', qx, qy + qh + u * 0.5, qw, ahQ - u * 0.5, 'axis', { label: doc.axes.x }, -1, { pad: 0, padY: 0 });
+    if (doc.axes.y) node('text', bx, qy, awQ - u * 0.5, qh, 'axis', { label: doc.axes.y }, -1, { pad: 0, padY: 0, vertical: true });
+    var dQ = u * 1.3, lwQ = Math.min(qw * 0.26, u * 12), lhQ = u * 2.6, taken = [];
+    // A point on an axis would sit on that axis's label: the plot keeps a margin.
+    var mQ = dQ, pxOf = function (v) { return qx + mQ + (v - xlo) / (xhi - xlo) * (qw - 2 * mQ); }, pyOf = function (v) { return qy + mQ + (1 - (v - ylo) / (yhi - ylo)) * (qh - 2 * mQ); };
+    // Two things scored alike would be one dot: the later one steps aside, round
+    // the first, so both are seen (and both labelled).
+    var at = items.map(function (it, i) {
+      var px = pxOf(xs[i]), py = pyOf(ysQ[i]);
+      for (var k = 0; k < 16; k++) {
+        var r0 = { x: px - dQ / 2, y: py - dQ / 2, w: dQ, h: dQ };
+        if (!taken.some(function (o) { return mockyVisualOverlap(r0, o, u * 0.15); })) break;
+        var a2 = k * Math.PI / 4, rad = dQ * 1.25 * (1 + Math.floor(k / 8));
+        px = Math.max(qx + mQ, Math.min(qx + qw - mQ, pxOf(xs[i]) + rad * Math.cos(a2)));
+        py = Math.max(qy + mQ, Math.min(qy + qh - mQ, pyOf(ysQ[i]) + rad * Math.sin(a2)));
+      }
+      var dotR = { x: px - dQ / 2, y: py - dQ / 2, w: dQ, h: dQ };
+      node('dot', dotR.x, dotR.y, dQ, dQ, 'dot', { num: '' }, i, { shape: 'circle', pad: 0, padY: 0 });
+      taken.push(dotR);
+      return [px, py];
+    });
+    items.forEach(function (it, i) {
+      var px = at[i][0], py = at[i][1];
+      var cands = [[px + dQ, py - lhQ / 2], [px - dQ - lwQ, py - lhQ / 2], [px - lwQ / 2, py - dQ - lhQ], [px - lwQ / 2, py + dQ], [px + dQ, py - lhQ - dQ / 2], [px - dQ - lwQ, py + dQ / 2]];
+      var pick = null;
+      for (var c = 0; c < cands.length && !pick; c++) {
+        var r = { x: Math.max(qx, Math.min(qx + qw - lwQ, cands[c][0])), y: Math.max(qy, Math.min(qy + qh - lhQ, cands[c][1])), w: lwQ, h: lhQ };
+        if (!taken.some(function (o) { return mockyVisualOverlap(r, o, 0); })) pick = r;
+      }
+      if (!pick) return;
+      taken.push(pick);
+      node('text', pick.x, pick.y, pick.w, pick.h, 'plabel', { label: it.label }, i, { pad: 0, padY: 0, align: pick.x >= px ? 'left' : 'right' });
+    });
+  } else if (fam === 'comparison-table') {
+    var crit = (doc.criteria && doc.criteria.length ? doc.criteria : items[0].children.map(function (c) { var k = c.indexOf(':'); return k > 0 ? c.slice(0, k).trim() : ''; })).slice(0, 10);
+    var R = Math.max(crit.length, Math.max.apply(null, items.map(function (it) { return it.children.length; })));
+    var hasHead = crit.some(function (c) { return c; });
+    var cwT = hasHead ? bw * 0.3 : 0, gT2 = u * 0.4, colT2 = (bw - cwT - gT2 * n) / n;
+    var hT = Math.min(u * 4.5, bh * 0.16), rT = Math.min(u * 4.2, (bh - hT - gT2 * R) / Math.max(1, R));
+    var topT = by + (bh - (hT + R * (rT + gT2))) / 2;
+    items.forEach(function (it, c) { node('card', bx + cwT + gT2 + c * (colT2 + gT2), topT, colT2, hT, 'head', runs(it, { icon: true, noDetail: true }), c, { solid: true, ring: it.emphasis }); });
+    for (var rT2 = 0; rT2 < R; rT2++) {
+      var yT = topT + hT + gT2 + rT2 * (rT + gT2);
+      if (hasHead) node('card', bx, yT, cwT, rT, 'row', { label: crit[rT2] || '' }, -1, { align: 'left', plain: true });
+      items.forEach(function (it, c) {
+        var raw = it.children[rT2] || '', k = raw.indexOf(':'), cell = k > 0 && hasHead ? raw.slice(k + 1).trim() : raw;
+        var yes = /^(oui|yes|true|vrai|x|\\u2713|\\u2714|ok)$/i.test(cell), no2 = /^(non|no|false|faux|-|\\u2717|\\u2718)$/i.test(cell);
+        node('card', bx + cwT + gT2 + c * (colT2 + gT2), yT, colT2, rT, 'cell', yes ? { label: '\\u2713', kicker: true } : no2 ? { label: '\\u2014' } : { label: cell }, c, { soft: true });
+      });
+    }
+  } else if (fam === 'radar') {
+    // Room for a label beyond each axis: the label's height and its gap, or the
+    // top one, pushed back inside the frame, lands on the highest point.
+    var Rr = Math.min(bh / 2, bw * 0.32) - u * 5.2, rcx = bx + bw / 2, rcy = by + bh / 2;
+    var maxR = items.some(function (it) { return it.unit === '%'; }) ? 100 : Math.max.apply(null, items.map(function (it) { return it.value || 0; })) || 1;
+    var ang = function (i) { return -Math.PI / 2 + 2 * Math.PI * i / n; };
+    [0.33, 0.66, 1].forEach(function (f) {
+      var ring = [];
+      for (var i = 0; i <= n; i++) ring.push([rcx + Rr * f * Math.cos(ang(i % n)), rcy + Rr * f * Math.sin(ang(i % n))]);
+      links.push({ points: ring, arrow: false, faint: true });
+    });
+    var poly = [];
+    for (var ri = 0; ri < n; ri++) {
+      links.push({ points: [[rcx, rcy], [rcx + Rr * Math.cos(ang(ri)), rcy + Rr * Math.sin(ang(ri))]], arrow: false, faint: true });
+      var fr = Math.max(0, Math.min(1, (items[ri].value || 0) / maxR));
+      poly.push([rcx + Rr * fr * Math.cos(ang(ri)), rcy + Rr * fr * Math.sin(ang(ri))]);
+    }
+    links.push({ points: poly.concat([poly[0]]), arrow: false, tone: 0, fill: true, thick: true });
+    var dR = u * 1.1, lwR = Math.min(u * 11, bw * 0.22), lhR = u * 3.6;
+    for (ri = 0; ri < n; ri++) {
+      node('dot', poly[ri][0] - dR / 2, poly[ri][1] - dR / 2, dR, dR, 'dot', { num: '' }, 0, { shape: 'circle', pad: 0, padY: 0 });
+      var ca = Math.cos(ang(ri)), sa = Math.sin(ang(ri));
+      var lx2 = rcx + (Rr + u * 1.2) * ca, ly2 = rcy + (Rr + u * 1.2) * sa;
+      var rx2 = ca > 0.3 ? lx2 : ca < -0.3 ? lx2 - lwR : lx2 - lwR / 2, ry2 = sa > 0.3 ? ly2 : sa < -0.3 ? ly2 - lhR : ly2 - lhR / 2;
+      node('text', Math.max(bx, Math.min(bx + bw - lwR, rx2)), Math.max(by, Math.min(by + bh - lhR, ry2)), lwR, lhR, 'legend', { value: mockyVisualNum(items[ri].value, items[ri].unit), label: items[ri].label }, ri, { align: ca > 0.3 ? 'left' : ca < -0.3 ? 'right' : 'center', pad: 0, padY: 0, valueScale: 1.1, inline: true });
+    }
+  } else if (fam === 'columns' || fam === 'line') {
+    var vs2 = items.map(function (it) { return it.value != null ? it.value : 0; });
+    var vmax = Math.max.apply(null, vs2), vmin = Math.min.apply(null, vs2);
+    var lowV = fam === 'columns' ? Math.min(0, vmin) : vmin - (vmax - vmin) * 0.15, highV = fam === 'columns' ? Math.max(0, vmax) : vmax + (vmax - vmin) * 0.15;
+    if (highV === lowV) { highV += 1; lowV -= fam === 'columns' ? 0 : 1; }
+    var labH = u * 2.8, valH = u * 2.4, plotTop = by + valH, plotH = bh - valH - labH, slot2 = bw / n;
+    var yOf = function (v) { return plotTop + (1 - (v - lowV) / (highV - lowV)) * plotH; };
+    var showVal = n <= 12, every = Math.ceil(n / 12);
+    links.push({ points: [[bx, yOf(fam === 'columns' ? 0 : lowV)], [bx + bw, yOf(fam === 'columns' ? 0 : lowV)]], arrow: false });
+    var linePts = [];
+    for (var ci2 = 0; ci2 < n; ci2++) {
+      var cx2 = bx + slot2 * ci2, v2 = vs2[ci2], yv = yOf(v2), y0v = yOf(fam === 'columns' ? 0 : lowV);
+      if (fam === 'columns') {
+        var bwC = slot2 * 0.62, top4 = Math.min(yv, y0v), hC = Math.abs(y0v - yv);
+        if (hC > 0.5) node('bar', cx2 + (slot2 - bwC) / 2, top4, bwC, hC, 'none', {}, ci2, { col: true });
+        if (showVal) node('text', cx2, v2 >= 0 ? top4 - valH : top4 + hC, slot2, valH, 'barvalue', { value: mockyVisualNum(items[ci2].value, items[ci2].unit) }, ci2, { pad: 0, padY: 0, valueScale: 1 });
+      } else {
+        linePts.push([cx2 + slot2 / 2, yv]);
+      }
+      if (ci2 % every === 0) node('text', cx2, by + bh - labH + u * 0.4, slot2 * every, labH - u * 0.4, 'barlabel', { label: items[ci2].label }, ci2, { pad: 0, padY: 0, align: 'center' });
+    }
+    if (fam === 'line') {
+      links.push({ points: [[linePts[0][0], yOf(lowV)]].concat(linePts, [[linePts[n - 1][0], yOf(lowV)]]), arrow: false, tone: 0, fill: true, nostroke: true });
+      links.push({ points: linePts, arrow: false, tone: 0, thick: true });
+      var dL = Math.min(u * 1.2, slot2 * 0.4);
+      linePts.forEach(function (p, i) {
+        node('dot', p[0] - dL / 2, p[1] - dL / 2, dL, dL, 'dot', { num: '' }, 0, { shape: 'circle', pad: 0, padY: 0 });
+        if (showVal) node('text', p[0] - slot2 / 2, p[1] - dL / 2 - valH, slot2, valH - u * 0.2, 'barvalue', { value: mockyVisualNum(items[i].value, items[i].unit) }, 0, { pad: 0, padY: 0, valueScale: 1 });
+      });
+    }
+  } else if (fam === 'progress') {
+    var colsP = n <= 4 ? n : 3, rowsP = Math.ceil(n / colsP), gP = u * 1.2;
+    var cwP = (bw - gP * (colsP - 1)) / colsP, chP = Math.min((bh - gP * (rowsP - 1)) / rowsP, cwP * 1.25);
+    var topP = by + (bh - (rowsP * chP + (rowsP - 1) * gP)) / 2;
+    var maxP = items.every(function (it) { return it.unit === '%'; }) ? 100 : Math.max.apply(null, items.map(function (it) { return it.value || 0; })) || 1;
+    for (var pi2 = 0; pi2 < n; pi2++) {
+      var rowP = Math.floor(pi2 / colsP), inRowP = Math.min(colsP, n - rowP * colsP);
+      var offP = (bw - (inRowP * cwP + (inRowP - 1) * gP)) / 2;
+      var xP = bx + offP + (pi2 % colsP) * (cwP + gP), yP = topP + rowP * (chP + gP);
+      var D2 = Math.min(cwP * 0.72, chP * 0.6);
+      var frac = Math.max(0, Math.min(1, (items[pi2].value || 0) / maxP));
+      node('gauge', xP + (cwP - D2) / 2, yP, D2, D2, 'none', { frac: frac }, pi2, { shape: 'circle' });
+      node('text', xP + (cwP - D2 * 0.62) / 2, yP + D2 * 0.31, D2 * 0.62, D2 * 0.38, 'gvalue', { value: mockyVisualNum(items[pi2].value, items[pi2].unit) }, pi2, { pad: 0, padY: 0, valueScale: 1 });
+      node('card', xP, yP + D2 + u * 0.6, cwP, chP - D2 - u * 0.6, 'card', runs(items[pi2]), pi2, { plain: true, valign: 'start', padY: 0 });
+    }
+  } else if (fam === 'pictogram') {
+    var gPi = u * 1.4, rhPi = Math.min(u * 9, (bh - gPi * (n - 1)) / n), topPi = by + (bh - (n * rhPi + (n - 1) * gPi)) / 2;
+    var leftW = bw * 0.32;
+    for (var pg = 0; pg < n; pg++) {
+      var it3 = items[pg], yPi = topPi + pg * (rhPi + gPi);
+      var tot = typeof it3.total === 'number' && it3.total > 0 ? it3.total : it3.unit === '%' ? 100 : 10;
+      var filled = Math.round(Math.max(0, Math.min(1, (it3.value || 0) / tot)) * 10);
+      node('card', bx, yPi, leftW, rhPi, 'card', runs(it3, { value: true }), pg, { plain: true, align: 'left', valueScale: 1.8 });
+      var gridW = bw - leftW - u, cell = Math.min(gridW / 10, rhPi * 0.8), sz2 = cell * 0.78;
+      for (var ic = 0; ic < 10; ic++) {
+        node('icon', bx + leftW + u + ic * cell + (cell - sz2) / 2, yPi + (rhPi - sz2) / 2, sz2, sz2, 'none', { icon: it3.icon || 'Users', on: ic < filled }, pg, {});
+      }
+    }
+  } else if (fam === 'card-grid') {
+    var colsG = n <= 3 ? n : n === 4 ? (wide ? 4 : 2) : wide ? 3 : 2;
+    var rowsG = Math.ceil(n / colsG), gG = u * 1.2;
+    var cwG = (bw - gG * (colsG - 1)) / colsG, chG = Math.min((bh - gG * (rowsG - 1)) / rowsG, cwG * 0.95);
+    var topG = by + (bh - (rowsG * chG + (rowsG - 1) * gG)) / 2;
+    for (var gi = 0; gi < n; gi++) {
+      var rowG = Math.floor(gi / colsG), inRowG = Math.min(colsG, n - rowG * colsG), offG = (bw - (inRowG * cwG + (inRowG - 1) * gG)) / 2;
+      node('card', bx + offG + (gi % colsG) * (cwG + gG), topG + rowG * (chG + gG), cwG, chG, 'card', runs(items[gi], { icon: true }), gi, { align: 'left', valign: 'start' });
+    }
+  } else if (fam === 'gantt') {
+    var starts = items.map(function (it) { return typeof it.start === 'number' ? it.start : 0; });
+    var ends = items.map(function (it, i) { return typeof it.end === 'number' ? Math.max(it.end, starts[i]) : starts[i]; });
+    var t0 = Math.floor(Math.min.apply(null, starts)), t1 = Math.ceil(Math.max.apply(null, ends));
+    if (t1 <= t0) t1 = t0 + 1;
+    var labWG = bw * 0.28, chX = bx + labWG + u, chW = bw - labWG - u, tickH = u * 2.6;
+    var xOf = function (t) { return chX + (t - t0) / (t1 - t0) * chW; };
+    var stepG = Math.max(1, Math.ceil((t1 - t0) / 10));
+    for (var tk = t0; tk <= t1; tk += stepG) {
+      var tw2 = chW * stepG / (t1 - t0);
+      if (tk < t1) node('text', xOf(tk), by, Math.min(tw2, bx + bw - xOf(tk)), tickH, 'tick', { label: (doc.axes.x ? doc.axes.x + ' ' : '') + tk }, -1, { pad: 0, padY: 0, align: 'left' });
+      links.push({ points: [[xOf(tk), by + tickH], [xOf(tk), by + bh]], arrow: false, faint: true });
+    }
+    var gGa = u * 0.5, rhG = Math.min(u * 4.2, (bh - tickH - u * 0.6 - gGa * (n - 1)) / n);
+    for (var ga = 0; ga < n; ga++) {
+      var yG = by + tickH + u * 0.6 + ga * (rhG + gGa);
+      node('text', bx, yG, labWG, rhG, 'barlabel', { label: items[ga].label }, ga, { pad: 0, padY: 0, align: 'right' });
+      var x0g = xOf(starts[ga]), x1g = xOf(ends[ga]), hb = rhG * 0.62;
+      if (x1g - x0g < hb) { var dm = hb; node('dot', x0g - dm / 2, yG + (rhG - dm) / 2, dm, dm, 'dot', { num: '' }, ga, { shape: 'circle', pad: 0, padY: 0 }); }
+      else node('bar', x0g, yG + (rhG - hb) / 2, x1g - x0g, hb, 'none', {}, ga, { shape: 'pill' });
+    }
+  } else if (fam === 'roadmap') {
+    var midR = by + bh / 2, amp = bh * 0.07, slotR = bw / n, dR2 = Math.min(slotR * 0.26, u * 2.2);
+    var roadY = function (x) { return midR + amp * Math.sin((x - bx) / bw * Math.PI * 2.5); };
+    var road = [];
+    for (var rx = 0; rx <= 60; rx++) road.push([bx + bw * rx / 60, roadY(bx + bw * rx / 60)]);
+    links.push({ points: road, arrow: true, road: true });
+    var twR = Math.min(slotR * 1.5, bw * 0.42) - u * 0.4;
+    for (var rm = 0; rm < n; rm++) {
+      var cxR = bx + slotR * (rm + 0.5), cyR = roadY(cxR), upR = rm % 2 === 0;
+      var txR = Math.max(bx, Math.min(bx + bw - twR, cxR - twR / 2));
+      var tyR = upR ? by : midR + amp + dR2 / 2 + u * 1.2, thR = upR ? midR - amp - dR2 / 2 - u * 1.2 - by : by + bh - tyR;
+      node('dot', cxR - dR2 / 2, cyR - dR2 / 2, dR2, dR2, 'dot', { num: String(rm + 1) }, rm, { shape: 'circle', pad: 0, padY: 0 });
+      node('card', txR, tyR, twR, thR, 'card', runs(items[rm], { kicker: true }), rm, { align: 'left', valign: upR ? 'end' : 'start', plain: true });
+      links.push({ points: upR ? [[cxR, cyR - dR2 / 2], [cxR, tyR + thR]] : [[cxR, cyR + dR2 / 2], [cxR, tyR]], arrow: false, faint: true });
+    }
+  } else if (fam === 'zigzag') {
+    var dZ = Math.min(u * 3, bh / n * 0.6), gZ = u * 0.8, rhZ = Math.min(u * 7, (bh - gZ * (n - 1)) / n);
+    var topZ = by + (bh - (n * rhZ + (n - 1) * gZ)) / 2, axX = bx + bw / 2, cwZ = bw / 2 - dZ / 2 - u * 1.4;
+    links.push({ points: [[axX, topZ + rhZ / 2], [axX, topZ + (n - 1) * (rhZ + gZ) + rhZ / 2]], arrow: false });
+    for (var zi = 0; zi < n; zi++) {
+      var yZ = topZ + zi * (rhZ + gZ), leftZ = zi % 2 === 0;
+      node('dot', axX - dZ / 2, yZ + rhZ / 2 - dZ / 2, dZ, dZ, 'dot', { num: items[zi].icon ? '' : String(zi + 1), icon: items[zi].icon }, zi, { shape: 'circle', pad: 0, padY: 0 });
+      node('card', leftZ ? bx : axX + dZ / 2 + u * 1.4, yZ, cwZ, rhZ, 'card', runs(items[zi]), zi, { align: leftZ ? 'right' : 'left' });
+    }
   }
 
   // ---- one size per role ----
   var groups = {};
   nodes.forEach(function (nd) { if (nd.g && nd.g !== 'none' && nd.g !== 'dot') (groups[nd.g] = groups[nd.g] || []).push(nd); });
-  var maxByRole = { card: u * 2.1, head: u * 2.0, row: u * 1.6, band: u * 1.9, centre: u * 2.5, axis: u * 1.2, barlabel: u * 1.6, barvalue: u * 1.7, legend: u * 1.6, vlabel: u * 1.8, vcore: u * 1.3 };
+  var maxByRole = { card: u * 2.1, head: u * 2.0, row: u * 1.6, band: u * 1.9, centre: u * 2.5, axis: u * 1.2, barlabel: u * 1.6, barvalue: u * 1.7, legend: u * 1.6, vlabel: u * 1.8, vcore: u * 1.3, op: u * 3.2, cell: u * 1.35, tick: u * 1.0, plabel: u * 1.05, gvalue: u * 2.4 };
   var type = {};
   Object.keys(groups).forEach(function (gk) {
     var list = groups[gk];
@@ -773,36 +1195,39 @@ function Visual(props) {
     var flatX = l.points.every(function (p) { return Math.abs(p[0] - a0[0]) < 0.5; });
     return flatY ? { h: true, a: a0, b: a1 } : flatX ? { h: false, a: a0, b: a1 } : null;
   };
+  var linkCol = function (l) { return l.tone != null ? mockyVisualMark(tone(l.tone), ground, ink, 3) : l.faint ? mockyVisualMix(line, ground, 0.55) : line; };
+  var linkW = function (l) { return l.road ? stroke * 2.6 : l.thick ? stroke * 1.6 : l.faint ? Math.max(1, stroke * 0.7) : stroke; };
   drawn.forEach(function (l, i) {
     var st = straightOf(l);
-    if (!st) return;
-    var col = l.tone != null ? mockyVisualMark(tone(l.tone), ground, ink, 3) : line;
+    if (!st || l.fill) return;
+    var col = linkCol(l), strokeW = linkW(l);
     var x0 = Math.min(st.a[0], st.b[0]), y0 = Math.min(st.a[1], st.b[1]);
     var len = st.h ? Math.abs(st.b[0] - st.a[0]) : Math.abs(st.b[1] - st.a[1]);
     // An arrow's shaft stops short of its tip, which the SVG draws.
-    var shaft = l.arrow ? Math.max(0, len - stroke * 2.2) : len;
+    var shaft = l.arrow ? Math.max(0, len - strokeW * 2.2) : len;
     var fromEnd = l.arrow && (st.h ? st.b[0] < st.a[0] : st.b[1] < st.a[1]);
     children.push(e('div', { key: 'sl' + i, 'aria-hidden': 'true', style: st.h
-      ? { position: 'absolute', left: x0 + (fromEnd ? len - shaft : 0), top: st.a[1] - stroke / 2, width: shaft, height: stroke, background: col, borderRadius: stroke / 2, pointerEvents: 'none' }
-      : { position: 'absolute', left: st.a[0] - stroke / 2, top: y0 + (fromEnd ? len - shaft : 0), width: stroke, height: shaft, background: col, borderRadius: stroke / 2, pointerEvents: 'none' } }));
+      ? { position: 'absolute', left: x0 + (fromEnd ? len - shaft : 0), top: st.a[1] - strokeW / 2, width: shaft, height: strokeW, background: col, borderRadius: strokeW / 2, pointerEvents: 'none' }
+      : { position: 'absolute', left: st.a[0] - strokeW / 2, top: y0 + (fromEnd ? len - shaft : 0), width: strokeW, height: shaft, background: col, borderRadius: strokeW / 2, pointerEvents: 'none' } }));
   });
   children.push(e('svg', { key: 'links', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' } },
     e('defs', null, e('marker', { id: marker, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, e('path', { d: 'M0 0 L10 5 L0 10 z', fill: line }))),
     drawn.map(function (l, i) {
-      var col = l.tone != null ? mockyVisualMark(tone(l.tone), ground, ink, 3) : line;
+      var col = linkCol(l), sw = linkW(l);
+      if (l.fill) return e('path', { key: i, d: mockyVisualPath(l.points) + ' Z', fill: mockyVisualMix(ground, l.tone != null ? tone(l.tone) : ink, 0.22), stroke: l.nostroke ? 'none' : col, strokeWidth: sw, strokeLinejoin: 'round' });
       var st = straightOf(l);
       if (st && !l.arrow) return null;
       if (st) {
         // The tip alone: a hair of path whose only visible part is its marker.
         var b = st.b, dx = Math.sign(st.b[0] - st.a[0]) * 0.01, dy = Math.sign(st.b[1] - st.a[1]) * 0.01;
-        return e('path', { key: i, d: 'M' + (b[0] - dx).toFixed(2) + ' ' + (b[1] - dy).toFixed(2) + ' L' + b[0].toFixed(2) + ' ' + b[1].toFixed(2), fill: 'none', stroke: col, strokeWidth: stroke, markerEnd: 'url(#' + marker + ')' });
+        return e('path', { key: i, d: 'M' + (b[0] - dx).toFixed(2) + ' ' + (b[1] - dy).toFixed(2) + ' L' + b[0].toFixed(2) + ' ' + b[1].toFixed(2), fill: 'none', stroke: col, strokeWidth: sw, markerEnd: 'url(#' + marker + ')' });
       }
-      return e('path', { key: i, d: mockyVisualPath(l.points), fill: 'none', stroke: col, strokeWidth: stroke, strokeLinecap: 'round', strokeLinejoin: 'round', markerEnd: l.arrow ? 'url(#' + marker + ')' : undefined });
+      return e('path', { key: i, d: mockyVisualPath(l.points), fill: 'none', stroke: col, strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round', markerEnd: l.arrow ? 'url(#' + marker + ')' : undefined });
     })));
   lay.links.forEach(function (l, i) {
     if (!l.label || !l.points || l.points.length < 2) return;
     var mid = l.points[Math.floor(l.points.length / 2)];
-    var fs = Math.max(10, u * 0.85);
+    var fs = Math.max(11, u * 1.05);
     children.push(e('div', { key: 'll' + i, style: { position: 'absolute', left: mid[0], top: mid[1], transform: 'translate(-50%, -50%)', fontSize: fs, lineHeight: 1.2, padding: '1px ' + (fs * 0.4) + 'px', background: ground, color: muted, whiteSpace: 'nowrap', borderRadius: fs } }, l.label));
   });
 
@@ -825,8 +1250,25 @@ function Visual(props) {
       children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: variant === 'outline' && !nd.alpha ? ground : dfill, opacity: nd.alpha ? (variant === 'solid' ? 0.42 : 0.24) : 1, border: dborder }) }));
       return;
     }
+    if (nd.kind === 'gauge') {
+      var gsw = Math.max(3, nd.w * 0.11), gr = nd.w / 2 - gsw / 2, circ = 2 * Math.PI * gr;
+      children.push(e('svg', { key: key, width: nd.w, height: nd.h, viewBox: '0 0 ' + nd.w + ' ' + nd.h, 'aria-hidden': 'true', style: { position: 'absolute', left: nd.x, top: nd.y } },
+        e('circle', { cx: nd.w / 2, cy: nd.h / 2, r: gr, fill: 'none', stroke: mockyVisualMix(ground, c, 0.16), strokeWidth: gsw }),
+        nd.t.frac > 0 ? e('circle', { cx: nd.w / 2, cy: nd.h / 2, r: gr, fill: 'none', stroke: c, strokeWidth: gsw, strokeLinecap: 'round', strokeDasharray: (circ * nd.t.frac).toFixed(2) + ' ' + circ.toFixed(2), transform: 'rotate(-90 ' + nd.w / 2 + ' ' + nd.h / 2 + ')' }) : null));
+      return;
+    }
+    if (nd.kind === 'icon') {
+      var icol = nd.t.on ? c : mockyVisualMix(ground, ink, 0.18);
+      var pic = iconOf(nd.t.icon, nd.w, icol);
+      children.push(e('div', { key: key, 'aria-hidden': 'true', style: Object.assign(base, { display: 'flex', alignItems: 'center', justifyContent: 'center' }) }, pic || e('div', { style: { width: nd.w * 0.8, height: nd.w * 0.8, borderRadius: '50%', background: icol } })));
+      return;
+    }
+    if (nd.kind === 'tag') {
+      children.push(e('div', { key: key, style: Object.assign(base, { fontSize: Math.max(10, u * 0.95), lineHeight: 1.2, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: muted, overflow: 'hidden' }) }, nd.t.label));
+      return;
+    }
     if (nd.kind === 'track') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.h / 2, background: mockyVisualMix(ground, c, 0.12) }) })); return; }
-    if (nd.kind === 'bar' || nd.kind === 'swatch') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.kind === 'bar' ? nd.h / 2 : nd.h * 0.25, background: c }) })); return; }
+    if (nd.kind === 'bar' || nd.kind === 'swatch') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : nd.kind === 'bar' ? nd.h / 2 : nd.h * 0.25, background: c }) })); return; }
     if (nd.kind === 'donut') {
       var total = nd.t.parts.reduce(function (a, v) { return a + v.v; }, 0) || 1;
       var a0 = -Math.PI / 2, cx = nd.w / 2, r1 = nd.w / 2, r0 = r1 * 0.58, gapA = nd.t.parts.length > 1 ? 0.012 : 0;

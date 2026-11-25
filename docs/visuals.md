@@ -48,6 +48,38 @@ would be a call for nothing.
 | Before / after | A change from one state to another |
 | Tree | A hierarchy that branches (an org chart, a breakdown) |
 | Onion | Layers around a core |
+| Snake | A long process (six to twelve steps), in rows that turn back |
+| Staircase | A progression that climbs |
+| Converging | Several causes or inputs, one result |
+| Diverging | One source, several outcomes |
+| Equation | A few ingredients adding up to a result |
+| Decision tree | Yes/no questions down to their outcomes |
+| Customer journey | The stages, and how each one feels |
+| Fishbone | The causes of one problem (Ishikawa) |
+| Treemap | The parts of a whole, drawn to scale |
+| Layer stack | An architecture or a stack, layer by layer |
+| Concept map | Notions and their named links |
+| Force field | The forces for and against a change |
+| Positioning | Things placed on two axes (impact / effort…) |
+| Comparison table | Options × criteria, with ticks |
+| Radar | A profile scored on several axes |
+| Column chart | Quantities as columns |
+| Line chart | A trend over time |
+| Gauges | Rates of completion |
+| Pictogram | "7 out of 10" in icons |
+| Card grid | Equal points (benefits, features), with icons |
+| Gantt | A schedule with durations |
+| Roadmap | Milestones along a road |
+| Kanban | Work by status |
+| Zigzag list | Key points, left then right of a line |
+
+:::why
+The forty-four families were chosen from what the tools of this kind draw —
+Napkin, PowerPoint's SmartArt, the open-source AntV Infographic and Mermaid, the
+template galleries of draw.io and Miro — and kept where a business or teaching
+text actually takes that shape. Each is drawn by Mocky's own layout; none of
+their code is used.
+:::
 
 ## Illustrating a long text
 
@@ -111,6 +143,10 @@ for it (1 200 and 1,2 k, 12 % and 0.12). One that cannot be found is taken out o
 the visual, its item kept, and a notice names it. Figures written in words
 ("twelve") are not recognised: write them in digits.
 
+Positions are not figures: the score of a thing on a positioning chart, how a
+stage of a journey feels, the week a Gantt bar starts are read by the family and
+not checked against your text.
+
 This check is not run on a report or a post that draws a visual, nor after an
 edit: those pages are asked to invent realistic sample figures when you give
 none, and emptying their charts would be the wrong answer.
@@ -162,5 +198,6 @@ and `add_screen` with the type `visual` adds one to an existing project.
   dialog lists them.
 - The figures check reads the request you typed. A figure that came only from a
   picture or a PDF you attached is not in that text, and is taken out.
-- A family draws at most a fixed number of items (ten on a timeline or a bar
-  chart, eight in most others); the rest are not drawn.
+- A family draws at most a fixed number of items (twenty on a line chart, ten or
+  twelve on a timeline, a bar chart or a snake, eight in most others); the rest
+  are not drawn.
