@@ -57,6 +57,27 @@ lecteur quand la page n'en déclare pas (« 92 % »).
 Non vérifié : le .pptx ouvert dans PowerPoint et Canva (compté dans le fichier :
 formes et zones de texte, images pour les seules liaisons).
 
+## État au 25/11/2026 — phase 2 livrée
+
+| Plan (§12, phase 2) | Réalisé |
+|---|---|
+| Vue « Illustrer un texte » | **Un panneau de l'inspecteur** (`IllustratePanel.tsx`), pas une vue à part : texte collé ou importé, découpé en blocs sans modèle (`textBlocks.ts` : titres en contexte, liste gardée avec sa phrase, fragments fusionnés), un bouton par bloc et « Illustrer tout ». Chaque visuel est un écran ordinaire ; il retient le **digest** de son bloc (`Screen.illustrates`), le texte est gardé sur le projet (`Project.illustration`) |
+| Import MD/DOCX | **.txt, .md, .docx** lus dans le navigateur ; le .docx par le lecteur zip déjà présent (`zipRead.ts`), titres Word → `#`, listes → `-`. Aucune dépendance ajoutée. PDF : non (le texte se copie) |
+| `<Visual>` dans les autres types | **Rapport, documentation, article, posts Instagram / LinkedIn / Facebook** (`VISUAL_HOST_THEMES`) : kit forcé, une ligne dans leur brief. La vérification des chiffres n'y tourne **pas** (leurs briefs demandent des chiffres inventés) — G3 précisé |
+| Édition par phrase | **Rien à ajouter** : les passes d'édition reprennent `Screen.caps`, donc la fiche du kit ; décision consignée, pas de sixième passe |
+| 30 familles | **20** : + liste à cocher, Venn, SWOT, avant/après, arbre, oignon. Les autres de la liste §3 restent pour plus tard |
+
+Essais dans l'application (build de production, serveur isolé, Edge) : Venn et
+arbre rendus dans l'aperçu ; panneau ouvert depuis « Créer aussi » et depuis le
+rail de l'inspecteur ; texte gardé avec le projet ; bloc déjà illustré affiché
+« Voir », les autres « Faire le visuel » ; un lancement sans clé échoue proprement
+(401 → « Arrêté après 0 visuel(s) »). **Non essayé : une série complète de
+générations réelles depuis le panneau** (aucune clé de fournisseur ici).
+
+Reste pour une phase 3 : `create_visual` / « illustrer un texte » par MCP, .pptx
+natif par famille, déclinaison campagne, visuel → film, et les familles
+restantes (§3) ; icônes Lucide.
+
 ## 0. Décisions à prendre avant la phase 1
 
 | Sujet | Proposition | Pourquoi |

@@ -272,7 +272,7 @@ function mockyVisualLayout(family, rawDoc, W, H) {
   // which then is not set a second time above the drawing.
   var items = all.slice(0, bounds.max);
   if (centerIdx >= items.length) centerIdx = -1;
-  var titleIsCentre = (fam === 'hub' && centerIdx < 0) || (fam === 'mindmap' && centerIdx < 0);
+  var titleIsCentre = (fam === 'hub' || fam === 'mindmap' || fam === 'tree') && centerIdx < 0;
   var n = items.length;
 
   // ---- header and footer ----
@@ -548,12 +548,116 @@ function mockyVisualLayout(family, rawDoc, W, H) {
       node('swatch', lx, ltop + di * lrow + lrow / 2 - sz / 2, sz, sz, 'none', {}, di, { shape: 'rect' });
       node('text', lx + sz + u * 0.8, ltop + di * lrow, lw - sz - u * 0.8, lrow, 'legend', { value: mockyVisualNum(items[di].value, items[di].unit), label: items[di].label }, di, { align: 'left', pad: 0, padY: 0, valueScale: 1.15, inline: true });
     }
+  } else if (fam === 'checklist') {
+    var twoCols = wide && n > 5;
+    var perCol = twoCols ? Math.ceil(n / 2) : n, gcl = u * 1.6;
+    var colWc = twoCols ? (bw - gcl) / 2 : bw;
+    var gk = u * 0.8, rk = Math.min(u * 6, (bh - gk * (perCol - 1)) / perCol);
+    var topc = by + (bh - (perCol * rk + (perCol - 1) * gk)) / 2;
+    for (var ck = 0; ck < n; ck++) {
+      var ccol = Math.floor(ck / perCol), crow = ck % perCol;
+      var cx0 = bx + ccol * (colWc + gcl), cy0 = topc + crow * (rk + gk);
+      var dk = Math.min(rk * 0.62, u * 2.6);
+      node('dot', cx0, cy0 + rk / 2 - dk / 2, dk, dk, 'dot', { num: '\\u2713' }, ck, { shape: 'circle', pad: 0, padY: 0 });
+      node('card', cx0 + dk + u * 0.8, cy0, colWc - dk - u * 0.8, rk, 'card', runs(items[ck]), ck, { align: 'left' });
+    }
+  } else if (fam === 'venn') {
+    var vcentre = centerIdx >= 0 ? items[centerIdx] : null;
+    var sets = items.filter(function (it, i) { return i !== centerIdx; }).slice(0, 3);
+    var ns = sets.length, vcx = bx + bw / 2, vcy = by + bh / 2, centres = [], vr;
+    if (ns <= 2) {
+      vr = Math.min(bh / 2 * 0.96, bw / 3.4);
+      centres = [[vcx - vr * 0.7, vcy], [vcx + vr * 0.7, vcy]];
+    } else {
+      var dist = 1.15;
+      vr = Math.min(bh / (2 + dist * 0.866) * 0.98, bw / (2 + dist) * 0.98);
+      var tri = dist * vr;
+      var vtop = vcy - (tri * 0.866) / 2;
+      centres = [[vcx, vtop], [vcx - tri / 2, vtop + tri * 0.866], [vcx + tri / 2, vtop + tri * 0.866]];
+    }
+    var gcx = 0, gcy = 0;
+    centres.forEach(function (c) { gcx += c[0] / centres.length; gcy += c[1] / centres.length; });
+    for (var vs = 0; vs < ns; vs++) {
+      var cc = centres[vs];
+      node('disc', cc[0] - vr, cc[1] - vr, vr * 2, vr * 2, 'none', {}, vs, { shape: 'circle', alpha: true });
+    }
+    for (vs = 0; vs < ns; vs++) {
+      var c2 = centres[vs], dx = c2[0] - gcx, dy = c2[1] - gcy, dl = Math.sqrt(dx * dx + dy * dy) || 1;
+      var lw = ns <= 2 ? vr * 0.95 : vr * 0.9, lh = ns <= 2 ? vr * 1.1 : vr * 0.62;
+      var lx = c2[0] + dx / dl * vr * (ns <= 2 ? 0.42 : 0.36) - lw / 2, ly = c2[1] + dy / dl * vr * (ns <= 2 ? 0 : 0.36) - lh / 2;
+      node('text', lx, ly, lw, lh, 'vlabel', runs(sets[vs], { icon: true }), vs, { align: 'center', pad: u * 0.3, padY: u * 0.2 });
+    }
+    if (vcentre) {
+      var iw = ns <= 2 ? vr * 0.52 : vr * 0.62, ih = ns <= 2 ? vr * 0.7 : vr * 0.36;
+      node('card', gcx - iw / 2, gcy - ih / 2, iw, ih, 'vcore', { label: vcentre.label }, centerIdx, { solid: true, shape: 'pill', pad: u * 0.4, padY: u * 0.2 });
+    }
+  } else if (fam === 'swot') {
+    var gsw = u * 0.8, cwS = (bw - gsw) / 2, chS = (bh - gsw) / 2;
+    for (var sq = 0; sq < Math.min(4, n); sq++) {
+      node('card', bx + (sq % 2) * (cwS + gsw), by + Math.floor(sq / 2) * (chS + gsw), cwS, chS, 'card', runs(items[sq], { icon: true, list: true, kicker: true }), sq, { align: 'left', valign: 'start' });
+    }
+  } else if (fam === 'before-after') {
+    var ga = u * 5, pa;
+    var arrowLen = u * 2.6;
+    for (var ba = 0; ba < Math.min(2, n); ba++) {
+      if (wide) pa = { x: bx + ba * ((bw + ga) / 2), y: by, w: (bw - ga) / 2, h: bh };
+      else pa = { x: bx, y: by + ba * ((bh + ga) / 2), w: bw, h: (bh - ga) / 2 };
+      node('card', pa.x, pa.y, pa.w, pa.h, 'card', runs(items[ba], { icon: true, list: true, kicker: true, value: true }), ba, { align: 'left', valign: 'start', ring: ba === 1 });
+    }
+    if (n >= 2) {
+      if (wide) links.push({ points: [[bx + bw / 2 - arrowLen / 2, by + bh / 2], [bx + bw / 2 + arrowLen / 2, by + bh / 2]], arrow: true });
+      else links.push({ points: [[bx + bw / 2, by + bh / 2 - arrowLen / 2], [bx + bw / 2, by + bh / 2 + arrowLen / 2]], arrow: true });
+    }
+  } else if (fam === 'tree') {
+    var rootItem = centerIdx >= 0 ? items[centerIdx] : { label: doc.title || doc.subtitle || '' };
+    var kidsT = centerIdx >= 0 ? items.filter(function (it, i) { return i !== centerIdx; }) : items;
+    var nk = kidsT.length, gT = u * 1.2;
+    var rootW = Math.min(bw * 0.42, u * 24), rootH = Math.min(bh * 0.18, u * 5.5);
+    var rootX = bx + bw / 2 - rootW / 2;
+    node('centre', rootX, by, rootW, rootH, 'centre', { label: rootItem.label }, centerIdx >= 0 ? centerIdx : 0, { shape: 'pill', solid: true });
+    var lvlY = by + rootH + u * 2.6, colT = (bw - gT * (Math.max(1, nk) - 1)) / Math.max(1, nk);
+    var maxLeaves = 0;
+    kidsT.forEach(function (it) { maxLeaves = Math.max(maxLeaves, it.children.length); });
+    var headT = Math.min(u * 7, (by + bh - lvlY) * (maxLeaves ? 0.34 : 0.6));
+    var leafG = u * 0.5, leafTop = lvlY + headT + u * 1.2;
+    var leafH = maxLeaves ? Math.min(u * 5.5, (by + bh - leafTop - leafG * (maxLeaves - 1)) / maxLeaves) : 0;
+    var busY = by + rootH + u * 1.3;
+    if (nk) links.push({ points: [[bx + bw / 2, by + rootH], [bx + bw / 2, busY]], arrow: false });
+    if (nk > 1) links.push({ points: [[bx + colT / 2, busY], [bx + bw - colT / 2, busY]], arrow: false });
+    for (var kt = 0; kt < nk; kt++) {
+      var kx = bx + kt * (colT + gT);
+      var ktone = kt + (centerIdx >= 0 ? 1 : 0);
+      links.push({ points: [[kx + colT / 2, busY], [kx + colT / 2, lvlY]], arrow: false });
+      node('card', kx, lvlY, colT, headT, 'card', runs(kidsT[kt], { icon: true, noDetail: kidsT[kt].children.length > 0 }), ktone);
+      for (var li = 0; li < kidsT[kt].children.length; li++) {
+        node('card', kx + u * 0.8, leafTop + li * (leafH + leafG), colT - u * 0.8, leafH, 'row', { label: kidsT[kt].children[li] }, ktone, { align: 'left', soft: true });
+      }
+      if (kidsT[kt].children.length) links.push({ points: [[kx + u * 0.4, lvlY + headT], [kx + u * 0.4, leafTop + (kidsT[kt].children.length - 1) * (leafH + leafG) + leafH / 2]], arrow: false });
+    }
+  } else if (fam === 'onion') {
+    var Dn = Math.min(bh, bw * 0.46), ocx = bx + Dn / 2, ocy = by + bh / 2;
+    // The first item is the core; the last is the outer ring.
+    for (var ring2 = n - 1; ring2 >= 0; ring2--) {
+      var rr2 = Dn / 2 * (ring2 + 1) / n;
+      node('disc', ocx - rr2, ocy - rr2, rr2 * 2, rr2 * 2, 'none', {}, ring2, { shape: 'circle' });
+    }
+    var olx = bx + Dn + u * 3, olw = bw - Dn - u * 3, og = u * 0.7;
+    var orow = Math.min(u * 6, (bh - og * (n - 1)) / n), otop = by + (bh - (orow * n + og * (n - 1))) / 2;
+    for (var oi = 0; oi < n; oi++) {
+      // Listed from the outside in, so the leader lines do not cross.
+      var layer = n - 1 - oi;
+      var ry2 = otop + oi * (orow + og);
+      node('card', olx, ry2, olw, orow, 'card', runs(items[layer], { icon: true }), layer, { align: 'left' });
+      var rMid = Dn / 2 * (layer + 0.5) / n;
+      var ang = -Math.PI / 2.6 + (Math.PI / 1.3) * (n > 1 ? oi / (n - 1) : 0.5);
+      links.push({ points: [[ocx + rMid * Math.cos(ang), ocy + rMid * Math.sin(ang)], [olx - u * 0.6, ry2 + orow / 2]], arrow: false });
+    }
   }
 
   // ---- one size per role ----
   var groups = {};
   nodes.forEach(function (nd) { if (nd.g && nd.g !== 'none' && nd.g !== 'dot') (groups[nd.g] = groups[nd.g] || []).push(nd); });
-  var maxByRole = { card: u * 2.1, head: u * 2.0, row: u * 1.6, band: u * 1.9, centre: u * 2.5, axis: u * 1.2, barlabel: u * 1.6, barvalue: u * 1.7, legend: u * 1.6 };
+  var maxByRole = { card: u * 2.1, head: u * 2.0, row: u * 1.6, band: u * 1.9, centre: u * 2.5, axis: u * 1.2, barlabel: u * 1.6, barvalue: u * 1.7, legend: u * 1.6, vlabel: u * 1.8, vcore: u * 1.3 };
   var type = {};
   Object.keys(groups).forEach(function (gk) {
     var list = groups[gk];
@@ -674,6 +778,15 @@ function Visual(props) {
       var dc = mockyVisualInkOn(c, [ground, ink]);
       var content = nd.t.icon ? iconOf(nd.t.icon, nd.w * 0.5, dc) : null;
       children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: c, color: dc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: nd.w * 0.42, lineHeight: 1 }) }, content || nd.t.num || null));
+      return;
+    }
+    if (nd.kind === 'disc') {
+      // Venn sets overlap and must show through each other; an onion's rings
+      // are opaque, each painted over the one around it, deeper towards the core.
+      var depth = 1 - nd.tone / Math.max(1, lay.doc.items.length);
+      var dfill = nd.alpha ? c : variant === 'solid' ? mockyVisualMix(ground, c, 0.45 + 0.4 * depth) : mockyVisualMix(ground, c, 0.1 + 0.25 * depth);
+      var dborder = variant === 'outline' || !nd.alpha ? Math.max(1.5, u * 0.13).toFixed(1) + 'px solid ' + c : 'none';
+      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: variant === 'outline' && !nd.alpha ? ground : dfill, opacity: nd.alpha ? (variant === 'solid' ? 0.42 : 0.24) : 1, border: dborder }) }));
       return;
     }
     if (nd.kind === 'track') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.h / 2, background: mockyVisualMix(ground, c, 0.12) }) })); return; }

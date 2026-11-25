@@ -42,6 +42,42 @@ would be a call for nothing.
 | Key figures | A few figures and what they measure |
 | Bars | Quantities to compare |
 | Donut | The shares of a whole |
+| Checklist | Things to do or to have |
+| Venn | Two or three sets and what they share |
+| SWOT | Strengths, weaknesses, opportunities, threats |
+| Before / after | A change from one state to another |
+| Tree | A hierarchy that branches (an org chart, a breakdown) |
+| Onion | Layers around a core |
+
+## Illustrating a long text
+
+:::why
+An article or a report section holds several ideas, and one diagram cannot say
+them all. Cutting it where the author already cut it — at the paragraphs — needs
+no model, and each piece then gets the visual that suits it.
+:::
+
+**Illustrate** in the canvas toolbar (or **Illustrate a text** under *Also make*)
+opens a panel. Paste the text or import a `.txt`, `.md` or `.docx` file: it is read
+in your browser and nothing is sent. The text is cut into blocks:
+
+- a paragraph is a block, and a heading (`# …` in Markdown, a Heading style in
+  Word) names the blocks under it rather than being one;
+- a list stays with the sentence that introduces it ("Three commitments:");
+- a fragment of a few words joins the block before it.
+
+Each block has **Make the visual**; **Illustrate all** makes the ones not made yet,
+in order, at the size you chose. Every visual is an ordinary screen of the
+project. A block already illustrated shows **Show**: the screen remembers the
+words it was made from, so adding a paragraph above does not mix them up. The
+text is kept with the project.
+
+## Visuals in other screens
+
+A report, a user guide, an article and the Instagram, LinkedIn and Facebook
+posts can also draw a visual for the part of their content that is a process, a
+comparison or a few key figures. Nothing to switch on: the generation is offered
+the same families and decides. **Visual…** works on those screens too.
 
 ## Changing the shape without a new generation
 
@@ -57,7 +93,9 @@ the reason: a chart needs a figure on every item, a matrix exactly four items, a
 comparison sub-points under each option. The same dialog switches the boxes
 between **Tinted**, **Filled** and **Outline**. **Undo** takes any change back.
 
-To change the words, edit the screen as usual (the composer, or **Fill…**).
+To change the words, edit the screen as usual: a sentence in the composer ("add a
+step after testing", "make it a timeline") rewrites the content like any other
+edit, or **Fill…** changes a value without a model.
 
 ## Figures
 
@@ -66,11 +104,16 @@ A visual looks like a fact. A plausible figure the text never gave — a chart o
 a text that had no numbers — is worse there than in a paragraph.
 :::
 
-A visual shows only the figures your text gives. After the generation, every
+A visual shows only the figures your text gives. After the generation of a
+**Visual** screen, every
 figure in the visual is looked for in your text, under the forms a writer uses
 for it (1 200 and 1,2 k, 12 % and 0.12). One that cannot be found is taken out of
 the visual, its item kept, and a notice names it. Figures written in words
 ("twelve") are not recognised: write them in digits.
+
+This check is not run on a report or a post that draws a visual, nor after an
+edit: those pages are asked to invent realistic sample figures when you give
+none, and emptying their charts would be the wrong answer.
 
 ## How it is drawn
 

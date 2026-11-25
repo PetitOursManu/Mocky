@@ -264,7 +264,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - The body at a comfortable reading measure: 5–8 paragraphs of real, on-topic prose with subheadings, one pull quote, one figure with a caption, one list and one inline link.
 - A table of contents or reading-progress indicator on wide screens.
 - Share actions, tags, an author bio card, and 3 related articles as cards.
-- The writing is specific to the topic requested; no lorem ipsum anywhere.`,
+- The writing is specific to the topic requested; no lorem ipsum anywhere.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'portfolio',
@@ -322,7 +323,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - A running header or footer on every body page: the report's short title and the page number.
 - A conclusions or recommendations page as a numbered list, and an optional appendix or methodology note.
 - Figures consistent from one page to the next — the summary quotes what the charts show — and realistic for the subject; never placeholders.
-- Usually four to eight pages, each composed on its own and never overfilled.`,
+- Usually four to eight pages, each composed on its own and never overfilled.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'visual',
@@ -351,7 +353,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - Command or code samples in monospaced blocks with a caption when the subject is technical; otherwise a labelled diagram or a captioned screenshot frame.
 - A reference table (parameters, options, shortcuts or specifications) with a header row.
 - A running header with the document's title and a footer with the version and the page number on every page after the first.
-- Accurate, specific content for the subject requested; no lorem ipsum.`,
+- Accurate, specific content for the subject requested; no lorem ipsum.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'resume',
@@ -460,7 +463,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - The brand's name or handle as a small wordmark in a corner, the same on every page, and a page counter ("1/5") on a carousel.
 - A call to action as words ("link in bio", "save this post", "swipe") — never a web button.
 - Bright, contrasted and graphic: nothing thin or pale that vanishes on a small screen; no fillable fields.
-- Real copy for the subject requested, never placeholders.`,
+- Real copy for the subject requested, never placeholders.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'facebook',
@@ -472,7 +476,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - A picture when pictures are supplied, with the text on a solid area for contrast; otherwise a composition of colour blocks and shapes.
 - The organisation's name or a logo slot as a wordmark, and a call to action as words ("book now", "learn more", a date or a place) — never a web button.
 - Warm, legible and simple, with little text: the post's own text carries the detail. No fillable fields.
-- Real copy for the subject requested, never placeholders.`,
+- Real copy for the subject requested, never placeholders.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'linkedin',
@@ -485,7 +490,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - The author's or the company's name as a wordmark with a round photo or logo placeholder in a corner, the same on every page, and a page counter on a carousel.
 - A call to action as words ("follow for more", "tell me in the comments", a URL) — never a web button.
 - Credible and uncluttered: data drawn as a simple chart or a large number rather than a paragraph. No fillable fields.
-- Real, specific content for the subject requested, never placeholders.`,
+- Real, specific content for the subject requested, never placeholders.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
 ]
 

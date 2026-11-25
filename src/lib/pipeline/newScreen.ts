@@ -103,7 +103,7 @@ import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
 import { currentUsageRun, setUsageRun } from '../proxy'
 import { briefFixInstruction, briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
-import { VISUAL_THEME, VISUALS_CAP } from '../visuals/families'
+import { VISUAL_THEME, VISUALS_CAP, themeDrawsVisuals } from '../visuals/families'
 import { checkVisualFigures } from '../visuals/check'
 
 /** What the run is busy with, for the composer's progress line. */
@@ -223,6 +223,8 @@ export interface NewScreenRequest {
   campaignContext?: string
   /** What a campaign piece records about itself: its format and the facts it is written with. */
   campaign?: ScreenCampaign
+  /** The digest of the text block this visual illustrates (lib/visuals/textBlocks.ts). */
+  illustrates?: string
   /**
    * A publication sheet's place in its magazine or book (`publicationSection`
    * in lib/publication.ts), appended to the plan like `campaignContext`.
@@ -1243,7 +1245,7 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     capIds = pipe.caps(capIds)
     // A visual: the component that draws it, whatever the shortlist said (the
     // pack is never a guess — `forcedOnly`, see the registry).
-    if (runTheme === VISUAL_THEME && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
+    if (themeDrawsVisuals(runTheme) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
     // A working prototype: the kit and its rules, on a screen (never a page of
     // a document — paper has no next page to open).
     if (req.flows && !pipe.document && !capIds.includes('flow')) capIds = [...capIds, 'flow']
@@ -1323,6 +1325,7 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
       animations: pipe.animations,
       ...(req.route ? { route: req.route } : {}),
       ...(req.campaign ? { campaign: req.campaign } : {}),
+      ...(req.illustrates ? { illustrates: req.illustrates } : {}),
       ...(pub ? { publication: pub.record } : {}),
     })
     if (siteNew) hooks.rememberSiteRef(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
@@ -1365,9 +1368,11 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     })
     hooks.screenWritten(screenId)
     // A visual shows only the figures the request gave (lib/visuals/check.ts):
-    // one it made up is taken out before anybody reads it as a fact. On every
-    // screen that draws one, the assistant's own code included — no model call.
-    if (result.code.includes('<Visual') && !result.truncated) {
+    // one it made up is taken out before anybody reads it as a fact — the
+    // assistant's own code included, no model call. Only on a VISUAL screen,
+    // where the request IS the text: a report or a post is asked to invent
+    // realistic sample figures, and emptying its charts would be the bug.
+    if (runTheme === VISUAL_THEME && result.code.includes('<Visual') && !result.truncated) {
       try {
         const checked = await checkVisualFigures(result.code, text)
         if (checked.dropped.length) {

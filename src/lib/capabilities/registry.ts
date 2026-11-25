@@ -366,7 +366,7 @@ export const CAPABILITIES: Capability[] = [
       {
         name: 'Visual',
         signature: '<Visual family="steps" variant="soft" alternatives={["timeline", "cycle"]} colors={["#0f766e", "#f59e0b"]} ink="#111827" ground="#ffffff" doc={{ title: "…", subtitle: "…", items: [{ label: "…", detail: "…", icon: "Users" }] }} className="w-full h-full" />',
-        description: `A text's ideas laid out for you — never draw a diagram, a chart or an infographic yourself, with boxes, SVG or CSS: write its CONTENT in \`doc\` and name a \`family\`, and the layout, the type sizes, the connectors and the contrast are computed. \`family\` is EXACTLY one of: ${VISUAL_FAMILIES.map((f) => {
+        description: `A text's ideas laid out for you — never draw a diagram or an infographic yourself with boxes, SVG or CSS: write its CONTENT in \`doc\` and name a \`family\`, and the layout, the type sizes, the connectors and the contrast are computed. \`family\` is EXACTLY one of: ${VISUAL_FAMILIES.map((f) => {
           const b = VISUAL_BOUNDS[f]
           const count = b.exact ? `exactly ${b.min} items` : `${b.min}–${b.max} items`
           const needs = [b.values ? 'every item has a value' : '', b.children ? 'every item has children' : ''].filter(Boolean).join(', ')

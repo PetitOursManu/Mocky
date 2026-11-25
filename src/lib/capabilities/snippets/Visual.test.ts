@@ -44,7 +44,7 @@ function docFor(family: VisualFamily, count: number, long = false): VisualDoc {
       ? 'Une phrase de détail assez longue pour remplir deux lignes au moins dans une carte de taille ordinaire.'
       : 'Une phrase courte de détail.',
     ...(b.values ? { value: (count - i) * 12.5, unit: '%' } : {}),
-    ...(b.children || family === 'mindmap' ? { children: ['Premier point', 'Deuxième point', 'Troisième'].slice(0, 1 + (i % 3)) } : {}),
+    ...(b.children || family === 'mindmap' || family === 'tree' || family === 'before-after' ? { children: ['Premier point', 'Deuxième point', 'Troisième'].slice(0, 1 + (i % 3)) } : {}),
   }))
   return {
     title: 'Notre méthode en quelques étapes',

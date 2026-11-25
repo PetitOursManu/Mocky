@@ -1534,12 +1534,14 @@ A switch that regenerated would cost a call and could change the words.
 
 ### G3. A figure shown is a figure of the text
 
-**The rule.** After a generation, every `value` of a visual is looked for in the
-request (`lib/visuals/numbers.ts`); one that is not there is taken out of the code,
+**The rule.** After the generation of a **Visual** screen, every `value` is looked
+for in the request (`lib/visuals/numbers.ts`); one that is not there is taken out of the code,
 its item kept, and a notice names it. No model is asked.
 
 **What it protects.** A visual reads as a fact. A plausible number the text never
-gave is the defect this kind of tool is known for.
+gave is the defect this kind of tool is known for. Not on a report or a post that
+draws one: their briefs ask for invented sample figures, and the check would
+empty every chart.
 
 ### G4. One size per role, and the ink is measured
 

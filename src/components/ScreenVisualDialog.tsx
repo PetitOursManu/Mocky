@@ -44,6 +44,12 @@ export function FamilyGlyph({ family, className }: { family: VisualFamily; class
     flow: [box(2, 15, 11, 10, 0, 5), box(19, 4, 11, 10, 1), box(19, 26, 11, 10, 2), box(35, 15, 11, 10, 3, 5), line('M13 18l6-7M13 22l6 7M30 9l5 8M30 31l5-8', 'l')],
     stats: [box(2, 6, 13, 28, 0), box(18, 6, 13, 28, 1), box(34, 6, 12, 28, 2), line('M5 16h7M21 16h7M37 16h6', 'v')],
     bars: [line('M2 4v32', 'a'), box(4, 6, 38, 6, 0, 3), box(4, 17, 26, 6, 1, 3), box(4, 28, 16, 6, 2, 3)],
+    checklist: [0, 1, 2].flatMap((i) => [dot(6, 8 + i * 12, 3.5, `d${i}`), line(`M14 ${8 + i * 12}h30`, `l${i}`)]),
+    venn: [<circle key="a" cx={18} cy={20} r={12} className={`${G} fill-current`} fillOpacity={0.15} strokeWidth={1.5} />, <circle key="b" cx={30} cy={20} r={12} className={`${G} fill-current`} fillOpacity={0.15} strokeWidth={1.5} />],
+    swot: [box(2, 2, 21, 17, 0), box(25, 2, 21, 17, 1), box(2, 21, 21, 17, 2), box(25, 21, 21, 17, 3), line('M6 8h8M29 8h8M6 27h8M29 27h8', 'k')],
+    'before-after': [box(2, 6, 17, 28, 0), box(29, 6, 17, 28, 1), line('M21 20h6', 'a'), line('M25 17l3 3-3 3', 'h')],
+    tree: [box(17, 2, 14, 8, 'r', 4), line('M24 10v5M8 15h32M8 15v4M24 15v4M40 15v4', 'l'), box(2, 19, 12, 7, 0), box(18, 19, 12, 7, 1), box(34, 19, 12, 7, 2), box(4, 29, 10, 6, 3), box(20, 29, 10, 6, 4)],
+    onion: [<circle key="o" cx={16} cy={20} r={14} className={`${G} fill-current`} fillOpacity={0.12} strokeWidth={1.5} />, <circle key="m" cx={16} cy={20} r={9} className={`${G} fill-current`} fillOpacity={0.2} strokeWidth={1.5} />, <circle key="i" cx={16} cy={20} r={4} className="fill-current" />, line('M34 10h12M34 20h12M34 30h12', 'l')],
     donut: [<circle key="r" cx={14} cy={20} r={10} className={G} fill="none" strokeWidth={6} strokeOpacity={0.35} />, <path key="s" d="M14 10a10 10 0 0 1 9.5 13" className={G} fill="none" strokeWidth={6} />, line('M31 13h14M31 20h12M31 27h10', 'l')],
   }
   return (

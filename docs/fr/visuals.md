@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 36b3d543b6eb
+source_hash: f50a09d5d3e8
 ---
 
 # Visuels
@@ -45,6 +45,45 @@ image, le dossier serait un appel pour rien.
 | Chiffres clés | Quelques chiffres et ce qu’ils mesurent |
 | Barres | Des quantités à comparer |
 | Anneau | Les parts d’un tout |
+| Liste à cocher | Des choses à faire ou à avoir |
+| Venn | Deux ou trois ensembles et ce qu’ils partagent |
+| SWOT | Forces, faiblesses, opportunités, menaces |
+| Avant / après | Un changement d’un état à l’autre |
+| Arbre | Une hiérarchie qui se ramifie (organigramme, décomposition) |
+| Oignon | Des couches autour d’un cœur |
+
+## Illustrer un texte long
+
+:::why
+Un article ou une section de rapport contient plusieurs idées, et un seul schéma
+ne peut pas toutes les dire. Le couper là où l’auteur l’a déjà coupé — aux
+paragraphes — ne demande aucun modèle, et chaque morceau reçoit le visuel qui lui
+convient.
+:::
+
+**Illustrer** dans la barre d’outils du canevas (ou **Illustrer un texte** sous
+*Créer aussi*) ouvre un panneau. Collez le texte ou importez un fichier `.txt`,
+`.md` ou `.docx` : il est lu dans votre navigateur, rien n’est envoyé. Le texte
+est découpé en blocs :
+
+- un paragraphe est un bloc, et un titre (`# …` en Markdown, un style Titre dans
+  Word) nomme les blocs qui le suivent au lieu d’en être un ;
+- une liste reste avec la phrase qui l’annonce (« Trois engagements : ») ;
+- un fragment de quelques mots rejoint le bloc précédent.
+
+Chaque bloc a **Faire le visuel** ; **Illustrer tout** fait ceux qui manquent,
+dans l’ordre, à la taille choisie. Chaque visuel est un écran du projet comme les
+autres. Un bloc déjà illustré propose **Voir** : l’écran retient les mots dont il
+est issu, donc ajouter un paragraphe au-dessus ne mélange rien. Le texte est
+gardé avec le projet.
+
+## Des visuels dans les autres écrans
+
+Un rapport, un guide utilisateur, un article et les posts Instagram, LinkedIn et
+Facebook peuvent aussi dessiner un visuel pour la partie de leur contenu qui est
+un processus, une comparaison ou quelques chiffres clés. Rien à activer : la
+génération dispose des mêmes familles et décide. **Visuel…** fonctionne aussi sur
+ces écrans.
 
 ## Changer de forme sans nouvelle génération
 
@@ -61,8 +100,9 @@ contenu est grisée, avec la raison : un graphique demande un chiffre sur chaque
 sous chaque option. Le même dialogue fait passer les cases de **Teintées** à
 **Pleines** ou **Contour**. **Annuler** revient sur n’importe quel changement.
 
-Pour changer les mots, retouchez l’écran comme d’habitude (le composeur, ou
-**Remplir…**).
+Pour changer les mots, retouchez l’écran comme d’habitude : une phrase dans le
+composeur (« ajoute une étape après les tests », « passe-le en frise ») réécrit le
+contenu comme toute retouche, ou **Remplir…** change une valeur sans modèle.
 
 ## Les chiffres
 
@@ -72,11 +112,17 @@ un graphique d’un texte qui n’avait pas de nombres — y est pire que dans u
 paragraphe.
 :::
 
-Un visuel ne montre que les chiffres de votre texte. Après la génération, chaque
+Un visuel ne montre que les chiffres de votre texte. Après la génération d’un
+écran **Visuel**, chaque
 chiffre du visuel est cherché dans votre texte, sous les formes qu’on lui donne
 en écrivant (1 200 et 1,2 k, 12 % et 0,12). Celui qu’on ne trouve pas est retiré
 du visuel, son élément gardé, et un avis le nomme. Les chiffres écrits en lettres
 (« douze ») ne sont pas reconnus : écrivez-les en chiffres.
+
+Cette vérification ne tourne ni sur un rapport ou un post qui dessine un visuel,
+ni après une retouche : ces pages doivent inventer des chiffres d’exemple
+réalistes quand vous n’en donnez pas, et vider leurs graphiques serait la
+mauvaise réponse.
 
 ## Comment il est dessiné
 

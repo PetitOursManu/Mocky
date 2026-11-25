@@ -1,5 +1,5 @@
 ---
-source_hash: 7df009d3b440
+source_hash: 1b30c3674180
 ---
 
 # Invariants
@@ -1651,12 +1651,14 @@ Un changement qui régénérerait coûterait un appel et pourrait changer les mo
 
 ### G3. Un chiffre affiché est un chiffre du texte
 
-**La règle.** Après une génération, chaque `value` d’un visuel est cherchée dans
-la demande (`lib/visuals/numbers.ts`) ; celle qui n’y est pas est retirée du code,
+**La règle.** Après la génération d’un écran **Visuel**, chaque `value` est
+cherchée dans la demande (`lib/visuals/numbers.ts`) ; celle qui n’y est pas est retirée du code,
 son élément gardé, et un avis la nomme. Aucun modèle n’est interrogé.
 
 **Ce qu’elle protège.** Un visuel se lit comme un fait. Un nombre plausible que le
-texte n’a jamais donné est le défaut connu de ce genre d’outil.
+texte n’a jamais donné est le défaut connu de ce genre d’outil. Pas sur un rapport
+ou un post qui en dessine un : leurs briefs demandent des chiffres d’exemple
+inventés, et la vérification viderait chaque graphique.
 
 ### G4. Une taille par rôle, et l’encre est mesurée
 

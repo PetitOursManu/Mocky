@@ -1166,11 +1166,17 @@ families of `lib/visuals/families.ts` and writes the CONTENT; the layout in
 2. **Boxes in HTML, connectors in SVG.** The .pptx decomposition turns a box
    into a shape and an `<svg>` into a picture: drawn in HTML, a visual stays
    editable in PowerPoint. Do not move a box into the SVG layer.
-3. **The figures check runs in `runNewScreen` on every screen naming
-   `<Visual`** (`lib/visuals/check.ts`), the assistant's code included: a value
-   not found in the request is removed at parser offsets, never guessed. The
-   pack is `forcedOnly` (the word is a model's own component name half the time)
-   and forced by the type, then kept by `Screen.caps`.
+3. **The figures check runs in `runNewScreen` on a VISUAL screen only**
+   (`lib/visuals/check.ts`), the assistant's code included: a value not found in
+   the request is removed at parser offsets, never guessed. Not on the host
+   types (`VISUAL_HOST_THEMES`: report, documentation, article, posts), which
+   also get the kit but are asked to invent sample figures. The pack is
+   `forcedOnly` (the word is a model's own component name half the time) and
+   forced by `themeDrawsVisuals`, then kept by `Screen.caps`.
+
+"Illustrate a text" (`IllustratePanel.tsx`, `lib/visuals/textBlocks.ts`) cuts a
+text into blocks with no model and runs `runNewScreen` once per block; a screen
+remembers its block by DIGEST (`Screen.illustrates`), never by position.
 
 ## Fonts in a generated page
 

@@ -157,6 +157,7 @@ function MockyApp() {
     restoreProjectVersion,
     setProjectScenarios,
     setProjectCampaign,
+    setProjectIllustration,
     setProjectPublication,
     setProjectUseBrand,
     setProjectCreative,
@@ -914,6 +915,7 @@ function MockyApp() {
             onReviewChanged={() => void reviewStates.refresh()}
             onSetScenarios={(scenarios) => setProjectScenarios(activeProject.id, scenarios)}
             onSetCampaign={(campaign) => setProjectCampaign(activeProject.id, campaign)}
+            onSetIllustration={(illustration) => setProjectIllustration(activeProject.id, illustration)}
             onSetPublication={(publication) => setProjectPublication(activeProject.id, publication)}
             onSetUseBrand={(on, brandId) => setProjectUseBrand(activeProject.id, on, brandId)}
             onSetCreative={(on) => setProjectCreative(activeProject.id, on)}

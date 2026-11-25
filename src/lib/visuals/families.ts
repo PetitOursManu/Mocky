@@ -28,6 +28,19 @@ export const VISUALS_CAP = 'visuals'
 /** The screen type that makes one (screenThemes.ts). */
 export const VISUAL_THEME = 'visual'
 
+/**
+ * The other types that may DRAW one inside their pages: a report's process, an
+ * article's comparison, a carousel page that explains steps. The kit is forced
+ * there too, so the card is in the prompt; the figures check is not (see
+ * `pipeline/newScreen.ts`), because those briefs ask for invented sample data.
+ */
+export const VISUAL_HOST_THEMES: readonly string[] = ['report', 'documentation', 'article', 'instagram', 'linkedin', 'facebook']
+
+/** Whether a screen of this type gets the `<Visual>` kit. */
+export function themeDrawsVisuals(theme: string | null | undefined): boolean {
+  return theme === VISUAL_THEME || (!!theme && VISUAL_HOST_THEMES.includes(theme))
+}
+
 export const VISUAL_FAMILIES = [
   'steps',
   'cycle',
@@ -43,6 +56,12 @@ export const VISUAL_FAMILIES = [
   'stats',
   'bars',
   'donut',
+  'checklist',
+  'venn',
+  'swot',
+  'before-after',
+  'tree',
+  'onion',
 ] as const
 
 export type VisualFamily = (typeof VISUAL_FAMILIES)[number]
@@ -116,6 +135,12 @@ export const VISUAL_BOUNDS: Record<VisualFamily, FamilyBounds> = {
   stats: { min: 2, max: 6, values: true },
   bars: { min: 2, max: 10, values: true },
   donut: { min: 2, max: 6, values: true },
+  checklist: { min: 2, max: 10 },
+  venn: { min: 2, max: 4 },
+  swot: { min: 4, max: 4, children: true, exact: true },
+  'before-after': { min: 2, max: 2, exact: true },
+  tree: { min: 2, max: 6 },
+  onion: { min: 3, max: 5 },
 }
 
 /** The most items any family draws; the schema refuses more. */
@@ -143,6 +168,12 @@ export const FAMILY_USE: Record<VisualFamily, string> = {
   stats: 'a few key figures, each item a number with its unit and what it measures — only figures the text states',
   bars: 'quantities to compare (a ranking, a breakdown): every item a value in the same unit',
   donut: 'shares of a whole (a budget, a mix): every item a part, in the same unit',
+  checklist: 'things to do or to have (a to-do, criteria, a packing list): each item one check — not for a sequence whose order matters',
+  venn: 'two or three sets and what they share: each set an item, and the overlap as ONE more item marked `emphasis` — not for options compared point by point',
+  swot: 'strengths, weaknesses, opportunities, threats, in that order: exactly four items, their points as children',
+  'before-after': 'a change from one state to another: exactly two items, before then after, with their points as children',
+  tree: 'a hierarchy that branches (an org chart, a breakdown): the root marked `emphasis` (or it is the title), each branch an item, its leaves the children',
+  onion: 'nested layers from a core outwards (an ecosystem, circles of influence): the FIRST item is the core, the last the outer ring',
 }
 
 export type RefusalReason = 'tooFew' | 'tooMany' | 'exact' | 'values' | 'children'

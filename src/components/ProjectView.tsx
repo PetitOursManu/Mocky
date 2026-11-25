@@ -119,7 +119,7 @@ import VersionsPanel from './VersionsPanel'
 import VersionCompare, { type CompareSource } from './VersionCompare'
 import ScreenHistoryDialog from './ScreenHistoryDialog'
 import { useVersions } from '../lib/useVersions'
-import type { AddScreenOptions } from '../lib/project'
+import type { AddScreenOptions, ProjectIllustration } from '../lib/project'
 import ReviewPanel from './ReviewPanel'
 import type { ProjectReviewState } from '../lib/review'
 import type { DemoScenario } from '../lib/flows'
@@ -220,6 +220,9 @@ import { updateCampaignPiece } from '../lib/pipeline/campaignUpdate'
 import { CAMPAIGN_FORMAT_IDS, type Campaign, type CampaignFormatId } from '../lib/campaign'
 import type { PackCaption, PackNetwork } from '../lib/publicationPack'
 import CampaignPanel, { type PieceResult } from './CampaignPanel'
+import IllustratePanel from './IllustratePanel'
+import { blockName, type TextBlock } from '../lib/visuals/textBlocks'
+import { VISUAL_THEME } from '../lib/visuals/families'
 import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Banner, Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
@@ -352,6 +355,7 @@ export default function ProjectView({
   onReviewChanged,
   onSetScenarios,
   onSetCampaign,
+  onSetIllustration,
   onSetPublication,
   onSetUseBrand,
   onSetCreative,
@@ -391,6 +395,8 @@ export default function ProjectView({
   onSetScenarios?: (scenarios: DemoScenario[]) => void
   /** Replace the project's campaign brief (lib/campaign.ts); undefined clears it. */
   onSetCampaign?: (campaign: Campaign | undefined) => void
+  /** The text "Illustrate a text" works from (IllustratePanel). */
+  onSetIllustration?: (illustration: ProjectIllustration | undefined) => void
   /** Add or replace one of this project's publications (lib/publication.ts). */
   onSetPublication?: (publication: Publication) => void
   /** Use the account's brand identity in this project, or stop (lib/brand.ts). */
@@ -774,8 +780,11 @@ export default function ProjectView({
   const showVersions = rightSlot === 'versions'
   const showReview = rightSlot === 'review'
   const showCampaign = rightSlot === 'campaign'
+  const showIllustrate = rightSlot === 'illustrate'
   /** What the campaign panel says while one of its runs is going. */
   const [campaignProgress, setCampaignProgress] = useState<string | null>(null)
+  /** What "Illustrate a text" is making, said in a line (IllustratePanel). */
+  const [illustrateProgress, setIllustrateProgress] = useState<string | null>(null)
   /** How each piece came out of the last campaign update, for the panel. */
   const [campaignResults, setCampaignResults] = useState<Record<string, PieceResult>>({})
   /*
@@ -787,6 +796,9 @@ export default function ProjectView({
   const onSetCampaignRef = useRef(onSetCampaign)
   onSetCampaignRef.current = onSetCampaign
   const saveCampaign = useCallback((c: Campaign) => onSetCampaignRef.current?.(c), [])
+  const onSetIllustrationRef = useRef(onSetIllustration)
+  onSetIllustrationRef.current = onSetIllustration
+  const saveIllustration = useCallback((i: ProjectIllustration | undefined) => onSetIllustrationRef.current?.(i), [])
   const [modifyMode, setModifyMode] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo; group?: PickInfo[] } | null>(null)
   /** Elements gathered with Shift or Ctrl in Modify mode, all on one screen. */
@@ -2861,6 +2873,113 @@ export default function ProjectView({
    * choice, which the panel shows and sets), with no typed request of its own:
    * the brief is the words, each format brings its type.
    */
+  /**
+   * "Illustrate a text": one visual per block, in order, each an ordinary new
+   * screen of the Visual type (`runNewScreen`), carrying the digest of its
+   * block so the panel can show it as made. The composer's settings, like a
+   * campaign's — Muse does not run for a visual anyway (see newScreen.ts).
+   * Stops at the first failure and says how many were made; an abort stops
+   * quietly, keeping the ones already made.
+   */
+  async function illustrateBlocks(blocks: TextBlock[], page: PageFormatId) {
+    if (busy || !blocks.length) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    const globalDesign = loadDesign()
+    const hooks: NewScreenHooks = {
+      signal: ac.signal,
+      t,
+      setPhase,
+      setMuseStage,
+      setUltraStage,
+      replaceNotice: (line) => setNotice(line),
+      notice: (line) => setNotice((prev) => (prev ? `${prev} ${line}` : line)),
+      setMuseResult,
+      setMuseImages,
+      setMuseImageError,
+      setImageGenOk,
+      addScreen: addScreenAndShow,
+      updateScreen: onUpdateScreen,
+      removeScreen: onRemoveScreen,
+      currentScreens: () => screensRef.current,
+      renameProject: onRenameProject,
+      setDesign: onSetDesign,
+      rememberSiteRef: () => {},
+      screenStarted: (screenId) => {
+        setGeneratingIds(new Set([screenId]))
+        setSelectedIds([screenId])
+      },
+      screenWritten: () => setGeneratingIds(new Set()),
+      motionStage,
+      motionStageDone,
+    }
+    let made = 0
+    try {
+      for (const [i, block] of blocks.entries()) {
+        if (ac.signal.aborted) break
+        setIllustrateProgress(t('visuals.illustrate.making', { n: i + 1, total: blocks.length }))
+        const outcome = await runNewScreen(
+          {
+            text: block.text,
+            name: blockName(block),
+            illustrates: block.digest,
+            settings,
+            project: projectRef.current,
+            screens: screensRef.current,
+            images: [],
+            annotationCount: 0,
+            site: null,
+            globalMd: isDesignActive(globalDesign) ? globalDesign.markdown : undefined,
+            presetId,
+            themeId: VISUAL_THEME,
+            pageFormatId: page,
+            redesign: false,
+            museConfig,
+            museAvail,
+            museVision,
+            pinnedImages: [],
+            pinnedVideo: undefined,
+            videoAvail,
+            motionAvail,
+            ultraActive: false,
+            ultraCount,
+            effectiveImageSource,
+            picturesOff: true,
+            docPictureSource: null,
+            docImageChoice: 'none',
+            imageGenOk,
+            stockImagesUsable,
+          },
+          hooks,
+        )
+        if (outcome.error) {
+          setError(outcome.error)
+          break
+        }
+        made++
+      }
+      if (made) setNotice((prev) => [prev, t('visuals.illustrate.made', { count: made })].filter(Boolean).join(' '))
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(t('visuals.illustrate.failed', { count: made, error: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setPhase(null)
+      motionStageDone()
+      setGeneratingIds(new Set())
+      setIllustrateProgress(null)
+    }
+  }
+
   async function createCampaign(campaign: Campaign, formats: CampaignFormatId[]) {
     if (busy || !formats.length || !campaign.brief.trim()) return
     const settings = loadSettings()
@@ -4719,6 +4838,24 @@ export default function ProjectView({
    * "Campaign" button does). Its draft is saved before the first piece is made,
    * so the remount when the canvas appears loses nothing.
    */
+  /* "Illustrate a text", in the same slot and on the same two surfaces as the campaign. */
+  const illustratePanel = showIllustrate ? (
+    <IllustratePanel
+      key={project.id}
+      project={project}
+      screens={screens}
+      busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+      progress={illustrateProgress}
+      onSave={saveIllustration}
+      onMake={(blocks, page) => void illustrateBlocks(blocks, page)}
+      onFocus={(id) => {
+        setSelectedIds([id])
+        setFocus({ screenId: id, nonce: Date.now() })
+      }}
+      onClose={() => setRightSlot((sl) => closeSlot(sl, 'illustrate'))}
+    />
+  ) : null
+
   const campaignPanel = showCampaign ? (
     <CampaignPanel
       key={project.id}
@@ -4858,6 +4995,7 @@ export default function ProjectView({
         onEnhance={startEnhance}
       />
       {campaignPanel && <div className="fixed inset-0 z-30 bg-black/10">{campaignPanel}</div>}
+      {illustratePanel && <div className="fixed inset-0 z-30 bg-black/10">{illustratePanel}</div>}
       {libraryModal}
       </>
     )
@@ -4947,6 +5085,14 @@ export default function ProjectView({
       title: t('campaign.toolbarTitle'),
       active: showCampaign,
       onClick: () => setRightSlot((sl) => toggleSlot(sl, 'campaign')),
+    },
+    {
+      id: 'illustrate',
+      icon: 'branch',
+      label: t('visuals.illustrate.toolbar'),
+      title: t('visuals.illustrate.toolbarTitle'),
+      active: showIllustrate,
+      onClick: () => setRightSlot((sl) => toggleSlot(sl, 'illustrate')),
     },
     {
       id: 'versions',
@@ -5514,7 +5660,7 @@ export default function ProjectView({
 
       </main>
 
-      {/* The inspector — see Inspector.tsx: a rail of the six panels that is
+      {/* The inspector — see Inspector.tsx: a rail of the seven panels that is
           always there from md, and the one panel that is open. Which one is
           still the single RightSlot value (lib/rightSlot.ts); null folds the
           panel back into the rail. */}
@@ -5526,6 +5672,7 @@ export default function ProjectView({
             { id: 'audit', label: t('mode.audit'), icon: 'shield' },
             { id: 'review', label: t('review.toolbar'), icon: 'comment', badge: reviewState?.unread },
             { id: 'campaign', label: t('campaign.toolbar'), icon: 'formats' },
+            { id: 'illustrate', label: t('visuals.illustrate.toolbar'), icon: 'branch' },
             { id: 'links', label: t('project.links'), icon: 'link' },
           ]}
           active={rightSlot}
@@ -5591,6 +5738,7 @@ export default function ProjectView({
           )}
 
           {campaignPanel}
+          {illustratePanel}
 
           {showVersions && (
             <VersionsPanel
@@ -6537,6 +6685,14 @@ export default function ProjectView({
                   lit={showCampaign}
                   title={t('campaign.toolbarTitle')}
                   onClick={() => setRightSlot((sl) => toggleSlot(sl, 'campaign'))}
+                />
+                <OptionAction
+                  icon="branch"
+                  label={t('visuals.illustrate.also')}
+                  hint={t('visuals.illustrate.alsoHint')}
+                  lit={showIllustrate}
+                  title={t('visuals.illustrate.toolbarTitle')}
+                  onClick={() => setRightSlot((sl) => toggleSlot(sl, 'illustrate'))}
                 />
                 {/* A film is made from the media library, not from a screen —
                     which is why it lives here, with what this column makes, and
