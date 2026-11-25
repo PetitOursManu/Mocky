@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: c4a279a6c416
+source_hash: 9bbd5f4f94d2
 ---
 
 # Visuels
@@ -207,9 +207,9 @@ projet, et se change dans **Visuel…** → **Rendu** sans frais :
 | Plat | Des cases simples — sobre, par défaut |
 | Relief | Des cases posées sur une tranche, comme des touches |
 | 3D | De la fausse 3D en CSS : des cases avec une face du dessus et une face de côté, des colonnes en cylindres, des pastilles en sphères, une feuille de route en vraie route avec des épingles |
-| Verre | Des cases translucides en verre dépoli — sur un fond sombre ou photographique |
+| Verre | Du glassmorphism : des panneaux translucides éclairés par leurs bords, le fond flouté au travers, un halo doux de la couleur |
 | Dégradé | Des dégradés doux, toujours dans le sens qui épargne la couleur du texte |
-| Néon | Des panneaux de verre sombre éclairés par leurs bords, avec un halo de la couleur — sur fond sombre |
+| Néon | Une enseigne lumineuse : contours et mots qui brillent en couleurs saturées, liaisons en tubes de lumière — sur fond sombre |
 
 Un rendu ne déplace rien : les cases gardent leur place et leur texte, qui reste
 à plat, lisible et modifiable dans PowerPoint. Les faces de la 3D et le verre y

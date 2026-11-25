@@ -1207,12 +1207,17 @@ function Visual(props) {
     var c = tone(Math.max(0, nd.tone));
     var solid = nd.solid || variant === 'solid';
     var fill, border = 'none', text, mark;
-    // Neon is a dark glass whatever the variant: the text is measured on the
-    // tint it really shows, the colour carried by the edge and the glow.
-    if (look === 'neon' && !nd.plain) {
+    // Glass is a tinted pane whatever the variant: the text is measured on the
+    // tint it really shows, the colour carried by the rim and the glow. Neon
+    // is no pane at all: the ground shows through, the colour is the light.
+    if (look === 'glass' && !nd.plain) {
       fill = mockyVisualMix(ground, c, solid ? 0.3 : 0.16);
       text = mockyVisualInkOn(fill, [ink, '#ffffff']);
       mark = mockyVisualMark(light(c, 0.25), fill, ink, 3);
+    } else if (look === 'neon' && !nd.plain) {
+      fill = mockyVisualMix(ground, c, 0.06);
+      text = mockyVisualInkOn(fill, [ink, '#ffffff']);
+      mark = mockyVisualMark(light(c, 0.2), fill, ink, 3);
     } else if (nd.plain) { fill = 'transparent'; text = mockyVisualInkOn(ground, [ink]); mark = mockyVisualMark(c, ground, ink, 3); }
     else if (solid) { fill = c; text = mockyVisualInkOn(c, [ground, ink]); mark = text; }
     else if (variant === 'outline' && !nd.soft) { fill = ground; border = Math.max(1.5, u * 0.13).toFixed(1) + 'px solid ' + c; text = mockyVisualInkOn(ground, [ink]); mark = mockyVisualMark(c, ground, ink, 3); }
@@ -1244,7 +1249,7 @@ function Visual(props) {
   var children = [];
   if (lay.header.h) {
     children.push(e('div', { key: 'h', style: { position: 'absolute', left: 0, top: 0, width: W, textAlign: 'left' } },
-      lay.header.title ? e('div', { style: { fontSize: lay.header.T, lineHeight: 1.12, fontWeight: 800, color: ink, letterSpacing: '-0.01em' } }, lay.header.title) : null,
+      lay.header.title ? e('div', { style: { fontSize: lay.header.T, lineHeight: 1.12, fontWeight: 800, color: ink, letterSpacing: '-0.01em', textShadow: look === 'neon' ? '0 0 ' + u * 0.8 + 'px ' + tone(0) : undefined } }, lay.header.title) : null,
       lay.header.subtitle ? e('div', { style: { fontSize: lay.header.S, lineHeight: 1.35, color: muted, marginTop: lay.header.title ? u * 0.5 : 0, maxWidth: W * 0.9 } }, lay.header.subtitle) : null));
   }
 
@@ -1263,7 +1268,10 @@ function Visual(props) {
     var flatX = l.points.every(function (p) { return Math.abs(p[0] - a0[0]) < 0.5; });
     return flatY ? { h: true, a: a0, b: a1 } : flatX ? { h: false, a: a0, b: a1 } : null;
   };
-  var linkCol = function (l) { return l.tone != null ? mockyVisualMark(tone(l.tone), ground, ink, 3) : l.faint ? mockyVisualMix(line, ground, 0.55) : line; };
+  var linkCol = function (l) {
+    if (look === 'neon') return light(tone(l.tone != null ? l.tone : 0), l.faint ? 0.1 : 0.3);
+    return l.tone != null ? mockyVisualMark(tone(l.tone), ground, ink, 3) : l.faint ? mockyVisualMix(line, ground, 0.55) : line;
+  };
   var linkW = function (l) { return l.road ? stroke * 2.6 : l.thick ? stroke * 1.6 : l.faint ? Math.max(1, stroke * 0.7) : stroke; };
   drawn.forEach(function (l, i) {
     var st = straightOf(l);
@@ -1274,21 +1282,30 @@ function Visual(props) {
     // An arrow's shaft stops short of its tip, which the SVG draws.
     var shaft = l.arrow ? Math.max(0, len - strokeW * 2.2) : len;
     var fromEnd = l.arrow && (st.h ? st.b[0] < st.a[0] : st.b[1] < st.a[1]);
-    children.push(e('div', { key: 'sl' + i, 'aria-hidden': 'true', style: st.h
+    var lineStyle = st.h
       ? { position: 'absolute', left: x0 + (fromEnd ? len - shaft : 0), top: st.a[1] - strokeW / 2, width: shaft, height: strokeW, background: col, borderRadius: strokeW / 2, pointerEvents: 'none' }
-      : { position: 'absolute', left: st.a[0] - strokeW / 2, top: y0 + (fromEnd ? len - shaft : 0), width: strokeW, height: shaft, background: col, borderRadius: strokeW / 2, pointerEvents: 'none' } }));
+      : { position: 'absolute', left: st.a[0] - strokeW / 2, top: y0 + (fromEnd ? len - shaft : 0), width: strokeW, height: shaft, background: col, borderRadius: strokeW / 2, pointerEvents: 'none' };
+    // Under neon a connector is a tube of light too.
+    if (look === 'neon') lineStyle.boxShadow = '0 0 ' + u * 0.5 + 'px ' + col + ', 0 0 ' + u * 1.2 + 'px ' + rgba(tone(l.tone != null ? l.tone : 0), 0.6);
+    children.push(e('div', { key: 'sl' + i, 'aria-hidden': 'true', style: lineStyle }));
   });
-  children.push(e('svg', { key: 'links', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' } },
+  children.push(e('svg', { key: 'links', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none', filter: look === 'neon' ? 'drop-shadow(0 0 ' + u * 0.4 + 'px ' + tone(0) + ')' : undefined } },
     e('defs', null, e('marker', { id: marker, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, e('path', { d: 'M0 0 L10 5 L0 10 z', fill: line }))),
     drawn.map(function (l, i) {
       var col = linkCol(l), sw = linkW(l);
       if (l.asphalt || (l.road && (look === 'raised' || look === 'block'))) {
         // Asphalt with a dashed centre line: the roadmap as a road. Under neon
         // the road glows in the first colour instead.
-        var asphalt = look === 'neon' ? rgba(tone(0), 0.35) : mockyVisualLum(ground) > 0.4 ? '#3f3f46' : '#52525b';
         var rw = l.width || stroke * 6;
+        if (look === 'neon') {
+          // A tube of light: a wide soft glow and a bright core.
+          return e('g', { key: i },
+            e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: rgba(tone(0), 0.28), strokeWidth: rw, strokeLinecap: 'round', strokeLinejoin: 'round', style: { filter: 'drop-shadow(0 0 ' + u * 0.8 + 'px ' + tone(0) + ')' } }),
+            e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: light(tone(0), 0.45), strokeWidth: Math.max(2, rw * 0.22), strokeLinecap: 'round', strokeLinejoin: 'round', style: { filter: 'drop-shadow(0 0 ' + u * 0.4 + 'px ' + tone(0) + ')' } }));
+        }
+        var asphalt = look === 'glass' ? rgba(tone(0), 0.35) : mockyVisualLum(ground) > 0.4 ? '#3f3f46' : '#52525b';
         return e('g', { key: i },
-          e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: asphalt, strokeWidth: rw, strokeLinecap: 'round', strokeLinejoin: 'round', style: look === 'neon' ? { filter: 'drop-shadow(0 0 ' + u * 0.6 + 'px ' + tone(0) + ')' } : undefined }),
+          e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: asphalt, strokeWidth: rw, strokeLinecap: 'round', strokeLinejoin: 'round', style: look === 'glass' ? { filter: 'drop-shadow(0 0 ' + u * 0.6 + 'px ' + tone(0) + ')' } : undefined }),
           e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: '#ffffff', strokeWidth: Math.max(1.5, rw * 0.09), strokeDasharray: rw * 0.45 + ' ' + rw * 0.45, strokeLinecap: 'round' }));
       }
       if (l.fill) return e('path', { key: i, d: mockyVisualPath(l.points) + ' Z', fill: mockyVisualMix(ground, l.tone != null ? tone(l.tone) : ink, 0.22), stroke: l.nostroke ? 'none' : col, strokeWidth: sw, strokeLinejoin: 'round' });
@@ -1322,9 +1339,14 @@ function Visual(props) {
         children.push(e('div', { key: key + 'h', style: { position: 'absolute', left: pcx - pinS * 0.3, top: pcy - pinS * 1.25, width: pinS * 0.6, height: pinS * 0.6, borderRadius: '50%', background: '#ffffff', color: mockyVisualMark(c, '#ffffff', ink, 3), display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: pinS * 0.3, lineHeight: 1 } }, nd.t.num || null));
         return;
       }
-      var dotBg = look === 'raised' || look === 'block' ? sphere(c) : look === 'gradient' ? gradientUnder(c, dc) : look === 'glass' ? rgba(c, 0.72) : look === 'neon' ? rgba(c, 0.3) : c;
-      if (look === 'neon') dc = mockyVisualInkOn(mockyVisualMix(ground, c, 0.3), ['#ffffff', ink]);
-      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: dotBg, color: dc, border: look === 'neon' ? '1.5px solid ' + light(c, 0.4) : undefined, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: nd.w * 0.42, lineHeight: 1, boxShadow: look === 'neon' ? '0 0 ' + u * 0.9 + 'px ' + rgba(c, 0.8) + ', inset 0 0 ' + u * 0.5 + 'px ' + rgba(c, 0.6) : look === 'raised' || look === 'block' ? '0 ' + u * 0.25 + 'px ' + u * 0.5 + 'px rgba(0,0,0,0.22)' : undefined }) }, content || nd.t.num || null));
+      var dotBg = look === 'raised' || look === 'block' ? sphere(c) : look === 'gradient' ? gradientUnder(c, dc) : look === 'glass' ? rgba(c, 0.3) : look === 'neon' ? 'transparent' : c;
+      if (look === 'glass') dc = mockyVisualInkOn(mockyVisualMix(ground, c, 0.3), ['#ffffff', ink]);
+      if (look === 'neon') dc = mockyVisualMark(light(c, 0.3), ground, ink, 3);
+      var dotBorder = look === 'glass' ? '1.5px solid ' + light(c, 0.4) : look === 'neon' ? Math.max(2, nd.w * 0.08) + 'px solid ' + light(c, 0.25) : undefined;
+      var dotShadow = look === 'glass' ? '0 0 ' + u * 0.9 + 'px ' + rgba(c, 0.8) + ', inset 0 0 ' + u * 0.5 + 'px ' + rgba(c, 0.6)
+        : look === 'neon' ? '0 0 ' + u * 0.5 + 'px ' + c + ', 0 0 ' + u * 1.4 + 'px ' + rgba(c, 0.75) + ', inset 0 0 ' + u * 0.5 + 'px ' + rgba(c, 0.7)
+        : look === 'raised' || look === 'block' ? '0 ' + u * 0.25 + 'px ' + u * 0.5 + 'px rgba(0,0,0,0.22)' : undefined;
+      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: dotBg, color: dc, border: dotBorder, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: nd.w * 0.42, lineHeight: 1, boxShadow: dotShadow, textShadow: look === 'neon' ? '0 0 ' + u * 0.5 + 'px ' + c : undefined }) }, content || nd.t.num || null));
       return;
     }
     if (nd.kind === 'disc') {
@@ -1361,13 +1383,14 @@ function Visual(props) {
       children.push(e('div', { key: key + 't', style: { position: 'absolute', left: nd.x, top: nd.y, width: nd.w, height: eh, borderRadius: '50%', background: light(c, 0.38) } }));
       return;
     }
-    if (nd.kind === 'bar' && look === 'neon') {
-      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : nd.h / 2, background: 'linear-gradient(' + (nd.col ? '180deg' : '90deg') + ', ' + rgba(c, 0.85) + ', ' + rgba(c, 0.35) + ')', border: '1px solid ' + light(c, 0.45), boxShadow: '0 0 ' + u * 1.1 + 'px ' + rgba(c, 0.6) }) }));
+    if (nd.kind === 'bar' && (look === 'glass' || look === 'neon')) {
+      var neonBar = look === 'neon';
+      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : nd.h / 2, background: neonBar ? light(c, 0.15) : 'linear-gradient(' + (nd.col ? '180deg' : '90deg') + ', ' + rgba(c, 0.85) + ', ' + rgba(c, 0.35) + ')', border: neonBar ? undefined : '1px solid ' + light(c, 0.45), boxShadow: neonBar ? '0 0 ' + u * 0.5 + 'px ' + c + ', 0 0 ' + u * 1.6 + 'px ' + rgba(c, 0.75) : '0 0 ' + u * 1.1 + 'px ' + rgba(c, 0.6) }) }));
       return;
     }
-    if (nd.kind === 'bar' && (look === 'raised' || look === 'block' || look === 'gradient' || look === 'glass')) {
-      var bd = look === 'gradient' || look === 'glass' ? 0 : Math.min(nd.h * 0.28, u * 0.5);
-      var barBg = look === 'gradient' ? 'linear-gradient(90deg, ' + c + ', ' + light(c, 0.3) + ')' : look === 'glass' ? rgba(c, 0.7) : nd.col ? 'linear-gradient(90deg, ' + c + ', ' + light(c, 0.18) + ')' : 'linear-gradient(180deg, ' + light(c, 0.18) + ', ' + c + ')';
+    if (nd.kind === 'bar' && (look === 'raised' || look === 'block' || look === 'gradient')) {
+      var bd = look === 'gradient' ? 0 : Math.min(nd.h * 0.28, u * 0.5);
+      var barBg = look === 'gradient' ? 'linear-gradient(90deg, ' + c + ', ' + light(c, 0.3) + ')' : nd.col ? 'linear-gradient(90deg, ' + c + ', ' + light(c, 0.18) + ')' : 'linear-gradient(180deg, ' + light(c, 0.18) + ', ' + c + ')';
       children.push(e('div', { key: key, style: Object.assign(base, { height: nd.col ? nd.h : nd.h - bd, borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : (nd.h - bd) / 2, background: barBg, boxShadow: bd ? '0 ' + bd + 'px 0 0 ' + dark(c, 0.3) : undefined }) }));
       return;
     }
@@ -1423,10 +1446,13 @@ function Visual(props) {
     var dep = nd.depth || 0;
     if (face && !nd.vertical && nd.kind !== 'text') {
       if (look === 'gradient') style.background = gradientUnder(face, pnt.text);
-      if (look === 'neon') {
-        // Glass lit from its edges: a bright rim, light caught at the top and
-        // the bottom, a glow of the colour around — the panel of a dark UI.
+      if (look === 'glass') {
+        // Glassmorphism: a pane lit from its edges — a bright rim, light caught
+        // at the top and the bottom, the ground blurred through it, a glow of
+        // the colour around. The panel of a dark interface.
         style.background = 'linear-gradient(180deg, ' + rgba(c, 0.26) + ', ' + rgba(c, 0.05) + ' 55%, ' + rgba(c, 0.14) + ')';
+        style.backdropFilter = 'blur(12px)';
+        style.WebkitBackdropFilter = 'blur(12px)';
         style.border = '1px solid ' + rgba(light(c, 0.6), 0.8);
         style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 ' + u * 1.8 + 'px ' + rgba(c, 0.3) + ', 0 0 ' + u * 1.4 + 'px ' + rgba(c, 0.45);
         var streak = function (top, k) {
@@ -1434,12 +1460,13 @@ function Visual(props) {
         };
         nd.neonStreaks = [streak(nd.y - 1, 'nt'), streak(nd.y + nd.h - 1, 'nb')];
       }
-      if (look === 'glass') {
-        style.background = 'linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.04)), ' + rgba(face, 0.62);
-        style.backdropFilter = 'blur(10px)';
-        style.WebkitBackdropFilter = 'blur(10px)';
-        style.border = '1px solid ' + rgba(light(face, 0.5), 0.7);
-        style.boxShadow = [style.boxShadow, '0 ' + u * 0.4 + 'px ' + u * 1.4 + 'px rgba(0,0,0,0.16)'].filter(Boolean).join(', ');
+      if (look === 'neon') {
+        // A neon sign: a tube of light for an outline, glowing inside and out,
+        // and the words lit in the same colour.
+        style.background = rgba(c, 0.06);
+        style.border = Math.max(2, u * 0.16).toFixed(1) + 'px solid ' + light(c, 0.2);
+        style.boxShadow = '0 0 ' + u * 0.5 + 'px ' + c + ', 0 0 ' + u * 1.6 + 'px ' + rgba(c, 0.7) + ', inset 0 0 ' + u * 0.9 + 'px ' + rgba(c, 0.55);
+        style.textShadow = '0 0 ' + u * 0.45 + 'px ' + rgba(c, 0.75);
       }
       if ((look === 'raised' || (look === 'block' && nd.shape === 'pill')) && dep) {
         style.height = nd.h - dep;

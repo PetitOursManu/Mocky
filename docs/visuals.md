@@ -195,9 +195,9 @@ direction, and can be switched in **Visual…** → **Rendering** at no cost:
 | Flat | Plain boxes — sober, the default |
 | Raised | Boxes lifted on a solid edge, like keys |
 | 3D | Fake 3D in CSS: boxes with a top and a side face, columns as cylinders, dots as spheres, a roadmap as a road with pins |
-| Glass | Frosted, translucent boxes — on a dark or photographic background |
+| Glass | Glassmorphism: translucent panes lit from their edges, the background blurred through them, a soft glow of the colour |
 | Gradient | Soft gradients, always running away from the text's colour |
-| Neon | Dark glass panels lit from their edges, with a glow of the colour — on a dark background |
+| Neon | A neon sign: outlines and words glowing in saturated colours, connectors as tubes of light — on a dark background |
 
 A rendering moves nothing: the boxes keep their places and their text, which
 stays flat, readable and editable in PowerPoint. The faces of the 3D and the
