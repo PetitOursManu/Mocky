@@ -47,9 +47,10 @@ export default function App() { return <Visual family="bars" doc={DATA} /> }`
 })
 
 describe('switching a visual without a model', () => {
-  it('rewrites the family attribute and nothing else', async () => {
+  it('rewrites the family, and keeps the family it leaves among the proposals', async () => {
     const next = await changeScreenVisual(SCREEN, 0, { family: 'bars' })
-    expect(next).toBe(SCREEN.replace('family="stats"', 'family="bars"'))
+    expect(next).toBe(SCREEN.replace('family="stats"', 'family="bars"').replace('alternatives={["bars", "donut", "nope"]}', 'alternatives={["stats","donut"]}'))
+    expect((await findScreenVisuals(next!))[0].alternatives).toEqual(['stats', 'donut'])
   })
 
   it('adds a variant the code did not write', async () => {

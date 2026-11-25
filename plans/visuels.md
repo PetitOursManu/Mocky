@@ -28,9 +28,34 @@ Fichiers : `lib/visuals/{families,read,numbers,check}.ts`,
 `capabilities/snippets/Visual.ts`, `components/ScreenVisualDialog.tsx`,
 `i18n/parts/visuals.ts`, `docs/visuals.md` (+ FR), invariants G1–G4.
 
-Reste à faire avant de considérer la phase 1 close : une dizaine de générations
-réelles (choix de famille, `alternatives`, respect du « pas de schéma maison »),
-et un export .pptx décomposé vérifié dans PowerPoint et Canva.
+Essais du 25/11/2026, dans l'application réelle (build de production, serveur
+isolé, Edge piloté par Playwright), sur trois écrans écrits à la main comme un
+modèle les écrirait :
+
+- rendu dans l'aperçu sandboxé : 16:9 clair, carré sombre en cases pleines,
+  portrait avec un `doc` tenu dans une `const` — sans erreur ;
+- clic droit → « Visuel… » : propositions en tête, familles refusées grisées avec
+  leur raison, passage étapes → cycle → frise écrit dans le code et rendu ;
+- export « Tout en éléments séparés » de la frise : 19 formes, 18 zones de texte
+  modifiables, 3 images (les liaisons) ;
+- corrigé en route : comparaison suspendue au titre (centrée), chiffres clés en
+  piliers pleine hauteur (cartes plafonnées et centrées).
+
+**Phase 1 close.** Dernier essai : la requête EXACTE d'un écran « Visuel »
+(`buildGenerationMessages`, celle que le moteur MCP « client » transmet) servie à
+un agent Claude neuf, ignorant du test, sur quatre textes français (méthode,
+bilan chiffré, pour/contre, histoire datée). Résultat : étapes, chiffres clés,
+pour/contre, frise — aucun SVG maison, toutes les `alternatives` acceptées par
+leur famille, aucun chiffre inventé (« 1 200 » reconnu), « barres » écarté à
+raison sur des unités différentes ; rendu propre des quatre dans l'aperçu.
+Ce n'est pas le fournisseur du compte : un autre modèle peut choisir moins bien.
+
+Corrigé à la clôture : Muse ne tourne plus pour un visuel (avis affiché) ; la
+famille quittée reste dans `alternatives` ; les nombres suivent la langue du
+lecteur quand la page n'en déclare pas (« 92 % »).
+
+Non vérifié : le .pptx ouvert dans PowerPoint et Canva (compté dans le fichier :
+formes et zones de texte, images pour les seules liaisons).
 
 ## 0. Décisions à prendre avant la phase 1
 

@@ -611,7 +611,11 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     const museBrief = [museBriefBase, museThemeLine, req.brand ? brandMuseLine(req.brand) : undefined, rulesMuseLine(req.project.rules) || undefined].filter(Boolean).join('\n\n')
     // A reproduction's direction is the screenshot: a dossier would be a
     // second, contradicting one, and a paid call to write it.
-    if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {
+    // A visual is a diagram in the project's direction: a dossier would plan
+    // sections and pictures it never draws, and cost a call to write them.
+    const museForVisual = runTheme !== VISUAL_THEME
+    if (!museForVisual && museConfig.enabled && museAvail !== false) hooks.replaceNotice(t('visuals.museSkipped'))
+    if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind && museForVisual) {
       try {
         hooks.setMuseResult(null)
         hooks.setMuseImages([])

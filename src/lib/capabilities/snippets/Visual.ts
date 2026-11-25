@@ -123,7 +123,8 @@ function mockyVisualLines(text, size, width, weight) {
 function mockyVisualNum(v, unit) {
   if (typeof v !== 'number' || !isFinite(v)) return '';
   var lang;
-  try { lang = (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) || undefined; } catch (e) { lang = undefined; }
+  // The page's language, else the reader's: a preview document often declares none.
+  try { lang = (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) || (typeof navigator !== 'undefined' && navigator.language) || undefined; } catch (e) { lang = undefined; }
   var s;
   try { s = v.toLocaleString(lang, { maximumFractionDigits: 2 }); } catch (e) { s = String(v); }
   if (!unit) return s;
@@ -366,14 +367,17 @@ function mockyVisualLayout(family, rawDoc, W, H) {
     for (var mm = 0; mm < kc; mm++) M = Math.max(M, items[mm].children.length);
     // Rows are capped: a column of two points stretched over the whole height
     // is two empty boxes with a line of text in each.
-    var gr = u * 0.6, rowH = Math.min(u * 5.5, (bh - headH - u * 0.8 - gr * (M - 1)) / M);
+    var gr = u * 0.6, rowH = Math.min(u * 7, (bh - headH - u * 0.8 - gr * (M - 1)) / M);
+    // And what the cap leaves is shared above and below, so a short comparison
+    // on a tall page sits in its middle instead of hanging from the title.
+    var top = by + Math.max(0, (bh - (headH + u * 0.8 + M * rowH + (M - 1) * gr)) / 2);
     for (var col = 0; col < kc; col++) {
       var colX = bx + col * (colW + gc);
-      node('card', colX, by, colW, headH, 'head', runs(items[col], { icon: true }), col, { solid: true, ring: items[col].emphasis });
+      node('card', colX, top, colW, headH, 'head', runs(items[col], { icon: true }), col, { solid: true, ring: items[col].emphasis });
       var kids = items[col].children;
       for (var ch = 0; ch < kids.length; ch++) {
         var mark = fam === 'pros-cons' ? (col === 0 ? '+' : '\\u2212') : '';
-        node('card', colX, by + headH + u * 0.8 + ch * (rowH + gr), colW, rowH, 'row', { label: kids[ch], mark: mark }, col, { align: 'left', soft: true });
+        node('card', colX, top + headH + u * 0.8 + ch * (rowH + gr), colW, rowH, 'row', { label: kids[ch], mark: mark }, col, { align: 'left', soft: true });
       }
     }
   } else if (fam === 'matrix') {
@@ -509,11 +513,15 @@ function mockyVisualLayout(family, rawDoc, W, H) {
   } else if (fam === 'stats') {
     var cols = wide ? (n <= 4 ? n : Math.ceil(n / 2)) : (n <= 2 ? n : 2);
     var rows = Math.ceil(n / cols), gs = u * 1.2;
-    var sw = (bw - gs * (cols - 1)) / cols, sh = (bh - gs * (rows - 1)) / rows;
+    // A key figure is a card, not a column: never taller than it is wide, the
+    // grid centred in what is left — three full-height pillars on a square post
+    // were mostly empty colour.
+    var sw = (bw - gs * (cols - 1)) / cols, sh = Math.min((bh - gs * (rows - 1)) / rows, sw * 0.9);
+    var stop = by + (bh - (rows * sh + (rows - 1) * gs)) / 2;
     for (var si = 0; si < n; si++) {
       var row = Math.floor(si / cols), inRow = Math.min(cols, n - row * cols);
       var offset = (bw - (inRow * sw + (inRow - 1) * gs)) / 2;
-      node('card', bx + offset + (si % cols) * (sw + gs), by + row * (sh + gs), sw, sh, 'card', runs(items[si], { value: true, icon: true }), si, { valueScale: 2.3 });
+      node('card', bx + offset + (si % cols) * (sw + gs), stop + row * (sh + gs), sw, sh, 'card', runs(items[si], { value: true, icon: true }), si, { valueScale: 1.9 });
     }
   } else if (fam === 'bars') {
     var rowB = bh / Math.max(1, n), labelW = bw * 0.28;

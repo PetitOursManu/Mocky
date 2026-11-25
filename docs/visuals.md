@@ -20,7 +20,9 @@ the shape and draws it in your project's colours and fonts.
 
 The generation reads the text for its structure, chooses a family, and writes
 the content once: a title, a subtitle, and one item per idea, with a short label
-and a sentence of detail.
+and a sentence of detail. Muse does not run for a visual, even when it is on: a
+visual is drawn in the project's direction and needs no pictures, so the dossier
+would be a call for nothing.
 
 ## The families
 

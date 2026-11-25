@@ -32,6 +32,7 @@ export const visuals = {
     'visuals.refusal.exact': 'Il faut exactement {n} éléments',
     'visuals.refusal.values': 'Chaque élément doit avoir un chiffre',
     'visuals.refusal.children': 'Chaque élément doit avoir des sous-points',
+    'visuals.museSkipped': 'Muse ne tourne pas pour un visuel : il est dessiné dans la direction du projet, sans images à prévoir.',
     'visuals.figuresDropped':
       '{count} chiffre(s) absent(s) du texte ont été retirés du visuel : {list}. Un visuel ne montre que les chiffres que vous avez donnés.',
     'visuals.family.steps': 'Étapes',
@@ -87,6 +88,7 @@ export const visuals = {
     'visuals.refusal.exact': 'Needs exactly {n} items',
     'visuals.refusal.values': 'Every item needs a figure',
     'visuals.refusal.children': 'Every item needs sub-points',
+    'visuals.museSkipped': 'Muse does not run for a visual: it is drawn in the project’s direction, with no pictures to plan.',
     'visuals.figuresDropped':
       '{count} figure(s) not found in the text were taken out of the visual: {list}. A visual only shows the figures you gave.',
     'visuals.family.steps': 'Steps',

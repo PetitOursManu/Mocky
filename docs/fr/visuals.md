@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 88554f5e9674
+source_hash: 36b3d543b6eb
 ---
 
 # Visuels
@@ -23,7 +23,9 @@ du projet.
 
 La génération lit le texte pour sa structure, choisit une famille et écrit le
 contenu une seule fois : un titre, un sous-titre et un élément par idée, avec un
-libellé court et une phrase de détail.
+libellé court et une phrase de détail. Muse ne tourne pas pour un visuel, même
+activé : un visuel est dessiné dans la direction du projet et n’a besoin d’aucune
+image, le dossier serait un appel pour rien.
 
 ## Les familles
 

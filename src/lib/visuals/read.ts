@@ -187,6 +187,20 @@ export async function changeScreenVisual(source: string, index: number, change: 
   }
   set('family', change.family)
   set('variant', change.variant)
+  // The family it is leaving stays on offer: it was the generation's first
+  // choice, and after one switch the dialog would otherwise forget it.
+  const before = literal(attrOf(el.opening, 'family'))
+  if (change.family && before && before !== change.family && isVisualFamily(before)) {
+    const attr = attrOf(el.opening, 'alternatives')
+    const value = attr?.value?.type === 'JSXExpressionContainer' ? staticValue(attr.value.expression, el.consts) : NOT_DATA
+    const current = Array.isArray(value) ? value.filter((f): f is VisualFamily => isVisualFamily(f)) : value === NOT_DATA && attr ? null : []
+    if (current) {
+      const next = [...new Set([before, ...current])].filter((f) => f !== change.family)
+      const text = `alternatives={${JSON.stringify(next)}}`
+      if (attr && typeof attr.start === 'number') edits.push({ start: attr.start, end: attr.end, text })
+      else edits.push({ start: el.opening.name.end, end: el.opening.name.end, text: ` ${text}` })
+    }
+  }
   if (!edits.length) return null
   const out = apply(source, edits)
   return out === source ? null : out
