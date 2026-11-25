@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 9bbd5f4f94d2
+source_hash: 5d00bd3068a0
 ---
 
 # Visuels
@@ -76,9 +76,10 @@ image, le dossier serait un appel pour rien.
 | Kanban | Le travail par statut |
 | Liste alternée | Des points clés, à gauche puis à droite d’une ligne |
 | Route sinueuse | Des jalons sur une route qui serpente, tous les virages arrondis |
+| Route en lacets | Une route de montagne en grands virages, du haut au bas du cadre, les textes dans les poches qu’elle laisse |
 
 :::why
-Les quarante-cinq familles ont été choisies parmi ce que dessinent les outils de
+Les quarante-six familles ont été choisies parmi ce que dessinent les outils de
 ce genre — Napkin, les SmartArt de PowerPoint, les projets libres AntV
 Infographic et Mermaid, les galeries de modèles de draw.io et de Miro — et
 gardées quand un texte professionnel ou pédagogique prend vraiment cette forme.

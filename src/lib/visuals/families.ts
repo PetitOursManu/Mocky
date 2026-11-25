@@ -87,6 +87,7 @@ export const VISUAL_FAMILIES = [
   'kanban',
   'zigzag',
   'winding-road',
+  'switchback',
 ] as const
 
 export type VisualFamily = (typeof VISUAL_FAMILIES)[number]
@@ -223,6 +224,7 @@ export const VISUAL_BOUNDS: Record<VisualFamily, FamilyBounds> = {
   kanban: { min: 2, max: 5, children: true },
   zigzag: { min: 3, max: 8 },
   'winding-road': { min: 3, max: 6 },
+  switchback: { min: 3, max: 5 },
 }
 
 /** The most items any family draws; the schema refuses more. */
@@ -281,6 +283,7 @@ export const FAMILY_USE: Record<VisualFamily, string> = {
   kanban: 'work by status (to do, doing, done): each item a column, its cards as children',
   zigzag: 'a short list of key points read in turn, alternating left and right of a line',
   'winding-road': 'a journey of milestones drawn as a winding road with pins (a product roadmap, the stages of a project, a career path): the date or period in the label, three to six stops',
+  switchback: 'a journey with big ups and downs drawn as a mountain road in wide bends, from the top of the frame to the bottom (a project with its hard and easy stretches, a climb towards a goal): three to five stops, the date or period in the label',
 }
 
 export type RefusalReason = 'tooFew' | 'tooMany' | 'exact' | 'values' | 'children' | 'relations' | 'positions' | 'scores' | 'spans'

@@ -166,6 +166,8 @@ export const visuals = {
     'visuals.family.zigzag.desc': 'Des points clés, à gauche puis à droite',
     'visuals.family.winding-road': 'Route sinueuse',
     'visuals.family.winding-road.desc': 'Des jalons sur une route qui serpente',
+    'visuals.family.switchback': 'Route en lacets',
+    'visuals.family.switchback.desc': 'De grands virages, du haut au bas',
   },
   en: {
     'visuals.menu': 'Visual…',
@@ -325,5 +327,7 @@ export const visuals = {
     'visuals.family.zigzag.desc': 'Key points, left then right',
     'visuals.family.winding-road': 'Winding road',
     'visuals.family.winding-road.desc': 'Milestones on a road that winds',
+    'visuals.family.switchback': 'Switchback road',
+    'visuals.family.switchback.desc': 'Wide bends, from top to bottom',
   },
 }

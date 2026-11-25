@@ -76,6 +76,7 @@ export function FamilyGlyph({ family, className }: { family: VisualFamily; class
     roadmap: [line('M2 24c8-10 14 10 22 0s14-10 22 0', 'r'), dot(8, 19, 2.5, 'a'), dot(24, 24, 2.5, 'b'), dot(40, 19, 2.5, 'c'), box(2, 4, 12, 7, 0), box(30, 4, 14, 7, 1), box(17, 30, 14, 7, 2)],
     kanban: [box(2, 2, 13, 6, 0, 1), box(17.5, 2, 13, 6, 1, 1), box(33, 2, 13, 6, 2, 1), box(2, 11, 13, 8, 3), box(2, 22, 13, 8, 4), box(17.5, 11, 13, 8, 5), box(33, 11, 13, 8, 6), box(33, 22, 13, 8, 7)],
     zigzag: [line('M24 2v36', 'a'), dot(24, 8, 2.5, 'd1'), dot(24, 20, 2.5, 'd2'), dot(24, 32, 2.5, 'd3'), box(2, 4, 18, 8, 0), box(28, 16, 18, 8, 1), box(2, 28, 18, 8, 2)],
+    switchback: [line('M2 6H8C13 6 13 6 13 11V29C13 34 13 34 18 34H22C27 34 27 34 27 29V11C27 6 27 6 32 6H36C41 6 41 6 41 11V34H46', 'r'), dot(6, 3, 2.4, 'a'), dot(20, 31, 2.4, 'b'), dot(34, 3, 2.4, 'c')],
     'winding-road': [line('M2 22C10 22 10 8 17 8S24 32 31 32S38 14 46 14', 'r'), dot(17, 5, 2.6, 'a'), dot(31, 28, 2.6, 'b'), dot(43, 11, 2.6, 'c')],
     donut: [<circle key="r" cx={14} cy={20} r={10} className={G} fill="none" strokeWidth={6} strokeOpacity={0.35} />, <path key="s" d="M14 10a10 10 0 0 1 9.5 13" className={G} fill="none" strokeWidth={6} />, line('M31 13h14M31 20h12M31 27h10', 'l')],
   }

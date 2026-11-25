@@ -1118,6 +1118,42 @@ function mockyVisualLayout(family, rawDoc, W, H, opts) {
         node('card', txW, belowY, twW, by + bh - belowY, 'card', runs(it, { kicker: true }), i, { plain: true, valign: 'start' });
       }
     });
+  } else if (fam === 'switchback') {
+    // A mountain road: every stretch at the very top or the very bottom of the
+    // frame, joined by climbs and drops whose bends have a large radius. The
+    // texts live in the pockets the road leaves — under a crest, between its
+    // two slopes; over a valley, between its two climbs — so the road keeps the
+    // whole height instead of sharing it with bands of text.
+    var slotS = bw / n, dS = Math.min(u * 2.4, slotS * 0.16), rwS = Math.max(u * 1.8, Math.min(u * 2.8, bh * 0.06));
+    var pinHS = dS * 2.4, gapS = u * 0.8;
+    var crestY = by + pinHS + u * 0.4, valleyY = by + bh - rwS / 2 - u * 0.4;
+    var RS = Math.min(slotS * 0.26, (valleyY - crestY) / 2);
+    var sxs = items.map(function (it, i) { return bx + slotS * (i + 0.5); }), sys = items.map(function (it, i) { return i % 2 === 0 ? crestY : valleyY; });
+    var swPts = [[bx, sys[0]]];
+    var swArc = function (cx0, cy0, a0, a1) {
+      for (var qa = 1; qa <= 16; qa++) { var aa = a0 + (a1 - a0) * qa / 16; swPts.push([cx0 + RS * Math.cos(aa), cy0 + RS * Math.sin(aa)]); }
+    };
+    for (var ks = 0; ks < n - 1; ks++) {
+      var ys0 = sys[ks], ys1 = sys[ks + 1], xms = (sxs[ks] + sxs[ks + 1]) / 2, dirS = ys1 > ys0 ? 1 : -1;
+      swPts.push([sxs[ks], ys0], [xms - RS, ys0]);
+      swArc(xms - RS, ys0 + dirS * RS, -dirS * Math.PI / 2, 0);
+      swPts.push([xms, ys1 - dirS * RS]);
+      swArc(xms + RS, ys1 - dirS * RS, Math.PI, dirS > 0 ? Math.PI / 2 : Math.PI * 1.5);
+    }
+    swPts.push([sxs[n - 1], sys[n - 1]], [bx + bw, sys[n - 1]]);
+    links.push({ points: swPts, arrow: false, asphalt: true, width: rwS });
+    items.forEach(function (it, i) {
+      node('dot', sxs[i] - dS / 2, sys[i] - dS / 2, dS, dS, 'dot', { num: String(i + 1) }, i, { shape: 'circle', pad: 0, padY: 0, pin: true, alwaysPin: true });
+      var left = i === 0 ? bx : (sxs[i - 1] + sxs[i]) / 2 + rwS / 2 + gapS;
+      var right = i === n - 1 ? bx + bw : (sxs[i] + sxs[i + 1]) / 2 - rwS / 2 - gapS;
+      if (i % 2 === 0) {
+        var topP = crestY + rwS / 2 + RS + gapS;
+        node('card', left, topP, right - left, by + bh - topP, 'card', runs(it, { kicker: true, icon: true }), i, { plain: true, valign: 'start' });
+      } else {
+        var bottomP = valleyY - Math.max(RS + rwS / 2, pinHS) - gapS;
+        node('card', left, by, right - left, bottomP - by, 'card', runs(it, { kicker: true, icon: true }), i, { plain: true, valign: 'end' });
+      }
+    });
   }
 
   // A box in relief keeps the same rectangle and gives part of it to its edge:

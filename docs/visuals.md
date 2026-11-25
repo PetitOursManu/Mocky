@@ -73,9 +73,10 @@ would be a call for nothing.
 | Kanban | Work by status |
 | Zigzag list | Key points, left then right of a line |
 | Winding road | Milestones on a road that winds, every turn rounded |
+| Switchback road | A mountain road in wide bends, from the top of the frame to the bottom, the texts in the pockets it leaves |
 
 :::why
-The forty-five families were chosen from what the tools of this kind draw —
+The forty-six families were chosen from what the tools of this kind draw —
 Napkin, PowerPoint's SmartArt, the open-source AntV Infographic and Mermaid, the
 template galleries of draw.io and Miro — and kept where a business or teaching
 text actually takes that shape. Each is drawn by Mocky's own layout; none of
