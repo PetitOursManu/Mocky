@@ -1181,7 +1181,11 @@ remembers its block by DIGEST (`Screen.illustrates`), never by position.
 — no model, because the layout measures its box. Straight connectors are thin
 HTML boxes (shapes in the .pptx); only curves and arrow tips are SVG. MCP:
 `create_visual` (writer) and `list_visual_families` (in `READ_TOOLS`), the
-families mirrored in `server/mcp/visual-families.js`.
+families mirrored in `server/mcp/visual-families.js`. `look` (flat, raised,
+block, glass, gradient) is a RENDERING: it repaints the rectangles the layout
+gave and never moves one (a test holds that), except the room a roadmap's pins
+need; a box in relief gives its `depth` to its edge and the text is fitted in
+the face that is left.
 
 ## Fonts in a generated page
 

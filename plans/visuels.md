@@ -57,6 +57,17 @@ lecteur quand la page n'en déclare pas (« 92 % »).
 Non vérifié : le .pptx ouvert dans PowerPoint et Canva (compté dans le fichier :
 formes et zones de texte, images pour les seules liaisons).
 
+## État au 26/11/2026 — les rendus
+
+Après les captures d'AntV Infographic envoyées par l'utilisateur : un axe
+`look` indépendant de la famille et de la variante — `flat`, `raised`, `block`
+(fausse 3D CSS : faces du dessus et de côté, cylindres, sphères, route et
+épingles), `glass`, `gradient`. Choisi par le modèle d'après la demande et la
+direction, changé sans frais dans « Visuel… ». Le texte reste sur la face avant,
+mesuré et modifiable ; les faces sortent en images dans le .pptx. Non fait : les
+illustrations (montagnes, nuages) et l'isométrie vraie, qui demanderaient de
+dessiner des scènes plutôt que des boîtes.
+
 ## État au 26/11/2026 — 44 familles
 
 24 familles de plus, choisies d'après un relevé des catalogues de Napkin (aucun

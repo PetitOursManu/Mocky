@@ -13,7 +13,7 @@
  * visual says: the dialog still switches the family, the number check stays
  * silent. Never a guess.
  */
-import { isVisualFamily, isVisualVariant, type VisualDoc, type VisualFamily, type VisualVariant } from './families'
+import { isVisualFamily, isVisualLook, isVisualVariant, type VisualDoc, type VisualFamily, type VisualLook, type VisualVariant } from './families'
 
 export const VISUAL_COMPONENT = 'Visual'
 
@@ -22,6 +22,7 @@ export interface ScreenVisual {
   index: number
   family: string | null
   variant: string | null
+  look: string | null
   /** The other families the generation proposed for this content, best first. */
   alternatives: VisualFamily[]
   doc: VisualDoc | null
@@ -30,6 +31,7 @@ export interface ScreenVisual {
 export interface VisualChange {
   family?: VisualFamily
   variant?: VisualVariant
+  look?: VisualLook
 }
 
 type Edit = { start: number; end: number; text: string }
@@ -158,6 +160,7 @@ export async function findScreenVisuals(source: string): Promise<ScreenVisual[]>
       index,
       family: literal(attrOf(opening, 'family')),
       variant: literal(attrOf(opening, 'variant')),
+      look: literal(attrOf(opening, 'look')),
       alternatives: Array.isArray(altValue) ? altValue.filter((f): f is VisualFamily => isVisualFamily(f)) : [],
       doc: value === NOT_DATA ? null : asDoc(value),
     }
@@ -175,6 +178,7 @@ function apply(source: string, edits: Edit[]): string {
 export async function changeScreenVisual(source: string, index: number, change: VisualChange): Promise<string | null> {
   if (change.family !== undefined && !isVisualFamily(change.family)) return null
   if (change.variant !== undefined && !isVisualVariant(change.variant)) return null
+  if (change.look !== undefined && !isVisualLook(change.look)) return null
   const found = await visit(source)
   const el = found?.find((v) => v.index === index)
   if (!el || typeof el.opening?.name?.end !== 'number') return null
@@ -187,6 +191,7 @@ export async function changeScreenVisual(source: string, index: number, change: 
   }
   set('family', change.family)
   set('variant', change.variant)
+  set('look', change.look)
   // The family it is leaving stays on offer: it was the generation's first
   // choice, and after one switch the dialog would otherwise forget it.
   const before = literal(attrOf(el.opening, 'family'))

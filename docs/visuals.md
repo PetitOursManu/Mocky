@@ -174,6 +174,33 @@ A straight connector (a step's arrow, a timeline's axis, a tree's branches) is a
 thin shape too; only curved connectors, arrow tips and the donut come out as
 pictures.
 
+## Colours and rendering
+
+:::why
+A diagram for a playful brand, a dark slide and a sober report should not look
+alike. The family says the structure; the colours and the rendering say the
+tone, and both are separate from it, so neither costs the content anything.
+:::
+
+The colours are your project's, or the ones your request names ("in blue and
+orange", "on a dark background"): the generation passes them to the visual, and
+every text is then measured against its surface and kept readable.
+
+The **rendering** is chosen the same way, from the request and the project's
+direction, and can be switched in **Visual…** → **Rendering** at no cost:
+
+| Rendering | What it draws |
+|---|---|
+| Flat | Plain boxes — sober, the default |
+| Raised | Boxes lifted on a solid edge, like keys |
+| 3D | Fake 3D in CSS: boxes with a top and a side face, columns as cylinders, dots as spheres, a roadmap as a road with pins |
+| Glass | Frosted, translucent boxes — on a dark or photographic background |
+| Gradient | Soft gradients, always running away from the text's colour |
+
+A rendering moves nothing: the boxes keep their places and their text, which
+stays flat, readable and editable in PowerPoint. The faces of the 3D and the
+glass come out as pictures there.
+
 ## In another size
 
 :::why

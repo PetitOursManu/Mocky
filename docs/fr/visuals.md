@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 648c2ffbdf0d
+source_hash: ac860aedc5ff
 ---
 
 # Visuels
@@ -184,6 +184,34 @@ séparés** dans l’export PowerPoint rend chaque case en forme et chaque libel
 zone de texte. Une liaison droite (la flèche entre deux étapes, l’axe d’une frise,
 les branches d’un arbre) est aussi une forme fine ; seules les liaisons courbes,
 les pointes de flèche et l’anneau sortent en images.
+
+## Couleurs et rendu
+
+:::why
+Un schéma pour une marque ludique, une diapositive sombre et un rapport sobre ne
+doivent pas se ressembler. La famille dit la structure ; les couleurs et le rendu
+disent le ton, et ils en sont séparés, donc aucun des deux ne coûte rien au
+contenu.
+:::
+
+Les couleurs sont celles du projet, ou celles que nomme votre demande (« en bleu
+et orange », « sur fond sombre ») : la génération les passe au visuel, et chaque
+texte est ensuite mesuré contre sa surface et reste lisible.
+
+Le **rendu** se choisit de la même façon, d’après la demande et la direction du
+projet, et se change dans **Visuel…** → **Rendu** sans frais :
+
+| Rendu | Ce qu’il dessine |
+|---|---|
+| Plat | Des cases simples — sobre, par défaut |
+| Relief | Des cases posées sur une tranche, comme des touches |
+| 3D | De la fausse 3D en CSS : des cases avec une face du dessus et une face de côté, des colonnes en cylindres, des pastilles en sphères, une feuille de route en vraie route avec des épingles |
+| Verre | Des cases translucides en verre dépoli — sur un fond sombre ou photographique |
+| Dégradé | Des dégradés doux, toujours dans le sens qui épargne la couleur du texte |
+
+Un rendu ne déplace rien : les cases gardent leur place et leur texte, qui reste
+à plat, lisible et modifiable dans PowerPoint. Les faces de la 3D et le verre y
+sortent en images.
 
 ## Dans un autre format
 

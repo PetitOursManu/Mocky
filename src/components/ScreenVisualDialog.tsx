@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { VISUAL_FAMILIES, VISUAL_THEME, VISUAL_VARIANTS, familyRefusal, type VisualFamily, type VisualVariant } from '../lib/visuals/families'
+import { VISUAL_FAMILIES, VISUAL_LOOKS, VISUAL_THEME, VISUAL_VARIANTS, familyRefusal, type VisualFamily, type VisualLook, type VisualVariant } from '../lib/visuals/families'
 import { themeDocumentFormats } from '../lib/screenThemes'
 import type { PageFormatId } from '../lib/pageFormats'
 import { changeScreenVisual, findScreenVisuals, type ScreenVisual, type VisualChange } from '../lib/visuals/read'
@@ -210,6 +210,17 @@ export default function ScreenVisualDialog({
             <p className="kicker mt-4">{t('visuals.others')}</p>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{others.map(tile)}</div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-body-sm text-ink-muted">{t('visuals.look')}</span>
+              {VISUAL_LOOKS.map((look: VisualLook) => {
+                const on = (v.look ?? 'flat') === look
+                return (
+                  <Button key={look} variant="ghost" active={on} size="sm" aria-pressed={on} onClick={() => !on && void apply(v.index, { look })}>
+                    {t(`visuals.look.${look}`)}
+                  </Button>
+                )
+              })}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="text-body-sm text-ink-muted">{t('visuals.variant')}</span>
               {VISUAL_VARIANTS.map((variant: VisualVariant) => {
                 const on = (v.variant ?? 'soft') === variant

@@ -90,6 +90,18 @@ export const VISUAL_FAMILIES = [
 
 export type VisualFamily = (typeof VISUAL_FAMILIES)[number]
 
+/**
+ * How a visual is RENDERED, independently of its family and its variant: flat,
+ * lifted, in oblique 3D (top and side faces, cylinders, spheres, a road with
+ * pins), frosted glass, gradients. The model picks it from the request and the
+ * project's direction; the person switches it in "Visual…" for free.
+ */
+export const VISUAL_LOOKS = ['flat', 'raised', 'block', 'glass', 'gradient'] as const
+export type VisualLook = (typeof VISUAL_LOOKS)[number]
+export function isVisualLook(v: unknown): v is VisualLook {
+  return typeof v === 'string' && (VISUAL_LOOKS as readonly string[]).includes(v)
+}
+
 /** How the boxes are painted. Three, so a family is not one look. */
 export const VISUAL_VARIANTS = ['soft', 'solid', 'outline'] as const
 export type VisualVariant = (typeof VISUAL_VARIANTS)[number]

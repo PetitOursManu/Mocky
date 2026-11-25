@@ -135,7 +135,7 @@ function mockyVisualNum(v, unit) {
 /** Height a stack of runs needs in a node, or Infinity when a word cannot fit. */
 function mockyVisualStackH(n, s, showDetail) {
   // A vertical run (a matrix's y axis) is laid along the box's height.
-  var w = (n.vertical ? n.h : n.w) - 2 * n.pad;
+  var w = (n.vertical ? n.h : n.w) - 2 * n.pad - (n.depth || 0);
   var t = n.t, h = 0, parts = 0, lines;
   if (t.icon) { h += s.L * 1.45; parts++; }
   if (t.value) { lines = mockyVisualLines(t.value, s.V, w, 1.08); if (!isFinite(lines)) return Infinity; h += lines * s.V * 1.08; parts++; }
@@ -161,7 +161,7 @@ function mockyVisualFitGroup(nodes, maxL, minL, valueScale) {
   var minD = Math.max(9, minL * 0.82);
   function sizes(L) { return { L: L, D: Math.max(minD, Math.min(L * 0.78, L - 2)), V: L * valueScale }; }
   function fits(s, showDetail) {
-    for (var i = 0; i < nodes.length; i++) if (mockyVisualStackH(nodes[i], s, showDetail) > (nodes[i].vertical ? nodes[i].w : nodes[i].h) + 0.5) return false;
+    for (var i = 0; i < nodes.length; i++) if (mockyVisualStackH(nodes[i], s, showDetail) > (nodes[i].vertical ? nodes[i].w : nodes[i].h) - (nodes[i].depth || 0) + 0.5) return false;
     return true;
   }
   var hasDetail = nodes.some(function (n) { return n.t.detail || (n.t.list && n.t.list.length); });
@@ -296,8 +296,9 @@ function mockyVisualSquarify(values, x, y, w, h) {
  * Nodes: { kind, x, y, w, h, g (the type role it is sized with), t (its runs),
  * tone, shape, align }. Links: { points, arrow, label }.
  */
-function mockyVisualLayout(family, rawDoc, W, H) {
+function mockyVisualLayout(family, rawDoc, W, H, opts) {
   var doc = mockyVisualClean(rawDoc);
+  var lookOpt = opts && opts.look;
   var fam = MOCKY_VISUAL_FAMILIES.indexOf(family) >= 0 ? family : 'steps';
   var bounds = MOCKY_VISUAL_BOUNDS[fam];
   var u = Math.max(6, Math.min(W, H) / 40);
@@ -1063,8 +1064,10 @@ function mockyVisualLayout(family, rawDoc, W, H) {
     for (var rm = 0; rm < n; rm++) {
       var cxR = bx + slotR * (rm + 0.5), cyR = roadY(cxR), upR = rm % 2 === 0;
       var txR = Math.max(bx, Math.min(bx + bw - twR, cxR - twR / 2));
-      var tyR = upR ? by : midR + amp + dR2 / 2 + u * 1.2, thR = upR ? midR - amp - dR2 / 2 - u * 1.2 - by : by + bh - tyR;
-      node('dot', cxR - dR2 / 2, cyR - dR2 / 2, dR2, dR2, 'dot', { num: String(rm + 1) }, rm, { shape: 'circle', pad: 0, padY: 0 });
+      // A pin stands above its milestone: the texts above the road keep clear of it.
+      var pinRoom = lookOpt === 'raised' || lookOpt === 'block' ? dR2 * 1.8 : 0;
+      var tyR = upR ? by : midR + amp + dR2 / 2 + u * 1.2, thR = upR ? midR - amp - dR2 / 2 - u * 1.2 - pinRoom - by : by + bh - tyR;
+      node('dot', cxR - dR2 / 2, cyR - dR2 / 2, dR2, dR2, 'dot', { num: String(rm + 1) }, rm, { shape: 'circle', pad: 0, padY: 0, pin: true });
       node('card', txR, tyR, twR, thR, 'card', runs(items[rm], { kicker: true }), rm, { align: 'left', valign: upR ? 'end' : 'start', plain: true });
       links.push({ points: upR ? [[cxR, cyR - dR2 / 2], [cxR, tyR + thR]] : [[cxR, cyR + dR2 / 2], [cxR, tyR]], arrow: false, faint: true });
     }
@@ -1078,6 +1081,13 @@ function mockyVisualLayout(family, rawDoc, W, H) {
       node('card', leftZ ? bx : axX + dZ / 2 + u * 1.4, yZ, cwZ, rhZ, 'card', runs(items[zi]), zi, { align: leftZ ? 'right' : 'left' });
     }
   }
+
+  // A box in relief keeps the same rectangle and gives part of it to its edge:
+  // the text is then fitted in the face that is left, so the look changes
+  // nothing about where anything stands.
+  if (lookOpt === 'raised' || lookOpt === 'block') nodes.forEach(function (nd) {
+    if ((nd.kind === 'card' || nd.kind === 'band' || nd.kind === 'centre') && !nd.plain && nd.shape !== 'circle') nd.depth = Math.max(4, Math.min(lookOpt === 'block' ? u * 1.3 : u * 0.9, nd.w * 0.1, nd.h * 0.16));
+  });
 
   // ---- one size per role ----
   var groups = {};
@@ -1142,7 +1152,8 @@ function Visual(props) {
   }, []);
 
   var W = size[0], H = size[1];
-  var lay = mockyVisualLayout(p.family, p.doc, W, H);
+  var look = ['raised', 'block', 'glass', 'gradient'].indexOf(p.look) >= 0 ? p.look : 'flat';
+  var lay = mockyVisualLayout(p.family, p.doc, W, H, { look: look });
   var u = lay.u;
   var variant = p.variant === 'solid' || p.variant === 'outline' ? p.variant : 'soft';
   var ground = mockyVisualRgb(p.ground) ? p.ground : '#ffffff';
@@ -1164,6 +1175,19 @@ function Visual(props) {
     else { fill = mockyVisualMix(ground, c, nd.soft && variant === 'solid' ? 0.12 : 0.16); text = mockyVisualInkOn(fill, [ink]); mark = mockyVisualMark(c, fill, ink, 3); }
     return { fill: fill, border: border, text: text, mark: mark, sub: mockyVisualContrast(mockyVisualMix(text, fill === 'transparent' ? ground : fill, 0.18), fill === 'transparent' ? ground : fill) >= 4.5 ? mockyVisualMix(text, fill === 'transparent' ? ground : fill, 0.18) : text };
   }
+  var rgba = function (hex, a) { var v = mockyVisualRgb(hex) || [0, 0, 0]; return 'rgba(' + v[0] + ',' + v[1] + ',' + v[2] + ',' + a + ')'; };
+  var light = function (hex, t) { return mockyVisualMix(hex, '#ffffff', t); };
+  var dark = function (hex, t) { return mockyVisualMix(hex, '#000000', t); };
+  /** A sphere, lit from the top left: the dots of a visual in relief. */
+  var sphere = function (c) { return 'radial-gradient(circle at 34% 30%, ' + light(c, 0.55) + ', ' + c + ' 58%, ' + dark(c, 0.32) + ')'; };
+  /**
+   * A gradient that never costs the text its contrast: it runs towards the
+   * side the ink is NOT on — darker under light text, lighter under dark text.
+   */
+  var gradientUnder = function (face, text) {
+    var end = mockyVisualLum(text) > 0.4 ? dark(face, 0.2) : light(face, 0.28);
+    return 'linear-gradient(160deg, ' + end + ', ' + face + ' 75%)';
+  };
   function radius(nd) {
     if (nd.shape === 'circle' || nd.shape === 'pill') return Math.min(nd.w, nd.h) / 2;
     return Math.min(u * 0.8, nd.h / 4, nd.w / 4);
@@ -1214,6 +1238,13 @@ function Visual(props) {
     e('defs', null, e('marker', { id: marker, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, e('path', { d: 'M0 0 L10 5 L0 10 z', fill: line }))),
     drawn.map(function (l, i) {
       var col = linkCol(l), sw = linkW(l);
+      if (l.road && (look === 'raised' || look === 'block')) {
+        // Asphalt with a dashed centre line: the roadmap as a road.
+        var asphalt = mockyVisualLum(ground) > 0.4 ? '#3f3f46' : '#52525b';
+        return e('g', { key: i },
+          e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: asphalt, strokeWidth: stroke * 6, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+          e('path', { d: mockyVisualPath(l.points), fill: 'none', stroke: '#ffffff', strokeWidth: Math.max(1.5, stroke * 0.8), strokeDasharray: stroke * 3 + ' ' + stroke * 3 }));
+      }
       if (l.fill) return e('path', { key: i, d: mockyVisualPath(l.points) + ' Z', fill: mockyVisualMix(ground, l.tone != null ? tone(l.tone) : ink, 0.22), stroke: l.nostroke ? 'none' : col, strokeWidth: sw, strokeLinejoin: 'round' });
       var st = straightOf(l);
       if (st && !l.arrow) return null;
@@ -1238,7 +1269,15 @@ function Visual(props) {
     if (nd.kind === 'dot') {
       var dc = mockyVisualInkOn(c, [ground, ink]);
       var content = nd.t.icon ? iconOf(nd.t.icon, nd.w * 0.5, dc) : null;
-      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: c, color: dc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: nd.w * 0.42, lineHeight: 1 }) }, content || nd.t.num || null));
+      if (nd.pin && (look === 'raised' || look === 'block')) {
+        // A map pin standing on the road, its tip on the milestone.
+        var pinS = nd.w * 1.25, pcx = nd.x + nd.w / 2, pcy = nd.y + nd.h / 2;
+        children.push(e('div', { key: key, 'aria-hidden': 'true', style: { position: 'absolute', left: pcx - pinS / 2, top: pcy - pinS * 1.45, width: pinS, height: pinS, borderRadius: '50% 50% 50% 0', transform: 'rotate(-45deg)', background: look === 'block' ? sphere(c) : c, boxShadow: '0 ' + u * 0.3 + 'px ' + u * 0.6 + 'px rgba(0,0,0,0.25)' } }));
+        children.push(e('div', { key: key + 'h', style: { position: 'absolute', left: pcx - pinS * 0.3, top: pcy - pinS * 1.25, width: pinS * 0.6, height: pinS * 0.6, borderRadius: '50%', background: '#ffffff', color: mockyVisualMark(c, '#ffffff', ink, 3), display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: pinS * 0.3, lineHeight: 1 } }, nd.t.num || null));
+        return;
+      }
+      var dotBg = look === 'raised' || look === 'block' ? sphere(c) : look === 'gradient' ? gradientUnder(c, dc) : look === 'glass' ? rgba(c, 0.72) : c;
+      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: '50%', background: dotBg, color: dc, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: nd.w * 0.42, lineHeight: 1, boxShadow: look === 'raised' || look === 'block' ? '0 ' + u * 0.25 + 'px ' + u * 0.5 + 'px rgba(0,0,0,0.22)' : undefined }) }, content || nd.t.num || null));
       return;
     }
     if (nd.kind === 'disc') {
@@ -1268,6 +1307,19 @@ function Visual(props) {
       return;
     }
     if (nd.kind === 'track') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.h / 2, background: mockyVisualMix(ground, c, 0.12) }) })); return; }
+    if (nd.kind === 'bar' && nd.col && look === 'block') {
+      // A column as a cylinder: a lit body and the ellipse of its top.
+      var eh = Math.min(nd.w * 0.32, u * 1.6, nd.h);
+      children.push(e('div', { key: key, style: Object.assign({}, base, { top: nd.y + eh / 2, height: Math.max(0, nd.h - eh / 2), background: 'linear-gradient(90deg, ' + dark(c, 0.28) + ', ' + c + ' 35%, ' + light(c, 0.3) + ' 55%, ' + c + ' 75%, ' + dark(c, 0.3) + ')', borderRadius: '0 0 50% 50% / 0 0 ' + eh / 2 + 'px ' + eh / 2 + 'px' }) }));
+      children.push(e('div', { key: key + 't', style: { position: 'absolute', left: nd.x, top: nd.y, width: nd.w, height: eh, borderRadius: '50%', background: light(c, 0.38) } }));
+      return;
+    }
+    if (nd.kind === 'bar' && (look === 'raised' || look === 'block' || look === 'gradient' || look === 'glass')) {
+      var bd = look === 'gradient' || look === 'glass' ? 0 : Math.min(nd.h * 0.28, u * 0.5);
+      var barBg = look === 'gradient' ? 'linear-gradient(90deg, ' + c + ', ' + light(c, 0.3) + ')' : look === 'glass' ? rgba(c, 0.7) : nd.col ? 'linear-gradient(90deg, ' + c + ', ' + light(c, 0.18) + ')' : 'linear-gradient(180deg, ' + light(c, 0.18) + ', ' + c + ')';
+      children.push(e('div', { key: key, style: Object.assign(base, { height: nd.col ? nd.h : nd.h - bd, borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : (nd.h - bd) / 2, background: barBg, boxShadow: bd ? '0 ' + bd + 'px 0 0 ' + dark(c, 0.3) : undefined }) }));
+      return;
+    }
     if (nd.kind === 'bar' || nd.kind === 'swatch') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : nd.kind === 'bar' ? nd.h / 2 : nd.h * 0.25, background: c }) })); return; }
     if (nd.kind === 'donut') {
       var total = nd.t.parts.reduce(function (a, v) { return a + v.v; }, 0) || 1;
@@ -1315,6 +1367,33 @@ function Visual(props) {
       padding: nd.padY + 'px ' + nd.pad + 'px', background: pnt.fill, border: pnt.border, borderRadius: radius(nd), color: pnt.text,
       overflowWrap: 'break-word', boxShadow: nd.ring ? '0 0 0 ' + Math.max(2, u * 0.2) + 'px ' + mockyVisualMark(c, ground, ink, 3) : undefined,
     });
+    var face = pnt.fill === 'transparent' ? null : pnt.fill;
+    var edgeBase = face === ground && !nd.solid ? c : face;
+    var dep = nd.depth || 0;
+    if (face && !nd.vertical && nd.kind !== 'text') {
+      if (look === 'gradient') style.background = gradientUnder(face, pnt.text);
+      if (look === 'glass') {
+        style.background = 'linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.04)), ' + rgba(face, 0.62);
+        style.backdropFilter = 'blur(10px)';
+        style.WebkitBackdropFilter = 'blur(10px)';
+        style.border = '1px solid ' + rgba(light(face, 0.5), 0.7);
+        style.boxShadow = [style.boxShadow, '0 ' + u * 0.4 + 'px ' + u * 1.4 + 'px rgba(0,0,0,0.16)'].filter(Boolean).join(', ');
+      }
+      if ((look === 'raised' || (look === 'block' && nd.shape === 'pill')) && dep) {
+        style.height = nd.h - dep;
+        style.boxShadow = [style.boxShadow, '0 ' + dep + 'px 0 0 ' + dark(edgeBase, 0.28), '0 ' + dep * 1.6 + 'px ' + dep * 2.4 + 'px rgba(0,0,0,0.2)'].filter(Boolean).join(', ');
+      }
+      if (look === 'block' && dep && nd.shape !== 'pill') {
+        // Oblique 3D: a top face and a right face, sheared from the front, so
+        // the box keeps its rectangle and its words stay flat and editable.
+        children.push(e('div', { key: key + 'top', 'aria-hidden': 'true', style: { position: 'absolute', left: nd.x, top: nd.y, width: nd.w - dep, height: dep, background: light(edgeBase, 0.3), transform: 'skewX(-45deg)', transformOrigin: '0 100%' } }));
+        children.push(e('div', { key: key + 'side', 'aria-hidden': 'true', style: { position: 'absolute', left: nd.x + nd.w - dep, top: nd.y + dep, width: dep, height: nd.h - dep, background: dark(edgeBase, 0.3), transform: 'skewY(-45deg)', transformOrigin: '0 0' } }));
+        style.top = nd.y + dep;
+        style.width = nd.w - dep;
+        style.height = nd.h - dep;
+        style.borderRadius = Math.min(u * 0.2, radius(nd));
+      }
+    }
     if (nd.vertical) {
       children.push(e('div', { key: key, style: Object.assign({}, base, { display: 'flex', alignItems: 'center', justifyContent: 'center' }) },
         e('div', { style: { transform: 'rotate(-90deg)', whiteSpace: 'nowrap', fontSize: s.L, fontWeight: 600, color: muted } }, nd.t.label)));

@@ -161,6 +161,39 @@ describe('<Visual> colour', () => {
   })
 })
 
+describe('<Visual> looks', () => {
+  const html = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(lib.Visual, props))
+  const LOOKS = ['flat', 'raised', 'block', 'glass', 'gradient']
+
+  it('renders every family in every look, with nothing undefined', () => {
+    for (const family of VISUAL_FAMILIES) {
+      const b = VISUAL_BOUNDS[family]
+      for (const look of LOOKS) {
+        const out = html({ family, look, doc: docFor(family, b.exact ? b.min : Math.min(b.max, 4)), colors: ['#0f766e', '#f59e0b'], ink: '#f8fafc', ground: '#0f172a', width: 1180, height: 620 })
+        expect(out, `${family}/${look}`).not.toMatch(/NaN|undefined|Infinity/)
+      }
+    }
+  })
+
+  it('moves no box: a look only repaints the rectangles the layout gave', () => {
+    for (const family of ['steps', 'staircase', 'comparison-table', 'hub'] as VisualFamily[]) {
+      const flat = lib.layout(family, docFor(family, 4), 1180, 620)
+      const block = (lib.layout as unknown as (f: string, d: unknown, w: number, h: number, o: unknown) => Layout)(family, docFor(family, 4), 1180, 620, { look: 'block' })
+      expect(block.nodes.map((n) => [n.kind, n.x, n.y, n.w, n.h])).toEqual(flat.nodes.map((n) => [n.kind, n.x, n.y, n.w, n.h]))
+    }
+  })
+
+  it('draws 3D as faces, cylinders, spheres and a road with pins', () => {
+    expect(html({ family: 'steps', look: 'block', doc: docFor('steps', 3), width: 1180, height: 620 })).toMatch(/skewX\(-45deg\)/)
+    expect(html({ family: 'columns', look: 'block', doc: docFor('columns', 3), width: 1180, height: 620 })).toMatch(/border-radius:50%/)
+    expect(html({ family: 'steps', look: 'raised', doc: docFor('steps', 3), width: 1180, height: 620 })).toMatch(/radial-gradient/)
+    const road = html({ family: 'roadmap', look: 'block', doc: docFor('roadmap', 4), width: 1180, height: 620 })
+    expect(road).toMatch(/stroke-dasharray/)
+    expect(road).toMatch(/50% 50% 50% 0/)
+    expect(html({ family: 'card-grid', look: 'glass', doc: docFor('card-grid', 3), width: 1180, height: 620 })).toMatch(/backdrop-filter/)
+  })
+})
+
 describe('<Visual> rendered', () => {
   const html = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(lib.Visual, props))
 
