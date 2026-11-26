@@ -1,17 +1,15 @@
 import type { Project } from '../project'
 import {
   companionSection,
+  flowDepthFor,
   knownRoutes,
-  MAX_COMPANIONS,
+  flowCountOf,
   missingRoutes,
   readFlow,
   resolveRoute,
   routeFor,
 } from '../flows'
 import { runNewScreen, type NewScreenHooks, type NewScreenRequest } from './newScreen'
-
-/** How far a flow is followed: the screen asked for, its pages, their pages. */
-const MAX_DEPTH = 2
 
 /** A screen created on its own because the flow needed it. */
 export interface CompanionScreen {
@@ -32,7 +30,8 @@ export interface CompanionScreen {
  * there, and the exact shared data that screen writes (`companionSection`).
  *
  * Decided with the user: automatic, not proposed. Bounded, because every
- * companion is a full generation: `MAX_COMPANIONS` in all, `MAX_DEPTH` levels
+ * companion is a full generation: `MAX_COMPANIONS` in all (or the count the
+ * person chose from a screen's menu, `flowCountOf`), `flowDepthFor` levels
  * (a cart's checkout's confirmation is the deepest a shop needs), the first
  * routes in the order the code opens them. A companion never runs Muse or
  * Motion Ultra — the direction is the project's, and the reference screen
@@ -52,15 +51,22 @@ export async function runFlowCompanions(
     getProject: () => Project
     /** The name a companion's route is shown as, in the person's language. */
     nameFor: (route: string) => string
+    /**
+     * How many screens to create, when the person chose it ("Générer le
+     * parcours…"). Absent: `MAX_COMPANIONS`, the composer's bound.
+     */
+    count?: number
   },
 ): Promise<CompanionScreen[]> {
+  const limit = flowCountOf(opts.count)
+  const maxDepth = flowDepthFor(limit)
   const created: CompanionScreen[] = []
   // The code travels with each step: the caller's screens are a render behind
   // (see NewScreenOutcome.code), and a screen read there may still be empty.
   const queue: { fromId: string; code: string; depth: number }[] = [{ fromId: originId, code: originCode, depth: 0 }]
   const { t } = hooks
 
-  while (queue.length && created.length < MAX_COMPANIONS) {
+  while (queue.length && created.length < limit) {
     const { fromId, code, depth } = queue.shift()!
     const screens = hooks.currentScreens()
     const from = screens.find((s) => s.id === fromId)
@@ -76,7 +82,7 @@ export async function runFlowCompanions(
     if (from.route !== originRoute) hooks.updateScreen(from.id, { route: originRoute })
 
     for (const m of missing) {
-      if (created.length >= MAX_COMPANIONS) break
+      if (created.length >= limit) break
       if (hooks.signal.aborted) throw new DOMException('Aborted', 'AbortError')
       const now = hooks.currentScreens()
       // Made meanwhile, by an earlier companion of the same run.
@@ -122,7 +128,7 @@ export async function runFlowCompanions(
         hooks,
       )
       created.push({ route: m.route, screenId: outcome.screenId })
-      if (depth + 1 < MAX_DEPTH && outcome.code && !outcome.error) {
+      if (depth + 1 < maxDepth && outcome.code && !outcome.error) {
         queue.push({ fromId: outcome.screenId, code: outcome.code, depth: depth + 1 })
       }
     }
