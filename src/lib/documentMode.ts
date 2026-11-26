@@ -117,6 +117,9 @@ const FORMAT_NAMES: Record<PageFormatId, string> = {
   'social-portrait': 'portrait social media post (4:5)',
   'social-story': 'full-screen vertical story (9:16)',
   'social-landscape': 'landscape social media image (1.91:1)',
+  'store-iphone': 'App Store iPhone 6.9" screenshot (1320 × 2868)',
+  'store-ipad': 'App Store iPad 13" screenshot (2064 × 2752)',
+  'store-android': 'Google Play phone screenshot (1080 × 1920)',
 }
 
 /** What the model is told it is making, by kind. */
@@ -126,13 +129,17 @@ const KIND_WORDS: Record<PageFormat['kind'], { what: string; page: string; name:
   social: { what: 'a SOCIAL MEDIA VISUAL', page: 'image', name: 'a social media visual' },
 }
 
+/** A store screenshot is made like a post, and is not one: it is called what it is. */
+const STORE_WORDS = { what: 'a set of APP STORE SCREENSHOTS', page: 'screenshot', name: 'a set of app store screenshots' }
+const wordsFor = (f: PageFormat) => (f.store ? STORE_WORDS : KIND_WORDS[f.kind])
+
 /**
  * The format in a few English words, for prompts that only need to name it —
  * the prompt enhancer's "Form factor:", where "Desktop" used to be.
  */
 export function pageFormatName(id: PageFormatId): string {
   const f = getPageFormat(id)
-  return `${FORMAT_NAMES[f.id]}, ${KIND_WORDS[f.kind].name} of fixed pages`
+  return `${FORMAT_NAMES[f.id]}, ${wordsFor(f).name} of fixed pages`
 }
 
 /**
@@ -180,7 +187,7 @@ ${foldHint(fold, format.id)}` : base
 }
 
 function flatDocumentHint(format: PageFormat): string {
-  const { what, page } = KIND_WORDS[format.kind]
+  const { what, page } = wordsFor(format)
   const social = format.kind === 'social'
   const story = format.id === 'social-story'
   const card = isCardFormat(format.id)
@@ -188,9 +195,11 @@ function flatDocumentHint(format: PageFormat): string {
   return [
     `FORMAT: ${what}, not a web page — ${FORMAT_NAMES[format.id]}. Every ${page} is a FIXED box of exactly ${format.w}×${format.h}px${social ? '' : ' (96 px per inch)'}.`,
     `Write the root as <Doc format="${format.id}"> and put each ${page} in its own <Page className="…">, in order. The kit gives every <Page> its exact size, stacks them and lays them out for ${social ? 'export as images' : 'print and PDF'}: never set a ${page}'s width or height yourself, never make one scroll, and never let content run from one ${page} into the next — each ${page} is composed on its own, like a sheet in a layout program. If the content does not fit, cut copy or add a <Page>.`,
-    social
-      ? `Several <Page>s make a CAROUSEL, swiped one ${page} at a time: each one must work on its own, and the first must stop the scroll.`
-      : '',
+    format.store
+      ? `Several <Page>s make the store's ROW of screenshots, seen side by side on the app's page and swiped: each one sells ONE thing, and the first two are all most people see.`
+      : social
+        ? `Several <Page>s make a CAROUSEL, swiped one ${page} at a time: each one must work on its own, and the first must stop the scroll.`
+        : '',
     `Keep every word, logo, field and important element at least ${margin}px inside the ${page} edges; only backgrounds, colour blocks and decorative shapes may bleed off the edge.`,
     story
       ? `The app draws its own bars over the top ${STORY_SAFE_TOP_PX}px and the bottom ${STORY_SAFE_BOTTOM_PX}px of a story: nothing that must be read goes there.`

@@ -25,7 +25,8 @@ import { useT } from '../i18n'
  */
 const THEME_GROUPS = [
   { key: 'composer.themeGroupDocuments', themes: SCREEN_THEMES.filter((th) => th.document && formatFamily(th.document.page) === 'paper') },
-  { key: 'composer.themeGroupSocial', themes: SCREEN_THEMES.filter((th) => th.document && formatFamily(th.document.page) === 'social') },
+  // The store screenshots sit with the posts: images made to be published, in exact pixels.
+  { key: 'composer.themeGroupSocial', themes: SCREEN_THEMES.filter((th) => th.document && formatFamily(th.document.page) !== 'paper') },
   { key: 'composer.themeGroupScreens', themes: SCREEN_THEMES.filter((th) => !th.document) },
 ].filter((g) => g.themes.length > 0)
 

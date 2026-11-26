@@ -61,6 +61,7 @@ export const SCREEN_THEME_IDS = [
   'instagram',
   'facebook',
   'linkedin',
+  'app-store',
 ] as const
 
 export type ScreenThemeId = (typeof SCREEN_THEME_IDS)[number]
@@ -492,6 +493,19 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - Credible and uncluttered: data drawn as a simple chart or a large number rather than a paragraph. No fillable fields.
 - Real, specific content for the subject requested, never placeholders.
 - Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
+  },
+  {
+    id: 'app-store',
+    icon: 'phone',
+    name: 'App Store screenshots',
+    document: { page: 'store-iphone', formats: ['store-iphone', 'store-ipad', 'store-android'] },
+    brief: `A set of APP STORE SCREENSHOTS: the row of images on an app's page in the App Store or Google Play, which decides whether someone installs it. FIVE <Page>s unless the request says otherwise (at most ten), in the order the row is read.
+- Each screenshot sells ONE benefit: a caption of three to six words at the top, set very large and bold, saying what the person GETS ("Plan a week in two minutes"), not what the feature is called; an optional short line under it.
+- Under the caption, the app itself: its screen drawn as a real interface (navigation, real content, realistic data) inside a phone frame — a rounded rectangle with a thin dark bezel and a small camera island, about three quarters of the page's width, the same frame on every page; an iPad frame on the iPad size; on Google Play, the same with a punch-hole camera. The screen in the frame is what the caption promises, so the five frames show five different screens of one app.
+- The first screenshot is the hero: the app's core promise and its most recognisable screen. The last can be a closing benefit, a rating or an award line when the request gives one — never an invented figure.
+- One background system across the row — the same ground, or shapes that run on from one screenshot to the next — so the row reads as one set, with the caption always on a calm area.
+- The app's name as a small wordmark is optional; no price, no "free", no store badges, no device brand logos, nothing about other platforms.
+- Real copy for the app requested, in the language of the request, never placeholders.`,
   },
 ]
 

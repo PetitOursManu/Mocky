@@ -37,6 +37,9 @@ export type PageFormatId =
   | 'social-portrait'
   | 'social-story'
   | 'social-landscape'
+  | 'store-iphone'
+  | 'store-ipad'
+  | 'store-android'
 
 export interface PageFormat {
   id: PageFormatId
@@ -54,6 +57,12 @@ export interface PageFormat {
    * seen on a phone, never printed.
    */
   kind: 'print' | 'slides' | 'social'
+  /**
+   * An app store's screenshot size. Made like a post — exact pixels, a PNG at
+   * 1×, a row of pages — and never offered beside one: a store refuses any
+   * other size, and a post at 1320 × 2868 is nobody's feed.
+   */
+  store?: true
 }
 
 /**
@@ -85,6 +94,12 @@ export interface PageFormat {
  * LinkedIn image). Their points are the pixels × 0.75 like every other page, so
  * a carousel exported as a PDF — what LinkedIn calls a document post — keeps
  * the same proportions.
+ *
+ * The store formats are the screenshot sizes the stores accept as they are:
+ * 1320 × 2868 (App Store, iPhone 6.9", the set Apple scales down for every
+ * smaller iPhone), 2064 × 2752 (App Store, iPad 13") and 1080 × 1920 (Google
+ * Play, a phone in 9:16). A store checks the pixels and refuses anything else,
+ * which is why they are formats and not a word in a brief.
  */
 export const PAGE_FORMATS: readonly PageFormat[] = [
   { id: 'a4', w: 794, h: 1123, widthPt: 595.28, heightPt: 841.89, cssSize: 'A4 portrait', kind: 'print' },
@@ -108,6 +123,9 @@ export const PAGE_FORMATS: readonly PageFormat[] = [
   { id: 'social-portrait', w: 1080, h: 1350, widthPt: 810, heightPt: 1012.5, cssSize: '1080px 1350px', kind: 'social' },
   { id: 'social-story', w: 1080, h: 1920, widthPt: 810, heightPt: 1440, cssSize: '1080px 1920px', kind: 'social' },
   { id: 'social-landscape', w: 1200, h: 628, widthPt: 900, heightPt: 471, cssSize: '1200px 628px', kind: 'social' },
+  { id: 'store-iphone', w: 1320, h: 2868, widthPt: 990, heightPt: 2151, cssSize: '1320px 2868px', kind: 'social', store: true },
+  { id: 'store-ipad', w: 2064, h: 2752, widthPt: 1548, heightPt: 2064, cssSize: '2064px 2752px', kind: 'social', store: true },
+  { id: 'store-android', w: 1080, h: 1920, widthPt: 810, heightPt: 1440, cssSize: '1080px 1920px', kind: 'social', store: true },
 ]
 
 export const PAGE_FORMAT_IDS = PAGE_FORMATS.map((f) => f.id)
@@ -128,8 +146,9 @@ export function getPageFormat(id: PageFormatId): PageFormat {
  * but a post laid out in 1080 px for a phone is not the same piece at A4, so
  * the composer never offers the jump (`composerPageFormat`).
  */
-export function formatFamily(id: PageFormatId): 'paper' | 'social' {
-  return getPageFormat(id).kind === 'social' ? 'social' : 'paper'
+export function formatFamily(id: PageFormatId): 'paper' | 'social' | 'store' {
+  const f = getPageFormat(id)
+  return f.store ? 'store' : f.kind === 'social' ? 'social' : 'paper'
 }
 
 export function formatsLike(id: PageFormatId): PageFormat[] {

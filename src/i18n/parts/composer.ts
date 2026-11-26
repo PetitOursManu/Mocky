@@ -22,7 +22,7 @@ export const composer = {
     'composer.themeTitle': 'Choisir un type d’écran — sa structure type guide la génération',
     'composer.themeMenu': 'Types d’écran',
     'composer.themeGroupDocuments': 'Documents à imprimer ou exporter',
-    'composer.themeGroupSocial': 'Réseaux sociaux',
+    'composer.themeGroupSocial': 'Réseaux sociaux et stores d’apps',
     'composer.themeGroupScreens': 'Écrans',
     'composer.themeHint':
       'Le type donne au modèle les sections, composants et données attendus pour ce genre d’écran. Vos mots restent prioritaires, et le style reste celui de votre direction.',
@@ -122,6 +122,9 @@ export const composer = {
     'composer.themes.linkedin': 'Post LinkedIn',
     'composer.themes.linkedin.desc': 'Visuel professionnel, ou carrousel exporté en PDF (post document)',
     'composer.themes.linkedin.starter': 'Un carrousel LinkedIn : les quatre leçons de notre première année de startup',
+    'composer.themes.app-store': 'Captures App Store',
+    'composer.themes.app-store.desc': 'La rangée de captures d’une app pour l’App Store ou Google Play, aux tailles exactes, en PNG',
+    'composer.themes.app-store.starter': 'Cinq captures App Store pour une app de recettes qui planifie les repas de la semaine',
 
     // ---- page formats (document types) ----
     'composer.pageFormatsAria': 'Format de page',
@@ -180,6 +183,12 @@ export const composer = {
     'composer.pageFormat.social-story.full': 'Story ou couverture de reel, plein écran (9:16)',
     'composer.pageFormat.social-landscape': 'Paysage 1,91:1',
     'composer.pageFormat.social-landscape.full': 'Image paysage (1,91:1) : lien partagé, Facebook, LinkedIn',
+    'composer.pageFormat.store-iphone': 'iPhone',
+    'composer.pageFormat.store-iphone.full': 'App Store, iPhone 6,9 pouces (1320 × 2868) — Apple la réduit pour les autres iPhone',
+    'composer.pageFormat.store-ipad': 'iPad',
+    'composer.pageFormat.store-ipad.full': 'App Store, iPad 13 pouces (2064 × 2752)',
+    'composer.pageFormat.store-android': 'Google Play',
+    'composer.pageFormat.store-android.full': 'Google Play, téléphone (1080 × 1920)',
 
     // ---- improve my prompt ----
     'composer.enhance': 'Améliorer',
@@ -203,7 +212,7 @@ export const composer = {
     'composer.themeTitle': 'Pick a screen type — its typical structure guides the generation',
     'composer.themeMenu': 'Screen types',
     'composer.themeGroupDocuments': 'Documents to print or export',
-    'composer.themeGroupSocial': 'Social media',
+    'composer.themeGroupSocial': 'Social media and app stores',
     'composer.themeGroupScreens': 'Screens',
     'composer.themeHint':
       'The type gives the model the sections, components and data expected for that kind of screen. Your words still come first, and the style stays your direction’s.',
@@ -301,6 +310,9 @@ export const composer = {
     'composer.themes.linkedin': 'LinkedIn post',
     'composer.themes.linkedin.desc': 'A professional visual, or a carousel exported as PDF (document post)',
     'composer.themes.linkedin.starter': 'A LinkedIn carousel: the four lessons of our first year as a startup',
+    'composer.themes.app-store': 'App Store screenshots',
+    'composer.themes.app-store.desc': 'An app’s row of screenshots for the App Store or Google Play, at the exact sizes, as PNG',
+    'composer.themes.app-store.starter': 'Five App Store screenshots for a recipe app that plans the week’s meals',
 
     // ---- page formats (document types) ----
     'composer.pageFormatsAria': 'Page format',
@@ -359,6 +371,12 @@ export const composer = {
     'composer.pageFormat.social-story.full': 'Story or reel cover, full screen (9:16)',
     'composer.pageFormat.social-landscape': 'Landscape 1.91:1',
     'composer.pageFormat.social-landscape.full': 'Landscape image (1.91:1): shared link, Facebook, LinkedIn',
+    'composer.pageFormat.store-iphone': 'iPhone',
+    'composer.pageFormat.store-iphone.full': 'App Store, iPhone 6.9-inch (1320 × 2868) — Apple scales it down for the other iPhones',
+    'composer.pageFormat.store-ipad': 'iPad',
+    'composer.pageFormat.store-ipad.full': 'App Store, iPad 13-inch (2064 × 2752)',
+    'composer.pageFormat.store-android': 'Google Play',
+    'composer.pageFormat.store-android.full': 'Google Play, phone (1080 × 1920)',
 
     // ---- improve my prompt ----
     'composer.enhance': 'Improve',
