@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { VISUAL_BOUNDS, VISUAL_FAMILIES, VISUAL_VARIANTS, VISUALS_CAP, VISUAL_THEME, accepts, familyRefusal } from './families'
+import { VISUAL_BOUNDS, VISUAL_FAMILIES, VISUAL_VARIANTS, VISUALS_CAP, VISUAL_THEME, accepts, familyRefusal, requestAsksForVisual, screenDrawsVisuals } from './families'
 import { CAPABILITY_MAP } from '../capabilities/registry'
 import { capabilitiesUsedBy } from '../capabilities/select'
 import { getScreenTheme } from '../screenThemes'
@@ -52,5 +52,28 @@ describe('the Visual pack and the Visual screen type', () => {
     const theme = getScreenTheme(VISUAL_THEME)
     expect(theme?.document?.page).toBe('slides')
     expect(theme?.brief).toContain('<Visual>')
+  })
+})
+
+describe('a diagram asked for in words', () => {
+  it('is heard in French and English', () => {
+    for (const ask of [
+      'Ajoute une seconde version du premier écran mais qui utilise des schemas',
+      'un flyer avec un schéma des étapes', 'mets les chiffres dans des graphiques', 'une infographie sur le tri',
+      'a poster with a diagram of the process', 'add a chart of the sales', 'une frise chronologique', 'notre feuille de route 2027',
+      "l'organigramme de l'équipe",
+    ]) expect(requestAsksForVisual(ask), ask).toBe(true)
+  })
+  it('is not heard in a style word', () => {
+    for (const plain of [
+      'un flyer très graphique et coloré', 'respecte la charte graphique', 'un poster au style graphique suisse',
+      'a graphic, bold poster', 'un menu pour une pizzeria',
+    ]) expect(requestAsksForVisual(plain), plain).toBe(false)
+  })
+  it('adds the kit to a document that asks, never to an app screen', () => {
+    expect(screenDrawsVisuals('flyer', true, 'avec un schéma')).toBe(true)
+    expect(screenDrawsVisuals('flyer', true, 'pour un concert')).toBe(false)
+    expect(screenDrawsVisuals('instagram', true, 'pour un concert')).toBe(true)
+    expect(screenDrawsVisuals('dashboard', false, 'avec un schéma')).toBe(false)
   })
 })

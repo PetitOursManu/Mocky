@@ -223,7 +223,7 @@ import CampaignPanel, { type PieceResult } from './CampaignPanel'
 import { setDocFormat } from '../lib/visuals/read'
 import IllustratePanel from './IllustratePanel'
 import { blockName, type TextBlock } from '../lib/visuals/textBlocks'
-import { VISUAL_THEME } from '../lib/visuals/families'
+import { VISUAL_THEME, VISUALS_CAP, requestAsksForVisual } from '../lib/visuals/families'
 import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Banner, Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
@@ -3986,9 +3986,12 @@ export default function ProjectView({
       const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
       const extraSystem = joinSystem([designPreamble, hintForScreen(screen)])
       // Identity off a document; on one, only what paper can hold is offered.
-      const capIds = documentPipeline(screen.page).caps(
+      const pipeEl = documentPipeline(screen.page)
+      let capIds = pipeEl.caps(
         screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd),
       )
+      // "Turn this block into a diagram" on a document: the kit, as in screenCapabilities.
+      if (pipeEl.document && requestAsksForVisual(change) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
       const instruction = group && group.length > 1
@@ -6457,7 +6460,13 @@ export default function ProjectView({
           {/* The buttons, right under the field, as a message box has them: in
               the column the options below can scroll, and Generate must not
               scroll away with them. */}
-          <div className="mt-2 flex items-center justify-between gap-2">
+          {/* Wraps rather than overflows: while a screen is written, Stop and a
+              label like "Image du document…" joined Generate on a row the
+              narrow column cannot hold, and the sheet cut them off. The right
+              group then takes a line of its own (`flex-auto`: its basis is its
+              content, so it wraps instead of squeezing), and the label shortens
+              last, with the whole of it in the tooltip. */}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
             {/* The fold of the sheet, below md only. */}
             <button
@@ -6489,7 +6498,7 @@ export default function ProjectView({
               <span />
             )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-auto items-center justify-end gap-2">
               {busy && (
                 <button
                   type="button"
@@ -6502,7 +6511,8 @@ export default function ProjectView({
               )}
               <button
                 type="button"
-                className="btn-primary flex shrink-0 items-center gap-2"
+                className="btn-primary flex min-w-0 items-center gap-2"
+                title={busy && busyLabel ? busyLabel : undefined}
                 onClick={() => {
                   // On a phone the sheet folds so the screen being written shows.
                   if (phone) setSheetOpen(false)
@@ -6518,7 +6528,7 @@ export default function ProjectView({
                         visible est masque aux lecteurs d'ecran pour que l'etat ne
                         soit pas annonce deux fois. Le libelle disparait sous sm. */}
                     <MockyLoader size={32} label={busyLabel} className="shrink-0" />
-                    <span aria-hidden className="hidden sm:inline">
+                    <span aria-hidden className="hidden min-w-0 truncate sm:inline">
                       {busyLabel}
                     </span>
                   </>

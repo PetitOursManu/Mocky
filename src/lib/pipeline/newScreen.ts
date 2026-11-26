@@ -103,7 +103,7 @@ import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
 import { currentUsageRun, setUsageRun } from '../proxy'
 import { briefFixInstruction, briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
-import { VISUAL_THEME, VISUALS_CAP, themeDrawsVisuals } from '../visuals/families'
+import { VISUAL_THEME, VISUALS_CAP, VISUAL_ASKED_SECTION, requestAsksForVisual, screenDrawsVisuals, themeDrawsVisuals } from '../visuals/families'
 import { checkVisualFigures } from '../visuals/check'
 
 /** What the run is busy with, for the composer's progress line. */
@@ -1245,7 +1245,12 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     capIds = pipe.caps(capIds)
     // A visual: the component that draws it, whatever the shortlist said (the
     // pack is never a guess — `forcedOnly`, see the registry).
-    if (themeDrawsVisuals(runTheme) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
+    if (screenDrawsVisuals(runTheme, pipe.document, text) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
+    // A flyer, a poster, a post… asked for a diagram: its brief does not say
+    // when to use the kit, so the request's own wish is said here.
+    if (!themeDrawsVisuals(runTheme) && pipe.document && requestAsksForVisual(text)) {
+      planSection = [planSection, VISUAL_ASKED_SECTION].filter(Boolean).join('\n\n')
+    }
     // A working prototype: the kit and its rules, on a screen (never a page of
     // a document — paper has no next page to open).
     if (req.flows && !pipe.document && !capIds.includes('flow')) capIds = [...capIds, 'flow']

@@ -113,6 +113,14 @@ posts can also draw a visual for the part of their content that is a process, a
 comparison or a few key figures. Nothing to switch on: the generation is offered
 the same families and decides. **Visual…** works on those screens too.
 
+Every other printed or social document — a flyer, a poster, a menu, a magazine
+page — draws one **when you ask for it**: "un flyer avec un schéma des étapes",
+"a poster with a chart of the results", "add a diagram" in an edit. The words
+that count are *schéma*, *diagramme*, *infographie*, *graphique* (as a noun —
+"des graphiques", not "un style graphique"), *frise*, *organigramme*,
+*feuille de route*, and their English equivalents. Without them the brief stays
+as it was.
+
 ## Changing the shape without a new generation
 
 :::why

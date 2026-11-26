@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 5d00bd3068a0
+source_hash: 350c231e31e3
 ---
 
 # Visuels
@@ -119,6 +119,14 @@ Facebook peuvent aussi dessiner un visuel pour la partie de leur contenu qui est
 un processus, une comparaison ou quelques chiffres clés. Rien à activer : la
 génération dispose des mêmes familles et décide. **Visuel…** fonctionne aussi sur
 ces écrans.
+
+Tous les autres documents imprimés ou réseaux — un flyer, une affiche, un menu,
+une page de magazine — en dessinent un **quand vous le demandez** : « un flyer
+avec un schéma des étapes », « une affiche avec un graphique des résultats »,
+« ajoute un schéma » dans une modification. Les mots qui comptent sont *schéma*,
+*diagramme*, *infographie*, *graphique* (comme nom — « des graphiques », pas
+« un style graphique »), *frise*, *organigramme*, *feuille de route*, et leurs
+équivalents anglais. Sans eux, la consigne reste celle d’avant.
 
 ## Changer de forme sans nouvelle génération
 

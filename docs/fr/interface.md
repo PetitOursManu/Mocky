@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: d2678e430025
+source_hash: 4e460a1852d8
 ---
 
 # L’interface
@@ -831,7 +831,7 @@ les confond.
 
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|
-| Une pastille de couleur | Sélectionne le token. Le panneau propose alors un champ hexadécimal et `Appliquer`. | libre |
+| Une pastille de couleur | Sélectionne le token. Le panneau propose alors une palette — les autres couleurs du design, une grille de couleurs par défaut, une couleur personnalisée —, un champ hexadécimal et `Appliquer`. Un double-clic sur une couleur de la palette l’applique tout de suite. | libre |
 | `Appliquer` | **Réécrit ce token dans le DESIGN.md.** Toutes les générations suivantes suivent le changement. Les écrans déjà sur le canevas ne bougent que si vous le demandez — voir plus bas. | libre |
 | `Modifier` | `Ouvrir l’éditeur complet du DESIGN.md`. | libre |
 

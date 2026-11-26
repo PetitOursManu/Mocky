@@ -16,6 +16,7 @@
 import { auditFixComponent, editComponent, polishComponent, type GeneratedComponent } from '../generate'
 import { capabilitiesFor, resolveCapabilities, selectCapabilities } from '../capabilities/select'
 import { documentPipeline, hintForScreen } from '../documentMode'
+import { VISUALS_CAP, requestAsksForVisual } from '../visuals/families'
 import { buildDesignPreamble } from '../design'
 import { checkQuality, type QualityFinding } from '../quality'
 import { auditScreen } from '../audit'
@@ -32,9 +33,13 @@ import { interactLoss, type InteractLoss } from '../briefCheck'
  * A document is offered only what can live on paper.
  */
 export function screenCapabilities(screen: Pick<Screen, 'caps' | 'page'>, text: string, designMd: string | undefined) {
-  const capIds = documentPipeline(screen.page).caps(
+  const pipe = documentPipeline(screen.page)
+  let capIds = pipe.caps(
     screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(text, designMd),
   )
+  // "Add a diagram" on a flyer made before: the screen's own caps never had
+  // the kit, and an edit that cannot name `<Visual>` draws the boxes by hand.
+  if (pipe.document && requestAsksForVisual(text) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
   return { capIds, caps: resolveCapabilities(capIds) }
 }
 

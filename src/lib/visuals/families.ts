@@ -41,6 +41,45 @@ export function themeDrawsVisuals(theme: string | null | undefined): boolean {
   return theme === VISUAL_THEME || (!!theme && VISUAL_HOST_THEMES.includes(theme))
 }
 
+/*
+ * The words a person uses to ASK for a diagram. A flyer asked for "a version
+ * with diagrams" came back without one: the kit was forced only on the host
+ * types, the pack is `forcedOnly`, so the model never heard of `<Visual>` and
+ * laid boxes out by hand. "graphique" alone is a style word in French ("un
+ * flyer très graphique", "la charte graphique"), so it counts only after a
+ * determiner — "des graphiques", "un graphique", "en graphique".
+ */
+const ASKS_FOR_VISUAL = new RegExp(
+  [
+    '\\bsch[eé]mas?\\b', '\\bschematic', '\\bdiagram', '\\binfograph', '\\bcharts?\\b', '\\bgraphs?\\b',
+    '\\b(?:un|une|des|les?|du|ce|ces|en|deux|trois|quelques|of|a)\\s+graphiques?\\b',
+    '\\bfrises?\\b', '\\btimeline', '\\borganigramme', '\\borg chart', '\\bmind ?maps?\\b', '\\bcartes? mentales?\\b',
+    '\\bflowchart', '\\blogigramme', '\\bcamembert', '\\bhistogramme', '\\broadmap', '\\bfeuilles? de route\\b',
+  ].join('|'),
+  'i',
+)
+
+/** Whether the request asks, in words, for a diagram. */
+export function requestAsksForVisual(text: string | null | undefined): boolean {
+  return !!text && ASKS_FOR_VISUAL.test(text)
+}
+
+/**
+ * Whether a screen gets the kit: always on the visual and host types, and on
+ * any OTHER document — a flyer, a poster, a menu, a social post — when the
+ * request asks for a diagram. Not on an app or a site screen, which has the
+ * charts pack for its dashboards and was never asked to draw paper diagrams.
+ */
+export function screenDrawsVisuals(theme: string | null | undefined, isDocument: boolean, text: string | null | undefined): boolean {
+  return themeDrawsVisuals(theme) || (isDocument && requestAsksForVisual(text))
+}
+
+/**
+ * The line a document whose brief does not mention diagrams gets when the
+ * request asked for one — the host types carry the same sentence in their brief.
+ */
+export const VISUAL_ASKED_SECTION = `DIAGRAMS: the request asks for one or more diagrams. Draw each with the <Visual> component (a family from its card, the content in its \`doc\`), sized by its own box inside the page's layout — never boxes, arrows, SVG or a chart of your own. At most one <Visual> per page; the rest of the page keeps its own design.`
+
 export const VISUAL_FAMILIES = [
   'steps',
   'cycle',

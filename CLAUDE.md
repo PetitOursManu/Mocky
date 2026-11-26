@@ -1172,7 +1172,11 @@ families of `lib/visuals/families.ts` and writes the CONTENT; the layout in
    types (`VISUAL_HOST_THEMES`: report, documentation, article, posts), which
    also get the kit but are asked to invent sample figures. The pack is
    `forcedOnly` (the word is a model's own component name half the time) and
-   forced by `themeDrawsVisuals`, then kept by `Screen.caps`.
+   forced by `themeDrawsVisuals`, then kept by `Screen.caps`. Any OTHER document
+   (flyer, poster, menu…) gets it only when the request ASKS
+   (`requestAsksForVisual`, plus `VISUAL_ASKED_SECTION` in the prompt) — in
+   `runNewScreen`, `screenCapabilities` and the element edit: a flyer asked for
+   "des schémas" came back without one because only the host types had the kit.
 
 "Illustrate a text" (`IllustratePanel.tsx`, `lib/visuals/textBlocks.ts`) cuts a
 text into blocks with no model and runs `runNewScreen` once per block; a screen
