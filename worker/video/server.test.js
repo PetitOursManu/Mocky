@@ -17,10 +17,13 @@ import { createApp, VERSION } from './server.js'
 let server, base
 /** Rewritten per test: every case below is one of these behaving differently. */
 let renderImpl, logged
+/** The look at the finished file (`qc.js`), stubbed: the renderer here returns no real film. */
+let checkImpl = async () => ({ checked: true, seconds: 1, issues: [] })
 
 const app = () =>
   createApp({
     renderVideo: (opts) => renderImpl(opts),
+    checkVideo: (buffer, film) => checkImpl(buffer, film),
     timeoutMs: 80,
     log: { error: (m) => logged.push(m), warn: () => {}, log: () => {} },
   })
@@ -120,6 +123,26 @@ describe('POST /render', () => {
     expect((await post(validBody())).headers.get('x-mocky-worker-engine')).toBe('remotion')
     renderImpl = async () => ({ buffer: Buffer.from('mp4'), contentType: 'video/mp4' })
     expect((await post(validBody())).headers.get('x-mocky-worker-engine')).toBeNull()
+  })
+
+  it('says what the finished file looks like, and still sends it when the look fails', async () => {
+    renderImpl = async () => ({ buffer: Buffer.from('mp4'), contentType: 'video/mp4' })
+    let seen = null
+    checkImpl = async (buffer, film) => {
+      seen = film
+      return { checked: true, seconds: 4, issues: [{ kind: 'frozen', from: 1, to: 4 }] }
+    }
+    const res = await post(validBody())
+    expect(res.status).toBe(200)
+    expect(JSON.parse(res.headers.get('x-mocky-worker-checks'))).toEqual({ checked: true, seconds: 4, issues: [{ kind: 'frozen', from: 1, to: 4 }] })
+    expect(seen).toMatchObject({ format: 'mp4', width: expect.any(Number), height: expect.any(Number) })
+    checkImpl = async () => {
+      throw new Error('boom')
+    }
+    const after = await post(validBody())
+    expect(after.status).toBe(200)
+    expect(after.headers.get('x-mocky-worker-checks')).toBeNull()
+    checkImpl = async () => ({ checked: true, seconds: 1, issues: [] })
   })
 
   /**

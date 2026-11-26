@@ -20,7 +20,8 @@ import express from 'express'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { validateRenderRequest } from './validate.js'
-import { COMPOSITIONS, LOOP_BLEND_MS, compositionIdFor } from './remotion/composition.js'
+import { COMPOSITIONS, LOOP_BLEND_MS, compositionIdFor, filmMetadata } from './remotion/composition.js'
+import { checkFilm } from './qc.js'
 import { enginesFor, renderWithFallback, warmUpEngines } from './engine.js'
 
 const pkg = createRequire(import.meta.url)('./package.json')
@@ -100,9 +101,10 @@ const fail = (res, status, message) => res.status(status).type('text/plain').sen
  * @param {string} [deps.version]
  * @param {(opts:{timeline:object, images:Array<object>, licenseKey:string|null, signal:AbortSignal})=>Promise<{buffer:Buffer, contentType:string}>} [deps.renderVideo]
  * @param {number} [deps.timeoutMs]  fixed deadline, overriding `renderBudgetMs`. Tests only.
+ * @param {(buffer:Buffer, film:object)=>Promise<object>} [deps.checkVideo]  the look at the finished file (`qc.js`)
  * @param {Console} [deps.log]
  */
-export function createApp({ version = VERSION, renderVideo, timeoutMs = null, log = console } = {}) {
+export function createApp({ version = VERSION, renderVideo, timeoutMs = null, checkVideo = checkFilm, log = console } = {}) {
   const app = express()
   app.disable('x-powered-by')
   app.use(express.json({ limit: MAX_BODY }))
@@ -218,6 +220,16 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = null, lo
       // And which engine drew it, so a film that fell back to Remotion can be
       // told apart in a network trace from one HyperFrames rendered.
       if (engine) res.set('x-mocky-worker-engine', engine)
+      // What the finished file looks like (`qc.js`): a header, because the body
+      // is the film and the verdict is a few words about it. After the deadline
+      // race on purpose — the check has its own ceiling and never fails a render.
+      try {
+        const meta = filmMetadata(parsed.timeline)
+        const checks = await checkVideo(buffer, { format: parsed.timeline.outputFormat, width: meta.width, height: meta.height })
+        res.set('x-mocky-worker-checks', JSON.stringify(checks))
+      } catch (err) {
+        log.warn?.(`mocky-video-worker: the film could not be checked — ${err instanceof Error ? err.message : String(err)}`)
+      }
       res.send(buffer)
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)

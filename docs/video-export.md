@@ -2660,6 +2660,36 @@ construction — and it carries an alpha channel the opaque ground fills.
 
 ---
 
+## The film is looked at once it exists
+
+:::why
+Everything upstream is arithmetic on a document: legibility, motion, the safe
+area. None of it can see what an engine did with the document — a 3D scene that
+never drew, a page that stopped answering and repeated one frame, a picture that
+failed to decode. Those are in the file, so the file is what gets looked at.
+:::
+
+After every render, the worker decodes the film at one frame a second, 96 pixels
+wide and in grey (ffmpeg, already in its image), and asks three questions
+(`worker/video/qc.js`):
+
+| Finding | What it means | Reported from |
+|---|---|---|
+| Empty | Every pixel within a hair of the same value: black, white or the bare ground | 2 seconds in a row — one second is a fade from black |
+| Washed out | Content, but nothing on the frame stands out from anything else | 3 seconds in a row |
+| Frozen | The same frame, second after second | 3 seconds — near equality, not "little movement": an overlay's slow drift is a scene, not a freeze |
+
+The verdict travels back in a header (`x-mocky-worker-checks`), is read on
+Mocky's side as data (a closed list of kinds, bounded numbers, eight findings at
+most) and kept on the job. The panel then says, above the download button, which
+seconds to look at before posting the film.
+
+**It never fails a render.** A film with a frozen passage is still a film the
+person may want; what they are owed is to be told. A worker that cannot look
+(no ffmpeg, a file it cannot decode, a look that takes over 30 seconds) says
+nothing, and the panel says nothing either — it never claims a film is clean
+when nobody looked.
+
 ## The Remotion licence, and the separate service
 
 **This section applies to an image built with Remotion**, which is the default,

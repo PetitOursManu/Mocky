@@ -116,7 +116,7 @@ ENV PRODUCER_HEADLESS_SHELL_PATH=/home/node/.cache/puppeteer/chrome-headless-she
 
 # ---- The worker itself ----
 COPY --chown=node:node remotion ./remotion
-COPY --chown=node:node engine.js render.js render.hyperframes.js server.js validate.js staging.js encoding.js ./
+COPY --chown=node:node engine.js render.js render.hyperframes.js server.js validate.js staging.js encoding.js qc.js ./
 
 ENV NODE_ENV=production
 ENV PORT=3030

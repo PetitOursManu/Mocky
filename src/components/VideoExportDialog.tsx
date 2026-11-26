@@ -2462,6 +2462,18 @@ function JobPanel({
       {stumbled && job.status !== 'done' && job.status !== 'error' && (
         <p className="text-caption text-ink-faint">{t('video.pollRetry')}</p>
       )}
+      {/* What the worker saw in the file, before the person posts it: a film
+          is still delivered with a hole or a freeze in it (Q1), so the least it
+          is owed is to be named, with the seconds to look at. */}
+      {job.status === 'done' && job.videoHash && job.checks && job.checks.issues.length > 0 && (
+        <p className="mt-1 font-medium text-warn">
+          {t('video.checks.found', {
+            list: job.checks.issues
+              .map((i) => t(`video.checks.${i.kind}`, { from: Math.floor(i.from), to: Math.ceil(i.to) }))
+              .join(t('video.checks.sep')),
+          })}
+        </p>
+      )}
       {job.status === 'done' && job.videoHash && (
         <>
           {/* Before the buttons, not after: the download is what somebody does

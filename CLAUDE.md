@@ -376,6 +376,8 @@ server/video/store.js       the finished file, kept whole. NOT server/videos/
 server/video/text-budget.js how much a page film may SAY, counted off the schema
 worker/video/               the render worker: separate sub-project, separate image
 worker/video/engine.js      HyperFrames first, Remotion as the fallback — never after an abort
+worker/video/qc.js          the finished file looked at, 1 fps grey: blank, faint, frozen —
+                            a warning on the job, never a failed render
 worker/video/remotion/clock.js, clockCanvas.js   the ONLY doors from a composition
                             to an engine; remotion/hyperframes/ is HyperFrames' side
 worker/video/remotion/blocks/   one component per block kind, plus the registry

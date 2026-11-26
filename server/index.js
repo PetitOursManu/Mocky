@@ -227,7 +227,10 @@ const videoQueue = new VideoQueue({
         durationMs: totalDurationMs(job.timeline),
       })
       activity.end(tracked, { status: 200 })
-      return { videoHash: stored.hash }
+      // The worker's look at the file (worker/video/qc.js), kept on the job so
+      // the panel can say before the download what a person would otherwise
+      // find after posting it.
+      return { videoHash: stored.hash, checks: out.checks ?? null }
     } catch (err) {
       activity.end(tracked, signal?.aborted ? { aborted: true } : { status: 502 })
       throw err

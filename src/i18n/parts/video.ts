@@ -453,6 +453,11 @@ export const video = {
     'video.attachNoProject':
       'Ce panneau a été ouvert depuis Média, hors d’un projet : il n’y a aucun écran auquel rattacher ce montage. Ouvrez un projet pour le faire.',
     'video.attachNoScreens': 'Ce projet n’a encore aucun écran.',
+    'video.checks.found': 'Le contrôle du film a relevé {list}. Regardez ces secondes avant de le publier.',
+    'video.checks.blank': 'un passage vide de {from} à {to} s',
+    'video.checks.faint': 'un passage délavé, presque illisible, de {from} à {to} s',
+    'video.checks.frozen': 'une image figée de {from} à {to} s',
+    'video.checks.sep': ' ; ',
     'video.downloadGone':
       'Le rendu s’est terminé sans fichier stocké. Relancez-le ; si cela se répète, c’est le worker qu’il faut regarder.',
     'video.pollRetry': 'Le serveur n’a pas répondu à la dernière interrogation. Nouvelle tentative…',
@@ -905,6 +910,11 @@ export const video = {
     'video.attachNoProject':
       'This panel was opened from Media, outside a project: there is no screen to attach the cut to. Open a project to do that.',
     'video.attachNoScreens': 'This project has no screen yet.',
+    'video.checks.found': 'The check of the film found {list}. Look at those seconds before you post it.',
+    'video.checks.blank': 'an empty passage from {from} to {to} s',
+    'video.checks.faint': 'a washed-out, barely legible passage from {from} to {to} s',
+    'video.checks.frozen': 'a frozen frame from {from} to {to} s',
+    'video.checks.sep': '; ',
     'video.downloadGone':
       'The render finished with no stored file. Start it again; if it repeats, the worker is what to look at.',
     'video.pollRetry': 'The server did not answer the last poll. Trying again…',

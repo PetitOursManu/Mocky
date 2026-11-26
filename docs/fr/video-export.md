@@ -1,5 +1,5 @@
 ---
-source_hash: b3d9ca361241
+source_hash: 94019020d7eb
 ---
 
 # Motion Ultra — films
@@ -2833,6 +2833,37 @@ opaque remplit.
 | `WITH_REMOTION=false` | argument de build (`docker-compose.yml`) | L’image est construite sans Remotion, et le repli est coupé |
 
 ---
+
+## Le film est regardé une fois qu’il existe
+
+:::why
+Tout ce qui précède est de l’arithmétique sur un document : la lisibilité, le
+mouvement, la zone sûre. Rien de tout cela ne voit ce qu’un moteur a fait du
+document — une scène 3D qui ne s’est jamais dessinée, une page qui a cessé de
+répondre et a répété une image, une image qui ne s’est pas décodée. Cela se
+trouve dans le fichier : c’est donc le fichier qu’on regarde.
+:::
+
+Après chaque rendu, le worker décode le film à une image par seconde, sur 96
+pixels de large et en gris (ffmpeg, déjà dans son image), et pose trois
+questions (`worker/video/qc.js`) :
+
+| Constat | Ce qu’il veut dire | Signalé à partir de |
+|---|---|---|
+| Vide | Tous les pixels à un cheveu de la même valeur : noir, blanc ou le fond nu | 2 secondes de suite — une seconde, c’est un fondu depuis le noir |
+| Délavé | Du contenu, mais rien sur l’image ne se détache du reste | 3 secondes de suite |
+| Figé | La même image, seconde après seconde | 3 secondes — une quasi-égalité, pas « peu de mouvement » : la lente dérive d’une surimpression est une scène, pas un arrêt |
+
+Le verdict revient dans un en-tête (`x-mocky-worker-checks`), est lu côté Mocky
+comme une donnée (une liste fermée de constats, des nombres bornés, huit au
+plus) et gardé sur la tâche. Le panneau dit alors, au-dessus du bouton de
+téléchargement, quelles secondes regarder avant de publier le film.
+
+**Il ne fait jamais échouer un rendu.** Un film avec un passage figé reste un
+film que la personne peut vouloir ; ce qu’on lui doit, c’est de le lui dire. Un
+worker qui ne peut pas regarder (pas de ffmpeg, un fichier qu’il ne sait pas
+décoder, un contrôle de plus de 30 secondes) ne dit rien, et le panneau non
+plus — il n’affirme jamais qu’un film est propre quand personne ne l’a regardé.
 
 ## La licence Remotion, et le service séparé
 
