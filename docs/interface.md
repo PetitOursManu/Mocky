@@ -788,7 +788,7 @@ other.
 
 | Control | What it does | Cost |
 |---|---|---|
-| A swatch | Selects the token. The panel then offers a palette — the design's other colours, a grid of default colours, a custom colour — a hex field and `Apply`. A double-click on a palette colour applies it at once. | free |
+| A swatch | Selects the token. The panel then offers a palette — the design's other colours, a grid of default colours, a custom colour, and `Eyedropper` to take a colour anywhere on screen (a screen, a photo; Chrome and Edge only, `Esc` cancels) — a hex field and `Apply`. A double-click on a palette colour applies it at once. The DESIGN.md editor's colour sheet offers the same palette. | free |
 | `Apply` | **Rewrites that one token in DESIGN.md.** Every future generation follows the change. Screens already on the canvas move only if you say so — see below. | free |
 | `Edit` | `Open the full DESIGN.md editor`. | free |
 

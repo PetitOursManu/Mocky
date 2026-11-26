@@ -43,11 +43,27 @@ A few rules keep it in proportion:
 |---|---|
 | How many | **3 screens at most** per generation, following the flow two steps deep (a cart, its checkout, its confirmation). |
 | What it costs | Each created screen is a **normal generation** with your model. Muse and Motion Ultra do not run for them: they take the project's direction and look. |
-| When | Only for a **new** screen with `Flows` on — never for an edit, and never for a document. |
+| When | For a **new** screen with `Flows` on, or on demand from an existing screen (below) — never for an edit, and never for a document. |
 | Names | The usual pages get a name in your language (`Panier`, `Mon compte`, `Confirmation`…). |
 
 Turn `Flows` off in the composer to generate a screen on its own, exactly as
 before.
+
+### From a screen that already exists
+
+Right-click a screen → `Generate the flow…` to create the pages it leads to,
+even if it was made with `Flows` off. When the screen opens no page yet, a first
+edit wires what a visitor would click — its menu, its buttons, its cards, its
+forms — and changes nothing else (`Revert to the previous version` undoes it); then the missing pages are
+created as above, with the same limits. A screen that already opens pages nobody
+answers goes straight to the second step.
+
+:::why
+A screen made before the flow was thought of is still the natural start of one,
+and generating it again to get its pages would throw away the screen you kept.
+The links are added by an edit that is told to keep the design, so the screen you
+chose stays the one you see.
+:::
 
 ## Trying it: Demo mode
 

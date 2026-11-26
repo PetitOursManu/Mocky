@@ -224,7 +224,7 @@ import { setDocFormat } from '../lib/visuals/read'
 import IllustratePanel from './IllustratePanel'
 import { blockName, type TextBlock } from '../lib/visuals/textBlocks'
 import { VISUAL_THEME, VISUALS_CAP, requestAsksForVisual } from '../lib/visuals/families'
-import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
+import { flowFromScreenInstruction, flowScreenName, knownRoutes, loadFlowsOn, missingRoutes, readFlow, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Banner, Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 import { isLocked, setLocks } from '../lib/locks'
@@ -3431,6 +3431,140 @@ export default function ProjectView({
       abortRef.current = null
       setBusy(false)
       setRegeneratingIds(new Set())
+    }
+  }
+
+  /**
+   * "Générer le parcours…" on a screen that already exists: the pages it leads
+   * to, made the way Parcours makes them after a new screen.
+   *
+   * Two steps, the first only when needed. A screen generated with Parcours off
+   * opens no route, so the companions would have nothing to follow: one edit
+   * (`flowFromScreenInstruction`, the flow kit in scope) wires what a visitor
+   * clicks and changes nothing else, written back with `previousCode` so Revert
+   * undoes it. A screen that already opens routes nobody answers skips it. Then
+   * `runFlowCompanions` — the same function, the same bounds, Muse and Motion
+   * Ultra off — so the pages are the ones the composer would have made.
+   */
+  async function generateFlowFrom(screenId: string) {
+    if (busy) return
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen || screen.page || !screen.code.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const designMd = activeDirection()
+      let code = screen.code
+      if (!missingRoutes(screensRef.current, await readFlow(code)).length) {
+        setRegenLabel(t('flows.fromScreenWiring'))
+        setRegeneratingIds(new Set([screenId]))
+        const instruction = flowFromScreenInstruction(knownRoutes(screensRef.current))
+        const { capIds } = screenCapabilities(screen, instruction, designMd)
+        const res = await editScreen({
+          settings,
+          instruction,
+          screen: { ...screen, caps: capIds.includes('flow') ? capIds : [...capIds, 'flow'] },
+          designMd,
+          signal: ac.signal,
+        })
+        // Written meanwhile (a direct edit, a revert): this pass read the old one.
+        const now = screensRef.current.find((s) => s.id === screenId)
+        if (!now || now.code !== screen.code) {
+          setNotice(t('flows.fromScreenChanged'))
+          return
+        }
+        noteChange(screenId, t('versions.note.flow'))
+        onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: screen.code, caps: res.caps })
+        setRegeneratingIds(new Set())
+        code = res.code
+      }
+      const globalDesign = loadDesign()
+      const request: NewScreenRequest = {
+        text: screen.prompt || screen.name,
+        settings,
+        project: projectRef.current,
+        screens: screensRef.current,
+        images: [],
+        annotationCount: 0,
+        site: null,
+        globalMd: isDesignActive(globalDesign) ? globalDesign.markdown : undefined,
+        presetId,
+        themeId: null,
+        pageFormatId: null,
+        redesign: false,
+        museConfig: { ...museConfig, enabled: false },
+        museAvail,
+        museVision,
+        pinnedImages: [],
+        pinnedVideo: undefined,
+        videoAvail,
+        motionAvail,
+        ultraActive: false,
+        ultraCount,
+        effectiveImageSource,
+        picturesOff: runPicturesOff,
+        docPictureSource,
+        docImageChoice,
+        imageGenOk,
+        stockImagesUsable,
+        flows: true,
+        ...(projectBrand() ? { brand: projectBrand() } : {}),
+      }
+      // The composer's hooks, minus what belongs to a TYPED request: the prompt,
+      // its annotations and screenshots are the person's, and stay.
+      const hooks: NewScreenHooks = {
+        signal: ac.signal,
+        t,
+        setPhase,
+        setMuseStage,
+        setUltraStage,
+        replaceNotice: (line) => setNotice(line),
+        notice: (line) => setNotice(line),
+        setMuseResult,
+        setMuseImages,
+        setMuseImageError,
+        setImageGenOk,
+        addScreen: addScreenAndShow,
+        updateScreen: onUpdateScreen,
+        removeScreen: onRemoveScreen,
+        currentScreens: () => screensRef.current,
+        renameProject: onRenameProject,
+        setDesign: onSetDesign,
+        rememberSiteRef: (id, ref) => siteRefsByScreen.current.set(id, ref),
+        screenStarted: (id) => {
+          setGeneratingIds(new Set([id]))
+          setSelectedIds([id])
+        },
+        screenWritten: () => setGeneratingIds(new Set()),
+        motionStage,
+        motionStageDone,
+      }
+      const made = await runFlowCompanions(request, hooks, screenId, code, {
+        getProject: () => projectRef.current,
+        nameFor: (route) => flowScreenName(route, t),
+      })
+      setNotice(
+        made.length
+          ? t('flows.created', { count: made.length, names: made.map((m) => flowScreenName(m.route, t)).join(', ') })
+          : t('flows.fromScreenNone'),
+      )
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(t('flows.failedFrom', { error: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setPhase(null)
+      setRegeneratingIds(new Set())
+      setGeneratingIds(new Set())
     }
   }
 
@@ -7334,6 +7468,16 @@ export default function ProjectView({
                             />
                           ))}
                         </SubMenu>
+                      )}
+                      {/* A web screen only: a document's Parcours is its
+                          sequence of pages, chosen when it is made. */}
+                      {!s.page && (
+                        <MenuItem
+                          icon="branch"
+                          label={t('flows.fromScreenMenu')}
+                          disabled={busy || !s.code.trim() || writing}
+                          onClick={() => { close(); void generateFlowFrom(s.id) }}
+                        />
                       )}
                       {/* Only on a screen that carries a film: the one place a
                           film made at the first prompt can still be changed rather
