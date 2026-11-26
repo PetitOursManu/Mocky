@@ -215,6 +215,7 @@ import {
   type NewScreenRequest,
 } from '../lib/pipeline/newScreen'
 import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
+import FlowCountDialog from './FlowCountDialog'
 import { readCampaignFacts, runCampaign, writePublicationPack } from '../lib/pipeline/campaign'
 import { updateCampaignPiece } from '../lib/pipeline/campaignUpdate'
 import { CAMPAIGN_FORMAT_IDS, type Campaign, type CampaignFormatId } from '../lib/campaign'
@@ -466,6 +467,8 @@ export default function ProjectView({
   const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
   /** The composer's "Parcours": new screens are pages of a working prototype (lib/flows.ts). */
   const [flowsOn, setFlowsOnState] = useState<boolean>(() => loadFlowsOn())
+  /** The screen "Générer le parcours…" was asked of: its dialog asks how many screens. */
+  const [flowCountFor, setFlowCountFor] = useState<string | null>(null)
   const toggleFlows = useCallback(() => {
     setFlowsOnState((on) => {
       saveFlowsOn(!on)
@@ -3446,7 +3449,7 @@ export default function ProjectView({
    * `runFlowCompanions` — the same function, the same bounds, Muse and Motion
    * Ultra off — so the pages are the ones the composer would have made.
    */
-  async function generateFlowFrom(screenId: string) {
+  async function generateFlowFrom(screenId: string, count: number) {
     if (busy) return
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.page || !screen.code.trim()) return
@@ -3466,7 +3469,7 @@ export default function ProjectView({
       if (!missingRoutes(screensRef.current, await readFlow(code)).length) {
         setRegenLabel(t('flows.fromScreenWiring'))
         setRegeneratingIds(new Set([screenId]))
-        const instruction = flowFromScreenInstruction(knownRoutes(screensRef.current))
+        const instruction = flowFromScreenInstruction(knownRoutes(screensRef.current), count)
         const { capIds } = screenCapabilities(screen, instruction, designMd)
         const res = await editScreen({
           settings,
@@ -3550,6 +3553,7 @@ export default function ProjectView({
       const made = await runFlowCompanions(request, hooks, screenId, code, {
         getProject: () => projectRef.current,
         nameFor: (route) => flowScreenName(route, t),
+        count,
       })
       setNotice(
         made.length
@@ -7476,7 +7480,7 @@ export default function ProjectView({
                           icon="branch"
                           label={t('flows.fromScreenMenu')}
                           disabled={busy || !s.code.trim() || writing}
-                          onClick={() => { close(); void generateFlowFrom(s.id) }}
+                          onClick={() => { close(); setFlowCountFor(s.id) }}
                         />
                       )}
                       {/* Only on a screen that carries a film: the one place a
@@ -7618,6 +7622,21 @@ export default function ProjectView({
             </>
           )
         })()}
+
+      {flowCountFor && (() => {
+        const sc = screens.find((x) => x.id === flowCountFor)
+        if (!sc) return null
+        return (
+          <FlowCountDialog
+            screenName={sc.name}
+            onClose={() => setFlowCountFor(null)}
+            onGenerate={(count) => {
+              setFlowCountFor(null)
+              void generateFlowFrom(sc.id, count)
+            }}
+          />
+        )
+      })()}
 
       {/* Code viewer modal */}
       {/* The recorded design, full size. At canvas zoom the card beside a frame

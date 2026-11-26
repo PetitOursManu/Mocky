@@ -1,7 +1,7 @@
 ---
 description: Des prototypes qui marchent — formulaires qui modifient les données, connexion simulée, vrais filtres, panier partagé entre les écrans — avec les écrans suivants créés pour vous, et des scénarios de démonstration.
 badge: Nouveau
-source_hash: 0f9ae45cae85
+source_hash: e66379a81c95
 ---
 
 # Des prototypes qui fonctionnent
@@ -56,12 +56,17 @@ comme avant.
 ### Depuis un écran qui existe déjà
 
 Clic droit sur un écran → `Générer le parcours…` crée les pages auxquelles il
-mène, même s’il a été fait avec `Parcours` désactivé. Quand l’écran n’ouvre encore
-aucune page, une première modification branche ce qu’un visiteur cliquerait — son
-menu, ses boutons, ses cartes, ses formulaires — et ne change rien d’autre
-(`Revenir à la version précédente` la défait) ; puis les pages manquantes sont créées comme ci-dessus,
-avec les mêmes limites. Un écran qui ouvre déjà des pages auxquelles personne ne
-répond passe directement à la deuxième étape.
+mène, même s’il a été fait avec `Parcours` désactivé. Une fenêtre demande d’abord
+**combien d’écrans** créer, de 1 à 8 (3 par défaut, le nombre du composeur) : rien
+n’est dépensé avant ce choix. Au-delà de 3, le parcours est suivi un niveau plus
+loin, et l’écran de départ ouvre au plus 4 pages, les autres venant des pages
+auxquelles elles mènent. Il peut s’arrêter avant si l’écran mène à moins de pages.
+
+Quand l’écran n’ouvre encore aucune page, une première modification branche ce
+qu’un visiteur cliquerait — son menu, ses boutons, ses cartes, ses formulaires —
+et ne change rien d’autre (`Revenir à la version précédente` la défait) ; puis
+les pages manquantes sont créées comme ci-dessus. Un écran qui ouvre déjà des
+pages auxquelles personne ne répond passe directement à la deuxième étape.
 
 :::why
 Un écran fait avant qu’on pense au parcours en reste le point de départ naturel,

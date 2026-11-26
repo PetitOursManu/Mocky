@@ -54,7 +54,10 @@ describe('Parcours off leaves generation unchanged (V7)', () => {
     const fromScreen = composer.slice(composer.indexOf('async function generateFlowFrom('))
     expect(fromScreen.indexOf('runFlowCompanions(')).toBeGreaterThan(0)
     expect(fromScreen.indexOf('runFlowCompanions(')).toBeLessThan(fromScreen.indexOf('\n  }\n'))
-    expect(composer).toContain('onClick={() => { close(); void generateFlowFrom(s.id) }}')
+    // The menu asks how many screens first; only the dialog's answer runs it.
+    expect(composer).toContain('onClick={() => { close(); setFlowCountFor(s.id) }}')
+    expect(composer.match(/void generateFlowFrom\(/g)).toHaveLength(1)
+    expect(composer).toContain('void generateFlowFrom(sc.id, count)')
   })
 
   it('builds the frame of a screen outside a demo without any flow state', () => {

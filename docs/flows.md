@@ -52,11 +52,17 @@ before.
 ### From a screen that already exists
 
 Right-click a screen → `Generate the flow…` to create the pages it leads to,
-even if it was made with `Flows` off. When the screen opens no page yet, a first
-edit wires what a visitor would click — its menu, its buttons, its cards, its
-forms — and changes nothing else (`Revert to the previous version` undoes it); then the missing pages are
-created as above, with the same limits. A screen that already opens pages nobody
-answers goes straight to the second step.
+even if it was made with `Flows` off. A dialog first asks **how many screens**
+to create, from 1 to 8 (3 by default, the composer's own number): nothing is
+spent before you choose. Past 3, the flow is followed one step deeper, and the
+first screen is asked to open at most 4 pages, the others coming from the pages
+those lead to. It may stop sooner when the screen leads to fewer pages.
+
+When the screen opens no page yet, a first edit wires what a visitor would click
+— its menu, its buttons, its cards, its forms — and changes nothing else
+(`Revert to the previous version` undoes it); then the missing pages are created
+as above. A screen that already opens pages nobody answers goes straight to the
+second step.
 
 :::why
 A screen made before the flow was thought of is still the natural start of one,
