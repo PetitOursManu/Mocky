@@ -1504,6 +1504,8 @@ server/mcp/guide.js        the guide FOR THE ASSISTANT (mocky_guide, mocky://gui
 server/mcp/prompts.js      the prompts a person picks in their client's menu — starting messages
                            that name tools; `prompts.test.js` holds them to the real tool list
 server/mcp/skill.js        the downloadable Claude skill: the guide + the prompts as one SKILL.md
+server/mcp/codex-plugin.js the Codex / ChatGPT plugin: that skill + the connector, as a local
+                           marketplace; both OpenAI manifests from one set of values, no secret
 src/runner/main.tsx        runner.html: runNewScreen (from a template when the job carries one), or one
                            pass on an existing screen, + the preview (X5) and exportScreen
 server/mcp/project-edits.js what an assistant changes with no model: a project's name, direction and

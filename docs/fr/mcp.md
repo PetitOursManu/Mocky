@@ -1,5 +1,5 @@
 ---
-source_hash: 83e47d1d71d7
+source_hash: 614162ee8820
 ---
 
 # Connecter un assistant (MCP)
@@ -405,6 +405,20 @@ Skills*, ou décompressez-le dans `~/.claude/skills/` pour Claude Code. Il est
 généré à partir du même guide que celui du connecteur, si bien que les deux ne
 peuvent pas enseigner des choses différentes ; retéléchargez-le après une mise à
 jour pour avoir le plus récent.
+
+**Le plugin Codex, facultatif et gratuit.** Juste en dessous, **Télécharger le
+plugin (.zip)** donne le même guide ET le connecteur, sous forme de plugin pour
+Codex et l'application de bureau ChatGPT (`server/mcp/codex-plugin.js`). Le zip
+est une petite marketplace locale (`mocky-codex/`) : ajoutez-la avec
+`codex plugin marketplace add /chemin/vers/mocky-codex` — ou copiez ses dossiers
+`.agents` et `plugins`, côte à côte, dans votre dossier personnel et redémarrez
+l'application de bureau — puis installez **Mocky** depuis le répertoire des
+plugins. Il se connecte à votre compte à sa première utilisation, par la même
+page de consentement que n'importe quel assistant ; il contient l'adresse de
+cette instance et aucun secret. Il porte les deux manifestes que lit OpenAI — le
+`plugin.json` portable avec `mcp.json`, et l'ancien `.codex-plugin/plugin.json`
+avec `.mcp.json` — générés à partir des mêmes valeurs. Proposé seulement là où le
+connecteur a une adresse HTTPS publique : un plugin, c'est cette adresse.
 
 Ensuite, dans tous les cas :
 
