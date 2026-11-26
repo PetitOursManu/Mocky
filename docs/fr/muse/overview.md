@@ -1,5 +1,5 @@
 ---
-source_hash: 6f23c19b284d
+source_hash: c640fef80fe4
 ---
 
 # Vue d'ensemble de Muse
@@ -138,6 +138,38 @@ Le détail complet est dans la page
 [moteur d'inspiration](inspiration-engine.md).
 
 ---
+
+## Trois directions au choix
+
+:::why
+Un dossier est une réponse, et quelqu’un qui ne sait pas encore ce qu’il veut
+l’apprend en comparant. Trois directions de trois écoles, côte à côte, lui
+donnent de quoi comparer avant de dépenser un seul écran.
+:::
+
+**Trois directions** (une tuile sur un projet vide, une option sous **Style**
+dans le compositeur du projet) demande à Muse trois directions artistiques pour
+la demande, chacune d’une école de design différente, montrées côte à côte : la
+maquette qu’a chaque design enregistré, les deux polices dessinées en
+elles-mêmes, la palette. Rien n’est généré tant qu’aucune n’est choisie ;
+choisir en fait la direction du projet, exactement comme un dossier, et les
+écrans suivants la suivent.
+
+- **Elles sont faites pour différer.** Muse doit proposer un fond sombre et un
+  fond clair, trois accents et trois polices de titre, et le serveur mesure le
+  résultat : une proposition qui ressemble à une autre (même fond, accent
+  proche, même police) est écartée et le modèle interrogé à nouveau, plutôt que
+  présentée comme un choix qui n’en est pas un.
+- **Elles évitent vos autres projets.** Les palettes et les polices des
+  directions de vos autres projets sont envoyées avec la demande, comme le
+  relevé de ce à quoi votre travail ressemble déjà, et Muse doit proposer autre
+  chose. Lues dans les projets eux-mêmes, jamais enregistrées une deuxième fois.
+- **Elles arrivent toujours.** Sans modèle, ou si le modèle échoue, les trois
+  viennent de la bibliothèque de styles de Muse — le style le plus proche de la
+  demande et les deux plus éloignés de lui — et le dialogue le dit.
+
+Un appel au modèle, compté comme un dossier (et sur le quota quotidien de
+l’offre gratuite).
 
 ## Comment le dossier pilote la génération
 

@@ -889,7 +889,7 @@ app.get('/api/images/providers', requireUser, (req, res, next) => {
  * proxy, as calls rather than generations: they serve a screen, they are not one.
  * Only when the free model is configured, for the reason the proxy gives.
  */
-app.post(['/api/muse/dossier', '/api/muse/quality', '/api/muse/audit', '/api/video/compose'], requireUser, (req, res, next) => {
+app.post(['/api/muse/dossier', '/api/muse/directions', '/api/muse/quality', '/api/muse/audit', '/api/video/compose'], requireUser, (req, res, next) => {
   if (planOf(req.user) !== 'free' || !textTargetFor(req.user)) return next()
   const verdict = freeQuota.take(req.user.id, freePlanSettings(loadConfig()).dailyLimit)
   if (verdict.ok) return next()
@@ -2784,6 +2784,8 @@ app.use('/api/muse', requireUser)
 // Chromium instance, and a handful of model round-trips. It was the only
 // expensive route with no ceiling at all, while image generation had one.
 app.use('/api/muse/dossier', authRateLimit(10, 60_000, 'muse-dossier'))
+// Three directions are one model call, asked again by a click: the dossier's ceiling.
+app.use('/api/muse/directions', authRateLimit(10, 60_000, 'muse-directions'))
 // One GET of a remote picture per call, on a link the person typed. Generous for
 // a field edited by hand, and still a ceiling on a server fetching for a browser.
 app.use('/api/muse/linked-image', authRateLimit(30, 60_000, 'muse-linked-image'))

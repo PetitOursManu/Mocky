@@ -124,6 +124,36 @@ Full details are in the [inspiration engine](inspiration-engine.md) page.
 
 ---
 
+## Three directions to choose from
+
+:::why
+A dossier is one answer, and someone who does not yet know what they want
+learns it by comparing. Three directions from three schools, side by side, give
+them something to compare before a single screen is spent.
+:::
+
+**Three directions** (a tile on an empty project, an option under **Style** in
+the project's composer) asks Muse for three art directions for the request, each
+from a different school of design, shown side by side: the mock-up every saved
+design gets, the two typefaces drawn in themselves, the palette. Nothing is
+generated until one is chosen; choosing makes it the project's direction, exactly
+as a dossier would be, and the next screens follow it.
+
+- **They are made to differ.** Muse is asked for a dark ground and a light one,
+  three accents and three display faces, and the server measures the result: a
+  proposal that looks like another one (same ground, a close accent, the same
+  face) is dropped and the model asked again, rather than offered as a choice
+  that is not one.
+- **They avoid your other projects.** The palettes and typefaces of your other
+  projects' directions are sent along, as the record of what your work already
+  looks like, and Muse is asked for something else. Read from the projects
+  themselves, never stored a second time.
+- **They always come.** With no model, or a model that fails, the three come
+  from Muse's style library — the best match for the request and the two styles
+  furthest from it — and the dialog says so.
+
+One model call, counted like a dossier (and on the free plan's daily quota).
+
 ## How the dossier drives generation
 
 `buildMusePreamble()` in `src/lib/muse.ts` turns the dossier into a preamble.

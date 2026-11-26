@@ -65,6 +65,8 @@ type Props = {
   onToggleCreative?: () => void
   /** Open Campaign Studio: a brief made into several formats at once (lib/campaign.ts). */
   onOpenCampaign?: () => void
+  /** Three art directions to choose from before the first screen (DirectionsDialog). */
+  onOpenDirections?: () => void
   museAvail: boolean | null
   museResult: MuseResult | null
   museImages: GeneratedSlotImage[]
@@ -154,6 +156,7 @@ export default function Welcome({
   creativeOn,
   onToggleCreative,
   onOpenCampaign,
+  onOpenDirections,
   museAvail,
   museResult,
   museImages,
@@ -218,6 +221,7 @@ export default function Welcome({
       (onToggleBrand ? 1 : 0) +
       (onToggleCreative ? 1 : 0) +
       (onToggleFlows ? 1 : 0) +
+      (onOpenDirections ? 1 : 0) +
       (pageFormat || imageChoiceAvailable ? 1 : 0)
 
   function toggleMuse() {
@@ -360,6 +364,18 @@ export default function Welcome({
               onClick={onOpenDesign}
               title={t('auth.welcome.designTitle')}
             />
+            {/* The first screen is where a direction is decided, so the place to
+                compare three of them before it exists. */}
+            {!autoOn && onOpenDirections && (
+              <OptionTileAction
+                icon="sparkle"
+                label={t('directions.option')}
+                hint={t('directions.optionHint')}
+                status={t('directions.tileStatus')}
+                onClick={onOpenDirections}
+                title={t('directions.title')}
+              />
+            )}
             {onToggleBrand && (
               <OptionTile
                 icon="star"

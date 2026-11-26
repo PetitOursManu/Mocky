@@ -82,6 +82,7 @@ import TranslateDialog from './TranslateDialog'
 import FillDialog from './FillDialog'
 import BrandPicker from './BrandPicker'
 import RulesDialog, { ruleOfferOn, setRuleOfferOn } from './RulesDialog'
+import DirectionsDialog from './DirectionsDialog'
 import { appendRule, projectRulesSection, ruleList, suggestRule } from '../lib/rules'
 import { applyFill, type FillField, type FillRefusal } from '../lib/fillFields'
 import { downloadZip, downloadTsx } from '../lib/export'
@@ -663,6 +664,8 @@ export default function ProjectView({
   const [fillFor, setFillFor] = useState<string | null>(null)
   /** The project's rules dialog (lib/rules.ts). */
   const [rulesOpen, setRulesOpen] = useState(false)
+  /** Three art directions to choose from (DirectionsDialog). */
+  const [directionsOpen, setDirectionsOpen] = useState(false)
   /**
    * "Retenir comme règle ?" after a correction: the rule as the person will
    * keep it (prefilled with the correction's words) and where.
@@ -4834,6 +4837,24 @@ export default function ProjectView({
           onClose={() => setImagesForScreen(null)}
         />
       )}
+      {directionsOpen && (
+        <DirectionsDialog
+          brief={prompt}
+          projects={allProjects ?? [project]}
+          projectId={project.id}
+          hasDirection={!!project.design?.trim()}
+          creative={!!project.creative}
+          onChoose={(d) => {
+            onSetDesign(d.markdown)
+            // A primed "new direction" would replace the one just chosen with
+            // Muse's on the next screen.
+            setRedesign(false)
+            setDirectionsOpen(false)
+            setNotice(t('directions.chosen', { name: d.name }))
+          }}
+          onClose={() => setDirectionsOpen(false)}
+        />
+      )}
       {rulesOpen && (
         <RulesDialog
           rules={project.rules}
@@ -5114,6 +5135,7 @@ export default function ProjectView({
         creativeOn={!!project.creative}
         onToggleCreative={onSetCreative ? () => onSetCreative(!project.creative) : undefined}
         onOpenCampaign={() => setRightSlot('campaign')}
+        onOpenDirections={() => setDirectionsOpen(true)}
         museAvail={museAvail}
         museResult={museResult}
         museImages={museImages}
@@ -6727,6 +6749,11 @@ export default function ProjectView({
                     onClick={() => setRedesign((v) => !v)}
                     title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
                   />
+                )}
+                {/* Three directions side by side, before a screen: choosing one
+                    writes the project's direction, nothing is generated. */}
+                {!autoMode && (
+                  <OptionAction icon="sparkle" label={t('directions.option')} hint={t('directions.optionHint')} onClick={() => setDirectionsOpen(true)} />
                 )}
                 {/* The account's brand, for this project (lib/brand.ts): offered
                     once a brand exists, remembered on the project. */}

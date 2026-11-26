@@ -132,6 +132,15 @@ that fails with the picture is retried without it, the fallback under a
 reference is its measured colours, the palette is `extractReferencePalette`
 (backdrop out, ink kept), and on the LOOK the picture outranks the dossier.
 
+**Three directions** (`server/muse/inspire/directions.js`, `lib/directions.ts`,
+`DirectionsDialog.tsx`, `POST /api/muse/directions`) proposes three art
+directions before a screen exists; the pick is written as the project's
+direction through `onSetDesign`, in the dossier's markdown, and nothing else
+knows it was chosen. Contrast is MEASURED (`directionDistance`), never trusted to
+the prompt: asked for "three different directions" a model returns three beiges.
+The account's other projects travel as data (`avoidFrom`, read off their
+directions, never stored), and with no model the pattern library answers (M3).
+
 **An .html or .zip of the site becomes a screenshot** (`lib/siteSource.ts`,
 `lib/siteSourceRender.ts`, `lib/zipRead.ts`) and nothing downstream knows it was
 a file. Two frames, and do not merge them: the page's scripts run in an
