@@ -1002,6 +1002,11 @@ const BLOCK_NOTES = {
     right: 'the film wants some warmth and the title can carry it: an opening card, a name, a punchline.',
     wrong: 'on a sentence that has to be READ. The treatment is the point, and a line bent into an arc is a line somebody spends a moment decoding.',
   },
+  handwriting: {
+    what: 'a few words written by hand, stroke by stroke in the order a pen takes, in one of five hands — parisienne, caveat, italianno, ems-allure, hershey-script.',
+    right: 'a signature, a name, a thank-you, one warm word: something a person would write rather than type or print.',
+    wrong: 'on a sentence. Handwriting is read slowly and written slower still, so a line longer than a few words is a scene spent watching a pen.',
+  },
   typewriter: {
     what: 'a line typed out character by character, with an optional caret.',
     right: 'the film is about writing: a prompt, a search, a command, anything a person types.',

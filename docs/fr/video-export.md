@@ -1,5 +1,5 @@
 ---
-source_hash: a188dea44844
+source_hash: b3d9ca361241
 ---
 
 # Motion Ultra — films
@@ -186,7 +186,7 @@ décrire son propre rendu.
 | Famille | Blocs |
 |---|---|
 | Texte | `heading`, `kicker`, `quote`, `textHighlight`, `funTitle` |
-| Texte animé | `typewriter`, `animatedList`, `counter`, `logoType` |
+| Texte animé | `typewriter`, `handwriting`, `animatedList`, `counter`, `logoType` |
 | Interface | `button`, `form`, `notification`, `lowerThird` |
 | Données | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map`, `globe`, `solidChart` |
 | Média et temps | `imageFrame`, `gallery`, `carousel`, `clock`, `dateStamp` |
@@ -897,6 +897,39 @@ de l’image non mesurée, et un champ mesuré comme rien du tout est la rencont
 GL, sa taille et la caméra qui y regarde étaient une branche dans
 `ComposedSceneVideo`, soit une branche par bloc 3D dans un fichier que chaque
 auteur de bloc aurait alors à éditer.
+
+#### Une ligne écrite à la main
+
+`handwriting` écrit quelques mots trait par trait, dans l’ordre d’une plume, dans
+l’une de cinq écritures — `parisienne` (par défaut), `caveat`, `italianno`,
+`ems-allure`, `hershey-script` — les mêmes polices Tegaki (MIT ; polices SIL OFL
+1.1) que le `<Handwriting>` d’une page ([Polices](fonts.md#handwriting)).
+
+**On demande à Tegaki les mots finis, jamais l’animation.** Il sait les écrire
+lui-même, avec des keyframes CSS ou un canevas sur sa propre horloge, et ni l’un
+ni l’autre n’a sa place dans un film : l’image arrive en `progress` et `life`, et
+les deux moteurs doivent dessiner la même image pour le même numéro.
+`blocks/hand.js` prend donc le SVG figé de Tegaki — chaque trait en une suite de
+petits segments, chacun avec la largeur de la plume à cet endroit — et révèle
+cette liste selon la longueur que la plume a parcourue, en coupant le segment
+qu’elle est en train de tracer. De l’arithmétique pure sur des nombres écrits par
+Tegaki : `hand.test.js` prouve que la ligne commence vide, finit sur chaque trait
+et ne s’efface jamais, et le même film rendu par les deux moteurs est sorti à un
+SSIM d’au moins 0,991 sur chaque image. La plume prend les deux tiers de la
+scène, la part de `typewriter`, pour la raison de `typewriter` : une ligne finie
+au moment de la coupe n’a jamais été lue.
+
+**Un mot n’est jamais écrit avec un trou.** Trois des écritures n’ont que les
+lettres sans accent, donc une ligne que l’une d’elles ne sait pas écrire en
+entier est écrite en `ems-allure`, qui couvre le Latin-1 et le Latin étendu A —
+le document n’est jamais refusé pour un accent, ce qu’un modèle écrivant en
+français rencontrerait un mot sur deux. Une ligne qu’aucune écriture ne sait
+écrire est posée en caractères ordinaires, dans la police des titres.
+
+C’est une ligne au rôle d’un titre (`display`, `nowrap`), tenue dans sa boîte par
+les proportions de l’encre elle-même, parce qu’une écriture manuscrite court plus
+large que le texte estimé par l’échelle. Quarante caractères : l’écriture à la
+main se lit lentement, et s’écrit plus lentement encore.
 
 #### Une zone, et un rang
 

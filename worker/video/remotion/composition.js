@@ -2694,6 +2694,10 @@ export const BLOCK_APPETITE = {
 
   // ── ANIMATED TEXT ──
   typewriter: { fixed: 0.4, fills: 'either', runs: (b) => [{ role: 'title', text: b?.text }] },
+  // One line, a headline's role: a hand that wrapped would be two signatures.
+  // `hand.js` then holds the ink inside the box by its own proportions, because a
+  // script runs wider than the type this row estimates.
+  handwriting: { fixed: 0.4, fills: 'either', runs: (b) => [{ role: 'display', text: b?.text, nowrap: true }] },
   animatedList: { fixed: 0.4, fills: 'either', runs: (b) => runs(b?.items).map((text) => ({ role: 'body', text })) },
   counter: {
     fixed: 0.3,

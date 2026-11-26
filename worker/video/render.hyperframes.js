@@ -66,8 +66,14 @@ function servedBundle() {
         // producer's file server mounts the project.
         publicPath: '.',
         jsx: 'automatic',
-        loader: { '.js': 'jsx', '.woff2': 'file' },
-        define: { 'process.env.NODE_ENV': '"production"' },
+        // The Tegaki fonts the `handwriting` block imports name their .ttf/.otf by
+        // URL; nothing reads them (the strokes are data), but the bundle must resolve.
+        loader: { '.js': 'jsx', '.woff2': 'file', '.ttf': 'file', '.otf': 'file' },
+        // `import.meta.url` is what Tegaki's font bundles build their font URLs on,
+        // and an IIFE has none: `new URL(x, undefined)` threw before the first frame.
+        // The page's own address is a base those URLs resolve against; nothing
+        // fetches them, the strokes are data.
+        define: { 'process.env.NODE_ENV': '"production"', 'import.meta.url': 'document.baseURI' },
         minify: true,
         logLevel: 'error',
         plugins: [engineDoors],

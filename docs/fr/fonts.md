@@ -1,6 +1,6 @@
 ---
 description: Environ 200 polices, servies par Mocky lui-même, que chaque écran et chaque document généré peut utiliser par leur nom.
-source_hash: 2d4f87af5cbd
+source_hash: 0bd6273a2b65
 ---
 
 # Polices
@@ -130,6 +130,8 @@ servi depuis Mocky comme chaque script d’un aperçu (`public/vendor/tegaki.js`
 - **C’est du texte** pour un lecteur d’écran, et le dessin lui est masqué.
 - **Un projet exporté** ne dépend du paquet `tegaki` que si l’un de ses écrans
   écrit à la main, et charge chaque police à sa première utilisation.
+- **Un film** écrit aussi à la main : le bloc `handwriting` d’un film composé,
+  dans les cinq mêmes écritures ([Motion Ultra — films](video-export.md)).
 
 Les polices sont sous SIL OFL 1.1 (Hershey Script : les conditions propres aux
 polices Hershey). Le mot « Mocky » qui s’écrit pendant la génération d’un écran

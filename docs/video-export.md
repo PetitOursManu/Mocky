@@ -170,7 +170,7 @@ than cards — not permission to describe its own rendering.
 | Family | Blocks |
 |---|---|
 | Text | `heading`, `kicker`, `quote`, `textHighlight`, `funTitle` |
-| Animated text | `typewriter`, `animatedList`, `counter`, `logoType` |
+| Animated text | `typewriter`, `handwriting`, `animatedList`, `counter`, `logoType` |
 | Interface | `button`, `form`, `notification`, `lowerThird` |
 | Data | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map`, `globe`, `solidChart` |
 | Media and time | `imageFrame`, `gallery`, `carousel`, `clock`, `dateStamp` |
@@ -837,6 +837,35 @@ whole legibility section exists to have prevented. And `blocks/canvases.js` is a
 new file: which blocks need a GL canvas, how big it is and what camera looks into
 it used to be a branch inside `ComposedSceneVideo`, which is one branch per 3D
 block in a file every block author would then have to edit.
+
+#### A line written by hand
+
+`handwriting` writes a few words stroke by stroke, in the order a pen takes, in
+one of five hands — `parisienne` (the default), `caveat`, `italianno`,
+`ems-allure`, `hershey-script` — the same Tegaki fonts (MIT; fonts SIL OFL 1.1) a
+page's `<Handwriting>` writes in ([Fonts](fonts.md#handwriting)).
+
+**Tegaki is asked for the finished words, never for the animation.** It can write
+them itself, with CSS keyframes or a canvas on its own clock, and neither belongs
+in a film: the frame arrives as `progress` and `life`, and the two engines must
+draw the same frame for the same number. So `blocks/hand.js` takes Tegaki's
+static SVG — every stroke as a run of short segments, each with the pen's width
+there — and reveals that list by the length the pen has travelled, cutting the
+segment it is in the middle of. Pure arithmetic on numbers Tegaki wrote:
+`hand.test.js` proves the line starts empty, ends on every mark and never
+un-writes, and the same film rendered by both engines came out within an SSIM of
+0.991 on every frame. The pen spends two thirds of the scene, `typewriter`'s
+share, for `typewriter`'s reason: a line finished at the cut was never read.
+
+**A word is never written with a hole in it.** Three of the hands carry
+unaccented letters only, so a line one of them cannot write whole is written in
+`ems-allure`, which has Latin-1 and Latin Extended-A — the document is never
+refused for an accent, which a model writing French would hit on every second
+word. A line no hand can write is set as plain type in the heading face.
+
+It is one line in a headline's role (`display`, `nowrap`), held inside its box by
+the ink's own proportions, because a script runs wider than the type the scale
+estimates. Forty characters: handwriting is read slowly and written slower still.
 
 #### A zone, and a rank
 

@@ -68,6 +68,7 @@ export const BLOCK_LIMITS = {
   highlight: 90,
   highlightMark: 40,
   typewriter: 120,
+  handwriting: 40,
   listItem: 60,
   listItems: 6,
   counterTo: 1000000,
@@ -201,7 +202,7 @@ export const ICON_NAMES = [
 /** The block catalogue, by family. The compose prompt reads this map. */
 export const BLOCK_FAMILIES = {
   text: ['heading', 'kicker', 'quote', 'textHighlight', 'funTitle'],
-  animatedText: ['typewriter', 'animatedList', 'counter', 'logoType'],
+  animatedText: ['typewriter', 'handwriting', 'animatedList', 'counter', 'logoType'],
   interface: ['button', 'form', 'notification', 'lowerThird'],
   // `globe` and `solidChart` are DATA rather than set pieces, and it is about
   // where a model looks rather than what they cost. See timeline.ts.
@@ -228,6 +229,9 @@ export const BLOCK_KINDS = [
 
 /** How a `funTitle` treats its line. Five looks; Skia was measured and refused. See timeline.ts. */
 export const FUN_TITLE_TREATMENTS = ['arc', 'bounce', 'stretch', 'swap', 'stack']
+
+/** The hands a `handwriting` block writes in — Tegaki's five Latin fonts. See timeline.ts. */
+export const HANDWRITING_HANDS = ['parisienne', 'caveat', 'italianno', 'ems-allure', 'hershey-script']
 
 /** What a `solidScene` draws. Four solids, and no wireframe: it was measured. See timeline.ts. */
 export const SOLIDS = ['cube', 'prism', 'sphere', 'torus']
@@ -449,6 +453,11 @@ export const FunTitleBlockSchema = block('funTitle', {
 export const TypewriterBlockSchema = block('typewriter', {
   text: line(BLOCK_LIMITS.typewriter),
   caret: z.boolean().default(true),
+})
+
+export const HandwritingBlockSchema = block('handwriting', {
+  text: line(BLOCK_LIMITS.handwriting),
+  hand: z.enum(HANDWRITING_HANDS).default('parisienne'),
 })
 
 export const AnimatedListBlockSchema = block('animatedList', {
@@ -685,6 +694,7 @@ export const BlockSchema = z.discriminatedUnion('kind', [
   TextHighlightBlockSchema,
   FunTitleBlockSchema,
   TypewriterBlockSchema,
+  HandwritingBlockSchema,
   AnimatedListBlockSchema,
   CounterBlockSchema,
   LogoTypeBlockSchema,

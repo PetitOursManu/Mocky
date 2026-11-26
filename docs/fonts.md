@@ -118,6 +118,8 @@ origin like every script a preview runs (`public/vendor/tegaki.js`).
 - **It is text** to a screen reader, and the drawing is hidden from it.
 - **An exported project** depends on the `tegaki` package only when one of its
   screens writes by hand, and loads each font when it is first used.
+- **A film** writes by hand too: the `handwriting` block of a composed film, in
+  the same five hands ([Motion Ultra — films](video-export.md)).
 
 The fonts are SIL OFL 1.1 (Hershey Script: the Hershey fonts' own terms). The
 word "Mocky" that writes itself while a screen is generated is the same
