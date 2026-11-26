@@ -14,7 +14,17 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | schémas sur demande dans les documents, composeur qui ne coupe plus ses boutons, palette de couleurs | `87fb422` |
+| `visuels` | route en lacets, de grands virages du haut au bas du cadre | `2a86616` |
+| `visuels` | le verre devient du glassmorphism, le néon une enseigne lumineuse | `74dbb9e` |
+| `visuels` | route sinueuse aux virages arrondis et rendu néon | `dbca5ed` |
+| `visuels` | rendus au choix — plat, relief, 3D CSS, verre, dégradé | `f6a1043` |
+| `visuels` | 24 familles de plus (44), choisies d'après Napkin, SmartArt, AntV et Mermaid | `e08d409` |
+| `visuels` | phase 3 — outils MCP, déclinaison sans modèle, liaisons modifiables | `694f4c3` |
+| `visuels` | phase 2 — illustrer un texte, six familles, visuels dans les autres types | `a9f088d` |
+| `visuels` | un texte mis en schéma, en 14 familles, sans dessin du modèle | `676fb78` |
 | `text` | réflexion désactivée par défaut sur le profil du forfait gratuit | `32c0175` |
+| `admin` | liste par compte pour la génération d'images par IA | `b1e07c0` |
 | `composer` | mode Auto — Jev choisit les options de chaque nouvel écran | `3a1c0a7` |
 | `admin` | utilisateurs gérés par Kosmy Board (kosmy.board-users.v1) | `3ef804c` |
 | `fonts` | Noto Sans JP et Noto Serif SC, surcoût du brief annoncé au composeur | `7d965bb` |
@@ -61,6 +71,8 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `visuels` | des étapes en colonne quand la largeur manque | `d5993aa` |
+| `visuels` | clôture de la phase 1 après essais dans l'application | `0cc9973` |
 | `sync` | la copie d'un navigateur ne se fusionne plus dans le compte d'un autre | `cbe6011` |
 | `capture` | le code généré ne partage plus l'origine de Mocky | `889884a` |
 | `animations` | « Ajouter des animations » n'utilise plus le pack retiré | `b5672cd` |
@@ -75,6 +87,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `visuels` | README, index, interface et glossaire | `fa0d2cd` |
 | `admin` | documenter les utilisateurs gérés par Kosmy Board | `fe49407` |
 | `readme` | audit de projet, modèle de décision et recherche Admin | `eb7b45f` |
 | `auth` | documenter la connexion avec Kosmy Board | `7840c72` |
