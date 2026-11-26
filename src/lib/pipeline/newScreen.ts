@@ -103,6 +103,8 @@ import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
 import { currentUsageRun, setUsageRun } from '../proxy'
 import { briefFixInstruction, briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
+import { VISUAL_THEME, VISUALS_CAP, VISUAL_ASKED_SECTION, requestAsksForVisual, screenDrawsVisuals, themeDrawsVisuals } from '../visuals/families'
+import { checkVisualFigures } from '../visuals/check'
 
 /** What the run is busy with, for the composer's progress line. */
 export type NewScreenPhase = 'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | 'docPicture'
@@ -221,6 +223,8 @@ export interface NewScreenRequest {
   campaignContext?: string
   /** What a campaign piece records about itself: its format and the facts it is written with. */
   campaign?: ScreenCampaign
+  /** The digest of the text block this visual illustrates (lib/visuals/textBlocks.ts). */
+  illustrates?: string
   /**
    * A publication sheet's place in its magazine or book (`publicationSection`
    * in lib/publication.ts), appended to the plan like `campaignContext`.
@@ -609,7 +613,11 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     const museBrief = [museBriefBase, museThemeLine, req.brand ? brandMuseLine(req.brand) : undefined, rulesMuseLine(req.project.rules) || undefined].filter(Boolean).join('\n\n')
     // A reproduction's direction is the screenshot: a dossier would be a
     // second, contradicting one, and a paid call to write it.
-    if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {
+    // A visual is a diagram in the project's direction: a dossier would plan
+    // sections and pictures it never draws, and cost a call to write them.
+    const museForVisual = runTheme !== VISUAL_THEME
+    if (!museForVisual && museConfig.enabled && museAvail !== false) hooks.replaceNotice(t('visuals.museSkipped'))
+    if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind && museForVisual) {
       try {
         hooks.setMuseResult(null)
         hooks.setMuseImages([])
@@ -1235,6 +1243,14 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     // A document: what cannot live on paper out, the page kit in. Identity
     // for every other screen.
     capIds = pipe.caps(capIds)
+    // A visual: the component that draws it, whatever the shortlist said (the
+    // pack is never a guess — `forcedOnly`, see the registry).
+    if (screenDrawsVisuals(runTheme, pipe.document, text) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
+    // A flyer, a poster, a post… asked for a diagram: its brief does not say
+    // when to use the kit, so the request's own wish is said here.
+    if (!themeDrawsVisuals(runTheme) && pipe.document && requestAsksForVisual(text)) {
+      planSection = [planSection, VISUAL_ASKED_SECTION].filter(Boolean).join('\n\n')
+    }
     // A working prototype: the kit and its rules, on a screen (never a page of
     // a document — paper has no next page to open).
     if (req.flows && !pipe.document && !capIds.includes('flow')) capIds = [...capIds, 'flow']
@@ -1314,6 +1330,7 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
       animations: pipe.animations,
       ...(req.route ? { route: req.route } : {}),
       ...(req.campaign ? { campaign: req.campaign } : {}),
+      ...(req.illustrates ? { illustrates: req.illustrates } : {}),
       ...(pub ? { publication: pub.record } : {}),
     })
     if (siteNew) hooks.rememberSiteRef(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
@@ -1355,6 +1372,26 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
       ...(pipe.document ? { caps: capabilitiesFor(capIds, result.code) } : {}),
     })
     hooks.screenWritten(screenId)
+    // A visual shows only the figures the request gave (lib/visuals/check.ts):
+    // one it made up is taken out before anybody reads it as a fact — the
+    // assistant's own code included, no model call. Only on a VISUAL screen,
+    // where the request IS the text: a report or a post is asked to invent
+    // realistic sample figures, and emptying its charts would be the bug.
+    if (runTheme === VISUAL_THEME && result.code.includes('<Visual') && !result.truncated) {
+      try {
+        const checked = await checkVisualFigures(result.code, text)
+        if (checked.dropped.length) {
+          result.code = checked.code
+          hooks.updateScreen(screenId, { code: result.code })
+          hooks.notice(t('visuals.figuresDropped', {
+            count: checked.dropped.length,
+            list: checked.dropped.slice(0, 3).map((d) => `${d.label} (${d.value}${d.unit ? ` ${d.unit}` : ''})`).join(' · '),
+          }))
+        }
+      } catch {
+        // Q1: a check that cannot run is not a finding.
+      }
+    }
     // Every picture of the series was paid for; one the page left out is
     // worth a sentence (see lib/ultra/check.ts).
     // What the brief imposed and the code left out (lib/briefCheck.ts), and

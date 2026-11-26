@@ -50,7 +50,7 @@ describe('site screenshots in the generation path', () => {
   })
 
   it('skip Muse, Motion Ultra and the planner where the screenshot is the authority', () => {
-    expect(pipeline).toContain('if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {')
+    expect(pipeline).toContain('if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind && museForVisual) {')
   })
 
   it('read the site before Muse on a redesign, and keep Muse out when the reading failed', () => {

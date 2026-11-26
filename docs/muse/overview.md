@@ -447,7 +447,8 @@ found are shown to the model that writes the page instead, and the page is
 designed around the pictures it embeds rather than around a dossier written
 before they were found. A library picture you ticked `Inspiration` takes that
 place when there is one. Who
-may use this is its own list, in Admin → Images → Free stock photos.
+may use this is its own list, in Admin → Images → Free stock photos; who may
+generate pictures at all is another, Admin → Images → AI-generated images.
 
 ---
 

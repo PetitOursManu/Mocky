@@ -1,5 +1,5 @@
 ---
-source_hash: 7adc9039d3ab
+source_hash: 6f23c19b284d
 ---
 
 # Vue d'ensemble de Muse
@@ -494,7 +494,8 @@ trouvées qui sont montrées au modèle qui écrit la page, pour qu'elle soit
 dessinée autour des images qu'elle contient plutôt qu'autour d'un dossier écrit
 avant qu'elles soient trouvées. Une image de la bibliothèque cochée
 `Inspiration` prend cette place quand il y en a une. Qui peut s'en servir est une liste à part,
-dans Admin → Images → Photos libres de droits.
+dans Admin → Images → Photos libres de droits ; qui peut générer des images
+tout court en est une autre, Admin → Images → Images générées par IA.
 
 ---
 

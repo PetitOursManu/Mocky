@@ -1,5 +1,5 @@
 ---
-source_hash: 207370e9cb6e
+source_hash: 83e47d1d71d7
 ---
 
 # Connecter un assistant (MCP)
@@ -47,6 +47,8 @@ clé fixe que le compte crée pour lui-même, en lecture seule ou en lecture +
 | `translate_screen` | Une [copie traduite](interface.md#le-menu-contextuel-dun-écran) d’un écran dans `language` (fr, en, es, de, it, pt, nl, pl, sv, da, ca), posée à sa droite ; l’original ne change pas, et seuls les mots changent. |
 | `fill_fields` | De nouvelles valeurs dans les [champs à remplir](templates.md#écrans-à-remplir) d’un écran, par nom de champ, dans `rows` : une ligne donne une copie remplie à côté de l’écran (`into: "here"` remplit l’écran lui-même, annulable), plusieurs lignes une [série](templates.md#une-série-depuis-un-tableau), une copie chacune. Aucun modèle n’est appelé ; un champ image prend un `image_id` d’`add_image`. Un écran sans champs est refusé, avec la façon de les choisir. |
 | `write_publication_pack` | Pour un projet de campagne : le [pack de publication](campaign.md#pack-de-publication) — une légende avec ses hashtags pour Instagram, Facebook et LinkedIn et un texte alternatif par création, en un appel au modèle — gardé dans la campagne et rendu à l’assistant. |
+| `create_visual` | Un [visuel](visuals.md) d’un texte — ses idées en étapes, en frise, en comparaison, en chiffres clés, en graphique… — dans un nouveau projet. Le texte est passé tel quel ; un chiffre qu’il ne donne pas est retiré. |
+| `list_visual_families` | Les formes qu’un visuel peut prendre et à quoi sert chacune. Ne change rien. |
 | `check_document` | La [vérification avant export](documents.md#contrôler-avant-dexporter) d’un document : netteté des images, marges et zones sûres, fonds perdus, texte coupé, QR codes, ce que Canva aplatit. Ne change rien, n’appelle aucun modèle. |
 
 Et sept prompts (le menu « / » de Claude), chacun un message de départ qui nomme
@@ -425,7 +427,7 @@ compte et son travail unique à la fois, la maintenance.
 
 | Niveau | Ce qu'il atteint |
 |---|---|
-| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `audit_project`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
+| **Lecture seule** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `list_visual_families`, `audit_design`, `audit_project`, `search_free_images` — les outils qui ne modifient rien dans le compte. Aucun autre outil n'est listé ni appelable, et aucun prompt n'est proposé. |
 | **Lecture + écriture** | Tous les outils permis au compte, comme avec une connexion OAuth. |
 
 La liste de lecture est **fermée**, dans le code (`server/mcp/levels.js`) : un

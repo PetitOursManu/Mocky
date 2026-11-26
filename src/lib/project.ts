@@ -29,6 +29,7 @@ import {
 } from './publication'
 import { normalizeFill, type FillField } from './fillFields'
 import { cleanRules } from './rules'
+import { ILLUSTRATE_MAX_CHARS } from './visuals/textBlocks'
 import { normalizeCampaign, normalizeScreenCampaign, type Campaign, type ScreenCampaign } from './campaign'
 
 /** A link from an element (or region) of a screen to another screen. */
@@ -209,6 +210,12 @@ export interface Screen {
    * carries its own answer. Absent on every screen that is not a piece.
    */
   campaign?: ScreenCampaign
+  /**
+   * The block of the project's text this visual was made from ("Illustrate a
+   * text", lib/visuals/textBlocks.ts), as the DIGEST of its words: a paragraph
+   * inserted above does not hand this visual to another one. Absent elsewhere.
+   */
+  illustrates?: string
   /**
    * A publication sheet's place (lib/publication.ts): which magazine or book,
    * which sheet of its plan, the folio it starts at. On the screen for the
@@ -437,6 +444,12 @@ export interface Project {
    * On Project for the reason `folder` is.
    */
   campaign?: Campaign
+  /**
+   * The text being illustrated, block by block ("Illustrate a text",
+   * components/IllustratePanel.tsx), and the size its visuals are made at.
+   * On Project for the reason `folder` is.
+   */
+  illustration?: ProjectIllustration
   /**
    * The magazines and books made in this project (lib/publication.ts), each
    * with its plan and its OWN direction — not the project's, which a flyer for
@@ -904,7 +917,24 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     campaign: normalizeScreenCampaign(s.campaign),
     publication: normalizeScreenPublication(s.publication),
     fill: normalizeFill(s.fill),
+    illustrates: typeof s.illustrates === 'string' && /^[a-z0-9]{1,16}$/.test(s.illustrates) ? s.illustrates : undefined,
   }
+}
+
+/** What "Illustrate a text" keeps on a project. */
+export interface ProjectIllustration {
+  text: string
+  page?: PageFormatId
+}
+
+/** A stored illustration, or undefined when there is no text worth keeping. */
+export function normalizeIllustration(v: unknown): ProjectIllustration | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const o = v as Record<string, unknown>
+  const text = typeof o.text === 'string' ? o.text.slice(0, ILLUSTRATE_MAX_CHARS) : ''
+  if (!text.trim()) return undefined
+  const page = normalizePageFormat(o.page)
+  return { text, ...(page ? { page } : {}) }
 }
 
 /** Validate a stored Motion Ultra record, or drop it. */
@@ -1499,6 +1529,20 @@ export function useProjects() {
     )
   }, [])
 
+  /** Replace the text a project is illustrating (undefined, or an empty text, clears it). */
+  const setProjectIllustration = useCallback((projectId: string, illustration: ProjectIllustration | undefined) => {
+    const clean = normalizeIllustration(illustration)
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (clean) next.illustration = clean
+        else delete next.illustration
+        return next
+      }),
+    )
+  }, [])
+
   /** Replace a project's campaign brief (undefined, or nothing worth keeping, clears it). */
   const setProjectCampaign = useCallback((projectId: string, campaign: Campaign | undefined) => {
     const clean = normalizeCampaign(campaign)
@@ -1535,6 +1579,7 @@ export function useProjects() {
     restoreProjectVersion,
     setProjectScenarios,
     setProjectCampaign,
+    setProjectIllustration,
     setProjectPublication,
     setProjectUseBrand,
     setProjectCreative,

@@ -1,5 +1,5 @@
 ---
-source_hash: 0e2284870c0f
+source_hash: df8b2b19ca29
 ---
 
 # Mocky
@@ -72,6 +72,7 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 - [Démarrage](getting-started.md) Installer Mocky et configurer un modèle.
 - [L’interface](interface.md) Ce que fait chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
 - [Documents et posts pour les réseaux sociaux](documents.md) Faire un flyer, un rapport, un CV ou un post, et le télécharger en PDF, en présentation ou en images.
+- [Visuels](visuals.md) Mettre un texte en schéma — étapes, frise, comparaison, chiffres clés, graphiques —, en changer la forme sans frais, et illustrer un article entier bloc par bloc.
 - [Polices](fonts.md) Environ 200 polices que tout écran peut nommer, servies par Mocky lui-même.
 - [Ma marque, et exporter un écran](brand.md) Votre logo et votre identité appliqués à un projet ; un écran web en PNG ou en PowerPoint.
 - [Campagne](campaign.md) Décliner un brief — tapé, ou importé d’un PDF — en affiche, flyer, post et story ; changer une date et mettre à jour les créations qui la disent ; les dater, les envoyer dans Calendy, et télécharger le pack de publication avec ses légendes.

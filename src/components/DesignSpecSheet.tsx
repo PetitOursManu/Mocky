@@ -9,6 +9,7 @@ import {
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
 import { Button, Icon } from '../ui'
 import { useT } from '../i18n'
+import ColorPalette from './ColorPalette'
 import { findFontIn, registerSpecimens, specimenStack, type FontFamily } from '../lib/fonts'
 import FontBrowser from './FontBrowser'
 
@@ -389,15 +390,21 @@ function Colors({ spec, ctx }: { spec: DesignSpec; ctx: Ctx }) {
             )}
 
             {isEditing && (
-              <div className="mt-1 flex items-center gap-2 border border-accent/40 bg-raised p-2">
-                <input
-                  type="color"
-                  value={/^#[0-9a-fA-F]{6}$/.test(hexDraft) ? hexDraft : c.hex}
-                  onChange={(e) => setHexDraft(e.target.value)}
-                  className="h-7 w-9 shrink-0 cursor-pointer border border-line bg-transparent p-0"
-                  aria-label={t('design.spec.recolour')}
+              <div className="mt-1 flex flex-col gap-2 border border-accent/40 bg-raised p-2">
+                <ColorPalette
+                  value={hexDraft}
+                  onPick={setHexDraft}
+                  onApply={commitColor}
+                  designColors={spec.colors.filter((o) => o.index !== c.index).map((o) => o.hex)}
+                />
+                <div className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className="block h-7 w-7 shrink-0 border border-line"
+                  style={{ background: /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(hexDraft) ? hexDraft : c.hex }}
                 />
                 <input
+                  aria-label={t('design.spec.recolour')}
                   value={hexDraft}
                   onChange={(e) => setHexDraft(e.target.value)}
                   onKeyDown={(e) => {
@@ -414,6 +421,7 @@ function Colors({ spec, ctx }: { spec: DesignSpec; ctx: Ctx }) {
                 >
                   {t('design.spec.apply')}
                 </button>
+                </div>
               </div>
             )}
           </li>

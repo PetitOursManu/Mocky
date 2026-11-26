@@ -28,6 +28,7 @@ export const SCREEN_TYPES = {
   flyer: 'printable flyer (A6 to A3, DL or square; flat or a folded leaflet)',
   poster: 'poster (A3 document)',
   report: 'multi-page report document',
+  visual: 'a visual / infographic of a text: its ideas as steps, a cycle, a timeline, a comparison, a hub, a mind map, a flowchart, key figures or a chart (16:9 by default; square and portrait social sizes too)',
   documentation: 'documentation / user guide document',
   resume: 'CV / résumé document',
   invoice: 'invoice or quote document',
