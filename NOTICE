@@ -55,6 +55,13 @@ Deterministic quality detection uses the `impeccable` npm package by Paul
 Bakaus, licensed under the Apache License 2.0
 (https://github.com/pbakaus/impeccable).
 
+Handwriting — the `<Handwriting>` component and the generation loader's word —
+is drawn by Tegaki by Gokhan Kurt (https://github.com/gkurt/tegaki), licensed
+under the MIT License, whose notice heads `public/vendor/tegaki.js`. Its
+handwriting fonts are licensed under the SIL Open Font License 1.1, except
+Hershey Script, under the Hershey fonts' own terms; they are listed in
+FONTS-LICENSE.md of the tegaki package.
+
 The optional video worker in `worker/video/` can render films with
 HyperFrames by HeyGen (the `@hyperframes/*` npm packages), licensed under the
 Apache License 2.0 (https://github.com/heygen-com/hyperframes). Its licence

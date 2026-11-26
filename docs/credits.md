@@ -29,6 +29,7 @@ travels with the file.
 | [Motion](https://motion.dev) | Animations in generated pages | MIT |
 | [three.js](https://threejs.org) | 3D scenes in generated pages | MIT |
 | [html2canvas](https://html2canvas.hertzen.com) | Captures and image exports | MIT |
+| [Tegaki](https://github.com/gkurt/tegaki) by Gokhan Kurt | [Handwriting](fonts.md#handwriting) in screens, and the word the loader writes | MIT; its fonts SIL OFL 1.1 |
 | [impeccable](https://github.com/pbakaus/impeccable) by Paul Bakaus | Deterministic defect detection in the [quality pass](quality.md) | Apache-2.0 |
 | [PDF.js](https://mozilla.github.io/pdf.js/) | Reading an imported PDF | Apache-2.0 |
 | [pdf-lib](https://pdf-lib.js.org) | PDF exports | MIT |

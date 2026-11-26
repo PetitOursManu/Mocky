@@ -1,6 +1,6 @@
 ---
 description: Les projets libres et les services sur lesquels Mocky est construit, ce que chacun y fait, et sa licence.
-source_hash: c0d4e7cea381
+source_hash: e880e354d73f
 ---
 
 # Remerciements
@@ -31,6 +31,7 @@ licence voyage avec le fichier.
 | [Motion](https://motion.dev) | Les animations des pages générées | MIT |
 | [three.js](https://threejs.org) | Les scènes 3D des pages générées | MIT |
 | [html2canvas](https://html2canvas.hertzen.com) | Les captures et les exports en image | MIT |
+| [Tegaki](https://github.com/gkurt/tegaki), de Gokhan Kurt | L’[écriture manuscrite](fonts.md#handwriting) des écrans, et le mot que trace le chargeur | MIT ; ses polices SIL OFL 1.1 |
 | [impeccable](https://github.com/pbakaus/impeccable), de Paul Bakaus | La détection déterministe des défauts de la [passe qualité](quality.md) | Apache-2.0 |
 | [PDF.js](https://mozilla.github.io/pdf.js/) | La lecture d’un PDF importé | Apache-2.0 |
 | [pdf-lib](https://pdf-lib.js.org) | Les exports PDF | MIT |

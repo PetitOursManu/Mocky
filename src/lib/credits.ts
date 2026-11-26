@@ -33,6 +33,7 @@ export const CREDITS: Credit[] = [
   { id: 'motion', name: 'Motion', url: 'https://motion.dev', licence: 'MIT', group: 'app' },
   { id: 'three', name: 'three.js', url: 'https://threejs.org', licence: 'MIT', group: 'app' },
   { id: 'html2canvas', name: 'html2canvas', url: 'https://html2canvas.hertzen.com', licence: 'MIT', group: 'app' },
+  { id: 'tegaki', name: 'Tegaki', url: 'https://github.com/gkurt/tegaki', licence: 'MIT', group: 'app' },
   { id: 'impeccable', name: 'impeccable', url: 'https://github.com/pbakaus/impeccable', licence: 'Apache-2.0', group: 'app' },
   { id: 'pdfjs', name: 'PDF.js', url: 'https://mozilla.github.io/pdf.js/', licence: 'Apache-2.0', group: 'app' },
   { id: 'pdflib', name: 'pdf-lib', url: 'https://pdf-lib.js.org', licence: 'MIT', group: 'app' },

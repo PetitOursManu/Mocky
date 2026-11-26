@@ -1236,6 +1236,21 @@ things that will bite you:
    switch to the webfont. Muse's dossier picks from the list and
    `settleTypography` (server/fonts) maps anything else onto it.
 
+**Handwriting is a pack, not a font** (`snippets/Handwriting.ts`, user doc
+`docs/fonts.md#handwriting`): `<Handwriting text font>` asks Tegaki (MIT,
+`public/vendor/tegaki.js`, built by `npm run vendor:tegaki`) for a self-drawing
+SVG. Four things: each font is a vendor file of its OWN, loaded on first use
+(five in one file was a megabyte); three fonts are ASCII-only, so a text one of
+them cannot write whole is written in `HANDWRITING_FALLBACK` (EMS Allure) —
+never with a hole; every `tk-` name in the SVG is renamed per instance, because
+inline SVG shares the page's namespace and two signatures animated each other;
+and the still paths (capture, "Sans animation", reduced motion) get the
+finished words, the capture waiting on `__mockyStillPending`. The loader's
+"Mocky" is the same library run at BUILD time (`npm run build:loader-word` →
+`src/ui/mockyLoaderWord.ts`, a lazily loaded chunk): the app ships the drawing,
+and under reduced motion the static word, since the app's rule collapses a loop
+onto its last keyframe — the word faded out.
+
 ## The pre-export check
 
 `lib/docExport/preflight.ts`, at the top of the download dialog

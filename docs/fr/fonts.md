@@ -1,6 +1,6 @@
 ---
 description: Environ 200 polices, servies par Mocky lui-même, que chaque écran et chaque document généré peut utiliser par leur nom.
-source_hash: 215afd777757
+source_hash: 2d4f87af5cbd
 ---
 
 # Polices
@@ -92,6 +92,50 @@ navigateur de chaque visiteur dise à un tiers ce qu’il regarde.
    de la police latine viennent d’elle.
 4. Une capture attend les polices avant de dessiner : une vignette ou un flyer
    exporté n’est pas composé dans la police de secours.
+
+## Écriture manuscrite {#handwriting}
+
+:::why
+Une police pose des lettres qui sont déjà là. Quelques mots qu’on voit s’écrire
+— une signature, un « Merci », un prénom sur un faire-part — sont autre chose,
+et les dessiner à la main dans le code du modèle donnait des mots qui
+s’écrivaient de travers. Un écran les demande donc par leur nom, et une
+bibliothèque les trace.
+:::
+
+`<Handwriting text="Merci !" font="parisienne" className="text-6xl text-rose-700" />`
+écrit ses mots trait par trait, dans l’ordre d’une plume, quand ils arrivent à
+l’écran. C’est [Tegaki](https://github.com/gkurt/tegaki) (MIT) qui les dessine,
+servi depuis Mocky comme chaque script d’un aperçu (`public/vendor/tegaki.js`).
+
+| `font` | Aspect |
+|---|---|
+| `parisienne` (par défaut) | Une écriture liée élégante |
+| `caveat` | Un feutre décontracté |
+| `italianno` | Une calligraphie soignée |
+| `ems-allure` | Une écriture liée fine |
+| `hershey-script` | Le trait unique d’une table traçante |
+
+- **Les accents.** Caveat, Parisienne et Italianno n’ont que les lettres sans
+  accent. Un texte avec une lettre absente de la police choisie (« Été »,
+  « Noël ») est écrit en EMS Allure, qui les a, plutôt qu’avec un trou. Les
+  apostrophes typographiques, les guillemets et le « œ » sont écrits comme le
+  ferait une main (« oe », guillemets droits).
+- **La taille et la couleur** viennent d’une classe de taille de texte et d’une
+  couleur de texte (ou de `color`, un hexadécimal). `speed` (0,25–4, 2 par
+  défaut) et `loop` règlent l’écriture.
+- **Il reste immobile là où une page l’est** : avec « Sans animation », avec le
+  mouvement réduit, et dans chaque capture et chaque export, les mots sont
+  dessinés finis.
+- **C’est du texte** pour un lecteur d’écran, et le dessin lui est masqué.
+- **Un projet exporté** ne dépend du paquet `tegaki` que si l’un de ses écrans
+  écrit à la main, et charge chaque police à sa première utilisation.
+
+Les polices sont sous SIL OFL 1.1 (Hershey Script : les conditions propres aux
+polices Hershey). Le mot « Mocky » qui s’écrit pendant la génération d’un écran
+vient de la même bibliothèque, exécutée une fois à la construction de Mocky
+(`npm run build:loader-word`) : l’application livre le dessin, pas la
+bibliothèque.
 
 ## Licences {#licences}
 

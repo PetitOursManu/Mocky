@@ -65,12 +65,16 @@ function nameScreens(screens: Screen[]): NamedScreen[] {
  */
 const THREE_VERSION = '^0.185.1'
 
-function packageJson(name: string, stack: StackTarget, three = false): string {
+/** The version Mocky vendors (`public/vendor/tegaki.js`), exactly: a bundle is font data, and its format moves with the renderer. */
+const TEGAKI_VERSION = '1.1.0'
+
+function packageJson(name: string, stack: StackTarget, three = false, tegaki = false): string {
   const deps: Record<string, string> = {
     react: '^18.3.1',
     'react-dom': '^18.3.1',
   }
   if (three) deps['three'] = THREE_VERSION
+  if (tegaki) deps['tegaki'] = TEGAKI_VERSION
   const devDeps: Record<string, string> = {
     '@types/react': '^18.3.12',
     '@types/react-dom': '^18.3.1',
@@ -478,10 +482,12 @@ export async function buildProjectFiles(
    * each pack declares. A project with no scene gets no three.js.
    */
   const usesThree = screens.some((screen) => capabilitiesUsedBy(screen.code || '').includes('scene3d'))
+  // The same question for handwriting: tegaki and its fonts only when a screen writes by hand.
+  const usesTegaki = screens.some((screen) => capabilitiesUsedBy(screen.code || '').includes('handwriting'))
   const files: ZipEntry[] = []
 
   // Root config
-  files.push({ name: 'package.json', content: packageJson(name, opts.stack, usesThree) })
+  files.push({ name: 'package.json', content: packageJson(name, opts.stack, usesThree, usesTegaki) })
   files.push({ name: 'vite.config.ts', content: viteConfig() })
   files.push({ name: 'tsconfig.json', content: tsconfig() })
   // The project's real name, not `name` — that one is slugified for package.json
@@ -505,7 +511,7 @@ export async function buildProjectFiles(
    * tailwind-merge), so it ships as `utils.ts` and the JS pair goes: two
    * modules answering to `@/lib/utils` is one of them being resolved at random.
    */
-  for (const f of uiFiles({ three: usesThree })) {
+  for (const f of uiFiles({ three: usesThree, tegaki: usesTegaki })) {
     if (opts.stack === 'shadcn' && (f.path === 'src/lib/utils.js' || f.path === 'src/lib/utils.d.ts')) continue
     files.push({ name: f.path, content: f.content })
   }

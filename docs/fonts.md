@@ -84,6 +84,46 @@ third party what it is looking at.
 4. A capture waits for the faces before it draws, so a thumbnail or an exported
    flyer is not set in the fallback.
 
+## Handwriting {#handwriting}
+
+:::why
+A font sets letters that are already there. A few words a reader watches being
+written — a signature, a "Merci", a first name on an invitation — are a
+different thing, and drawing them by hand in the model's code produced words
+that misspelled themselves. So a screen asks for them by name and a library
+traces them.
+:::
+
+`<Handwriting text="Merci !" font="parisienne" className="text-6xl text-rose-700" />`
+writes its words stroke by stroke, in a pen's order, when they scroll into view.
+It is drawn by [Tegaki](https://github.com/gkurt/tegaki) (MIT), from Mocky's own
+origin like every script a preview runs (`public/vendor/tegaki.js`).
+
+| `font` | Look |
+|---|---|
+| `parisienne` (default) | An elegant joined script |
+| `caveat` | A casual marker |
+| `italianno` | A formal calligraphy |
+| `ems-allure` | A fine joined script |
+| `hershey-script` | A pen plotter's single line |
+
+- **Accents.** Caveat, Parisienne and Italianno only carry unaccented letters. A
+  text with a letter the chosen font lacks ("Été", "Noël") is written in EMS
+  Allure, which has them, rather than with a hole. Curly quotes, guillemets and
+  "œ" are written the way a hand would ("oe", straight quotes).
+- **Size and colour** come from a font-size class and a text colour (or
+  `color`, a hex). `speed` (0.25–4, default 2) and `loop` change the writing.
+- **It holds still where a page holds still**: with "Sans animation", with
+  reduced motion and in every capture and export, the words are drawn finished.
+- **It is text** to a screen reader, and the drawing is hidden from it.
+- **An exported project** depends on the `tegaki` package only when one of its
+  screens writes by hand, and loads each font when it is first used.
+
+The fonts are SIL OFL 1.1 (Hershey Script: the Hershey fonts' own terms). The
+word "Mocky" that writes itself while a screen is generated is the same
+library, run once when Mocky is built (`npm run build:loader-word`): the app
+ships the drawing, not the library.
+
 ## Licences {#licences}
 
 :::why
