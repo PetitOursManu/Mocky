@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `parcours` | choisir le nombre d'écrans à créer depuis un écran existant | `205c0e6` |
 | — | palette et pipette dans le panneau Style, parcours depuis un écran existant | `15e11dc` |
 | — | schémas sur demande dans les documents, composeur qui ne coupe plus ses boutons, palette de couleurs | `87fb422` |
 | `visuels` | route en lacets, de grands virages du haut au bas du cadre | `2a86616` |
