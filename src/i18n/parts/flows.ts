@@ -13,6 +13,11 @@ export const flows = {
       'Parcours activés : les formulaires, la connexion, les filtres et le panier fonctionnent en démo, et les écrans où ils mènent sont créés automatiquement. Cliquez pour désactiver.',
     'flows.toggleOffTitle':
       'Parcours désactivés : les écrans sont générés seuls, sans écrans de suite. Cliquez pour activer.',
+    'flows.fromScreenMenu': 'Générer le parcours…',
+    'flows.fromScreenWiring': 'Parcours : liens de l’écran…',
+    'flows.fromScreenChanged': 'Parcours : l’écran a changé pendant la préparation des liens — rien n’a été modifié. Relancez « Générer le parcours ».',
+    'flows.fromScreenNone': 'Parcours : cet écran mène déjà à des écrans du projet, aucun nouvel écran n’était nécessaire. Essayez-le en mode Démo.',
+    'flows.failedFrom': 'Parcours : les écrans de suite n’ont pas pu être créés ({error}).',
     'flows.creating': 'Parcours : création de l’écran « {name} » ({n})…',
     'flows.created': 'Parcours : {count} écran(s) créé(s) automatiquement — {names}. Essayez-les en mode Démo.',
     'flows.failed': 'Parcours : les écrans de suite n’ont pas pu être créés ({error}). L’écran demandé est bien là.',
@@ -53,6 +58,11 @@ export const flows = {
     'flows.toggleOnTitle':
       'Flows on: forms, sign-in, filters and the cart work in the demo, and the screens they lead to are created automatically. Click to turn off.',
     'flows.toggleOffTitle': 'Flows off: screens are generated on their own, with no follow-up screens. Click to turn on.',
+    'flows.fromScreenMenu': 'Generate the flow…',
+    'flows.fromScreenWiring': 'Flows: wiring the screen…',
+    'flows.fromScreenChanged': 'Flows: the screen changed while its links were being prepared — nothing was modified. Run “Generate the flow” again.',
+    'flows.fromScreenNone': 'Flows: this screen already leads to screens of the project, no new screen was needed. Try it in Demo mode.',
+    'flows.failedFrom': 'Flows: the follow-up screens could not be created ({error}).',
     'flows.creating': 'Flows: creating the “{name}” screen ({n})…',
     'flows.created': 'Flows: {count} screen(s) created automatically — {names}. Try them in Demo mode.',
     'flows.failed': 'Flows: the follow-up screens could not be created ({error}). The screen you asked for is there.',

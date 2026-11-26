@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   cleanFlowState,
   companionSection,
+  flowFromScreenInstruction,
+  MAX_COMPANIONS,
   flowStateScript,
   missingRoutes,
   normalizeScenarios,
@@ -148,5 +150,15 @@ describe('the name of a page made for a route', () => {
   it('is the person\'s word when there is one, the route capitalised otherwise', () => {
     expect(flowScreenName('cart', t)).toBe('Panier')
     expect(flowScreenName('order-history', t)).toBe('Order history')
+  })
+})
+
+describe('the instruction that starts a flow from an existing screen', () => {
+  it('keeps the design, bounds the pages and offers the routes that exist', () => {
+    const text = flowFromScreenInstruction(['home', 'cart'])
+    expect(text).toMatch(/Keep its design/)
+    expect(text).toContain(`between one and ${MAX_COMPANIONS} pages`)
+    expect(text).toContain('"home", "cart"')
+    expect(flowFromScreenInstruction([])).not.toMatch(/already exist/)
   })
 })

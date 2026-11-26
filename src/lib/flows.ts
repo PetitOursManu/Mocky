@@ -235,6 +235,26 @@ export function routeFor(screen: Pick<Screen, 'id' | 'name' | 'route'>, screens:
 }
 
 /**
+ * The edit that makes an EXISTING screen the start of a flow ("Générer le
+ * parcours…" on a screen's menu). A screen generated with Parcours off opens
+ * no route, so there is nothing for the companions to follow: this pass wires
+ * the elements a visitor would click — and only that — then the companions
+ * run as they do after a new screen. In English like every instruction; the
+ * routes are DATA, the project's own.
+ */
+export function flowFromScreenInstruction(routes: string[]): string {
+  const lines = [
+    'Make this screen the starting point of a clickable prototype.',
+    'Keep its design, layout, words and pictures exactly as they are. Change only what makes it WORK:',
+    '- Wire the elements a visitor would click to go somewhere — navigation links, call-to-action buttons, product or article cards, sign-in and sign-up buttons — to the page they lead to, with MockyFlow.go("route") in an onClick or <FlowLink to="route">, following the PROTOTYPE FLOWS rules.',
+    `- Lead to between one and ${MAX_COMPANIONS} pages a visitor would really open next from this screen, no more: Mocky creates the screens the routes name.`,
+    '- A form validates, stores what was entered and opens its confirmation; a list with filters or tabs really filters; a cart counts — with useFlowState where another page must see the data.',
+  ]
+  if (routes.length) lines.push(`Routes that already exist in this prototype: ${routes.map((r) => `"${r}"`).join(', ')}. Use them where they fit.`)
+  return lines.join('\n')
+}
+
+/**
  * What the model writing a companion screen is told about its place in the
  * flow — in English, like every other instruction section, and as DATA: the
  * labels and the snippets are the origin screen's own words and code.

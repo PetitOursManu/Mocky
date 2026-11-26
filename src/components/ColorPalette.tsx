@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useT } from '../i18n'
+import { Icon } from '../ui'
 
 /**
  * A palette to pick a colour from, beside the hex field — the person asked for
@@ -10,7 +12,29 @@ import { useT } from '../i18n'
  * a custom colour through the system's picker. The grid is computed, not a
  * list of hexes copied from somewhere: twelve hues round the wheel, five
  * lightnesses each, and a row of greys from black to white.
+ *
+ * And a pipette, for a colour already ON the screen (a screen's own blue, a
+ * photograph's tone): the browser's EyeDropper samples the pixel under the
+ * pointer anywhere in the window, the sandboxed previews included — which no
+ * script of Mocky's could read, the frames' origin being opaque. Chromium has
+ * it; elsewhere the button is simply absent.
  */
+
+/** The EyeDropper API (Chromium 95+), not yet in TypeScript's DOM library. */
+interface EyeDropperApi {
+  open(options?: { signal?: AbortSignal }): Promise<{ sRGBHex: string }>
+}
+function eyeDropper(): (new () => EyeDropperApi) | null {
+  const ctor = typeof window !== 'undefined' ? (window as unknown as { EyeDropper?: new () => EyeDropperApi }).EyeDropper : undefined
+  return ctor ?? null
+}
+
+/** `rgb(r, g, b)` — what some builds answer instead of a hex — or a hex, as a hex. */
+export function sampledHex(value: string): string {
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value.trim())
+  if (rgb) return '#' + rgb.slice(1, 4).map((n) => Math.min(255, Number(n)).toString(16).padStart(2, '0')).join('')
+  return norm(value)
+}
 
 const HUES = [0, 22, 40, 52, 95, 140, 172, 192, 212, 235, 268, 318] as const
 const SHADES: readonly (readonly [number, number])[] = [
@@ -102,6 +126,8 @@ export default function ColorPalette({
   const current = norm(value)
   const own = [...new Set(designColors.map(norm).filter(Boolean))]
   const native = /^#[0-9a-f]{6}$/.test(current) ? current : '#000000'
+  const Dropper = eyeDropper()
+  const [sampling, setSampling] = useState(false)
 
   return (
     <div className="flex flex-col gap-2">
@@ -123,8 +149,9 @@ export default function ColorPalette({
           ))}
         </div>
       </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {/* The system's own picker, behind a rainbow tile: its value is the hex
-          field's, so the three ways of choosing never disagree. */}
+          field's, so the ways of choosing never disagree. */}
       <label className="flex cursor-pointer items-center gap-2 text-caption text-ink-muted hover:text-ink">
         <span
           aria-hidden
@@ -141,6 +168,31 @@ export default function ColorPalette({
         />
         {t('design.spec.paletteCustom')}
       </label>
+      {Dropper && (
+        <button
+          type="button"
+          className="flex items-center gap-2 text-caption text-ink-muted hover:text-ink disabled:opacity-50"
+          disabled={sampling}
+          title={t('design.spec.eyedropperTitle')}
+          onClick={async () => {
+            setSampling(true)
+            try {
+              const hex = sampledHex((await new Dropper().open()).sRGBHex)
+              if (hex) onPick(hex)
+            } catch {
+              // Escape, or a click the browser refused: nothing was picked.
+            } finally {
+              setSampling(false)
+            }
+          }}
+        >
+          <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[4px] border border-ink/15">
+            <Icon name="eyedropper" size={14} />
+          </span>
+          {t('design.spec.eyedropper')}
+        </button>
+      )}
+      </div>
     </div>
   )
 }

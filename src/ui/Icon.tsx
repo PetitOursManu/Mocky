@@ -78,6 +78,7 @@ export type IconName =
   | 'eye'
   | 'calendar'
   | 'translate'
+  | 'eyedropper'
 
 /** Path data only — every icon shares the same 24×24 box and stroke settings. */
 const PATHS: Record<IconName, string> = {
@@ -187,6 +188,7 @@ const PATHS: Record<IconName, string> = {
   // Two scripts and the arrow of a translation: a Latin A and a stroke for the
   // other alphabet. `globe` already means "the web" in the composer.
   translate: 'M3 5h8M7 3v2M5 5c0 4 3 7 6 8M10 5c0 4-3 8-7 9M13 21l4-10 4 10M14.5 17.5h5',
+  eyedropper: 'M2 22l1-1h3l9-9M3 21v-3l9-9M15 6l3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z',
 }
 
 /** Icons whose shape reads better filled than stroked. */
