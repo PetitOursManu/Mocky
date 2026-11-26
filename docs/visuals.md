@@ -212,6 +212,34 @@ A rendering moves nothing: the boxes keep their places and their text, which
 stays flat, readable and editable in PowerPoint. The faces of the 3D and the
 glass come out as pictures there.
 
+## Animation
+
+:::why
+On a web page, a diagram that builds itself in the order it is read says the
+order without a word — and a printed one has to be the finished diagram. So the
+movement is an entrance that ends on the still frame, and every path that makes
+a picture of a page simply never plays it.
+:::
+
+A visual on a **web page** (a landing page, an article, documentation) can move,
+switched in **Visual…** → **Animation** at no cost:
+
+| Animation | What it does |
+|---|---|
+| None | The visual is drawn as it is — the default |
+| Reveal | When the visual scrolls into view, the boxes arrive in the order of the content and each connector draws itself out of the box it leaves; bars grow out of their baseline |
+| Flow | The same entrance, then a short pulse keeps running along the connectors, to show which way a process, a cycle or a flowchart goes |
+
+The generation chooses it the same way as the rendering, and only on a web page:
+a document, a post or a slide is printed or exported, so it stays still. An
+entrance takes about a second and a half whatever the number of boxes.
+
+Nothing moves in a capture, an export, a screen held still (**Still** on the
+canvas), or on a device asking for reduced motion: they draw exactly the visual with no animation
+— the suite checks that the finished entrance and the still visual are the same
+boxes at the same places. The movement is CSS only (opacity, a small rise, a
+line growing), so it costs no script and no WebGL.
+
 ## In another size
 
 :::why

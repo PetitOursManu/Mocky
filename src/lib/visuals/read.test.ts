@@ -59,6 +59,15 @@ describe('switching a visual without a model', () => {
     expect((await findScreenVisuals(next!))[0].variant).toBe('outline')
   })
 
+  it('switches the motion like the look, and reads it back', async () => {
+    const next = await changeScreenVisual(SCREEN, 0, { motion: 'flow' })
+    expect(next).toContain('<Visual motion="flow"')
+    expect((await findScreenVisuals(next!))[0].motion).toBe('flow')
+    const off = await changeScreenVisual(next!, 0, { motion: 'none' })
+    expect((await findScreenVisuals(off!))[0].motion).toBe('none')
+    expect(await changeScreenVisual(SCREEN, 0, { motion: 'spin' as never })).toBeNull()
+  })
+
   it('refuses an unknown family, an unknown visual or a change that changes nothing', async () => {
     expect(await changeScreenVisual(SCREEN, 0, { family: 'pie' as never })).toBeNull()
     expect(await changeScreenVisual(SCREEN, 3, { family: 'bars' })).toBeNull()

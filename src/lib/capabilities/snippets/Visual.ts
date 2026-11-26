@@ -23,8 +23,16 @@ import { VISUAL_BOUNDS, VISUAL_FAMILIES } from '../../visuals/families'
  *    chosen among the page's own colours before black or white — the rule
  *    `legibleOn` applies to films.
  *
- * Nothing moves: a visual is read, printed and exported, and a still frame of
- * it must be the visual itself.
+ * A visual is read, printed and exported, and a still frame of it must be the
+ * visual itself — so the only movement is `motion`, asked for on a web page:
+ * `reveal` is an ENTRANCE that ends on exactly the frame a still draws (boxes
+ * arrive in the order of the content, each connector draws itself out of the
+ * box it leaves), and `flow` adds a pulse travelling along the connectors once
+ * everything has arrived. It animates `opacity`, `translate` and `scale` — the
+ * individual properties, never `transform`, which the pins and the 3D faces
+ * already use — and on every still path (a capture, "Sans animation", reduced
+ * motion) the markup is the one with no `motion` at all: nothing to settle,
+ * nothing an export could catch halfway.
  *
  * Exported as a STRING, prepended to the generated component before Babel like
  * every snippet pack. Every top-level name is prefixed: the screen's own code
@@ -1200,11 +1208,100 @@ function mockyVisualDonutPath(cx, cy, r0, r1, a0, a1) {
   return 'M' + p(r1, a0) + ' A' + r1 + ' ' + r1 + ' 0 ' + large + ' 1 ' + p(r1, a1) + ' L' + p(r0, a1) + ' A' + r0 + ' ' + r0 + ' 0 ' + large + ' 0 ' + p(r0, a0) + ' Z';
 }
 
+// ---- motion ----------------------------------------------------------------
+var MOCKY_VZ_NODE_MS = 480;
+var MOCKY_VZ_LINK_MS = 520;
+/** The whole entrance spreads over about this long, whatever the item count. */
+var MOCKY_VZ_SPREAD = 1100;
+var MOCKY_VZ_STEP_MAX = 130;
+var MOCKY_VZ_EASE = 'cubic-bezier(0.2, 0.7, 0.2, 1)';
+var MOCKY_VZ_KEYFRAMES = '@keyframes mocky-vz-in{from{opacity:0;translate:0 var(--mocky-vz-rise,12px)}to{opacity:1;translate:0 0}}'
+  + '@keyframes mocky-vz-grow{from{scale:var(--mocky-vz-sx,1) var(--mocky-vz-sy,1)}to{scale:1 1}}'
+  + '@keyframes mocky-vz-draw{from{stroke-dashoffset:1;opacity:0.25}to{stroke-dashoffset:0;opacity:1}}'
+  + '@keyframes mocky-vz-fade{from{opacity:0}to{opacity:1}}'
+  + '@keyframes mocky-vz-flow{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}';
+
+var mockyVisualStill = function () {
+  try {
+    if (window.__mockyAnimations === false || window.__mockyStill) return true;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+  } catch (err) { return true; }
+  return false;
+};
+
+/**
+ * When each part of a layout arrives, in ms. Pure, like the layout.
+ *
+ * Boxes in the order the layout gave them, which is the order of the content;
+ * a connector when the box it LEAVES has arrived — its source is the node
+ * nearest its first point, which is how a flowchart reads its arrows without
+ * this file knowing which family drew them. The step shrinks with the count so
+ * a forty-cell chart takes as long as a four-step process: an entrance is
+ * something read past, never waited for.
+ */
+function mockyVisualTimeline(lay) {
+  var nodes = (lay && lay.nodes) || [], links = (lay && lay.links) || [];
+  var n = nodes.length;
+  var step = n ? Math.min(MOCKY_VZ_STEP_MAX, MOCKY_VZ_SPREAD / n) : 0;
+  var start = lay && lay.header && lay.header.h ? 160 : 0;
+  var nd = nodes.map(function (_, i) { return Math.round(start + i * step); });
+  var lk = links.map(function (l) {
+    if (!n || !l || !l.points || l.points.length < 2) return start;
+    var p0 = l.points[0], best = 0, bd = Infinity;
+    for (var i = 0; i < n; i++) {
+      var r = nodes[i];
+      var dx = Math.max(r.x - p0[0], 0, p0[0] - (r.x + r.w));
+      var dy = Math.max(r.y - p0[1], 0, p0[1] - (r.y + r.h));
+      var d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    }
+    return Math.round(nd[best] + MOCKY_VZ_NODE_MS * 0.5);
+  });
+  var end = start;
+  nd.forEach(function (d) { end = Math.max(end, d + MOCKY_VZ_NODE_MS); });
+  lk.forEach(function (d) { end = Math.max(end, d + MOCKY_VZ_LINK_MS); });
+  var footer = n ? nd[n - 1] + Math.round(step) : start;
+  end = Math.max(end, footer + MOCKY_VZ_NODE_MS);
+  return { header: 0, nodes: nd, links: lk, footer: footer, total: end };
+}
+
 function Visual(props) {
   var p = props || {};
   var e = React.createElement;
   var ref = React.useRef(null);
   var id = React.useState(function () { return 'mocky-visual-' + (++mockyVisualSeq); })[0];
+  var motion = p.motion === 'reveal' || p.motion === 'flow' ? p.motion : 'none';
+  /* Read once, at mount, like <Handwriting>: a still path decided later would
+     leave an entrance half played in a capture. */
+  var stillRef = React.useRef(null);
+  if (stillRef.current === null) stillRef.current = mockyVisualStill();
+  var moving = motion !== 'none' && !stillRef.current;
+  var shownSt = React.useState(!moving);
+  var shown = shownSt[0], setShown = shownSt[1];
+  /* Played when it scrolls into view: an entrance at the foot of a page that
+     ran before anyone got there was never seen. */
+  React.useEffect(function () {
+    if (shown) return undefined;
+    var node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') { setShown(true); return undefined; }
+    var io = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) if (entries[i].isIntersecting) { setShown(true); io.disconnect(); return; }
+    }, { rootMargin: '0px 0px -10% 0px' });
+    io.observe(node);
+    return function () { io.disconnect(); };
+  }, [shown]);
+  /* Once the entrance is over, the markup goes back to the still one. A
+     finished animation still holds each part on a compositing layer of its own,
+     and in Edge that redraws the edges of the type and the bars a shade apart
+     from the visual it ended on — 5,000 pixels of a slide, measured. */
+  var settledSt = React.useState(false);
+  var settled = settledSt[0], setSettled = settledSt[1];
+  var entranceMs = React.useRef(0);
+  React.useEffect(function () {
+    if (!moving || !shown || settled) return undefined;
+    var t = setTimeout(function () { setSettled(true); }, entranceMs.current + 80);
+    return function () { clearTimeout(t); };
+  }, [moving, shown, settled]);
   var st = React.useState([p.width || 1200, p.height || 675, false]);
   var size = st[0], setSize = st[1];
   React.useLayoutEffect(function () {
@@ -1238,6 +1335,20 @@ function Visual(props) {
   var muted = mockyVisualMix(ink, ground, 0.35);
   var line = mockyVisualMix(ink, ground, 0.55);
   var stroke = Math.max(1.5, u * 0.14);
+  var timing = moving ? mockyVisualTimeline(lay) : null;
+  if (timing) entranceMs.current = timing.total;
+  /* The entrance's own timing, gone once it has played; the pulse keeps \`timing\`. */
+  var tl = timing && !settled ? timing : null;
+  var play = shown ? 'running' : 'paused';
+  /* An animation, as the style properties to merge. 'both': before its delay a
+     part is held at its first frame, so nothing shows ahead of its turn. */
+  function anim(name, ms, delay, extra) {
+    return Object.assign({ animation: name + ' ' + ms + 'ms ' + MOCKY_VZ_EASE + ' ' + Math.max(0, Math.round(delay)) + 'ms both', animationPlayState: play }, extra || {});
+  }
+  function withStyle(el, add) {
+    return React.cloneElement(el, { style: Object.assign({}, el.props.style, add) });
+  }
+  var rise = { '--mocky-vz-rise': Math.max(6, u * 0.6).toFixed(1) + 'px' };
 
   function paint(nd) {
     var c = tone(Math.max(0, nd.tone));
@@ -1287,6 +1398,7 @@ function Visual(props) {
     children.push(e('div', { key: 'h', style: { position: 'absolute', left: 0, top: 0, width: W, textAlign: 'left' } },
       lay.header.title ? e('div', { style: { fontSize: lay.header.T, lineHeight: 1.12, fontWeight: 800, color: ink, letterSpacing: '-0.01em', textShadow: look === 'neon' ? '0 0 ' + u * 0.8 + 'px ' + tone(0) : undefined } }, lay.header.title) : null,
       lay.header.subtitle ? e('div', { style: { fontSize: lay.header.S, lineHeight: 1.35, color: muted, marginTop: lay.header.title ? u * 0.5 : 0, maxWidth: W * 0.9 } }, lay.header.subtitle) : null));
+    if (tl) children[children.length - 1] = withStyle(children[children.length - 1], anim('mocky-vz-in', MOCKY_VZ_NODE_MS, tl.header, rise));
   }
 
   // Connectors first, so every box is painted over them.
@@ -1323,11 +1435,19 @@ function Visual(props) {
       : { position: 'absolute', left: st.a[0] - strokeW / 2, top: y0 + (fromEnd ? len - shaft : 0), width: strokeW, height: shaft, background: col, borderRadius: strokeW / 2, pointerEvents: 'none' };
     // Under neon a connector is a tube of light too.
     if (look === 'neon') lineStyle.boxShadow = '0 0 ' + u * 0.5 + 'px ' + col + ', 0 0 ' + u * 1.2 + 'px ' + rgba(tone(l.tone != null ? l.tone : 0), 0.6);
+    if (tl) {
+      // Grows out of the end it leaves.
+      var back = st.h ? st.b[0] < st.a[0] : st.b[1] < st.a[1];
+      Object.assign(lineStyle, anim('mocky-vz-grow', MOCKY_VZ_LINK_MS, tl.links[lay.links.indexOf(l)], st.h
+        ? { transformOrigin: back ? '100% 50%' : '0 50%', '--mocky-vz-sx': 0 }
+        : { transformOrigin: back ? '50% 100%' : '50% 0', '--mocky-vz-sy': 0 }));
+    }
     children.push(e('div', { key: 'sl' + i, 'aria-hidden': 'true', style: lineStyle }));
   });
   children.push(e('svg', { key: 'links', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none', filter: look === 'neon' ? 'drop-shadow(0 0 ' + u * 0.4 + 'px ' + tone(0) + ')' : undefined } },
     e('defs', null, e('marker', { id: marker, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, e('path', { d: 'M0 0 L10 5 L0 10 z', fill: line }))),
     drawn.map(function (l, i) {
+      var drew = (function () {
       var col = linkCol(l), sw = linkW(l);
       if (l.asphalt || (l.road && (look === 'raised' || look === 'block'))) {
         // Asphalt with a dashed centre line: the roadmap as a road. Under neon
@@ -1353,15 +1473,38 @@ function Visual(props) {
         return e('path', { key: i, d: 'M' + (b[0] - dx).toFixed(2) + ' ' + (b[1] - dy).toFixed(2) + ' L' + b[0].toFixed(2) + ' ' + b[1].toFixed(2), fill: 'none', stroke: col, strokeWidth: sw, markerEnd: 'url(#' + marker + ')' });
       }
       return e('path', { key: i, d: mockyVisualPath(l.points), fill: 'none', stroke: col, strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round', markerEnd: l.arrow ? 'url(#' + marker + ')' : undefined });
+      })();
+      if (!drew || !tl) return drew;
+      var at = tl.links[lay.links.indexOf(l)];
+      // A plain curve draws itself along its length (and its tip fades in with
+      // it); a road, a filled area or a lone tip fades in, because their dashes
+      // and their fill are not a length to draw.
+      if (drew.type === 'path' && !l.fill && !straightOf(l)) return React.cloneElement(drew, { pathLength: 1, strokeDasharray: '1 1', style: anim('mocky-vz-draw', MOCKY_VZ_LINK_MS, at) });
+      return straightOf(l) ? withStyle(drew, anim('mocky-vz-fade', 240, at + MOCKY_VZ_LINK_MS * 0.8)) : withStyle(drew, anim('mocky-vz-fade', MOCKY_VZ_LINK_MS, at));
     })));
   lay.links.forEach(function (l, i) {
     if (!l.label || !l.points || l.points.length < 2) return;
     var mid = l.points[Math.floor(l.points.length / 2)];
     var fs = Math.max(11, u * 1.05);
-    children.push(e('div', { key: 'll' + i, style: { position: 'absolute', left: mid[0], top: mid[1], transform: 'translate(-50%, -50%)', fontSize: fs, lineHeight: 1.2, padding: '1px ' + (fs * 0.4) + 'px', background: ground, color: muted, whiteSpace: 'nowrap', borderRadius: fs } }, l.label));
+    var lst = { position: 'absolute', left: mid[0], top: mid[1], transform: 'translate(-50%, -50%)', fontSize: fs, lineHeight: 1.2, padding: '1px ' + (fs * 0.4) + 'px', background: ground, color: muted, whiteSpace: 'nowrap', borderRadius: fs };
+    if (tl) Object.assign(lst, anim('mocky-vz-fade', MOCKY_VZ_NODE_MS, tl.links[i] + MOCKY_VZ_LINK_MS * 0.5));
+    children.push(e('div', { key: 'll' + i, style: lst }, l.label));
   });
 
+  var nodesAt = children.length;
   lay.nodes.forEach(function (nd, i) {
+    var first = children.length;
+    drawNode(nd, i);
+    if (!tl) return;
+    // Every element the node drew moves as one: a 3D box's faces, a pin's head.
+    // A bar grows out of its baseline; the rest rises into place.
+    var bar = nd.kind === 'bar' && look !== 'block';
+    var how = bar
+      ? anim('mocky-vz-grow', MOCKY_VZ_NODE_MS, tl.nodes[i], nd.col ? { transformOrigin: '50% 100%', '--mocky-vz-sy': 0 } : { transformOrigin: '0 50%', '--mocky-vz-sx': 0 })
+      : anim('mocky-vz-in', MOCKY_VZ_NODE_MS, tl.nodes[i], rise);
+    for (var j = first; j < children.length; j++) children[j] = withStyle(children[j], how);
+  });
+  function drawNode(nd, i) {
     var key = 'n' + i;
     var base = { position: 'absolute', left: nd.x, top: nd.y, width: nd.w, height: nd.h, boxSizing: 'border-box' };
     var c = tone(Math.max(0, nd.tone));
@@ -1526,15 +1669,45 @@ function Visual(props) {
     }
     children.push(e('div', { key: key, style: style }, runsOut));
     if (nd.neonStreaks) children.push.apply(children, nd.neonStreaks);
-  });
+  }
 
   if (lay.footer) {
-    children.push(e('div', { key: 'f', style: { position: 'absolute', left: 0, top: lay.footer.y, width: W, fontSize: lay.footer.F, lineHeight: 1.5, color: muted, textAlign: 'left' } }, lay.footer.text));
+    var fst = { position: 'absolute', left: 0, top: lay.footer.y, width: W, fontSize: lay.footer.F, lineHeight: 1.5, color: muted, textAlign: 'left' };
+    if (tl) Object.assign(fst, anim('mocky-vz-fade', MOCKY_VZ_NODE_MS, tl.footer));
+    children.push(e('div', { key: 'f', style: fst }, lay.footer.text));
+  }
+
+  if (timing) {
+    if (motion === 'flow') {
+      /*
+       * The pulse: a short dash running along every connector, once all of them
+       * have arrived. Laid OVER the connectors and UNDER the boxes, so it leaves
+       * one box and enters the next. Its speed is in pixels, not in laps, so a
+       * long arrow does not race a short one; roads and filled areas carry none.
+       */
+      var pulseLinks = drawn.filter(function (l) { return !l.fill && !l.road && !l.asphalt && !l.faint; });
+      if (pulseLinks.length) {
+        var pulses = pulseLinks.map(function (l, k) {
+          var len = 0;
+          for (var q = 1; q < l.points.length; q++) len += Math.hypot(l.points[q][0] - l.points[q - 1][0], l.points[q][1] - l.points[q - 1][1]);
+          if (!(len > 1)) return null;
+          var dash = Math.min(0.35, (u * 2.4) / len);
+          var secs = Math.max(1.1, len / (u * 12));
+          var pc = look === 'neon' ? light(tone(l.tone != null ? l.tone : 0), 0.5) : mockyVisualMark(tone(l.tone != null ? l.tone : 0), ground, ink, 3);
+          return e('path', { key: k, d: mockyVisualPath(l.points), fill: 'none', stroke: pc, strokeWidth: linkW(l) * 1.8, strokeLinecap: 'round', pathLength: 1, strokeDasharray: dash.toFixed(3) + ' ' + (1 - dash).toFixed(3),
+            style: { animation: 'mocky-vz-flow ' + secs.toFixed(2) + 's linear ' + timing.total + 'ms infinite, mocky-vz-fade 400ms ease ' + timing.total + 'ms both', animationPlayState: play } });
+        });
+        var firstNode = nodesAt;
+        var pulseSvg = e('svg', { key: 'pulse', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', 'data-mocky-visual-pulse': '', style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' } }, pulses);
+        children.splice(firstNode, 0, pulseSvg);
+      }
+    }
+    if (tl || motion === 'flow') children.unshift(e('style', { key: 'kf' }, MOCKY_VZ_KEYFRAMES));
   }
 
   var label = lay.doc.title || lay.doc.subtitle || undefined;
   return e('div', {
-    ref: ref, role: 'group', 'aria-label': label, 'data-mocky-visual': lay.family, className: p.className,
+    ref: ref, role: 'group', 'aria-label': label, 'data-mocky-visual': lay.family, 'data-mocky-visual-motion': timing ? motion : undefined, className: p.className,
     style: Object.assign({ position: 'relative', width: p.width ? p.width : '100%', height: p.height ? p.height : '100%', minHeight: size[2] ? H : undefined, color: ink, overflow: 'visible' }, p.style || {}),
   }, children);
 }

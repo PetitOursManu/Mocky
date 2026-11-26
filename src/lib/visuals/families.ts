@@ -143,6 +143,18 @@ export function isVisualLook(v: unknown): v is VisualLook {
   return typeof v === 'string' && (VISUAL_LOOKS as readonly string[]).includes(v)
 }
 
+/**
+ * Whether a visual moves, on a web page only: `none` (the default, and what
+ * every document, post and export draws), `reveal` (an entrance in the order of
+ * the content, ending on the still frame) and `flow` (that entrance, then a
+ * pulse running along the connectors). The person switches it in "Visual…".
+ */
+export const VISUAL_MOTIONS = ['none', 'reveal', 'flow'] as const
+export type VisualMotion = (typeof VISUAL_MOTIONS)[number]
+export function isVisualMotion(v: unknown): v is VisualMotion {
+  return typeof v === 'string' && (VISUAL_MOTIONS as readonly string[]).includes(v)
+}
+
 /** How the boxes are painted. Three, so a family is not one look. */
 export const VISUAL_VARIANTS = ['soft', 'solid', 'outline'] as const
 export type VisualVariant = (typeof VISUAL_VARIANTS)[number]

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { VisualSource } from './Visual'
@@ -16,10 +16,11 @@ type Layout = { nodes: Node[]; links: { points: number[][] }[]; type: Record<str
 
 const lib = new Function(
   'React',
-  `${VisualSource}\nreturn { Visual: Visual, layout: mockyVisualLayout, contrast: mockyVisualContrast, mark: mockyVisualMark, inkOn: mockyVisualInkOn, lines: mockyVisualLines, bounds: MOCKY_VISUAL_BOUNDS, families: MOCKY_VISUAL_FAMILIES };`,
+  `${VisualSource}\nreturn { Visual: Visual, layout: mockyVisualLayout, timeline: mockyVisualTimeline, contrast: mockyVisualContrast, mark: mockyVisualMark, inkOn: mockyVisualInkOn, lines: mockyVisualLines, bounds: MOCKY_VISUAL_BOUNDS, families: MOCKY_VISUAL_FAMILIES };`,
 )(React) as {
   Visual: React.FC<Record<string, unknown>>
   layout: (family: string, doc: unknown, W: number, H: number) => Layout
+  timeline: (lay: Layout) => { header: number; nodes: number[]; links: number[]; footer: number; total: number }
   contrast: (a: string, b: string) => number
   mark: (c: string, bg: string, ink: string, floor: number) => string
   inkOn: (bg: string, prefs: string[], floor?: number) => string
@@ -218,5 +219,96 @@ describe('<Visual> rendered', () => {
     const out = html({ family: 'steps', doc: docFor('steps', 4), width: 1180, height: 620 })
     expect(out.match(/<svg/g)).toHaveLength(1)
     expect(out).not.toMatch(/<text/)
+  })
+})
+
+describe('<Visual> motion', () => {
+  // Every mount numbers its arrow marker; two renders differ by that alone.
+  const html = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(lib.Visual, props)).replace(/mocky-visual-\d+/g, 'mocky-visual-N')
+  const base = { colors: ['#0f766e', '#f59e0b'], ink: '#1f2937', ground: '#fffbeb', width: 1180, height: 620 }
+  /** A page the frame is running in, with nothing asking for stillness. */
+  const live = (extra: Record<string, unknown> = {}, reduce = false) => {
+    ;(globalThis as any).window = { matchMedia: () => ({ matches: reduce }), ...extra }
+  }
+  afterEach(() => {
+    delete (globalThis as any).window
+  })
+  /** The markup with every trace of the entrance taken out: what is left is where things END. */
+  const settled = (out: string) =>
+    out
+      .replace(/<style>[^<]*<\/style>/g, '')
+      .replace(/<svg[^>]*data-mocky-visual-pulse[^>]*>.*?<\/svg>/g, '')
+      .replace(/ data-mocky-visual-motion="[^"]*"/g, '')
+      .replace(/ pathLength="1"| stroke-dasharray="1 1"/g, '')
+      .replace(/(animation|animation-play-state|--mocky-vz-[a-z]+|transform-origin):[^;"]*;?/g, '')
+      .replace(/ style=""/g, '')
+      .replace(/;"/g, '"')
+
+  it('brings boxes in the order of the content, and a connector after the box it leaves', () => {
+    for (const family of VISUAL_FAMILIES) {
+      const b = VISUAL_BOUNDS[family]
+      for (const count of [b.min, b.max]) {
+        const lay = lib.layout(family, docFor(family, count), 1180, 620)
+        const tl = lib.timeline(lay)
+        for (let i = 1; i < tl.nodes.length; i++) expect(tl.nodes[i], family).toBeGreaterThanOrEqual(tl.nodes[i - 1])
+        for (const d of tl.links) expect(d, family).toBeGreaterThanOrEqual(tl.nodes[0] ?? 0)
+        // Read past, never waited for: the forty-cell chart takes as long as the four steps.
+        expect(tl.total, `${family} × ${count}`).toBeLessThanOrEqual(2600)
+        expect(tl.total).toBeGreaterThanOrEqual(Math.max(0, ...tl.nodes, ...tl.links))
+      }
+    }
+  })
+
+  it('draws on every still path exactly what a visual with no motion draws', () => {
+    for (const motion of ['reveal', 'flow']) {
+      const still = html({ family: 'cycle', doc: docFor('cycle', 5), ...base })
+      // No window at all (a server render), a capture, "Sans animation", reduced motion.
+      expect(html({ family: 'cycle', doc: docFor('cycle', 5), motion, ...base })).toBe(still)
+      for (const flag of [{ __mockyStill: true }, { __mockyAnimations: false }]) {
+        live(flag)
+        expect(html({ family: 'cycle', doc: docFor('cycle', 5), motion, ...base }), JSON.stringify(flag)).toBe(still)
+      }
+      live({}, true)
+      expect(html({ family: 'cycle', doc: docFor('cycle', 5), motion, ...base })).toBe(still)
+    }
+  })
+
+  it('ends on the frame a still draws: the entrance only adds timing, it moves nothing', () => {
+    for (const family of VISUAL_FAMILIES) {
+      const b = VISUAL_BOUNDS[family]
+      const doc = docFor(family, b.exact ? b.min : 4)
+      for (const look of ['flat', 'block', 'neon']) {
+        const still = html({ family, doc, look, ...base })
+        live()
+        const moving = html({ family, doc, look, motion: 'flow', ...base })
+        delete (globalThis as any).window
+        expect(moving, family).toContain('mocky-vz-')
+        expect(settled(moving), `${family} / ${look}`).toBe(settled(still))
+      }
+    }
+  })
+
+  it('holds everything at its first frame until the visual is on screen', () => {
+    live()
+    const out = html({ family: 'steps', doc: docFor('steps', 4), motion: 'reveal', ...base })
+    expect(out).toContain('@keyframes mocky-vz-in')
+    expect(out).toContain('animation-play-state:paused')
+    expect(out).not.toContain('animation-play-state:running')
+  })
+
+  it('runs a pulse along the connectors only when asked for the flow', () => {
+    live()
+    const reveal = html({ family: 'cycle', doc: docFor('cycle', 5), motion: 'reveal', ...base })
+    const flow = html({ family: 'cycle', doc: docFor('cycle', 5), motion: 'flow', ...base })
+    expect(reveal).not.toContain('data-mocky-visual-pulse')
+    expect(flow).toContain('data-mocky-visual-pulse')
+    expect(flow).toContain('mocky-vz-flow')
+    expect(flow).not.toMatch(/NaN|undefined|Infinity/)
+  })
+
+  it('ignores a motion it does not know', () => {
+    live()
+    const still = html({ family: 'steps', doc: docFor('steps', 4), ...base })
+    expect(html({ family: 'steps', doc: docFor('steps', 4), motion: 'spin', ...base })).toBe(still)
   })
 })

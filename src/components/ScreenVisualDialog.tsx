@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { VISUAL_FAMILIES, VISUAL_LOOKS, VISUAL_THEME, VISUAL_VARIANTS, familyRefusal, type VisualFamily, type VisualLook, type VisualVariant } from '../lib/visuals/families'
+import { VISUAL_FAMILIES, VISUAL_LOOKS, VISUAL_MOTIONS, VISUAL_THEME, VISUAL_VARIANTS, familyRefusal, type VisualFamily, type VisualLook, type VisualMotion, type VisualVariant } from '../lib/visuals/families'
 import { themeDocumentFormats } from '../lib/screenThemes'
 import type { PageFormatId } from '../lib/pageFormats'
 import { changeScreenVisual, findScreenVisuals, type ScreenVisual, type VisualChange } from '../lib/visuals/read'
@@ -233,6 +233,18 @@ export default function ScreenVisualDialog({
                 )
               })}
             </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-body-sm text-ink-muted">{t('visuals.motion')}</span>
+              {VISUAL_MOTIONS.map((motion: VisualMotion) => {
+                const on = (v.motion ?? 'none') === motion
+                return (
+                  <Button key={motion} variant="ghost" active={on} size="sm" aria-pressed={on} onClick={() => !on && void apply(v.index, { motion })}>
+                    {t(`visuals.motion.${motion}`)}
+                  </Button>
+                )
+              })}
+            </div>
+            <p className="mt-1 text-caption text-ink-faint">{t('visuals.motion.help')}</p>
           </section>
         )
       })}

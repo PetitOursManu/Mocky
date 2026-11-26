@@ -1209,6 +1209,14 @@ gave and never moves one (a test holds that), except the room a roadmap's pins
 need; a box in relief gives its `depth` to its edge and the text is fitted in
 the face that is left.
 
+`motion` (`reveal`, `flow`) is the one movement a visual has, for a web page:
+an entrance in the order of the content (`mockyVisualTimeline`, pure), then for
+`flow` a pulse along the connectors. It animates `opacity`, `translate` and
+`scale`, never `transform` (pins and 3D faces use it); every still path renders
+the markup with no motion at all, and once the entrance has played the markup
+goes BACK to that one — a finished animation left Edge drawing the type and the
+bars a shade apart from the still visual, 5,000 pixels of a slide.
+
 ## Fonts in a generated page
 
 ~200 self-hosted families (`src/lib/fonts`, user doc `docs/fonts.md`), Latin

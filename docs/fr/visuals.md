@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 350c231e31e3
+source_hash: 574090c2c9b0
 ---
 
 # Visuels
@@ -223,6 +223,37 @@ projet, et se change dans **Visuel…** → **Rendu** sans frais :
 Un rendu ne déplace rien : les cases gardent leur place et leur texte, qui reste
 à plat, lisible et modifiable dans PowerPoint. Les faces de la 3D et le verre y
 sortent en images.
+
+## Animation
+
+:::why
+Sur une page web, un schéma qui se construit dans l’ordre où on le lit dit cet
+ordre sans un mot — et un schéma imprimé doit être le schéma fini. Le mouvement
+est donc une entrée qui finit sur l’image figée, et chaque chemin qui fait une
+image d’une page ne la joue tout simplement pas.
+:::
+
+Un visuel sur une **page web** (une page d’accueil, un article, une
+documentation) peut bouger, à régler dans **Visuel…** → **Animation**, sans
+coût :
+
+| Animation | Ce qu’elle fait |
+|---|---|
+| Aucune | Le visuel est dessiné tel quel — par défaut |
+| Apparition | Quand le visuel arrive à l’écran, les cases entrent dans l’ordre du contenu et chaque liaison se trace depuis la case qu’elle quitte ; les barres poussent depuis leur base |
+| Flux | La même entrée, puis une courte impulsion court le long des liaisons, pour montrer le sens d’un processus, d’un cycle ou d’un logigramme |
+
+La génération la choisit comme le rendu, et seulement sur une page web : un
+document, une publication ou une diapositive est imprimé ou exporté, il reste
+donc immobile. Une entrée dure environ une seconde et demie, quel que soit le
+nombre de cases.
+
+Rien ne bouge dans une capture, un export, un écran figé (**Figé** sur la
+toile), ni sur un appareil qui demande moins de mouvement : ils dessinent
+exactement le visuel sans animation — les tests vérifient que l’entrée terminée
+et le visuel figé sont les mêmes cases aux mêmes places. Le mouvement est en CSS
+seulement (opacité, une légère montée, une ligne qui pousse) : ni script, ni
+WebGL.
 
 ## Dans un autre format
 

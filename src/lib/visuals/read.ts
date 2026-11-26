@@ -13,7 +13,7 @@
  * visual says: the dialog still switches the family, the number check stays
  * silent. Never a guess.
  */
-import { isVisualFamily, isVisualLook, isVisualVariant, type VisualDoc, type VisualFamily, type VisualLook, type VisualVariant } from './families'
+import { isVisualFamily, isVisualLook, isVisualMotion, isVisualVariant, type VisualDoc, type VisualFamily, type VisualLook, type VisualMotion, type VisualVariant } from './families'
 
 export const VISUAL_COMPONENT = 'Visual'
 
@@ -23,6 +23,7 @@ export interface ScreenVisual {
   family: string | null
   variant: string | null
   look: string | null
+  motion: string | null
   /** The other families the generation proposed for this content, best first. */
   alternatives: VisualFamily[]
   doc: VisualDoc | null
@@ -32,6 +33,7 @@ export interface VisualChange {
   family?: VisualFamily
   variant?: VisualVariant
   look?: VisualLook
+  motion?: VisualMotion
 }
 
 type Edit = { start: number; end: number; text: string }
@@ -161,6 +163,7 @@ export async function findScreenVisuals(source: string): Promise<ScreenVisual[]>
       family: literal(attrOf(opening, 'family')),
       variant: literal(attrOf(opening, 'variant')),
       look: literal(attrOf(opening, 'look')),
+      motion: literal(attrOf(opening, 'motion')),
       alternatives: Array.isArray(altValue) ? altValue.filter((f): f is VisualFamily => isVisualFamily(f)) : [],
       doc: value === NOT_DATA ? null : asDoc(value),
     }
@@ -179,6 +182,7 @@ export async function changeScreenVisual(source: string, index: number, change: 
   if (change.family !== undefined && !isVisualFamily(change.family)) return null
   if (change.variant !== undefined && !isVisualVariant(change.variant)) return null
   if (change.look !== undefined && !isVisualLook(change.look)) return null
+  if (change.motion !== undefined && !isVisualMotion(change.motion)) return null
   const found = await visit(source)
   const el = found?.find((v) => v.index === index)
   if (!el || typeof el.opening?.name?.end !== 'number') return null
@@ -192,6 +196,7 @@ export async function changeScreenVisual(source: string, index: number, change: 
   set('family', change.family)
   set('variant', change.variant)
   set('look', change.look)
+  set('motion', change.motion)
   // The family it is leaving stays on offer: it was the generation's first
   // choice, and after one switch the dialog would otherwise forget it.
   const before = literal(attrOf(el.opening, 'family'))
