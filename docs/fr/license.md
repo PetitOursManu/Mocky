@@ -1,6 +1,6 @@
 ---
 description: Mocky est sous AGPL-3.0-or-later, avec deux exceptions — l’usage de Remotion par le worker vidéo, et tout ce que Mocky produit pour vous.
-source_hash: eb0e1a2862d3
+source_hash: 33c268e9d81d
 ---
 
 # Licence
@@ -123,7 +123,8 @@ supposée compatible.
 | Détection de qualité | `impeccable`, Apache-2.0 | Oui : du code Apache-2.0 peut entrer dans une œuvre GPLv3 |
 | Lecture d’un PDF importé | `pdfjs-dist` (pdf.js de Mozilla), Apache-2.0, intégré à l’application et chargé au premier import | Oui, pour la même raison |
 | Polices servies aux écrans générés (`public/fonts/`, [Polices](fonts.md)) | Environ 200 familles de `@fontsource` : OFL-1.1, quelques Apache-2.0, une sous Ubuntu Font Licence — lues dans chaque paquet, toute autre refusée. Livrées comme fichiers de police séparés, non modifiés, avec chaque licence dans `fonts/LICENSES.txt` | Oui : une police n’est pas combinée au programme, et les trois licences permettent de la livrer avec un logiciel |
-| Worker vidéo | `three`, `@react-three/fiber`, `express`, `lottie-web`, `react-useanimations` : MIT. Polices de `@fontsource` : OFL-1.1, livrées comme fichiers de police séparés | Oui |
+| Worker vidéo | `three`, `@react-three/fiber`, `express`, `lottie-web`, `react-useanimations`, `esbuild` : MIT. Polices de `@fontsource` : OFL-1.1, livrées comme fichiers de police séparés | Oui |
+| Worker vidéo | `@hyperframes/producer` et ses paquets `@hyperframes/*` (HyperFrames, de HeyGen), Apache-2.0 | Oui : du code Apache-2.0 peut être inclus dans une œuvre GPLv3 |
 | Worker vidéo | `remotion`, `@remotion/*` | Non — couvert par [la permission de la section 7](#remotion) |
 | Programmes externes | `ffmpeg`, le Chrome headless avec lequel le worker rend | Pas combinés : ils tournent comme programmes séparés |
 

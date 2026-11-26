@@ -114,7 +114,8 @@ so the next dependency is checked against it rather than assumed.
 | Quality detection | `impeccable`, Apache-2.0 | Yes: Apache-2.0 code may be included in a GPLv3 work |
 | Reading an imported PDF | `pdfjs-dist` (Mozilla pdf.js), Apache-2.0, bundled into the app and loaded on the first import | Yes, for the same reason |
 | Typefaces served to generated screens (`public/fonts/`, [Fonts](fonts.md)) | About 200 families from `@fontsource`: OFL-1.1, a few Apache-2.0, one under the Ubuntu Font Licence — read from each package, anything else refused. Shipped as separate font files, unmodified, with every licence in `fonts/LICENSES.txt` | Yes: a font is not combined with the program, and all three licences allow bundling it with software |
-| Video worker | `three`, `@react-three/fiber`, `express`, `lottie-web`, `react-useanimations`: MIT. Typefaces from `@fontsource`: OFL-1.1, shipped as separate font files | Yes |
+| Video worker | `three`, `@react-three/fiber`, `express`, `lottie-web`, `react-useanimations`, `esbuild`: MIT. Typefaces from `@fontsource`: OFL-1.1, shipped as separate font files | Yes |
+| Video worker | `@hyperframes/producer` and its `@hyperframes/*` packages (HeyGen's HyperFrames), Apache-2.0 | Yes: Apache-2.0 code may be included in a GPLv3 work |
 | Video worker | `remotion`, `@remotion/*` | No — covered by [the section 7 permission](#remotion) |
 | External programs | `ffmpeg`, the headless Chrome the worker renders with | Not combined: they run as separate programs |
 

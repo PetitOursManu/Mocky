@@ -2,8 +2,9 @@
 
 Mocky turns a list of images from the media library into an `.mp4`. Not a screen,
 not a scroll sequence: a film, cut from pictures the user picked, rendered by
-[Remotion](https://www.remotion.dev/) in a container that is absent from a
-default install.
+[HyperFrames](https://github.com/heygen-com/hyperframes) — with
+[Remotion](https://www.remotion.dev/) as the fallback — in a container that is
+absent from a default install ([Two engines](#two-engines)).
 
 **The feature is called Motion Ultra; the code is called `video`.** It shipped as
 "Video export", which named a file format rather than the thing on offer, then
@@ -2563,7 +2564,78 @@ told.
 
 ---
 
+## Two engines: HyperFrames draws, Remotion is the fallback {#two-engines}
+
+Since 2026-11 the worker renders with **HyperFrames** (HeyGen, Apache-2.0) and
+keeps **Remotion** for the films HyperFrames could not render. The compositions
+were not translated: every file under `worker/video/remotion/` reaches an engine
+through two doors only, `clock.js` (the frame, `Sequence`, `Freeze`, `Img`,
+`delayRender`) and `clockCanvas.js` (the GL canvas). The Remotion bundle compiles
+them as they are; `render.hyperframes.js` compiles the same files with esbuild,
+puts `remotion/hyperframes/` behind those two doors, and refuses a bundle that
+still reaches a Remotion package. `tests/video-engine-clock.test.js` holds the
+doors: the same names on both sides, and no other file importing Remotion.
+
+**Why switch at all.** Remotion's licence is the one thing in this image that is
+not Apache or MIT, and the only reason the worker needs a permission of its own
+in `NOTICE` (next section). HyperFrames removes the question for an image built
+without Remotion, and it renders HTML seeked frame by frame, which is what the
+compositions already were.
+
+**Why keep Remotion.** HyperFrames was at 0.9.x when it was adopted. A film it
+fails on — a composition nobody tried yet, a regression in a release — should
+cost a retry, not an export. `engine.js` tries the engines in order; any failure
+falls back to the next one with what is left of the deadline, **except** an
+aborted render: that is the deadline itself, and a second engine started after it
+renders a film nobody is waiting for. The response names the engine that drew the
+film (`x-mocky-worker-engine`), and `/health` lists the order.
+
+**What decided it was measured.** A corpus of nine films — composed scenes, data
+blocks, a lit solid, a photograph on a 3D stage, the continuous world, a mirrored
+loop, a slideshow, titles, a WebM — rendered by both engines within the
+container's own limits (2 CPUs, 4 GB): every frame of every film within an SSIM
+of 0.986 of Remotion's, at the same speed (±15 % either way, film by film). That
+comparison found three differences, now fixed, and each is a rule:
+
+- **The page has Remotion's box model.** Remotion's render page sets
+  `* { box-sizing: border-box }`; without it a padded fill measured its padding
+  outside its width and the titles' rule ran to the frame's edge.
+- **A GL canvas is created at its given size.** react-three-fiber's `<Canvas>`
+  waits for a ResizeObserver to measure it, and an observer reports during a
+  rendered frame — which the capture was holding back for that very canvas. The
+  second scene of a `world` ground waited for itself until the deadline. So
+  `clockCanvas.jsx` calls `createRoot` on a canvas of its own, sized by the block.
+- **A GL canvas is drawn on every render, not every frame.** A texture that
+  decodes on frame 0 re-renders frame 0; a draw keyed on the frame number skipped
+  it, and the first frame of a photo stage came out black.
+
+**One browser, one encoder setting.** The image installs the headless shell
+HyperFrames is pinned to (it checks the build's digest) and names it in
+`PRODUCER_HEADLESS_SHELL_PATH`; Remotion is handed the same binary rather than
+downloading its own, and rendered the corpus on it byte for byte identical —
+230 MB less image. HyperFrames encodes with the system's ffmpeg, so that layer is
+no longer optional, and it is given `encoding.js`'s CRF and rate cap
+(`encoderSettingsFor`), because `worstCaseBytes` is the bound the disk budget is
+sized against and it holds only if every engine is capped at it. One exception:
+a WebM. HyperFrames encodes it with VP9 and refuses a rate cap for it, so a WebM
+gets the average rate and no ceiling — the bound holds there on average, not by
+construction — and it carries an alpha channel the opaque ground fills.
+
+**Settings.**
+
+| Setting | Where | Effect |
+|---|---|---|
+| `MOCKY_VIDEO_ENGINE` | worker environment | The engine tried first: `hyperframes` (default) or `remotion` |
+| `MOCKY_VIDEO_FALLBACK=none` | worker environment | No fallback: a film the first engine fails is a failed export |
+| `WITH_REMOTION=false` | build argument (`docker-compose.yml`) | The image is built without Remotion, and the fallback is off |
+
+---
+
 ## The Remotion licence, and the separate service
+
+**This section applies to an image built with Remotion**, which is the default,
+for the fallback. Built with `WITH_REMOTION=false`, the worker carries
+HyperFrames (Apache-2.0) and nothing below applies to it.
 
 Remotion is free for individuals, for non-profit organisations, and for
 companies with up to three employees. Past that threshold it requires a paid
@@ -3541,7 +3613,9 @@ renderer.
 | `server/video/store.js` | The finished file, kept whole. **Not** `server/videos/` |
 | `server/video/routes.js` | `/api/video`, the pending guard, and the admin router |
 | `src/components/VideoExportDialog.tsx` | The Motion Ultra panel. Opened from the toolbar, never from a screen |
-| `worker/video/` | The Remotion worker: separate sub-project, separate image, separate README |
+| `worker/video/` | The render worker (HyperFrames, Remotion as the fallback): separate sub-project, separate image, separate README |
+| `worker/video/engine.js` | Which engine renders first, and the fallback — never after an abort |
+| `worker/video/remotion/clock.js`, `clockCanvas.js` | The only two doors from a composition to an engine; `remotion/hyperframes/` is HyperFrames’ side of them |
 | `worker/video/encoding.js` | The codec table and what each codec is told about quality. No Remotion import, so the one testable part of a render can be tested |
 | `worker/video/remotion/composition.js` | Every composition's shared arithmetic, their theme, and their palettes. No React, no Remotion, so a test can reach it |
 | `worker/video/remotion/ComposedSceneVideo.jsx` | The layout engine for the composable variant: the ground, the nine cells, and the stack that drifts |

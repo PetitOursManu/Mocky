@@ -67,8 +67,14 @@ function unbound(source) {
 describe('the modules no test can import', () => {
   it.each([
     'render.js',
+    'render.hyperframes.js',
     'remotion/Root.jsx',
     'remotion/index.js',
+    'remotion/compositions.jsx',
+    // `clock.jsx` and `entry.jsx` read browser globals (`Image`, `document`)
+    // that a Node scope walk would report; `tests/video-engine-clock.test.js`
+    // checks them for what matters instead — the names they must export.
+    'remotion/hyperframes/clockCanvas.jsx',
     // One line per composition, and the list grows with the catalogue: these
     // five are the only React in the repository that nothing compiles until a
     // container is already rendering.
@@ -93,10 +99,14 @@ describe('the modules no test can import', () => {
    */
   it('registers a component for every composition the catalogue names', () => {
     const root = read('remotion/Root.jsx')
+    // The wrapped components are shared by both engines, so they are imported
+    // once, in `compositions.jsx`, and both entries read that table.
+    const table = read('remotion/compositions.jsx')
     for (const [template, id] of Object.entries(COMPOSITIONS)) {
       expect(fs.existsSync(path.join(HERE, 'remotion', `${id}.jsx`)), `${template} → ${id}.jsx`).toBe(true)
       expect(root, `${id} is registered in Root.jsx`).toContain(`COMPOSITIONS.${template}`)
-      expect(root, `${id} is imported by Root.jsx`).toContain(`from './${id}.jsx'`)
+      expect(table, `${id} is in the shared table`).toContain(`[COMPOSITIONS.${template}]`)
+      expect(table, `${id} is imported by compositions.jsx`).toContain(`from './${id}.jsx'`)
     }
   })
 

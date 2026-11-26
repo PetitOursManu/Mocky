@@ -1,4 +1,5 @@
-# Mocky's Remotion render worker.
+# Mocky's video render worker: HyperFrames (Apache-2.0) draws the films, and
+# Remotion is the fallback when it cannot (`engine.js`).
 #
 # READ worker/video/README.md BEFORE BUILDING THIS. Remotion is free for
 # individuals, non-profits and companies with up to three employees; past that
@@ -49,18 +50,18 @@ RUN apt-get update \
         libxfixes3 \
         libxkbcommon-dev \
         libxrandr2 \
+        unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- ffmpeg ----
-# Best-effort, and worth being honest about what it is for: @remotion/renderer
-# carries its own ffmpeg build, so this layer is not what makes a render work.
-# It is here so that ffprobe exists inside a container that, by design, has no
-# egress to install anything later — and "is the file this worker just returned
-# actually a video" is the first question anyone asks when a render looks wrong.
-RUN (apt-get update \
-     && apt-get install -y --no-install-recommends ffmpeg \
-     && rm -rf /var/lib/apt/lists/*) \
-    || echo "ffmpeg not installed — renders still work; ffprobe is unavailable for debugging"
+# Required. It was best-effort while Remotion was the only engine, because
+# @remotion/renderer carries its own ffmpeg; HyperFrames, the default engine,
+# encodes with the system's, and an image without it would build, boot and then
+# fail every film on the default engine. It also gives the container ffprobe,
+# for "is the file this worker returned actually a video".
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
 # Drop root before anything of ours is installed, rather than chowning a
 # Remotion install afterwards: `chown -R` over these node_modules would copy
@@ -78,20 +79,44 @@ USER node
 # renderer — the lesson the main image learned when `npx --yes playwright
 # install` resolved to whatever had been published that morning.
 COPY --chown=node:node package.json ./
-RUN npm install --no-audit --no-fund && npm cache clean --force
+# Puppeteer arrives with the HyperFrames producer and would download a Chrome of
+# its own at install. HyperFrames renders with ONE pinned headless shell, checked
+# by digest, installed below; a second Chrome is 170 MB nobody runs.
+ENV PUPPETEER_SKIP_DOWNLOAD=1
+
+# ---- Remotion, the fallback, or not ----
+# HyperFrames draws every film; Remotion only renders one HyperFrames could not
+# (`engine.js`). `--build-arg WITH_REMOTION=false` builds the image without it,
+# and with it goes the one licence in this image that is not Apache or MIT —
+# the question the README asks before you build stops applying. The cost is the
+# fallback: a film HyperFrames fails is a failed export. Struck from the manifest
+# BEFORE the install, in the same layer: an uninstall afterwards left the bytes in
+# the layer below and made the image heavier, and `--omit=optional` is not an
+# answer, since esbuild ships its binary that way.
+ARG WITH_REMOTION=true
+RUN if [ "$WITH_REMOTION" = "false" ]; then \
+      npm pkg delete dependencies.remotion 'dependencies.@remotion/bundler' \
+        'dependencies.@remotion/renderer' 'dependencies.@remotion/three'; \
+    fi \
+    && npm install --no-audit --no-fund && npm cache clean --force
+ENV MOCKY_VIDEO_FALLBACK=$WITH_REMOTION
 
 # ---- Chromium ----
-# Remotion's own downloader, which is the officially supported way to get a
-# browser it has tested against — a distribution Chromium is a different build
-# with different flags, and the failures that produces surface as blank frames
-# rather than as an error. Done at build time so the first render does not spend
-# its budget fetching ~150 MB; server.js calls ensureBrowser() again at boot, so
-# an image built without network still recovers instead of failing forever.
-RUN npm run ensure-browser
+# ONE browser for both engines: the headless shell HyperFrames is pinned to.
+# HyperFrames refuses any other build (it checks the folder's digest), so the
+# version here moves with @hyperframes/producer in package.json — never on its
+# own. Remotion, now the fallback, is handed the same binary through
+# `PRODUCER_HEADLESS_SHELL_PATH` (render.js) instead of downloading the build it
+# would pick: it rendered the reference corpus on it frame for frame, and a
+# second Chrome for an engine that only runs when the first one failed is
+# 230 MB of image nobody uses. Done at build time, because this container has no
+# egress once it runs.
+RUN npm run ensure-browser:hyperframes
+ENV PRODUCER_HEADLESS_SHELL_PATH=/home/node/.cache/puppeteer/chrome-headless-shell/linux-158.0.8127.88/chrome-headless-shell-linux64/chrome-headless-shell
 
 # ---- The worker itself ----
 COPY --chown=node:node remotion ./remotion
-COPY --chown=node:node render.js server.js validate.js staging.js encoding.js ./
+COPY --chown=node:node engine.js render.js render.hyperframes.js server.js validate.js staging.js encoding.js ./
 
 ENV NODE_ENV=production
 ENV PORT=3030

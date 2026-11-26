@@ -34,7 +34,7 @@ export const video = {
   fr: {
     'video.sectionTitle': 'Motion Ultra',
     'video.blurb':
-      'Rend une suite d’images en .mp4 via un worker Remotion, service Docker séparé et facultatif (profil « video-export »). Désactivé par défaut : une instance qui n’a pas construit ce service ne gagne rien à l’activer.',
+      'Rend une suite d’images en .mp4 via le worker de rendu (HyperFrames, Remotion en repli), service Docker séparé et facultatif (profil « video-export »). Désactivé par défaut : une instance qui n’a pas construit ce service ne gagne rien à l’activer.',
 
     'video.enable': 'Activer Motion Ultra',
     'video.ultraX3Title': 'Motion Ultra ×3',
@@ -128,7 +128,7 @@ export const video = {
     'video.workerBlockedHint':
       'Adresse refusée avant tout appel : Mocky n’a pas essayé de la joindre, redémarrer le worker n’y changera rien. Seuls http:// et https:// sont acceptés.',
     'video.workerNotStartedHint':
-      'Le worker Remotion est un service facultatif, absent du démarrage habituel : rien ne répond tant qu’il n’a pas été construit et lancé à part. Depuis le dossier du dépôt :',
+      'Le worker de rendu est un service facultatif, absent du démarrage habituel : rien ne répond tant qu’il n’a pas été construit et lancé à part. Depuis le dossier du dépôt :',
     'video.workerProfileHint':
       'Pour qu’il démarre avec les autres services à chaque fois, sans retaper le drapeau : mettez cette ligne dans le fichier .env à côté du docker-compose.yml. Le fichier livré garde son profil — c’est ce qui fait que la question de licence Remotion n’existe pas pour qui n’utilise jamais la fonctionnalité.',
     'video.workerComposeFileHint':
@@ -138,7 +138,7 @@ export const video = {
 
     'video.licenseWarnTitle': 'Licence Remotion',
     'video.licenseWarnBody':
-      'La licence Remotion est gratuite pour les particuliers, les organisations à but non lucratif et les sociétés commerciales jusqu’à 3 salariés ; au-delà, une Company License est requise. Ce seuil compte les salariés de votre organisation, pas les comptes de cette instance : {n} comptes pourront exporter, ce qui ne dit rien de votre situation. À vous de savoir dans quel cas vous vous trouvez.',
+      'Ne concerne qu’un worker construit avec Remotion, le cas par défaut, où il sert de repli à HyperFrames (construit avec WITH_REMOTION=false, il n’en contient pas). La licence Remotion est gratuite pour les particuliers, les organisations à but non lucratif et les sociétés commerciales jusqu’à 3 salariés ; au-delà, une Company License est requise. Ce seuil compte les salariés de votre organisation, pas les comptes de cette instance : {n} comptes pourront exporter, ce qui ne dit rien de votre situation. À vous de savoir dans quel cas vous vous trouvez.',
     'video.licenseWarnLink': 'Lire la licence sur remotion.dev',
 
     'video.unsaved': 'Modifications non enregistrées',
@@ -152,7 +152,7 @@ export const video = {
     // est là parce que l'absence de réglages se lit sinon comme un panneau
     // inachevé : personne ne choisit de mise en scène ici, c'est le parti pris.
     'video.exportBlurb':
-      'Un film écrit par le modèle : vous donnez le contexte et, si vous voulez, des images de départ. Il choisit le rythme, la mise en scène, les mouvements et les textes. Le rendu tourne sur le worker Remotion, pas dans ce navigateur.',
+      'Un film écrit par le modèle : vous donnez le contexte et, si vous voulez, des images de départ. Il choisit le rythme, la mise en scène, les mouvements et les textes. Le rendu tourne sur le worker de rendu, pas dans ce navigateur.',
 
     // Volontairement laconique : un compte sans accès n’apprend rien de la
     // configuration de l’instance, ni de ce à quoi ressemble un montage valide.
@@ -492,7 +492,7 @@ export const video = {
   en: {
     'video.sectionTitle': 'Motion Ultra',
     'video.blurb':
-      'Renders a sequence of images to .mp4 through a Remotion worker — a separate, optional Docker service (the “video-export” profile). Off by default: an instance that has not built that service gains nothing by turning this on.',
+      'Renders a sequence of images to .mp4 through the render worker (HyperFrames, with Remotion as the fallback) — a separate, optional Docker service (the “video-export” profile). Off by default: an instance that has not built that service gains nothing by turning this on.',
 
     'video.enable': 'Enable Motion Ultra',
     'video.ultraX3Title': 'Motion Ultra ×3',
@@ -584,7 +584,7 @@ export const video = {
     'video.workerBlockedHint':
       'The address was refused before any call was made: Mocky did not try to reach it, and restarting the worker will not change that. Only http:// and https:// are accepted.',
     'video.workerNotStartedHint':
-      'The Remotion worker is an optional service, left out of the usual start-up: nothing answers until it has been built and started separately. From the repository folder:',
+      'The render worker is an optional service, left out of the usual start-up: nothing answers until it has been built and started separately. From the repository folder:',
     'video.workerProfileHint':
       'To have it start with the other services every time, without retyping the flag: put this line in the .env file beside docker-compose.yml. The shipped file keeps its profile — that is what makes the Remotion licence question not exist for anyone who never turns the feature on.',
     'video.workerComposeFileHint':
@@ -594,7 +594,7 @@ export const video = {
 
     'video.licenseWarnTitle': 'Remotion licence',
     'video.licenseWarnBody':
-      'Remotion’s licence is free for individuals, non-profit organisations and commercial companies with up to 3 employees; beyond that a Company License is required. That threshold counts your organisation’s employees, not this instance’s accounts: {n} accounts will be able to export, which says nothing about your situation. It is up to you to know which case you are in.',
+      'Only applies to a worker built with Remotion, the default, where it is HyperFrames’ fallback (built with WITH_REMOTION=false, it has none). Remotion’s licence is free for individuals, non-profit organisations and commercial companies with up to 3 employees; beyond that a Company License is required. That threshold counts your organisation’s employees, not this instance’s accounts: {n} accounts will be able to export, which says nothing about your situation. It is up to you to know which case you are in.',
     'video.licenseWarnLink': 'Read the licence on remotion.dev',
 
     'video.unsaved': 'Unsaved changes',
@@ -608,7 +608,7 @@ export const video = {
     // sentence is there because the absence of settings otherwise reads as an
     // unfinished panel: nobody picks a layout here, and that is the point.
     'video.exportBlurb':
-      'A film written by the model: you give the context and, if you want, some starting pictures. It decides the pacing, the staging, the motion and the words. The render runs on the Remotion worker, not in this browser.',
+      'A film written by the model: you give the context and, if you want, some starting pictures. It decides the pacing, the staging, the motion and the words. The render runs on the render worker, not in this browser.',
 
     // Deliberately terse: an account without access learns nothing about how the
     // instance is configured, nor about what a valid timeline looks like.

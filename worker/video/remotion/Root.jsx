@@ -1,25 +1,15 @@
 import { Composition } from 'remotion'
-import { AnimatedTitlesVideo } from './AnimatedTitlesVideo.jsx'
-import { ComposedSceneVideo } from './ComposedSceneVideo.jsx'
-import { ImageSequenceVideo } from './ImageSequenceVideo.jsx'
-import { OverlayBandVideo } from './OverlayBandVideo.jsx'
-import { ProductSpotlightVideo } from './ProductSpotlightVideo.jsx'
-import { VerticalStoryVideo } from './VerticalStoryVideo.jsx'
-import { COMPOSITIONS, FPS, dimensionsFor, loopModeOf, loopedFrames, planTimeline } from './composition.js'
-import { withInstalledFonts } from './fonts/load.jsx'
-import { withLoop } from './Looped.jsx'
+import { COMPOSITIONS, FPS, dimensionsFor, filmMetadata } from './composition.js'
+import { COMPONENTS } from './compositions.jsx'
 
-/*
- * Every composition wrapped ONCE, at module scope: the wrapper holds the first
- * frame until the direction's typefaces are in, and a wrapper built inside the
- * tree would be a new component on every render — a remount per frame.
- */
-const Slideshow = withLoop(withInstalledFonts(ImageSequenceVideo))
-const Overlay = withLoop(withInstalledFonts(OverlayBandVideo))
-const Vertical = withLoop(withInstalledFonts(VerticalStoryVideo))
-const Titles = withLoop(withInstalledFonts(AnimatedTitlesVideo))
-const Product = withLoop(withInstalledFonts(ProductSpotlightVideo))
-const Composed = withLoop(withInstalledFonts(ComposedSceneVideo))
+// The wrapped components live in `compositions.jsx`, shared with the HyperFrames
+// entry; these names keep the list below readable.
+const Slideshow = COMPONENTS[COMPOSITIONS.slideshow]
+const Overlay = COMPONENTS[COMPOSITIONS.overlay]
+const Vertical = COMPONENTS[COMPOSITIONS.vertical]
+const Titles = COMPONENTS[COMPOSITIONS.titles]
+const Product = COMPONENTS[COMPOSITIONS.product]
+const Composed = COMPONENTS[COMPOSITIONS.composed]
 
 /**
  * A one-pixel grey PNG, so that opening this bundle in Remotion Studio shows
@@ -47,17 +37,7 @@ const PLACEHOLDER_SRC = { [PLACEHOLDER_ID]: PLACEHOLDER }
  * because a composition whose metadata was computed differently from its
  * neighbours is a film in the wrong shape, discovered by watching it.
  */
-const metadata = ({ props }) => {
-  const plan = planTimeline(props.timeline)
-  return {
-    // Through the loop: a mirrored film is twice as many frames to draw, and a
-    // blended one is shorter by its own dissolve. See `loopedFrames`.
-    durationInFrames: loopedFrames(plan.totalFrames, loopModeOf(props.timeline)),
-    width: plan.width,
-    height: plan.height,
-    fps: plan.fps,
-  }
-}
+const metadata = ({ props }) => filmMetadata(props.timeline)
 
 /**
  * Every composition the worker can render, which is six.

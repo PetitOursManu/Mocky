@@ -365,7 +365,10 @@ server/video/queue.js       in-memory queue + atomic JSON journal. No Redis, eve
 server/video/worker.js      HTTP client for the render worker
 server/video/store.js       the finished file, kept whole. NOT server/videos/
 server/video/text-budget.js how much a page film may SAY, counted off the schema
-worker/video/               the Remotion worker: separate sub-project, separate image
+worker/video/               the render worker: separate sub-project, separate image
+worker/video/engine.js      HyperFrames first, Remotion as the fallback — never after an abort
+worker/video/remotion/clock.js, clockCanvas.js   the ONLY doors from a composition
+                            to an engine; remotion/hyperframes/ is HyperFrames' side
 worker/video/remotion/blocks/   one component per block kind, plus the registry
 worker/video/remotion/world.js  the continuous 3D world as arithmetic; the GL
                             scene that reads it is WorldGround.jsx beside it
@@ -373,6 +376,21 @@ worker/video/remotion/lottieIcons.js  the animated icons, by the name a film
                             writes; LottieIcon.jsx is the player they reach
                             through React context, never an import in blocks/
 ```
+
+**Two engines draw the same compositions** (since 2026-11, `docs/video-export.md`,
+"Two engines"): HyperFrames (Apache-2.0) by default, Remotion as the fallback,
+and `WITH_REMOTION=false` builds an image without Remotion at all. A composition
+imports `./clock.js` and `./clockCanvas.js`, never `remotion` —
+`tests/video-engine-clock.test.js` refuses anything else, and a name added to one
+side of a door must be added to `remotion/hyperframes/` too. Three things the
+corpus comparison taught, each easy to undo: the HyperFrames page needs Remotion's
+`* { box-sizing: border-box }`; a GL canvas is `createRoot` at its given size,
+never a `<Canvas>` waiting for a ResizeObserver that cannot fire while the capture
+holds the frame; and it redraws on every RENDER, not every frame, or a texture
+decoded on frame 0 leaves frame 0 black. One browser serves both
+(`PRODUCER_HEADLESS_SHELL_PATH`, the build HyperFrames checks by digest), and
+HyperFrames gets `encoding.js`'s rate cap — except on WebM, which it refuses. A
+change to a composition is checked by rendering the corpus with BOTH engines.
 
 Ten things, and the first one is not negotiable.
 

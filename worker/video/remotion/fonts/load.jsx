@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { continueRender, delayRender } from 'remotion'
+import { continueRender, delayRender } from '../clock.js'
 import { UNICODE_RANGES } from './catalogue.js'
 import { FONT_FILES } from './files.js'
 import { facesForTheme } from './index.js'

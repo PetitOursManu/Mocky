@@ -1,4 +1,4 @@
-import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig } from './clock.js'
 import {
   backgroundKind,
   composedLayout,
@@ -21,7 +21,7 @@ import {
   sceneToneOf,
   withAlpha,
 } from './composition.js'
-import { ThreeCanvas } from '@remotion/three'
+import { ThreeCanvas } from './clockCanvas.js'
 import { blockComponent } from './blocks/index.js'
 import { blockCanvas, sceneCanvasImages } from './blocks/canvases.js'
 import { useStageTextures } from './textures.js'

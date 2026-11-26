@@ -21,6 +21,7 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { validateRenderRequest } from './validate.js'
 import { COMPOSITIONS, LOOP_BLEND_MS, compositionIdFor } from './remotion/composition.js'
+import { enginesFor, renderWithFallback, warmUpEngines } from './engine.js'
 
 const pkg = createRequire(import.meta.url)('./package.json')
 
@@ -92,11 +93,7 @@ function filmDurationMs(timeline) {
 /** Plain text, one line, no stack. See the note about the 300-character splice above. */
 const fail = (res, status, message) => res.status(status).type('text/plain').send(message)
 
-/** Loaded on demand so this module stays importable without Remotion installed. */
-async function loadRenderer() {
-  const { renderTimeline } = await import('./render.js')
-  return renderTimeline
-}
+
 
 /**
  * @param {object} [deps]
@@ -110,7 +107,8 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = null, lo
   app.disable('x-powered-by')
   app.use(express.json({ limit: MAX_BODY }))
 
-  const render = renderVideo || (async (opts) => (await loadRenderer())(opts))
+  // HyperFrames first, Remotion if it fails — `engine.js` has the order and why.
+  const render = renderVideo || ((opts) => renderWithFallback(opts, { log }))
 
   /*
    * One render at a time.
@@ -125,7 +123,7 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = null, lo
   let busy = false
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, version })
+    res.json({ ok: true, version, engines: enginesFor() })
   })
 
   app.post('/render', async (req, res) => {
@@ -197,7 +195,7 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = null, lo
         return fail(res, 504, `The render did not finish within ${Math.round(budgetMs / 1000)} seconds and was abandoned.`)
       }
 
-      const { buffer, contentType } = outcome.value || {}
+      const { buffer, contentType, engine } = outcome.value || {}
       if (!buffer || !buffer.length) {
         return fail(res, 500, 'The render produced no bytes.')
       }
@@ -217,6 +215,9 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = null, lo
       // than none at all, since the one question it is asked is which of the
       // five drew this.
       res.set('x-mocky-worker-composition', compositionIdFor(parsed.timeline.template))
+      // And which engine drew it, so a film that fell back to Remotion can be
+      // told apart in a network trace from one HyperFrames rendered.
+      if (engine) res.set('x-mocky-worker-engine', engine)
       res.send(buffer)
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
@@ -274,8 +275,7 @@ export async function start({ port = Number(process.env.PORT) || DEFAULT_PORT, l
   // failing every render is diagnosable; a container that exits on boot is a
   // restart loop and a log line nobody catches.
   try {
-    const { warmUp } = await import('./render.js')
-    await warmUp(log)
+    await warmUpEngines({ log })
     log.log?.('mocky-video-worker: ready')
   } catch (err) {
     log.error?.(

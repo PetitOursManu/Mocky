@@ -55,6 +55,11 @@ Deterministic quality detection uses the `impeccable` npm package by Paul
 Bakaus, licensed under the Apache License 2.0
 (https://github.com/pbakaus/impeccable).
 
+The optional video worker in `worker/video/` can render films with
+HyperFrames by HeyGen (the `@hyperframes/*` npm packages), licensed under the
+Apache License 2.0 (https://github.com/heygen-com/hyperframes). Its licence
+text ships with each package in the worker's image, unmodified.
+
 The typefaces served to generated screens (`public/fonts/`, copied from the
 `@fontsource` packages by `scripts/vendor-fonts.mjs`) are separate font files,
 distributed unmodified under their own licences: the SIL Open Font License 1.1,

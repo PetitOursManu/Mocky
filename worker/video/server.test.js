@@ -111,6 +111,18 @@ describe('POST /render', () => {
   })
 
   /**
+   * And which ENGINE drew it, since a film can come from HyperFrames or, when
+   * that failed, from Remotion — the one thing a trace of a fallen-back render
+   * has to show.
+   */
+  it('names the engine that drew the film, and none when the renderer does not say', async () => {
+    renderImpl = async () => ({ buffer: Buffer.from('mp4'), contentType: 'video/mp4', engine: 'remotion' })
+    expect((await post(validBody())).headers.get('x-mocky-worker-engine')).toBe('remotion')
+    renderImpl = async () => ({ buffer: Buffer.from('mp4'), contentType: 'video/mp4' })
+    expect((await post(validBody())).headers.get('x-mocky-worker-engine')).toBeNull()
+  })
+
+  /**
    * And it names the RIGHT one, now that there are five.
    *
    * A header fixed to the slideshow would be worse than none at all: the single

@@ -5985,6 +5985,26 @@ export function loopedFrames(totalFrames, mode) {
 }
 
 /**
+ * The geometry and the length of a film, which both engines must agree on.
+ *
+ * Remotion reads it through `calculateMetadata` (`Root.jsx`); HyperFrames reads
+ * it off the root element `render.hyperframes.js` writes, and the page's clock
+ * (`hyperframes/entry.jsx`) reads the same answer back. One function, because a
+ * film whose length was computed twice is a film one engine cuts short.
+ */
+export function filmMetadata(timeline) {
+  const plan = planTimeline(timeline)
+  return {
+    // Through the loop: a mirrored film is twice as many frames to draw, and a
+    // blended one is shorter by its own dissolve.
+    durationInFrames: loopedFrames(plan.totalFrames, loopModeOf(timeline)),
+    width: plan.width,
+    height: plan.height,
+    fps: plan.fps,
+  }
+}
+
+/**
  * The frame of the FILM a frame of a mirrored file shows.
  *
  * Forward to the end, then back to the start — so the file's last frame is the
