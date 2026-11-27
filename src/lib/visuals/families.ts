@@ -75,10 +75,17 @@ export function screenDrawsVisuals(theme: string | null | undefined, isDocument:
 }
 
 /**
- * The line a document whose brief does not mention diagrams gets when the
- * request asked for one — the host types carry the same sentence in their brief.
+ * The section a document whose brief does not mention diagrams gets when the
+ * request asked for them — the host types carry the same sentence in their brief.
+ *
+ * It says what the diagrams are FOR, because the first version only said how to
+ * draw one: asked for a festival flyer "with diagrams", a model wrote every fact
+ * as text first, then added a strip at the foot that drew three of the flyer's
+ * slogans again — a diagram of nothing, squeezed into 180 px. The facts the
+ * request gives are the diagrams' content; a diagram that repeats the page, or
+ * has no structure to show, is not drawn at all.
  */
-export const VISUAL_ASKED_SECTION = `DIAGRAMS: the request asks for one or more diagrams. Draw each with the <Visual> component (a family from its card, the content in its \`doc\`), sized by its own box inside the page's layout — never boxes, arrows, SVG or a chart of your own. At most one <Visual> per page; the rest of the page keeps its own design.`
+export const VISUAL_ASKED_SECTION = `DIAGRAMS: the request asks for its information to be SHOWN as diagrams. The facts it gives — a programme, dates and times, steps, figures, prices, a comparison — are the diagrams' content: put them in the \`doc\` of a <Visual> and do NOT also write them out as text elsewhere on the page. A diagram never repeats what the page already says (a headline, a slogan, the price block), and never stands in for content it does not have: draw one only for information that has a structure (a sequence, parts of a whole, figures to compare, a timeline); what has none stays in the page's own layout. Draw each with the <Visual> component (a family from its card), never boxes, arrows, SVG or a chart of your own, and give it a real share of the page — about a third of its height or more, never a strip at the foot — because a diagram that is short of room drops its details first. Pass the page's own colours (\`colors\`, \`ink\`, \`ground\`). At most one <Visual> per page; the rest of the page keeps its own design.`
 
 export const VISUAL_FAMILIES = [
   'steps',
@@ -153,6 +160,34 @@ export const VISUAL_MOTIONS = ['none', 'reveal', 'flow'] as const
 export type VisualMotion = (typeof VISUAL_MOTIONS)[number]
 export function isVisualMotion(v: unknown): v is VisualMotion {
   return typeof v === 'string' && (VISUAL_MOTIONS as readonly string[]).includes(v)
+}
+
+/**
+ * Créatif (lib/creative.ts) asked for bolder design, and a diagram drawn flat in
+ * a row of boxes is the office-software chart the person was avoiding. Two
+ * things, in this order: the model is asked for an expressive family and a look
+ * that is not flat (`VISUAL_CREATIVE_SECTION`), and whatever it left flat is
+ * given a look by Mocky (`creativeLookFor`) — the same rule as the direction's
+ * corners: what matters is written on the element, not hoped for.
+ */
+export const VISUAL_CREATIVE_SECTION = `CREATIVE DIAGRAMS — this project is in Creative mode, so a diagram must not look like an office-software chart:
+- Among the families the content allows, pick the most expressive one: a road for a plan (roadmap), a staircase or a snake for steps that climb or wind, a funnel, a pyramid or an onion for levels, a hub or a mind map for parts around a centre, a pictogram, a radar or big key figures for numbers — a plain row of boxes (steps), bars, columns or a checklist only when nothing else fits.
+- Never the flat look: set \`look\` to "block" (boxes with faces, columns as cylinders, a road with pins), "raised", "gradient", "glass" (on a dark ground) or "neon" (on a dark ground), whichever suits the direction — and \`variant\` "solid" for strong colour fields.
+- Give it room and scale: it is a centrepiece of the page, not an illustration in a corner.
+- The palette, the typefaces and the figures stay exactly as given: bold in form, never in facts.`
+
+/** The look Mocky writes on a diagram the model left flat, in Créatif: by the ground it sits on. */
+export function creativeLookFor(ground: string | null | undefined): VisualLook {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(ground ?? '').trim())
+  if (!m) return 'block'
+  const n = parseInt(m[1], 16)
+  const lin = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  const lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+  // Glass needs a dark ground to read as glass; faces and cylinders read on any.
+  return lum < 0.2 ? 'glass' : 'block'
 }
 
 /** How the boxes are painted. Three, so a family is not one look. */

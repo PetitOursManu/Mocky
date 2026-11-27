@@ -103,8 +103,11 @@ import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
 import { currentUsageRun, setUsageRun } from '../proxy'
 import { briefFixInstruction, briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
-import { VISUAL_THEME, VISUALS_CAP, VISUAL_ASKED_SECTION, requestAsksForVisual, screenDrawsVisuals, themeDrawsVisuals } from '../visuals/families'
+import { VISUAL_THEME, VISUALS_CAP, VISUAL_ASKED_SECTION, VISUAL_CREATIVE_SECTION, requestAsksForVisual, screenDrawsVisuals, themeDrawsVisuals } from '../visuals/families'
 import { checkVisualFigures } from '../visuals/check'
+import { setVisualDirection } from '../visuals/read'
+import { readRadius } from '../designTokens'
+import { parseDesignSpec } from '../designSpec'
 
 /** What the run is busy with, for the composer's progress line. */
 export type NewScreenPhase = 'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | 'docPicture'
@@ -1251,6 +1254,11 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     if (!themeDrawsVisuals(runTheme) && pipe.document && requestAsksForVisual(text)) {
       planSection = [planSection, VISUAL_ASKED_SECTION].filter(Boolean).join('\n\n')
     }
+    // Créatif and a diagram to draw: an expressive family, a look that is not
+    // flat (lib/visuals/families.ts). Normal mode's request is unchanged.
+    if (creative && capIds.includes(VISUALS_CAP)) {
+      planSection = [planSection, VISUAL_CREATIVE_SECTION].filter(Boolean).join('\n\n')
+    }
     // A working prototype: the kit and its rules, on a screen (never a page of
     // a document — paper has no next page to open).
     if (req.flows && !pipe.document && !capIds.includes('flow')) capIds = [...capIds, 'flow']
@@ -1390,6 +1398,25 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
         }
       } catch {
         // Q1: a check that cannot run is not a finding.
+      }
+    }
+    // A diagram follows the direction's corners and display face, written on
+    // the element by Mocky rather than asked of the model (lib/visuals/read.ts):
+    // on any screen that drew one, the assistant's code included.
+    if ((dir.markdown || creative) && result.code.includes('<Visual') && !result.truncated) {
+      try {
+        const next = await setVisualDirection(result.code, {
+          radius: dir.markdown ? readRadius(dir.markdown) : null,
+          headingFont: dir.markdown ? parseDesignSpec(dir.markdown).typography.display : null,
+          // Créatif: a diagram left flat is given a bolder look.
+          creative,
+        })
+        if (next) {
+          result.code = next
+          hooks.updateScreen(screenId, { code: result.code })
+        }
+      } catch {
+        // Q1: the visual keeps its own look.
       }
     }
     // Every picture of the series was paid for; one the page left out is

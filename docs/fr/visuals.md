@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 574090c2c9b0
+source_hash: ed141696edac
 ---
 
 # Visuels
@@ -128,6 +128,19 @@ avec un schéma des étapes », « une affiche avec un graphique des résultats 
 « un style graphique »), *frise*, *organigramme*, *feuille de route*, et leurs
 équivalents anglais. Sans eux, la consigne reste celle d’avant.
 
+Quand vous demandez des schémas, les informations que vous donnez **deviennent**
+les schémas : le programme, les dates, les étapes, les chiffres vont dans le
+visuel au lieu d’être écrits en texte à côté. Un schéma ne répète jamais ce que
+la page dit déjà, n’est dessiné que pour une information qui a une structure
+(une suite, les parties d’un tout, des chiffres à comparer), et reçoit une vraie
+part de la page — environ un tiers de sa hauteur — plutôt qu’une bande en bas.
+
+Dans un document, un visuel ne descend jamais sous le plancher de texte de la
+page : 14 px pour une ligne et 11 pour un détail sur papier, 28 et 24 sur un
+post, 20 et 16 sur une diapositive, 10 et 9 sur une carte de visite — la règle
+d’après laquelle la page elle-même est écrite. Faute de place, il retire d’abord
+ses détails et garde ses libellés à cette taille.
+
 ## Changer de forme sans nouvelle génération
 
 :::why
@@ -223,6 +236,23 @@ projet, et se change dans **Visuel…** → **Rendu** sans frais :
 Un rendu ne déplace rien : les cases gardent leur place et leur texte, qui reste
 à plat, lisible et modifiable dans PowerPoint. Les faces de la 3D et le verre y
 sortent en images.
+
+Un visuel suit aussi les **angles** et la **police de titre** de votre
+direction : des cases et des barres à angles droits sous une direction qui dit
+`rounded-none`, son titre, ses libellés et ses chiffres dans la police de titre
+de la direction. Mocky les écrit sur le visuel après la génération (`radius`,
+`headingFont`) au lieu de le demander au modèle, et ne touche pas à une valeur
+déjà écrite.
+
+Dans un projet en **Créatif**, un schéma ne doit pas ressembler à un graphique
+de bureautique : la famille la plus expressive que le contenu permet (une route
+pour un plan, un escalier ou un serpentin pour des étapes, un entonnoir ou une
+pyramide pour des niveaux, un moyeu pour des parties autour d’un centre) plutôt
+qu’une rangée de cases, un rendu qui n’est pas plat, des aplats de couleur francs
+et une vraie part de la page. Un schéma que la génération laisse quand même plat
+reçoit la **3D** de Mocky — ou le **Verre** sur fond sombre. La palette, les
+polices et les chiffres ne changent pas, et un rendu choisi ensuite dans
+**Visuel…** reste le vôtre.
 
 ## Animation
 

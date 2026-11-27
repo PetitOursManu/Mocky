@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { VISUAL_BOUNDS, VISUAL_FAMILIES, VISUAL_VARIANTS, VISUALS_CAP, VISUAL_THEME, accepts, familyRefusal, requestAsksForVisual, screenDrawsVisuals } from './families'
+import { VISUAL_BOUNDS, VISUAL_FAMILIES, VISUAL_VARIANTS, VISUALS_CAP, VISUAL_THEME, accepts, familyRefusal, requestAsksForVisual, screenDrawsVisuals, VISUAL_ASKED_SECTION, VISUAL_CREATIVE_SECTION, VISUAL_LOOKS, creativeLookFor } from './families'
 import { CAPABILITY_MAP } from '../capabilities/registry'
 import { capabilitiesUsedBy } from '../capabilities/select'
 import { getScreenTheme } from '../screenThemes'
@@ -75,5 +75,35 @@ describe('a diagram asked for in words', () => {
     expect(screenDrawsVisuals('flyer', true, 'pour un concert')).toBe(false)
     expect(screenDrawsVisuals('instagram', true, 'pour un concert')).toBe(true)
     expect(screenDrawsVisuals('dashboard', false, 'avec un schéma')).toBe(false)
+  })
+})
+
+describe('the section a document gets when the request asks for diagrams', () => {
+  /**
+   * A festival flyer "with diagrams" came back with every fact written as text
+   * and a strip at the foot drawing three of its slogans again.
+   */
+  it('makes the facts the diagrams’ content, never a repeat, never a strip', () => {
+    expect(VISUAL_ASKED_SECTION).toMatch(/do NOT also write them out/)
+    expect(VISUAL_ASKED_SECTION).toMatch(/never repeats what the page already says/)
+    expect(VISUAL_ASKED_SECTION).toMatch(/never a strip/)
+    expect(VISUAL_ASKED_SECTION).toMatch(/colors/)
+  })
+})
+
+describe('Créatif diagrams', () => {
+  it('asks for an expressive family and a look that is not flat, facts unchanged', () => {
+    expect(VISUAL_CREATIVE_SECTION).toMatch(/most expressive/)
+    expect(VISUAL_CREATIVE_SECTION).toMatch(/Never the flat look/)
+    expect(VISUAL_CREATIVE_SECTION).toMatch(/never in facts/)
+    // Every look it names is one the kit draws.
+    for (const look of ['block', 'raised', 'gradient', 'glass', 'neon']) expect(VISUAL_LOOKS).toContain(look)
+  })
+
+  it('picks glass on a dark ground and faces on a light one', () => {
+    expect(creativeLookFor('#0b0d12')).toBe('glass')
+    expect(creativeLookFor('#FFF3D6')).toBe('block')
+    expect(creativeLookFor(null)).toBe('block')
+    expect(creativeLookFor('red')).toBe('block')
   })
 })

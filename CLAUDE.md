@@ -1220,6 +1220,17 @@ gave and never moves one (a test holds that), except the room a roadmap's pins
 need; a box in relief gives its `depth` to its edge and the text is fitted in
 the face that is left.
 
+A visual follows its PAGE and its DIRECTION without the model's help: inside a
+`<Doc>` it reads the format from `MockyDocContext` and never sets type under
+`typeFloorFor` (pageFormats.ts — the same numbers the document prompt states),
+and `runNewScreen` writes the direction's `radius` and `headingFont` on every
+`<Visual>` that lacks them (`setVisualDirection`). A festival flyer is why: a
+diagram of rounded boxes under `rounded-none`, details at 9 px on paper, and the
+flyer's own slogans drawn again — `VISUAL_ASKED_SECTION` now says the facts ARE
+the diagram's content and a diagram never repeats the page. In Créatif the model also
+gets `VISUAL_CREATIVE_SECTION`, and a `<Visual>` it left flat is given
+`creativeLookFor` (block, glass on a dark ground) by the same write.
+
 `motion` (`reveal`, `flow`) is the one movement a visual has, for a web page:
 an entrance in the order of the content (`mockyVisualTimeline`, pure), then for
 `flow` a pulse along the connectors. It animates `opacity`, `translate` and

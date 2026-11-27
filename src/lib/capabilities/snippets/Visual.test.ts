@@ -19,7 +19,7 @@ const lib = new Function(
   `${VisualSource}\nreturn { Visual: Visual, layout: mockyVisualLayout, timeline: mockyVisualTimeline, contrast: mockyVisualContrast, mark: mockyVisualMark, inkOn: mockyVisualInkOn, lines: mockyVisualLines, bounds: MOCKY_VISUAL_BOUNDS, families: MOCKY_VISUAL_FAMILIES };`,
 )(React) as {
   Visual: React.FC<Record<string, unknown>>
-  layout: (family: string, doc: unknown, W: number, H: number) => Layout
+  layout: (family: string, doc: unknown, W: number, H: number, opts?: Record<string, unknown>) => Layout
   timeline: (lay: Layout) => { header: number; nodes: number[]; links: number[]; footer: number; total: number }
   contrast: (a: string, b: string) => number
   mark: (c: string, bg: string, ink: string, floor: number) => string
@@ -310,5 +310,36 @@ describe('<Visual> motion', () => {
     live()
     const still = html({ family: 'steps', doc: docFor('steps', 4), ...base })
     expect(html({ family: 'steps', doc: docFor('steps', 4), motion: 'spin', ...base })).toBe(still)
+  })
+})
+
+describe('<Visual> inside a document and under a direction', () => {
+  const html = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(lib.Visual, props))
+
+  it('never sets type under the page’s own floor: details go first', () => {
+    // A strip of a flyer: 700 × 180 is where a squeezed diagram set its details at 9px.
+    for (const family of ['timeline', 'steps', 'stats', 'bars'] as VisualFamily[]) {
+      const b = VISUAL_BOUNDS[family]
+      const lay = lib.layout(family, docFor(family, Math.max(b.min, 3)), 700, 180, { floor: { line: 14, small: 11 } })
+      for (const [role, fit] of Object.entries(lay.type)) {
+        expect(fit.s.L, `${family} ${role}`).toBeGreaterThanOrEqual(14)
+        if (fit.detail) expect(fit.s.D, `${family} ${role}`).toBeGreaterThanOrEqual(11)
+      }
+    }
+  })
+
+  it('takes the direction’s corners, and keeps a dot round', () => {
+    const out = html({ family: 'steps', doc: docFor('steps', 4), radius: 'rounded-none', width: 1180, height: 620 })
+    const radii = [...out.matchAll(/border-radius:([^;"]+)/g)].map((m) => m[1].trim())
+    expect(radii.length).toBeGreaterThan(0)
+    for (const r of radii) expect(['0', '0px', '50%'], r).toContain(r)
+    const free = html({ family: 'steps', doc: docFor('steps', 4), width: 1180, height: 620 })
+    expect(free).toMatch(/border-radius:(?!0|50%)[\d.]+px/)
+  })
+
+  it('sets its headings in the direction’s display face, and takes a NAME only', () => {
+    expect(html({ family: 'steps', doc: docFor('steps', 4), headingFont: 'Archivo Black', width: 1180, height: 620 })).toContain('font-family:&quot;Archivo Black&quot;')
+    const hostile = html({ family: 'steps', doc: docFor('steps', 4), headingFont: 'x;}body{color:red', width: 1180, height: 620 })
+    expect(hostile).not.toContain('body{')
   })
 })

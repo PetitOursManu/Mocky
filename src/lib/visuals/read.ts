@@ -13,7 +13,7 @@
  * visual says: the dialog still switches the family, the number check stays
  * silent. Never a guess.
  */
-import { isVisualFamily, isVisualLook, isVisualMotion, isVisualVariant, type VisualDoc, type VisualFamily, type VisualLook, type VisualMotion, type VisualVariant } from './families'
+import { creativeLookFor, isVisualFamily, isVisualLook, isVisualMotion, isVisualVariant, type VisualDoc, type VisualFamily, type VisualLook, type VisualMotion, type VisualVariant } from './families'
 
 export const VISUAL_COMPONENT = 'Visual'
 
@@ -291,5 +291,55 @@ export async function dropVisualValues(source: string, index: number, items: rea
     else merged.push({ ...e })
   }
   const out = apply(source, merged)
+  return out === source ? null : out
+}
+
+/** What a direction says about a visual's look: its corners, its display face. */
+export interface VisualDirection {
+  /** A length, as `readRadius` (designTokens.ts) states it: "0px", "14px". */
+  radius?: string | null
+  /** A face name, as the direction's typography line names it. */
+  headingFont?: string | null
+  /**
+   * The project is in Créatif: a visual with no look, or the flat one, gets a
+   * bolder one (`creativeLookFor`, by the ground it sits on).
+   */
+  creative?: boolean
+}
+
+/**
+ * The source with the direction's corners and display face written on every
+ * `<Visual>` that does not already say them — what a model was never relied on
+ * to pass: a festival flyer whose direction said `rounded-none` came back with
+ * a diagram of rounded boxes. Written IN the code, like a lock, so the preview,
+ * the exports, a version and a later edit all carry it with no bookkeeping. An
+ * attribute already there is the model's or the person's and is left alone.
+ * Null when there is nothing to write.
+ */
+export async function setVisualDirection(source: string, dir: VisualDirection): Promise<string | null> {
+  const radius = typeof dir.radius === 'string' && /^\d+(?:\.\d+)?(?:px|rem)$/.test(dir.radius.trim()) ? dir.radius.trim() : null
+  const face = typeof dir.headingFont === 'string' && /^[\p{L}\p{N} -]{1,48}$/u.test(dir.headingFont.trim()) ? dir.headingFont.trim() : null
+  if (!radius && !face && !dir.creative) return null
+  const found = await visit(source)
+  if (!found?.length) return null
+  const edits: Edit[] = []
+  for (const el of found) {
+    const at = el.opening?.name?.end
+    if (typeof at !== 'number') continue
+    if (radius && !attrOf(el.opening, 'radius')) edits.push({ start: at, end: at, text: ` radius="${radius}"` })
+    if (face && !attrOf(el.opening, 'headingFont')) edits.push({ start: at, end: at, text: ` headingFont="${face}"` })
+    if (dir.creative) {
+      const lookAttr = attrOf(el.opening, 'look')
+      const current = literal(lookAttr)
+      // A look computed by the code is not ours to read, nor to replace.
+      if (!lookAttr || current === 'flat') {
+        const text = `look="${creativeLookFor(literal(attrOf(el.opening, 'ground')))}"`
+        if (lookAttr && typeof lookAttr.start === 'number') edits.push({ start: lookAttr.start, end: lookAttr.end, text })
+        else edits.push({ start: at, end: at, text: ` ${text}` })
+      }
+    }
+  }
+  if (!edits.length) return null
+  const out = apply(source, edits)
   return out === source ? null : out
 }

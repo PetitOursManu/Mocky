@@ -7,6 +7,7 @@ import {
   isPageFormat,
   type PageFormat,
   type PageFormatId,
+  typeFloorFor,
 } from './pageFormats'
 import { hintForDevice, type DeviceKind } from './presets'
 import { themeDocumentFormats, themeDocumentPage } from './screenThemes'
@@ -191,6 +192,8 @@ function flatDocumentHint(format: PageFormat): string {
   const social = format.kind === 'social'
   const story = format.id === 'social-story'
   const card = isCardFormat(format.id)
+  // The same numbers the <Visual> kit holds its own type to (pageFormats.ts).
+  const floor = typeFloorFor(format.id)
   const margin = social ? SOCIAL_SAFE_MARGIN_PX : card ? CARD_SAFE_MARGIN_PX : SAFE_MARGIN_PX
   return [
     `FORMAT: ${what}, not a web page — ${FORMAT_NAMES[format.id]}. Every ${page} is a FIXED box of exactly ${format.w}×${format.h}px${social ? '' : ' (96 px per inch)'}.`,
@@ -205,12 +208,12 @@ function flatDocumentHint(format: PageFormat): string {
       ? `The app draws its own bars over the top ${STORY_SAFE_TOP_PX}px and the bottom ${STORY_SAFE_BOTTOM_PX}px of a story: nothing that must be read goes there.`
       : '',
     social
-      ? `It is seen on a phone, in a feed, at about a third of its size and for a second: few words, a headline at least 64px, every other line at least 28px, nothing under 24px.`
+      ? `It is seen on a phone, in a feed, at about a third of its size and for a second: few words, a headline at least 64px, every other line at least ${floor.line}px, nothing under ${floor.small}px.`
       : format.kind === 'slides'
-        ? `Type is read on a screen or a projector from across a room: body text at least 20px, nothing under 16px.`
+        ? `Type is read on a screen or a projector from across a room: body text at least ${floor.line}px, nothing under ${floor.small}px.`
         : card
-          ? `It is a card held in one hand: the name or the brand at least 16px, every other line at least 10px, nothing under 9px — few lines, and plenty of air around them.`
-          : `Type is read on paper at arm's length: body text at least 14px, captions at least 11px.`,
+          ? `It is a card held in one hand: the name or the brand at least 16px, every other line at least ${floor.line}px, nothing under ${floor.small}px — few lines, and plenty of air around them.`
+          : `Type is read on paper at arm's length: body text at least ${floor.line}px, captions at least ${floor.small}px.`,
     `No navigation bar, no menu, no hover or focus states, no web buttons, no scrolling layout, no min-h-screen, no fixed or sticky positioning, no animation and no 3D scene.`,
     // The frame is exactly the page wide, so Tailwind's breakpoints resolve
     // against 794 px on A4: `md:` applies, `lg:` never does — and a model

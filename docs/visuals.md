@@ -121,6 +121,18 @@ that count are *schéma*, *diagramme*, *infographie*, *graphique* (as a noun —
 *feuille de route*, and their English equivalents. Without them the brief stays
 as it was.
 
+When you ask for diagrams, the information you give **becomes** the diagrams:
+the programme, the dates, the steps, the figures go into the visual instead of
+being written out as text beside it. A diagram never repeats what the page
+already says, is drawn only for information that has a structure (a sequence,
+parts of a whole, figures to compare), and gets a real share of the page — about
+a third of its height — rather than a strip at the foot.
+
+Inside a document, a visual never sets its type under the page's own floor: 14
+px for a line and 11 for a detail on paper, 28 and 24 on a post, 20 and 16 on a
+slide, 10 and 9 on a business card — the rule the page itself is written to.
+Short of room, it drops its details first and keeps its labels at that size.
+
 ## Changing the shape without a new generation
 
 :::why
@@ -211,6 +223,21 @@ direction, and can be switched in **Visual…** → **Rendering** at no cost:
 A rendering moves nothing: the boxes keep their places and their text, which
 stays flat, readable and editable in PowerPoint. The faces of the 3D and the
 glass come out as pictures there.
+
+A visual also follows your direction's **corners** and **display typeface**:
+square boxes and bars under a direction that says `rounded-none`, its title,
+labels and figures in the direction's heading face. Mocky writes both on the
+visual after the generation (`radius`, `headingFont`) rather than asking the
+model to, and leaves alone a value already written there.
+
+In a project set to **Creative**, a diagram is asked not to look like an
+office-software chart: the most expressive family the content allows (a road for
+a plan, a staircase or a snake for steps, a funnel or a pyramid for levels, a hub
+for parts around a centre) rather than a row of boxes, a rendering that is not
+flat, strong colour fields and a real share of the page. A diagram the
+generation still leaves flat is given **3D** by Mocky — or **Glass** on a dark
+background. The palette, the typefaces and the figures do not change, and a
+rendering switched in **Visual…** afterwards stays yours.
 
 ## Animation
 
