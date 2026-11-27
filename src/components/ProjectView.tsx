@@ -1241,6 +1241,13 @@ export default function ProjectView({
   // A document whose type draws diagrams only when asked: a report, a post or
   // a visual already has the kit, and a web screen has the charts instead.
   const diagramsOffered = !!composerPage && !themeDrawsVisuals(themeId)
+  // Always shown, greyed where it cannot apply, with the reason: hidden, it was
+  // looked for on a web page and read as missing. A report, a post or a visual
+  // draws diagrams already; a web page or an app screen has charts instead.
+  const diagramsIncluded = themeDrawsVisuals(themeId)
+  const diagramsUnavailable = diagramsOffered
+    ? null
+    : t(diagramsIncluded ? 'composer.diagramsIncluded' : 'composer.diagramsNeedsDocument')
   /** The folds the composer offers right now: none unless the type folds and the size can take one. */
   const composerFolds = composerPage && themeFolds(themeId) ? foldsFor(composerPage) : []
   const composerFold = foldId && composerFolds.includes(foldId) ? foldId : null
@@ -5304,8 +5311,9 @@ export default function ProjectView({
         onMuseChange={updateMuse}
         flowsOn={flowsOn}
         onToggleFlows={toggleFlows}
-        diagramsOn={diagramsOn}
-        onToggleDiagrams={diagramsOffered ? () => setDiagramsOn((v) => !v) : undefined}
+        onToggleDiagrams={() => setDiagramsOn((v) => !v)}
+        diagramsOn={diagramsOffered ? diagramsOn : diagramsIncluded}
+        diagramsUnavailable={diagramsUnavailable}
         brandOn={!!project.useBrand}
         onToggleBrand={brandAvailable && onSetUseBrand ? toggleBrand : undefined}
         brandChoices={brands.length > 1 ? brands.map((b) => ({ id: b.id, name: b.name || b.id })) : undefined}
@@ -6957,14 +6965,15 @@ export default function ProjectView({
             <OptionGroup label={t('workspace.groupHelp')}>
               {/* "Schémas": a document's facts drawn as diagrams, on a type that
                   draws them only when asked. Auto decides it for itself. */}
-              {!editing && !autoMode && diagramsOffered && (
+              {!editing && !autoMode && (
                 <OptionToggle
                   icon="grid"
                   label={t('composer.diagrams')}
-                  hint={t('composer.diagramsHint')}
-                  on={diagramsOn}
+                  hint={diagramsUnavailable || t('composer.diagramsHint')}
+                  on={diagramsOffered ? diagramsOn : diagramsIncluded}
+                  disabled={!diagramsOffered}
                   onClick={() => setDiagramsOn((v) => !v)}
-                  title={t(diagramsOn ? 'composer.diagramsOnTitle' : 'composer.diagramsOffTitle')}
+                  title={diagramsUnavailable || t(diagramsOn ? 'composer.diagramsOnTitle' : 'composer.diagramsOffTitle')}
                 />
               )}
               {/* The project's rules (lib/rules.ts): for edits as much as for new screens. */}

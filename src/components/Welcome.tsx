@@ -54,9 +54,11 @@ type Props = {
   /** The composer's "Parcours" (lib/flows.ts), shown here too: the first screen is often the one a flow starts from. */
   flowsOn?: boolean
   onToggleFlows?: () => void
-  /** "Schémas": offered on a document that draws diagrams only when asked. */
+  /** "Schémas": usable on a document that draws diagrams only when asked. */
   diagramsOn?: boolean
   onToggleDiagrams?: () => void
+  /** Why "Schémas" cannot be used with this type, when it cannot: the tile is greyed and says so. */
+  diagramsUnavailable?: string | null
   /** The account's brand for this project (lib/brand.ts): drawn only when a brand exists. */
   brandOn?: boolean
   onToggleBrand?: () => void
@@ -153,6 +155,7 @@ export default function Welcome({
   onToggleFlows,
   diagramsOn,
   onToggleDiagrams,
+  diagramsUnavailable = null,
   brandOn,
   onToggleBrand,
   brandChoices,
@@ -441,10 +444,11 @@ export default function Welcome({
               <OptionTile
                 icon="grid"
                 label={t('composer.diagrams')}
-                hint={t('composer.diagramsHint')}
+                hint={diagramsUnavailable || t('composer.diagramsHint')}
                 on={!!diagramsOn}
                 onClick={onToggleDiagrams}
-                title={t(diagramsOn ? 'composer.diagramsOnTitle' : 'composer.diagramsOffTitle')}
+                disabled={!!diagramsUnavailable}
+                title={diagramsUnavailable || t(diagramsOn ? 'composer.diagramsOnTitle' : 'composer.diagramsOffTitle')}
               />
             )}
             {!autoOn && onToggleFlows && (
