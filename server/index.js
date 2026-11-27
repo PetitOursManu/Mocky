@@ -41,7 +41,7 @@ import { CalendyStore, calendyRouter } from './calendy.js'
 import { cleanProjectId, costOf, createSpendLedger, dayOf, priceKey } from './admin/spend.js'
 import { fetchPrices } from './admin/prices.js'
 import { createLockout } from './auth-lockout.js'
-import { createDiskBudget } from './storage-quota.js'
+import { createDiskBudget, quotaError } from './storage-quota.js'
 import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
 import { createVersionStore } from './versions.js'
@@ -2861,6 +2861,53 @@ app.use(
   },
   images.router,
 )
+
+/*
+ * POST /api/videos/from-film — a Motion film this account rendered, cut into a
+ * scroll sequence like a clip (the composer's Vidéo · Motion).
+ *
+ * The one door from the film store to the clip library, and it is an explicit
+ * one: rule 5 of the video export keeps films OUT of server/videos because a
+ * film has no stills and filing it would lie to every reader of that list. A
+ * film asked for AS a scroll sequence is the exception that rule was not about:
+ * it is cut here, gets its stills, and stays in its own store besides. Owner
+ * only — the hash of somebody else's film is not a way into it.
+ */
+app.post('/api/videos/from-film', requireUser, authRateLimit(20, 60_000, 'video-from-film'), async (req, res) => {
+  const hash = String(req.body?.hash || '')
+  if (!/^[a-f0-9]{64}$/.test(hash)) return res.status(400).json({ error: 'Bad hash' })
+  if (!videoExports.meta(hash)) return res.status(404).json({ error: 'No such film.' })
+  if (!videoExports.ownedBy(hash, req.user.id)) return res.status(403).json({ error: 'Not your film.' })
+  try {
+    const state = await videos.availability()
+    if (!state.ffmpeg.available) {
+      return res.status(503).json({ code: 'no-ffmpeg', error: "ffmpeg n'est pas disponible dans ce conteneur — le film ne peut pas être découpé." })
+    }
+    const buffer = fs.readFileSync(videoExports.filePath(hash))
+    if (diskBudget.wouldExceed(buffer.length * 3)) return res.status(507).json({ error: quotaError(diskBudget.usage()) })
+    const out = await videos.library.ingest(
+      buffer,
+      {
+        prompt: 'Motion film',
+        provider: 'motion',
+        model: '',
+        project: typeof req.body?.project === 'string' ? req.body.project.slice(0, 64) : '',
+        slot: 'hero',
+        owner: req.user.id,
+      },
+      images.configStore.videoProfile().frames || {},
+    )
+    res.json({
+      hash: out.hash,
+      frames: out.meta.frames,
+      fromCache: Boolean(out.fromCache),
+      base: `/api/videos/${out.hash}`,
+      poster: `/api/videos/${out.hash}/poster.jpg`,
+    })
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
 
 // Same posture as /api/images: the picture bytes of a known sequence are public
 // so a null-origin preview can fetch them; everything else needs a session, and

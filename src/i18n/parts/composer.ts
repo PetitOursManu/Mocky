@@ -22,6 +22,11 @@ export const composer = {
     'composer.themeTitle': 'Choisir un type d’écran — sa structure type guide la génération',
     'composer.themeMenu': 'Types d’écran',
     'composer.themeGroupDocuments': 'Documents à imprimer ou exporter',
+    'composer.diagrams': 'Schémas',
+    'composer.diagramsHint': 'Les informations deviennent des schémas',
+    'composer.diagramsOnTitle': 'Les informations de la demande seront dessinées en schémas (frise, étapes, chiffres clés…). Cliquez pour désactiver.',
+    'composer.diagramsOffTitle': 'Dessiner les informations de la demande en schémas : une frise pour un programme, des étapes, des chiffres clés…',
+    'composer.autoType': 'type « {type} »',
     'composer.themeGroupSocial': 'Réseaux sociaux et stores d’apps',
     'composer.themeGroupScreens': 'Écrans',
     'composer.themeHint':
@@ -212,6 +217,11 @@ export const composer = {
     'composer.themeTitle': 'Pick a screen type — its typical structure guides the generation',
     'composer.themeMenu': 'Screen types',
     'composer.themeGroupDocuments': 'Documents to print or export',
+    'composer.diagrams': 'Diagrams',
+    'composer.diagramsHint': 'The information becomes diagrams',
+    'composer.diagramsOnTitle': 'The request’s information will be drawn as diagrams (a timeline, steps, key figures…). Click to turn it off.',
+    'composer.diagramsOffTitle': 'Draw the request’s information as diagrams: a timeline for a programme, steps, key figures…',
+    'composer.autoType': '“{type}” type',
     'composer.themeGroupSocial': 'Social media and app stores',
     'composer.themeGroupScreens': 'Screens',
     'composer.themeHint':

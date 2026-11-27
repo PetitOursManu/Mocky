@@ -1,5 +1,5 @@
 ---
-source_hash: c640fef80fe4
+source_hash: af44b47db8d6
 ---
 
 # Vue d'ensemble de Muse
@@ -421,6 +421,22 @@ hauteur, et repart en arrière quand on remonte.
 C'est **désactivé par défaut** et redemandé à chaque fois. Contrairement à toutes
 les autres options de Muse, celle-ci a un prix à l'usage et ajoute des minutes à
 une génération. Personne ne doit le découvrir en ayant laissé une case cochée.
+
+La ligne **Vidéo** du panneau Muse dit d'où vient le clip :
+
+| Source | Ce que c'est | Coût |
+|---|---|---|
+| Aucune | Pas de clip : le visuel principal est une image fixe | — |
+| Générée par IA | Un clip fait pour cet écran par le fournisseur vidéo configuré | payant, 30 s à 3 min |
+| Gratuite | Un clip libre de droits (Pexels, Pixabay) ou l'un des vôtres, choisi dans Média | gratuit |
+| Motion | Un film fait par le moteur de Mocky à partir des images de l'écran, rendu par votre machine (le module Motion Ultra) et découpé pour le défilement comme tout clip — sans texte | gratuit, 1 à 3 min |
+
+En **Auto**, le modèle de décision choisit entre Aucune, Gratuite et Motion. Un
+clip gratuit est alors trouvé par Mocky lui-même : cherché d'après les mots du
+visuel principal, **regardé** par le modèle de vision parmi les vignettes — ou
+refusé quand aucun ne convient, la règle des photos libres — puis importé. Un
+clip IA n'est jamais que **suggéré** : une fenêtre vous le demande d'abord, avec
+son prix, et propose à la place un film Motion ou pas de vidéo.
 
 ### Le clip n'est jamais lu comme une vidéo
 

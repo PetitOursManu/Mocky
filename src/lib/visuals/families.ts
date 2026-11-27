@@ -70,8 +70,8 @@ export function requestAsksForVisual(text: string | null | undefined): boolean {
  * request asks for a diagram. Not on an app or a site screen, which has the
  * charts pack for its dashboards and was never asked to draw paper diagrams.
  */
-export function screenDrawsVisuals(theme: string | null | undefined, isDocument: boolean, text: string | null | undefined): boolean {
-  return themeDrawsVisuals(theme) || (isDocument && requestAsksForVisual(text))
+export function screenDrawsVisuals(theme: string | null | undefined, isDocument: boolean, text: string | null | undefined, asked = false): boolean {
+  return themeDrawsVisuals(theme) || (isDocument && (asked || requestAsksForVisual(text)))
 }
 
 /**

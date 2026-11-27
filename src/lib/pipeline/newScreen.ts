@@ -62,7 +62,7 @@ import {
   imageGenerationAvailable,
   type DocumentImageChoice,
 } from '../documentPictures'
-import { createStockFinder, photoReferenceNote, pickStockSlotImages, PHOTO_REFERENCES_MAX, type ImageSource } from '../stockImages'
+import { cleanQuery, createStockFinder, judgeStockCandidates, photoReferenceNote, pickStockSlotImages, stockQuery, PHOTO_REFERENCES_MAX, type ImageSource, type StockCandidate } from '../stockImages'
 import {
   runMuseDossier,
   generateSlotImages,
@@ -71,6 +71,7 @@ import {
   MUSE_LOOK_FAILED,
   absoluteUrl,
   checkVision,
+  filmToScrollSequence,
   generateScrollVideo,
   buildVideoPrompt,
   describeUserMedia,
@@ -89,7 +90,7 @@ import {
 } from '../muse'
 import { buildDesignPreamble, extractDesignColors } from '../design'
 import { imageUrl, listLibrary, pinInserts, pinInspires, type LibraryImage, type PinnedImage } from '../imageLibrary'
-import { videoBase, type PinnedVideo } from '../videoLibrary'
+import { importStock, stockVideoCandidates, videoBase, type PinnedVideo } from '../videoLibrary'
 import { awaitVideoJob, motionNotices, proposeVideoTimeline, startVideoRender, type MotionKindOffer } from '../video/client'
 import { toRenderInputFrom } from '../video/draft'
 import { themeFromDesign } from '../video/theme'
@@ -212,6 +213,12 @@ export interface NewScreenRequest {
    * always built.
    */
   flows?: boolean
+  /**
+   * The composer's "Schémas" (or Auto's answer for it): the request's facts are
+   * to be SHOWN as diagrams, whatever words it used. The same as a request that
+   * says "schéma" in so many words; absent, the words alone decide, as before.
+   */
+  diagrams?: boolean
   /** A companion screen's place in the flow (`companionSection`), appended to the plan. */
   flowContext?: string
   /** The route this screen answers to, for a companion screen. */
@@ -309,6 +316,16 @@ export interface NewScreenHooks {
   /** Motion Ultra's film is being made for this screen. */
   motionStage(screenId: string, label: string): void
   motionStageDone(): void
+  /**
+   * Take Motion Ultra's film OUT of the run: the screen is finished for the
+   * person as soon as its page is, and the film — a composition and minutes of
+   * render — is made after, the section showing that it is coming. Given the
+   * task, the caller runs it with a signal of its own. Absent (the MCP runner,
+   * whose job ends when the film does), the run waits for it as it always did.
+   */
+  deferFilm?(task: (signal: AbortSignal) => Promise<void>): void
+  /** A deferred film's progress for one screen, shown IN its slot; null when it is over. */
+  filmPending?(screenId: string, label: string | null): void
 }
 
 export interface NewScreenOutcome {
@@ -876,6 +893,75 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
             fromCache: true,
             drive: runPin.drive,
           }
+        } else if (museConfig.videoMotion && pipe.scrollVideo && motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')) {
+          /*
+           * Vidéo · Motion: a film made by Mocky's own engine on the local
+           * worker — no clip is billed — composed from this run's pictures as
+           * a wordless `background`, then cut for the scroll like any clip.
+           * Same failure rule as a generated clip: the screen is built without
+           * the sequence, and the reason is said.
+           */
+          hooks.setMuseStage(t('project.museStageMotion'))
+          try {
+            const theme = themeFromDesign(res.markdown)
+            const proposal = await proposeVideoTimeline(text, imgs.map((i) => i.id), {
+              settings,
+              theme,
+              motionKind: 'background',
+              placement: {
+                section: 'hero',
+                why: 'Scrubbed by the scroll behind the top of the page, as a sequence of stills: it carries no words of its own.',
+              },
+              signal,
+            })
+            if (!proposal.timeline) throw new Error(motionNotices(proposal.notices) || '—')
+            const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
+            const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal })
+            const finished = await awaitVideoJob(job.id, signal)
+            if (finished.status !== 'done' || !finished.videoHash) throw new Error(finished.error || '—')
+            museVideo = await filmToScrollSequence(finished.videoHash, project.id, signal)
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            hooks.setMuseImageError(t('project.museMotionFailed', { detail: err instanceof Error ? err.message : String(err) }))
+          }
+        } else if (museConfig.videoFind && pipe.scrollVideo) {
+          /*
+           * Auto chose a FREE clip: found here rather than in Media. Searched
+           * from the hero's own words, LOOKED at by the vision model — the
+           * free photos' rule — and refused when none fits: an empty hero
+           * beats a wrong clip. Blind, the search engine's first answer.
+           */
+          hooks.setMuseStage(t('project.museStageVideoFind'))
+          try {
+            const heroSlot = plan[0]
+            const query = cleanQuery(heroSlot?.searchQuery) || stockQuery(heroSlot?.subject || text)
+            const found = await stockVideoCandidates(query, signal)
+            if (!found.length) throw new Error(t('project.museVideoNoneFound'))
+            const eyes = (museVision ?? (await checkVision(signal)).vision) === true
+            const verdict = eyes
+              ? await judgeStockCandidates(
+                  settings,
+                  { subject: heroSlot?.subject || text, role: 'hero', brief: text },
+                  found as unknown as StockCandidate[],
+                  [],
+                  signal,
+                )
+              : null
+            const pick = verdict ? verdict.pick : 1
+            if (pick === 0) throw new Error(t('project.museVideoNoneFits'))
+            const chosen = found[pick - 1]
+            const imported = await importStock(chosen.provider, chosen.id, { project: project.id, signal })
+            museVideo = {
+              hash: imported.hash,
+              base: absoluteUrl(videoBase(imported.hash)),
+              poster: absoluteUrl(imported.poster),
+              frames: imported.frames,
+              fromCache: false,
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            hooks.setMuseImageError(t('project.museVideoFindFailed', { detail: err instanceof Error ? err.message : String(err) }))
+          }
         } else if (museConfig.video && videoAvail?.available && pipe.scrollVideo) {
           const heroSlot = plan[0]
           const heroPrompt = heroSlot?.prompt || heroSlot?.subject || text
@@ -1248,10 +1334,11 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     capIds = pipe.caps(capIds)
     // A visual: the component that draws it, whatever the shortlist said (the
     // pack is never a guess — `forcedOnly`, see the registry).
-    if (screenDrawsVisuals(runTheme, pipe.document, text) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
+    const diagramsAsked = req.diagrams === true || requestAsksForVisual(text)
+    if (screenDrawsVisuals(runTheme, pipe.document, text, diagramsAsked) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
     // A flyer, a poster, a post… asked for a diagram: its brief does not say
     // when to use the kit, so the request's own wish is said here.
-    if (!themeDrawsVisuals(runTheme) && pipe.document && requestAsksForVisual(text)) {
+    if (!themeDrawsVisuals(runTheme) && pipe.document && diagramsAsked) {
       planSection = [planSection, VISUAL_ASKED_SECTION].filter(Boolean).join('\n\n')
     }
     // Créatif and a diagram to draw: an expressive family, a look that is not
@@ -1533,8 +1620,14 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
       hooks.notice(t(ultraVideo ? 'project.ultraFilmNoSection' : 'project.ultraFilmUnavailable'))
     }
     if (ultraFilmSection && ultraRecord) {
+      // The film is a task of its own: run here, or handed to a caller that
+      // runs it once the screen is given back (`deferFilm`).
+      const deferred = !!(hooks.deferFilm && hooks.filmPending)
+      const stage = (label: string) => (deferred ? hooks.filmPending!(screenId, label) : hooks.motionStage(screenId, label))
+      const stageDone = () => (deferred ? hooks.filmPending!(screenId, null) : hooks.motionStageDone())
+      const filmTask = async (signal: AbortSignal) => {
       try {
-        hooks.motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmCompose') }))
+        stage(t('project.ultraFilmStage', { step: t('project.ultraFilmCompose') }))
         const theme = themeFromDesign(dir.markdown)
         const proposal = await proposeVideoTimeline(text, ultraRecord.images, {
           settings,
@@ -1551,7 +1644,7 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
         if (!proposal.timeline) {
           hooks.notice(t('project.ultraFilmFailed', { detail: motionNotices(proposal.notices) }))
         } else {
-          hooks.motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmRender') }))
+          stage(t('project.ultraFilmStage', { step: t('project.ultraFilmRender') }))
           const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
           const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal: signal })
           const finished = await awaitVideoJob(job.id, signal)
@@ -1574,11 +1667,19 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
           }
         }
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') throw err
+        if (err instanceof Error && err.name === 'AbortError') {
+          // A deferred film stopped by its caller (the view closed) is not a
+          // failure to report; one inside the run aborts the run, as before.
+          if (deferred) return
+          throw err
+        }
         hooks.notice(t('project.ultraFilmFailed', { detail: err instanceof Error ? err.message : String(err) }))
       } finally {
-        hooks.motionStageDone()
+        stageDone()
       }
+      }
+      if (deferred) hooks.deferFilm!(filmTask)
+      else await filmTask(signal)
     }
 
     /*

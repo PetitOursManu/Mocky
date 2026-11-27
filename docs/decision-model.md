@@ -135,10 +135,20 @@ set each option. In Auto, before each new screen, the decision model reads your
 request and chooses the options it runs with:
 
 - **Muse**, **Motion Ultra**, **Creative**, **Creations** and **Flows**;
-- **New direction**, only when the project already has one.
+- **Diagrams**, on a document that draws them only when asked (a flyer, a
+  poster, a menu…): whether its information should be drawn as diagrams;
+- **the hero's scroll video**, on a page: none, a free clip or a Motion film —
+  and an AI clip only as a suggestion you confirm (see
+  [Muse](muse/overview.md#scroll-driven-video));
+- **New direction**, only when the project already has one;
+- **the screen type**, when you have not chosen one: a flyer, a landing page, an
+  Instagram post… — the composer's own list. It is taken from 50 %; under that
+  the screen is made with no type, as in Manual. A type you chose is never
+  asked about, and neither is one when screenshots of a site decide the shape.
 
 Only the options the composer could switch on are asked: a document has no
-Motion Ultra and no flow. Each answer is a probability of "yes"; an option is
+Motion Ultra and no flow — and when the type is still open, everything either
+shape could use is asked, and what the chosen shape cannot use is dropped. Each answer is a probability of "yes"; an option is
 switched on from 50 %, or 60 % for those that cost several more calls (Motion
 Ultra, Creations, Flows) or rewrite the direction. The composer shows each
 decision and its probability, and a line under the screen says what was

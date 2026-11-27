@@ -119,7 +119,8 @@ page — draws one **when you ask for it**: "un flyer avec un schéma des étape
 that count are *schéma*, *diagramme*, *infographie*, *graphique* (as a noun —
 "des graphiques", not "un style graphique"), *frise*, *organigramme*,
 *feuille de route*, and their English equivalents. Without them the brief stays
-as it was.
+as it was — or switch on **Diagrams** in the composer, which asks for them
+whatever the words; in Auto the decision model decides it.
 
 When you ask for diagrams, the information you give **becomes** the diagrams:
 the programme, the dates, the steps, the figures go into the visual instead of

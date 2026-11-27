@@ -14,6 +14,7 @@
  *   composer shows Manual's controls while screens are selected.
  */
 import { proxyHeaders } from './proxy'
+import { SCREEN_THEME_IDS } from './screenThemes'
 import type { Settings } from './settings'
 import type { ImageChoice } from './stockImages'
 import type { DocumentImageChoice } from './documentPictures'
@@ -21,7 +22,7 @@ import type { DocumentImageChoice } from './documentPictures'
 export type ComposerMode = 'manual' | 'auto'
 
 /** What Auto may decide, in the order the composer draws them. Mirrors `AUTO_OPTIONS` in server/decision/composer.js. */
-export const AUTO_OPTIONS = ['redesign', 'creative', 'creations', 'muse', 'ultra', 'flows'] as const
+export const AUTO_OPTIONS = ['redesign', 'creative', 'creations', 'muse', 'ultra', 'flows', 'diagrams'] as const
 export type AutoOption = (typeof AUTO_OPTIONS)[number]
 
 export interface AutoAnswer {
@@ -38,7 +39,23 @@ export interface AutoDecision {
   /** Who answered: 'jev', or 'llm' when the decision model failed and the text model stood in. */
   engines: string[]
   notices: string[]
+  /**
+   * The screen type the request reads as, when the composer had none to give
+   * (`chooseType`). `on` is false under the server's threshold: the run then
+   * keeps "no type", as Manual would.
+   */
+  screenType?: { value: string; p: number | null; on: boolean }
+  /**
+   * Where the hero's scroll video comes from, when the composer offered the
+   * question (`videoChoices`). "ai" is a SUGGESTION: a paid clip is asked of
+   * the person before it is made (ProjectView), never started on a guess.
+   */
+  video?: { value: AutoVideo; p: number | null }
 }
+
+/** The video sources Auto may choose between. Mirrors VIDEO_CHOICES in server/decision/composer.js. */
+export const AUTO_VIDEOS = ['none', 'free', 'motion', 'ai'] as const
+export type AutoVideo = (typeof AUTO_VIDEOS)[number]
 
 /** On/off for each option, as one run uses them. */
 export type RunOptions = Record<AutoOption, boolean>
@@ -86,9 +103,12 @@ export function offeredOptions(ctx: {
   ultraAllowed: boolean
   creative: boolean
   creations: boolean
+  /** The type is a document that draws diagrams only when asked (not a report, not a post). */
+  diagrams?: boolean
 }): AutoOption[] {
   return AUTO_OPTIONS.filter((o) => {
     if (o === 'redesign') return ctx.hasDirection
+    if (o === 'diagrams') return !!ctx.diagrams
     if (o === 'creative') return ctx.creative
     if (o === 'creations') return ctx.creations
     if (o === 'ultra') return ctx.ultraAllowed && !ctx.document
@@ -105,6 +125,10 @@ export interface AutoRequest {
   site: 'reproduce' | 'redesign' | null
   project: { name: string; hasDirection: boolean; screens: number }
   offered: AutoOption[]
+  /** The composer has no type: let the decision model choose one. */
+  chooseType?: boolean
+  /** The video sources this account can use for the hero; the question is asked only with some. */
+  videoChoices?: Exclude<AutoVideo, 'none'>[]
 }
 
 /** Ask. Throws on a refusal or a network failure; the caller degrades to Manual's values. */
@@ -135,7 +159,43 @@ export function readDecision(raw: unknown): AutoDecision {
     options[k] = { on: a.on, p: a.p, confidence: typeof a.confidence === 'number' ? a.confidence : null }
   }
   const strings = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : [])
-  return { options, unanswered: strings(r.unanswered).filter(known), engines: strings(r.engines), notices: strings(r.notices) }
+  // A type is read only when it is one of the composer's own: anything else
+  // would arm a theme no part of the pipeline knows.
+  const st = r.screenType && typeof r.screenType === 'object' ? (r.screenType as Record<string, unknown>) : null
+  const typeKnown = st && typeof st.value === 'string' && (st.value === 'none' || (SCREEN_THEME_IDS as readonly string[]).includes(st.value))
+  const screenType =
+    st && typeKnown
+      ? { value: st.value as string, p: typeof st.p === 'number' ? st.p : null, on: st.on === true && st.value !== 'none' }
+      : undefined
+  const v = r.video && typeof r.video === 'object' ? (r.video as Record<string, unknown>) : null
+  const video =
+    v && typeof v.value === 'string' && (AUTO_VIDEOS as readonly string[]).includes(v.value)
+      ? { value: v.value as AutoVideo, p: typeof v.p === 'number' ? v.p : null }
+      : undefined
+  return {
+    options,
+    unanswered: strings(r.unanswered).filter(known),
+    engines: strings(r.engines),
+    notices: strings(r.notices),
+    ...(screenType ? { screenType } : {}),
+    ...(video ? { video } : {}),
+  }
+}
+
+/**
+ * The Muse settings one run uses for its hero video, once Auto (and, for a
+ * paid clip, the person) has answered. Never saved: Auto changes nothing the
+ * person set in Manual.
+ */
+export function museVideoFor<C extends { video: boolean; videoPin: unknown; videoMotion?: boolean; videoFind?: boolean }>(
+  config: C,
+  choice: AutoVideo,
+): C {
+  const clean = { ...config, video: false, videoPin: null, videoMotion: false, videoFind: false }
+  if (choice === 'ai') return { ...clean, video: true }
+  if (choice === 'motion') return { ...clean, videoMotion: true }
+  if (choice === 'free') return { ...clean, videoFind: true }
+  return clean
 }
 
 /**

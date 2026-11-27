@@ -278,7 +278,12 @@ option the composer could switch on, for ONE new screen; nothing it decides is
 written back to a preference or the project (`runOptionsFor`, and Motion Ultra
 reaches the run through a copy of the project). The pictures are never asked:
 Auto starts on the free libraries and the person may still pick "AI" — the
-user's rule. In Manual the request is byte-identical to what it was.
+user's rule. In Manual the request is byte-identical to what it was. Auto also
+answers `diagrams` (a document's facts drawn as diagrams, the composer's
+"Schémas" in Manual) and, when the composer has NO type, the screen type itself:
+one `choice` over `SCREEN_TYPES` plus `none`, taken from `AUTO_TYPE_THRESHOLD` —
+with the type open, every option either shape could use is asked and the
+shape's own `offeredOptions` filters the answers.
 
 ## Motion Ultra
 
@@ -312,6 +317,12 @@ Four things that will bite you:
 4. **No free `<style>` from the model.** Decided with the user: a missing effect
    goes into the kit, tested against reduced motion, "Sans animation" and the
    capture shell (html2canvas throws on computed colours).
+
+**The video background's film is made AFTER its screen** (`deferFilm` /
+`filmPending` in `NewScreenHooks`): the composer is given back when the page is
+written, the slot shows the film coming (Preview's `film-pending` command,
+never in the code), and the navigation hold is ONE counted claimant
+(`claimNavigation`). The MCP runner passes neither hook and still waits.
 
 **The video background (v2) is a film PLANNED for, not placed.** The storyboard
 picks one section (`filmSectionOf`), the page writes `<Backdrop slot="film">`
@@ -445,6 +456,14 @@ Ten things, and the first one is not negotiable.
    callers. The export store is content-addressed and atomic like its neighbours,
    shares the same `diskBudget`, and refuses **before** writing: a full volume
    fails writes silently everywhere in this repository.
+
+   The ONE door the other way is `POST /api/videos/from-film` (Muse's Vidéo ·
+   Motion): a film this account rendered, cut into a scroll sequence ON PURPOSE —
+   it then has stills, and it stays in its own store besides. Owner only. Muse's
+   hero video has four sources (none, AI, free, Motion); Auto may choose none,
+   free — Mocky then searches, a vision model picks among the thumbnails
+   (`/api/videos/stock/candidates`) or refuses — or Motion, and only SUGGESTS
+   AI: the person confirms a paid clip in a dialog (`askAiVideo`).
 
    The corollary, learned the hard way: **a separate store still has to be
    findable.** The hash says what a file contains and nothing about who wanted

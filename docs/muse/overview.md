@@ -389,6 +389,21 @@ It is **off by default** and asked for explicitly every time. Unlike every other
 Muse option, this one has a per-use price and adds minutes to a generation.
 Nobody should discover that by leaving a box ticked.
 
+The **Video** row of the Muse panel says where the clip comes from:
+
+| Source | What it is | Cost |
+|---|---|---|
+| None | No clip: the hero is a still picture | — |
+| AI generated | A clip made for this screen by the configured video provider | paid, 30 s to 3 min |
+| Free | A free stock clip (Pexels, Pixabay) or one of yours, chosen in Media | free |
+| Motion | A film made by Mocky's own engine from the screen's pictures, rendered by your machine (the Motion Ultra worker) and cut for the scroll like any clip — no words in it | free, 1 to 3 min |
+
+In **Auto**, the decision model chooses among None, Free and Motion. A free clip
+is then found by Mocky itself: searched from the hero's words, **looked at** by
+the vision model among the thumbnails — or refused when none fits, the free
+photos' rule — then imported. An AI clip is only ever **suggested**: a dialog
+asks you first, with its price, and offers a Motion film or no video instead.
+
 ### The clip is never played as a video
 
 `ffmpeg` cuts it into a JPEG sequence — 12 fps, 960 px wide, capped at 150

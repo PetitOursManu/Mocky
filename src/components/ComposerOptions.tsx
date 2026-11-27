@@ -311,6 +311,7 @@ export const AUTO_OPTION_LABEL: Record<AutoOption, TranslationKey> = {
   muse: 'muse.title',
   ultra: 'project.ultraChip',
   flows: 'flows.toggle',
+  diagrams: 'composer.diagrams',
 }
 export const AUTO_OPTION_ICON: Record<AutoOption, IconName> = {
   redesign: 'wand',
@@ -319,6 +320,7 @@ export const AUTO_OPTION_ICON: Record<AutoOption, IconName> = {
   muse: 'muse',
   ultra: 'film',
   flows: 'cable',
+  diagrams: 'grid',
 }
 
 /** What Auto said about one option on the last run, as its row shows it. */

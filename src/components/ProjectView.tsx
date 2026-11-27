@@ -41,9 +41,11 @@ import {
   loadComposerMode,
   offeredOptions,
   runOptionsFor,
+  museVideoFor,
   saveComposerMode,
   type AutoDecision,
   type AutoOption,
+  type AutoVideo,
   type ComposerMode,
   type RunOptions,
 } from '../lib/composerAuto'
@@ -101,6 +103,7 @@ import { EnhanceNotice, PromptEnhanceButton } from './PromptEnhancer'
 import { usePromptEnhancer } from '../lib/usePromptEnhancer'
 import {
   getScreenTheme,
+  isScreenThemeId,
   promptForThemeChange,
   projectScreenType,
   themeFolds,
@@ -225,7 +228,7 @@ import CampaignPanel, { type PieceResult } from './CampaignPanel'
 import { setDocFormat } from '../lib/visuals/read'
 import IllustratePanel from './IllustratePanel'
 import { blockName, type TextBlock } from '../lib/visuals/textBlocks'
-import { VISUAL_THEME, VISUALS_CAP, requestAsksForVisual } from '../lib/visuals/families'
+import { VISUAL_THEME, VISUALS_CAP, requestAsksForVisual, themeDrawsVisuals } from '../lib/visuals/families'
 import { flowFromScreenInstruction, flowScreenName, knownRoutes, loadFlowsOn, missingRoutes, readFlow, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Banner, Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
@@ -468,6 +471,12 @@ export default function ProjectView({
   const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
   /** The composer's "Parcours": new screens are pages of a working prototype (lib/flows.ts). */
   const [flowsOn, setFlowsOnState] = useState<boolean>(() => loadFlowsOn())
+  /**
+   * The composer's "Schémas": the request's facts are drawn as diagrams on a
+   * document, whatever words it used. For this composer's session only — a
+   * diagram is a wish about one piece, not a project setting.
+   */
+  const [diagramsOn, setDiagramsOn] = useState(false)
   /** The screen "Générer le parcours…" was asked of: its dialog asks how many screens. */
   const [flowCountFor, setFlowCountFor] = useState<string | null>(null)
   const toggleFlows = useCallback(() => {
@@ -666,6 +675,20 @@ export default function ProjectView({
   const [rulesOpen, setRulesOpen] = useState(false)
   /** Three art directions to choose from (DirectionsDialog). */
   const [directionsOpen, setDirectionsOpen] = useState(false)
+  /**
+   * Auto suggested a PAID video clip: the run waits on the person's answer
+   * (`askAiVideo`). A paid clip is a choice a person makes, never a guess —
+   * the pictures' rule, said for a clip that costs more than a picture.
+   */
+  const [aiVideoAsk, setAiVideoAsk] = useState<((answer: 'ai' | 'motion' | 'none') => void) | null>(null)
+  function askAiVideo(): Promise<'ai' | 'motion' | 'none'> {
+    return new Promise((resolve) => {
+      setAiVideoAsk(() => (answer: 'ai' | 'motion' | 'none') => {
+        setAiVideoAsk(null)
+        resolve(answer)
+      })
+    })
+  }
   /**
    * "Retenir comme règle ?" after a correction: the rule as the person will
    * keep it (prefilled with the correction's words) and where.
@@ -1026,6 +1049,17 @@ export default function ProjectView({
   const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[] } | null>(null)
   /** Motion Ultra's video background can be offered: a `background` film is renderable. */
   const ultraVideoAvailable = !!motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')
+  /**
+   * The hero-video sources Auto may choose between, for this account: a free
+   * clip where the free libraries are allowed and ffmpeg can cut one, Motion
+   * where the worker makes a background film, a paid clip where generating is
+   * on — that last one only ever SUGGESTED (askAiVideo).
+   */
+  const autoVideoChoices: Exclude<AutoVideo, 'none'>[] = [
+    ...(videoAvail?.access?.stock && videoAvail.ffmpeg?.available ? (['free'] as const) : []),
+    ...(ultraVideoAvailable && videoAvail?.ffmpeg?.available ? (['motion'] as const) : []),
+    ...(videoAvail?.available ? (['ai'] as const) : []),
+  ]
   useEffect(() => {
     // Asked once whatever Muse's state: the composer's animation switch can
     // impose a film without Muse, so whether one can be made is a question the
@@ -1204,6 +1238,9 @@ export default function ProjectView({
    * document and the chips must not say it will be.
    */
   const composerPage = composerPageFormat(siteShots.length > 0 && siteMode === 'reproduce' ? null : themeId, pageFormatId)
+  // A document whose type draws diagrams only when asked: a report, a post or
+  // a visual already has the kit, and a web screen has the charts instead.
+  const diagramsOffered = !!composerPage && !themeDrawsVisuals(themeId)
   /** The folds the composer offers right now: none unless the type folds and the size can take one. */
   const composerFolds = composerPage && themeFolds(themeId) ? foldsFor(composerPage) : []
   const composerFold = foldId && composerFolds.includes(foldId) ? foldId : null
@@ -1545,6 +1582,14 @@ export default function ProjectView({
       // Muse writes a direction on this run if it is on: the rewrite must not
       // pre-empt it any more than it may contradict a DESIGN.md.
       directionDecided: !!directionMd || (museConfig.enabled && museAvail !== false),
+      // What this run will do, so the brief is written for it (enhancePrompt.ts).
+      document: !!composerPage,
+      muse: museConfig.enabled && museAvail !== false,
+      picturesOff: runPicturesOff,
+      ultra: ultraActive && !composerPage,
+      diagrams: diagramsOn && diagramsOffered,
+      flows: flowsOn && !composerPage,
+      creative: !!project.creative,
     })
   }
   /** A type chosen on an empty field brings its starter prompt; typed words are never replaced. */
@@ -2361,16 +2406,31 @@ export default function ProjectView({
           muse: museConfig.enabled,
           ultra: ultraActive,
           flows: flowsOn,
+          diagrams: diagramsOn,
         }
         let run = manual
+        /** Auto's answer for the hero video, once the person confirmed a paid one. */
+        let runVideo: AutoVideo | null = null
+        // The type this run is made as: the composer's, or the one Auto read
+        // the request as when the composer had none (and no screenshots, which
+        // decide the shape themselves). For THIS run only, like every Auto answer.
+        let runThemeId = themeId
         if (autoMode) {
-          const offered = offeredOptions({
-            document: !!composerPage,
-            hasDirection: !!designMd?.trim(),
-            ultraAllowed: ultraCounts.length > 0,
-            creative: !!onSetCreative,
-            creations: !!onSetCreations,
-          })
+          const chooseType = !themeId && !siteNew
+          const offeredFor = (theme: ScreenThemeId | null, document: boolean) =>
+            offeredOptions({
+              document,
+              hasDirection: !!designMd?.trim(),
+              ultraAllowed: ultraCounts.length > 0,
+              creative: !!onSetCreative,
+              creations: !!onSetCreations,
+              diagrams: document && !themeDrawsVisuals(theme),
+            })
+          // With the type still open, everything either shape could use is
+          // asked; what the chosen shape cannot use is dropped below.
+          const asked = chooseType
+            ? [...new Set([...offeredFor(null, false), ...offeredFor(null, true)])]
+            : offeredFor(themeId, !!composerPage)
           setPhase('auto')
           try {
             const decision = await decideComposerOptions(
@@ -2381,14 +2441,32 @@ export default function ProjectView({
                 document: !!composerPage,
                 site: siteNew ? site.mode : null,
                 project: { name: project.name, hasDirection: !!designMd?.trim(), screens: screens.length },
-                offered,
+                offered: asked,
+                ...(chooseType ? { chooseType: true } : {}),
+                // The hero's video, on a page (never a document) and only
+                // among the sources this account really has.
+                ...(!composerPage && autoVideoChoices.length ? { videoChoices: autoVideoChoices } : {}),
               },
               settings,
               ac.signal,
             )
+            if (chooseType && decision.screenType?.on && isScreenThemeId(decision.screenType.value)) runThemeId = decision.screenType.value
+            const offered = chooseType ? offeredFor(runThemeId, !!composerPageFormat(runThemeId, pageFormatId)) : asked
             run = runOptionsFor(decision, offered, manual)
             setAutoLast({ decision, offered })
+            if (decision.video) {
+              let choice = decision.video.value
+              if (choice === 'ai') {
+                setPhase(null)
+                const answer = await askAiVideo()
+                choice = answer === 'motion' && !autoVideoChoices.includes('motion') ? 'none' : answer
+                setPhase('auto')
+              }
+              runVideo = choice
+            }
             const on = offered.filter((o) => run[o]).map((o) => t(AUTO_OPTION_LABEL[o]))
+            if (runThemeId !== themeId && runThemeId) on.unshift(t('composer.autoType', { type: t(`composer.themes.${runThemeId}`) }))
+            if (runVideo && runVideo !== 'none') on.push(t(`project.autoVideo.${runVideo}`))
             setNotice(
               [
                 on.length ? t('project.autoChose', { list: on.join(', ') }) : t('project.autoChoseNone'),
@@ -2397,7 +2475,7 @@ export default function ProjectView({
             )
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
-            setAutoLast({ decision: null, offered })
+            setAutoLast({ decision: null, offered: asked })
             setNotice(t('project.autoFailed', { error: err instanceof Error ? err.message : String(err) }))
           }
         }
@@ -2428,10 +2506,13 @@ export default function ProjectView({
             site,
             globalMd,
             presetId,
-            themeId,
+            themeId: runThemeId,
             pageFormatId,
             redesign: run.redesign,
-            museConfig: run.muse === museConfig.enabled ? museConfig : { ...museConfig, enabled: run.muse },
+            museConfig: (() => {
+              const base = run.muse === museConfig.enabled ? museConfig : { ...museConfig, enabled: run.muse }
+              return runVideo ? museVideoFor(base, runVideo) : base
+            })(),
             museAvail,
             museVision,
             pinnedImages,
@@ -2446,6 +2527,7 @@ export default function ProjectView({
             // Absent rather than false when off, so the request is the one it
             // always was (snippets/Flow.ts).
             ...(run.flows ? { flows: true } : {}),
+            ...(run.diagrams ? { diagrams: true } : {}),
             ...(composerFold ? { foldId: composerFold } : {}),
             ...(projectBrand() ? { brand: projectBrand() } : {}),
             ...(run.creative ? { creative: true } : {}),
@@ -2480,6 +2562,8 @@ export default function ProjectView({
             screenWritten: () => setGeneratingIds(new Set()),
             motionStage,
             motionStageDone,
+            deferFilm,
+            filmPending: setFilmPendingFor,
           }
         /*
          * A magazine or a book is not one screen but a PUBLICATION: a plan of
@@ -3620,14 +3704,73 @@ export default function ProjectView({
     setMuseStage(label)
     setRegenLabel(label)
     setRegeneratingIds(new Set([screenId]))
-    holdNavigation('project.motionLeaveConfirm')
+    if (!motionHeld.current) {
+      motionHeld.current = true
+      claimNavigation()
+    }
+  }
+
+  /**
+   * The one claimant of the navigation hold, counted: a Motion stage and a film
+   * made after its screen can run at once, and the first to end must not
+   * release the hold the other still needs (tests/navigation-guard.test.js).
+   */
+  const navHolders = useRef(0)
+  const motionHeld = useRef(false)
+  function claimNavigation() {
+    navHolders.current += 1
+    if (navHolders.current === 1) holdNavigation('project.motionLeaveConfirm')
+  }
+  function dropNavigation() {
+    navHolders.current = Math.max(0, navHolders.current - 1)
+    if (navHolders.current === 0) releaseNavigation()
+  }
+
+  /**
+   * Motion Ultra's film, made AFTER the screen is given back (`deferFilm` in
+   * lib/pipeline/newScreen.ts). A film is a composition and minutes of render,
+   * and the page it belongs to is finished before it starts: holding the whole
+   * composer for it made every Ultra screen feel minutes slower than it was.
+   * The section shows the film coming, inside the frame (`filmPending`), and
+   * leaving the project still asks first — the render would be lost.
+   */
+  const filmTasks = useRef(new Set<AbortController>())
+  const [filmPending, setFilmPending] = useState<Map<string, string>>(() => new Map())
+  // Leaving the project stops them; the view's own unmount releases the hold.
+  useEffect(() => {
+    const tasks = filmTasks.current
+    return () => {
+      for (const c of tasks) c.abort()
+    }
+  }, [])
+  function deferFilm(task: (signal: AbortSignal) => Promise<void>) {
+    const ac = new AbortController()
+    filmTasks.current.add(ac)
+    claimNavigation()
+    void task(ac.signal)
+      .catch(() => {})
+      .finally(() => {
+        filmTasks.current.delete(ac)
+        dropNavigation()
+      })
+  }
+  function setFilmPendingFor(screenId: string, label: string | null) {
+    setFilmPending((prev) => {
+      const next = new Map(prev)
+      if (label) next.set(screenId, label)
+      else next.delete(screenId)
+      return next
+    })
   }
 
   function motionStageDone() {
     setMuseStage(null)
     setRegeneratingIds(new Set())
     setRegenLabel(t('canvas.regenerating'))
-    releaseNavigation()
+    if (motionHeld.current) {
+      motionHeld.current = false
+      dropNavigation()
+    }
   }
 
   /**
@@ -4690,6 +4833,7 @@ export default function ProjectView({
     ultraAllowed: ultraCounts.length > 0,
     creative: !!onSetCreative,
     creations: !!onSetCreations,
+    diagrams: diagramsOffered,
   })
 
   // A rewrite is a NEW-screen brief. Selecting a screen mid-stream turns the
@@ -4836,6 +4980,39 @@ export default function ProjectView({
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
         />
+      )}
+      {aiVideoAsk && (
+        <Modal
+          title={t('project.aiVideoTitle')}
+          onClose={() => aiVideoAsk('none')}
+          size="sm"
+          footer={
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="ghost" onClick={() => aiVideoAsk('none')}>
+                {t('project.aiVideoNo')}
+              </Button>
+              {autoVideoChoices.includes('motion') && (
+                <Button variant="ghost" onClick={() => aiVideoAsk('motion')}>
+                  {t('project.aiVideoMotion')}
+                </Button>
+              )}
+              <Button variant="primary" onClick={() => aiVideoAsk('ai')}>
+                <Icon name="film" size={16} />
+                {t('project.aiVideoYes')}
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex gap-3">
+            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muse/15 text-muse-ink" aria-hidden>
+              <Icon name="film" size={20} />
+            </span>
+            <div className="space-y-2">
+              <p className="text-body text-ink">{t('project.aiVideoBody')}</p>
+              <p className="text-caption text-ink-faint">{t('project.aiVideoCost')}</p>
+            </div>
+          </div>
+        </Modal>
       )}
       {directionsOpen && (
         <DirectionsDialog
@@ -5127,6 +5304,8 @@ export default function ProjectView({
         onMuseChange={updateMuse}
         flowsOn={flowsOn}
         onToggleFlows={toggleFlows}
+        diagramsOn={diagramsOn}
+        onToggleDiagrams={diagramsOffered ? () => setDiagramsOn((v) => !v) : undefined}
         brandOn={!!project.useBrand}
         onToggleBrand={brandAvailable && onSetUseBrand ? toggleBrand : undefined}
         brandChoices={brands.length > 1 ? brands.map((b) => ({ id: b.id, name: b.name || b.id })) : undefined}
@@ -5782,6 +5961,7 @@ export default function ProjectView({
         onError={onScreenError}
         generatingIds={generatingIds}
         regeneratingIds={regeneratingIds}
+        filmPending={filmPending}
         fixingIds={fixingIds}
         regenLabel={regenLabel}
         // Under the tabs bar, which covers the top 44px from md.
@@ -6540,6 +6720,7 @@ export default function ProjectView({
                     imageError={museImageError}
                     vision={museVision}
                     video={videoAvail}
+                    motion={!!motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')}
                   />
                 </div>
               )}
@@ -6774,6 +6955,18 @@ export default function ProjectView({
               </OptionGroup>
             )}
             <OptionGroup label={t('workspace.groupHelp')}>
+              {/* "Schémas": a document's facts drawn as diagrams, on a type that
+                  draws them only when asked. Auto decides it for itself. */}
+              {!editing && !autoMode && diagramsOffered && (
+                <OptionToggle
+                  icon="grid"
+                  label={t('composer.diagrams')}
+                  hint={t('composer.diagramsHint')}
+                  on={diagramsOn}
+                  onClick={() => setDiagramsOn((v) => !v)}
+                  title={t(diagramsOn ? 'composer.diagramsOnTitle' : 'composer.diagramsOffTitle')}
+                />
+              )}
               {/* The project's rules (lib/rules.ts): for edits as much as for new screens. */}
               {onSetRules && (
                 <OptionAction

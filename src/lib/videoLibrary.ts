@@ -174,6 +174,24 @@ export async function searchStock(
   return { results: j.results || [], page: Number(j.page) || page, hasMore: Boolean(j.hasMore) }
 }
 
+/** A clip to choose among, with its thumbnail as a data URL a vision model can be shown. */
+export interface StockVideoCandidate extends StockResult {
+  thumb: string
+}
+
+/** Clips for the hero, with thumbnails — the vision model chooses (newScreen.ts, Auto's "free"). */
+export async function stockVideoCandidates(query: string, signal?: AbortSignal): Promise<StockVideoCandidate[]> {
+  const res = await fetch('/api/videos/stock/candidates', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ query }),
+    signal,
+  })
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(j?.error ? String(j.error) : `HTTP ${res.status}`)
+  return Array.isArray(j.candidates) ? (j.candidates as StockVideoCandidate[]) : []
+}
+
 /**
  * Import one stock clip: the server downloads it from the library and cuts it
  * like an upload. Sends an id, never a URL — the server reads the file's

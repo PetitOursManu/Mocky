@@ -54,6 +54,9 @@ type Props = {
   /** The composer's "Parcours" (lib/flows.ts), shown here too: the first screen is often the one a flow starts from. */
   flowsOn?: boolean
   onToggleFlows?: () => void
+  /** "Schémas": offered on a document that draws diagrams only when asked. */
+  diagramsOn?: boolean
+  onToggleDiagrams?: () => void
   /** The account's brand for this project (lib/brand.ts): drawn only when a brand exists. */
   brandOn?: boolean
   onToggleBrand?: () => void
@@ -148,6 +151,8 @@ export default function Welcome({
   onMuseChange,
   flowsOn,
   onToggleFlows,
+  diagramsOn,
+  onToggleDiagrams,
   brandOn,
   onToggleBrand,
   brandChoices,
@@ -221,6 +226,7 @@ export default function Welcome({
       (onToggleBrand ? 1 : 0) +
       (onToggleCreative ? 1 : 0) +
       (onToggleFlows ? 1 : 0) +
+      (onToggleDiagrams ? 1 : 0) +
       (onOpenDirections ? 1 : 0) +
       (pageFormat || imageChoiceAvailable ? 1 : 0)
 
@@ -431,6 +437,16 @@ export default function Welcome({
               allowedCounts={ultraCounts}
             />
             )}
+            {!autoOn && onToggleDiagrams && (
+              <OptionTile
+                icon="grid"
+                label={t('composer.diagrams')}
+                hint={t('composer.diagramsHint')}
+                on={!!diagramsOn}
+                onClick={onToggleDiagrams}
+                title={t(diagramsOn ? 'composer.diagramsOnTitle' : 'composer.diagramsOffTitle')}
+              />
+            )}
             {!autoOn && onToggleFlows && (
               <OptionTile
                 icon="cable"
@@ -527,6 +543,7 @@ export default function Welcome({
               imageError={museImageError}
               vision={museVision}
               video={museVideo}
+              motion={ultraVideoAvailable}
             />
           </div>
         )}

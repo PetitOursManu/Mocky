@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: ed141696edac
+source_hash: 0c8ce469bc15
 ---
 
 # Visuels
@@ -126,7 +126,9 @@ avec un schéma des étapes », « une affiche avec un graphique des résultats 
 « ajoute un schéma » dans une modification. Les mots qui comptent sont *schéma*,
 *diagramme*, *infographie*, *graphique* (comme nom — « des graphiques », pas
 « un style graphique »), *frise*, *organigramme*, *feuille de route*, et leurs
-équivalents anglais. Sans eux, la consigne reste celle d’avant.
+équivalents anglais. Sans eux, la consigne reste celle d’avant — ou activez
+**Schémas** dans le composeur, qui les demande quels que soient les mots ; en
+Auto, le modèle de décision le décide.
 
 Quand vous demandez des schémas, les informations que vous donnez **deviennent**
 les schémas : le programme, les dates, les étapes, les chiffres vont dans le
