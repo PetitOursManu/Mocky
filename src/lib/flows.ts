@@ -22,6 +22,35 @@ import type { Screen } from './project'
 /** How many screens one generation may create on its own, all depths together. */
 export const MAX_COMPANIONS = 3
 
+/**
+ * The most a person may ask for from "Générer le parcours…". Every screen is a
+ * full generation, and the menu shows the number before anything is spent —
+ * eight is a shop's whole path (catalogue, product, cart, checkout,
+ * confirmation, account, sign-in, orders), not a site map.
+ */
+export const FLOW_COUNT_MAX = 8
+
+/** A chosen count, inside 1…FLOW_COUNT_MAX; absent → the composer's bound. */
+export function flowCountOf(count: number | undefined): number {
+  if (count === undefined || !Number.isFinite(count)) return MAX_COMPANIONS
+  return Math.min(FLOW_COUNT_MAX, Math.max(1, Math.round(count)))
+}
+
+/**
+ * How many steps deep the flow is followed for that many screens: two (a cart,
+ * its checkout) up to the composer's three, one more beyond — a fourth screen
+ * otherwise often has no page left to come from, the first screen's own links
+ * being all made.
+ */
+export function flowDepthFor(count: number): number {
+  return count > MAX_COMPANIONS ? 3 : 2
+}
+
+/** How many pages the FIRST screen should open, of the `count` asked for. */
+function directPagesFor(count: number): number {
+  return Math.min(count, 4)
+}
+
 /** How long a route may be. */
 export const ROUTE_MAX = 40
 
@@ -232,6 +261,30 @@ export function routeFor(screen: Pick<Screen, 'id' | 'name' | 'route'>, screens:
   let r = base
   for (let i = 2; taken.has(r); i++) r = `${base}-${i}`
   return r
+}
+
+/**
+ * The edit that makes an EXISTING screen the start of a flow ("Générer le
+ * parcours…" on a screen's menu). A screen generated with Parcours off opens
+ * no route, so there is nothing for the companions to follow: this pass wires
+ * the elements a visitor would click — and only that — then the companions
+ * run as they do after a new screen. In English like every instruction; the
+ * routes are DATA, the project's own.
+ */
+export function flowFromScreenInstruction(routes: string[], count?: number): string {
+  const n = flowCountOf(count)
+  const direct = directPagesFor(n)
+  const lines = [
+    'Make this screen the starting point of a clickable prototype.',
+    'Keep its design, layout, words and pictures exactly as they are. Change only what makes it WORK:',
+    '- Wire the elements a visitor would click to go somewhere — navigation links, call-to-action buttons, product or article cards, sign-in and sign-up buttons — to the page they lead to, with MockyFlow.go("route") in an onClick or <FlowLink to="route">, following the PROTOTYPE FLOWS rules.',
+    direct === 1
+      ? '- Lead to ONE page, the one a visitor would most likely open next from this screen: Mocky creates the screen the route names.'
+      : `- Lead to ${direct === n ? `${n}` : `between 2 and ${direct}`} pages a visitor would really open next from this screen, no more: Mocky creates the screens the routes name${n > direct ? `, then the pages THOSE lead to, ${n} new screens in all` : ''}.`,
+    '- A form validates, stores what was entered and opens its confirmation; a list with filters or tabs really filters; a cart counts — with useFlowState where another page must see the data.',
+  ]
+  if (routes.length) lines.push(`Routes that already exist in this prototype: ${routes.map((r) => `"${r}"`).join(', ')}. Use them where they fit.`)
+  return lines.join('\n')
 }
 
 /**

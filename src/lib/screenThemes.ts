@@ -49,6 +49,7 @@ export const SCREEN_THEME_IDS = [
   'flyer',
   'poster',
   'report',
+  'visual',
   'documentation',
   'resume',
   'invoice',
@@ -60,6 +61,7 @@ export const SCREEN_THEME_IDS = [
   'instagram',
   'facebook',
   'linkedin',
+  'app-store',
 ] as const
 
 export type ScreenThemeId = (typeof SCREEN_THEME_IDS)[number]
@@ -263,7 +265,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - The body at a comfortable reading measure: 5–8 paragraphs of real, on-topic prose with subheadings, one pull quote, one figure with a caption, one list and one inline link.
 - A table of contents or reading-progress indicator on wide screens.
 - Share actions, tags, an author bio card, and 3 related articles as cards.
-- The writing is specific to the topic requested; no lorem ipsum anywhere.`,
+- The writing is specific to the topic requested; no lorem ipsum anywhere.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'portfolio',
@@ -321,7 +324,22 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - A running header or footer on every body page: the report's short title and the page number.
 - A conclusions or recommendations page as a numbered list, and an optional appendix or methodology note.
 - Figures consistent from one page to the next — the summary quotes what the charts show — and realistic for the subject; never placeholders.
-- Usually four to eight pages, each composed on its own and never overfilled.`,
+- Usually four to eight pages, each composed on its own and never overfilled.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
+  },
+  {
+    id: 'visual',
+    icon: 'branch',
+    name: 'visual / infographic from a text',
+    document: { page: 'slides', formats: ['slides', 'social-landscape', 'social-square', 'social-portrait', 'a4-landscape', 'a4'] },
+    brief: `A VISUAL: the request's text turned into ONE diagram that makes its structure obvious at a glance — a process, a cycle, a timeline, a comparison, a hierarchy, key figures or a chart.
+- ONE <Page>, and the page IS the visual: a <Visual> fills it inside the page's margin (a flex column, the visual in a \`flex-1 min-h-0\` box with \`className="w-full h-full"\`). Nothing else on the page but, at most, a small wordmark or credit line in a corner.
+- Never draw the diagram yourself — no boxes, arrows, SVG or chart of your own: the <Visual> component draws it from its \`doc\`.
+- Read the text for its STRUCTURE first, then choose the family: steps for an ordered how-to, cycle only when the end leads back to the start, timeline for dates, comparison or pros-cons for options, hub or mind map for a topic and its parts, stats or a chart only for figures the text gives.
+- The visual's title says the point in a few words; the subtitle, when useful, the one sentence that frames it. Labels are short (a few words), details one short sentence; drop what the text does not say rather than pad.
+- Figures: a \`value\` only when the text states that very number. Never invent, round, total or convert one.
+- Offer two or three \`alternatives\` the same content would also suit.
+- The page's background and the visual's \`ground\` are the same colour, its \`ink\` the page's text colour, its \`colors\` the palette's accents.`,
   },
   {
     id: 'documentation',
@@ -336,7 +354,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - Command or code samples in monospaced blocks with a caption when the subject is technical; otherwise a labelled diagram or a captioned screenshot frame.
 - A reference table (parameters, options, shortcuts or specifications) with a header row.
 - A running header with the document's title and a footer with the version and the page number on every page after the first.
-- Accurate, specific content for the subject requested; no lorem ipsum.`,
+- Accurate, specific content for the subject requested; no lorem ipsum.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'resume',
@@ -445,7 +464,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - The brand's name or handle as a small wordmark in a corner, the same on every page, and a page counter ("1/5") on a carousel.
 - A call to action as words ("link in bio", "save this post", "swipe") — never a web button.
 - Bright, contrasted and graphic: nothing thin or pale that vanishes on a small screen; no fillable fields.
-- Real copy for the subject requested, never placeholders.`,
+- Real copy for the subject requested, never placeholders.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'facebook',
@@ -457,7 +477,8 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - A picture when pictures are supplied, with the text on a solid area for contrast; otherwise a composition of colour blocks and shapes.
 - The organisation's name or a logo slot as a wordmark, and a call to action as words ("book now", "learn more", a date or a place) — never a web button.
 - Warm, legible and simple, with little text: the post's own text carries the detail. No fillable fields.
-- Real copy for the subject requested, never placeholders.`,
+- Real copy for the subject requested, never placeholders.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
   },
   {
     id: 'linkedin',
@@ -470,7 +491,21 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - The author's or the company's name as a wordmark with a round photo or logo placeholder in a corner, the same on every page, and a page counter on a carousel.
 - A call to action as words ("follow for more", "tell me in the comments", a URL) — never a web button.
 - Credible and uncluttered: data drawn as a simple chart or a large number rather than a paragraph. No fillable fields.
-- Real, specific content for the subject requested, never placeholders.`,
+- Real, specific content for the subject requested, never placeholders.
+- Where the content IS a process, a cycle, a timeline, a comparison, a hierarchy or a few key figures, draw that part with a <Visual> sized by its own box (at most one per page) instead of laying the boxes out yourself.`,
+  },
+  {
+    id: 'app-store',
+    icon: 'phone',
+    name: 'App Store screenshots',
+    document: { page: 'store-iphone', formats: ['store-iphone', 'store-ipad', 'store-android'] },
+    brief: `A set of APP STORE SCREENSHOTS: the row of images on an app's page in the App Store or Google Play, which decides whether someone installs it. FIVE <Page>s unless the request says otherwise (at most ten), in the order the row is read.
+- Each screenshot sells ONE benefit: a caption of three to six words at the top, set very large and bold, saying what the person GETS ("Plan a week in two minutes"), not what the feature is called; an optional short line under it.
+- Under the caption, the app itself: its screen drawn as a real interface (navigation, real content, realistic data) inside a phone frame — a rounded rectangle with a thin dark bezel and a small camera island, about three quarters of the page's width, the same frame on every page; an iPad frame on the iPad size; on Google Play, the same with a punch-hole camera. The screen in the frame is what the caption promises, so the five frames show five different screens of one app.
+- The first screenshot is the hero: the app's core promise and its most recognisable screen. The last can be a closing benefit, a rating or an award line when the request gives one — never an invented figure.
+- One background system across the row — the same ground, or shapes that run on from one screenshot to the next — so the row reads as one set, with the caption always on a calm area.
+- The app's name as a small wordmark is optional; no price, no "free", no store badges, no device brand logos, nothing about other platforms.
+- Real copy for the app requested, in the language of the request, never placeholders.`,
   },
 ]
 

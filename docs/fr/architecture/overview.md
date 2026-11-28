@@ -1,5 +1,5 @@
 ---
-source_hash: 1f10df6ecb2b
+source_hash: 79059e36b341
 ---
 
 # Vue d'ensemble de l'architecture
@@ -33,7 +33,7 @@ Le fait le plus structurant du projet :
 | Un design demandé par un assistant | Un Chromium piloté par le serveur, qui exécute le pipeline du navigateur | `server/mcp/runner.js`, `src/runner/main.tsx` (`runner.html`) |
 | Images, vidéos, bibliothèques | Serveur | `server/images/`, `server/videos/` |
 | Export vidéo : schéma, l'unique appel de modèle, file, magasin | Serveur | `server/video/` — au **singulier** ; `server/videos/` est la bibliothèque de clips |
-| Export vidéo : le rendu proprement dit | Un service Docker séparé et facultatif | `worker/video/` — Remotion, plus `three` pour les blocs 3D et le monde continu, `lottie-web` pour les icônes animées et soixante typographies livrées. Absent tant que `--profile video-export` n'a pas été construit |
+| Export vidéo : le rendu proprement dit | Un service Docker séparé et facultatif | `worker/video/` — HyperFrames, avec Remotion en repli (`engine.js`), plus `three` pour les blocs 3D et le monde continu, `lottie-web` pour les icônes animées et soixante typographies livrées. Absent tant que `--profile video-export` n'a pas été construit |
 
 Le back-end est volontairement petit : des fichiers JSON dans `server/data/`,
 aucune base de données, aucune dépendance native. Les dépendances d'exécution

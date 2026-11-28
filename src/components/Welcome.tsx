@@ -54,6 +54,11 @@ type Props = {
   /** The composer's "Parcours" (lib/flows.ts), shown here too: the first screen is often the one a flow starts from. */
   flowsOn?: boolean
   onToggleFlows?: () => void
+  /** "Schémas": usable on a document that draws diagrams only when asked. */
+  diagramsOn?: boolean
+  onToggleDiagrams?: () => void
+  /** Why "Schémas" cannot be used with this type, when it cannot: the tile is greyed and says so. */
+  diagramsUnavailable?: string | null
   /** The account's brand for this project (lib/brand.ts): drawn only when a brand exists. */
   brandOn?: boolean
   onToggleBrand?: () => void
@@ -63,8 +68,13 @@ type Props = {
   onPickBrand?: (id: string) => void
   creativeOn?: boolean
   onToggleCreative?: () => void
+  /** "Créations": the model may invent a missing frame, animation, transition or element (docs/creations.md). */
+  creationsOn?: boolean
+  onToggleCreations?: () => void
   /** Open Campaign Studio: a brief made into several formats at once (lib/campaign.ts). */
   onOpenCampaign?: () => void
+  /** Three art directions to choose from before the first screen (DirectionsDialog). */
+  onOpenDirections?: () => void
   museAvail: boolean | null
   museResult: MuseResult | null
   museImages: GeneratedSlotImage[]
@@ -146,6 +156,9 @@ export default function Welcome({
   onMuseChange,
   flowsOn,
   onToggleFlows,
+  diagramsOn,
+  onToggleDiagrams,
+  diagramsUnavailable = null,
   brandOn,
   onToggleBrand,
   brandChoices,
@@ -153,7 +166,10 @@ export default function Welcome({
   onPickBrand,
   creativeOn,
   onToggleCreative,
+  creationsOn,
+  onToggleCreations,
   onOpenCampaign,
+  onOpenDirections,
   museAvail,
   museResult,
   museImages,
@@ -217,7 +233,10 @@ export default function Welcome({
       (ultraCounts === undefined || ultraCounts.length > 0 ? 1 : 0) +
       (onToggleBrand ? 1 : 0) +
       (onToggleCreative ? 1 : 0) +
+      (onToggleCreations ? 1 : 0) +
       (onToggleFlows ? 1 : 0) +
+      (onToggleDiagrams ? 1 : 0) +
+      (onOpenDirections ? 1 : 0) +
       (pageFormat || imageChoiceAvailable ? 1 : 0)
 
   function toggleMuse() {
@@ -360,6 +379,18 @@ export default function Welcome({
               onClick={onOpenDesign}
               title={t('auth.welcome.designTitle')}
             />
+            {/* The first screen is where a direction is decided, so the place to
+                compare three of them before it exists. */}
+            {!autoOn && onOpenDirections && (
+              <OptionTileAction
+                icon="sparkle"
+                label={t('directions.option')}
+                hint={t('directions.optionHint')}
+                status={t('directions.tileStatus')}
+                onClick={onOpenDirections}
+                title={t('directions.title')}
+              />
+            )}
             {onToggleBrand && (
               <OptionTile
                 icon="star"
@@ -391,6 +422,18 @@ export default function Welcome({
                 title={t(creativeOn ? 'workspace.creative.onTitle' : 'workspace.creative.offTitle')}
               />
             )}
+            {/* The first screen is where a missing element is most often asked
+                for: the project composer had this switch, the first one did not. */}
+            {!autoOn && onToggleCreations && (
+              <OptionTile
+                icon="wand"
+                label={t('workspace.creations.toggle')}
+                hint={t('workspace.creations.hint')}
+                on={!!creationsOn}
+                onClick={onToggleCreations}
+                title={t(creationsOn ? 'workspace.creations.onTitle' : 'workspace.creations.offTitle')}
+              />
+            )}
             {!autoOn && (
             <OptionTile
               icon="muse"
@@ -414,6 +457,17 @@ export default function Welcome({
               videoAvailable={ultraVideoAvailable}
               allowedCounts={ultraCounts}
             />
+            )}
+            {!autoOn && onToggleDiagrams && (
+              <OptionTile
+                icon="grid"
+                label={t('composer.diagrams')}
+                hint={diagramsUnavailable || t('composer.diagramsHint')}
+                on={!!diagramsOn}
+                onClick={onToggleDiagrams}
+                disabled={!!diagramsUnavailable}
+                title={diagramsUnavailable || t(diagramsOn ? 'composer.diagramsOnTitle' : 'composer.diagramsOffTitle')}
+              />
             )}
             {!autoOn && onToggleFlows && (
               <OptionTile
@@ -511,6 +565,7 @@ export default function Welcome({
               imageError={museImageError}
               vision={museVision}
               video={museVideo}
+              motion={ultraVideoAvailable}
             />
           </div>
         )}

@@ -29,7 +29,7 @@ The single most structural fact about the project:
 | A design an assistant asked for | A Chromium the server drives, running the browser pipeline | `server/mcp/runner.js`, `src/runner/main.tsx` (`runner.html`) |
 | Images, videos, libraries | Server | `server/images/`, `server/videos/` |
 | Video export: schema, the one model call, queue, store | Server | `server/video/` — note the **singular**; `server/videos/` is the clip library |
-| Video export: the actual render | A separate, opt-in Docker service | `worker/video/` — Remotion, plus `three` for the 3D blocks and the continuous world, `lottie-web` for the animated icons and sixty bundled typefaces. Absent unless `--profile video-export` was built |
+| Video export: the actual render | A separate, opt-in Docker service | `worker/video/` — HyperFrames, with Remotion as the fallback (`engine.js`), plus `three` for the 3D blocks and the continuous world, `lottie-web` for the animated icons and sixty bundled typefaces. Absent unless `--profile video-export` was built |
 
 The back end is deliberately small: JSON files under `server/data/`, no database,
 no native dependencies. The runtime dependencies are `express`, `cookie-parser`,

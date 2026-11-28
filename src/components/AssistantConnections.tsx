@@ -162,6 +162,18 @@ export default function AssistantConnections() {
               <li>{t('mcp.account.skillStepCode')}</li>
             </ol>
           </div>
+          {/* The Codex plugin (server/mcp/codex-plugin.js): the connector AND the
+              guide, as a local marketplace for Codex and the ChatGPT desktop app.
+              The route answers 404 where the connector has no public address. */}
+          <div className="mt-4 border-t border-line-soft pt-3">
+            <span className="block text-body-sm font-medium text-ink">{t('mcp.account.codex')}</span>
+            <p className="measure mt-0.5 text-caption text-ink-muted">{t('mcp.account.codexHelp')}</p>
+            <ButtonLink href="/api/account/mcp-codex-plugin.zip" download="mocky-codex-plugin.zip" size="sm" className="mt-2">
+              <Icon name="download" size={16} />
+              {t('mcp.account.codexDownload')}
+            </ButtonLink>
+            <p className="measure mt-2 text-caption text-ink-muted">{t('mcp.account.codexStep')}</p>
+          </div>
         </div>
       )}
       {view && view.connections.length > 0 ? (

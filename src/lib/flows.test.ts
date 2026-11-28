@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   cleanFlowState,
   companionSection,
+  flowFromScreenInstruction,
+  flowCountOf,
+  flowDepthFor,
+  FLOW_COUNT_MAX,
+  MAX_COMPANIONS,
   flowStateScript,
   missingRoutes,
   normalizeScenarios,
@@ -148,5 +153,39 @@ describe('the name of a page made for a route', () => {
   it('is the person\'s word when there is one, the route capitalised otherwise', () => {
     expect(flowScreenName('cart', t)).toBe('Panier')
     expect(flowScreenName('order-history', t)).toBe('Order history')
+  })
+})
+
+describe('the instruction that starts a flow from an existing screen', () => {
+  it('keeps the design, bounds the pages and offers the routes that exist', () => {
+    const text = flowFromScreenInstruction(['home', 'cart'])
+    expect(text).toMatch(/Keep its design/)
+    expect(text).toContain(`Lead to ${MAX_COMPANIONS} pages`)
+    expect(text).toContain('"home", "cart"')
+    expect(flowFromScreenInstruction([])).not.toMatch(/already exist/)
+  })
+})
+
+describe('the number of screens a flow makes', () => {
+  it('defaults to the composer’s bound and stays inside 1…FLOW_COUNT_MAX', () => {
+    expect(flowCountOf(undefined)).toBe(MAX_COMPANIONS)
+    expect(flowCountOf(0)).toBe(1)
+    expect(flowCountOf(5.4)).toBe(5)
+    expect(flowCountOf(99)).toBe(FLOW_COUNT_MAX)
+    expect(flowCountOf(Number.NaN)).toBe(MAX_COMPANIONS)
+  })
+
+  it('follows the flow one step deeper past the composer’s bound', () => {
+    expect(flowDepthFor(1)).toBe(2)
+    expect(flowDepthFor(MAX_COMPANIONS)).toBe(2)
+    expect(flowDepthFor(MAX_COMPANIONS + 1)).toBe(3)
+  })
+
+  it('asks the first screen for as many pages as were chosen, at most four, and says the total', () => {
+    expect(flowFromScreenInstruction([], 1)).toContain('Lead to ONE page')
+    expect(flowFromScreenInstruction([], 2)).toContain('Lead to 2 pages')
+    const many = flowFromScreenInstruction([], 7)
+    expect(many).toContain('between 2 and 4 pages')
+    expect(many).toContain('7 new screens in all')
   })
 })

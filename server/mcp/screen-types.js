@@ -28,6 +28,7 @@ export const SCREEN_TYPES = {
   flyer: 'printable flyer (A6 to A3, DL or square; flat or a folded leaflet)',
   poster: 'poster (A3 document)',
   report: 'multi-page report document',
+  visual: 'a visual / infographic of a text: its ideas as steps, a cycle, a timeline, a comparison, a hub, a mind map, a flowchart, key figures or a chart (16:9 by default; square and portrait social sizes too)',
   documentation: 'documentation / user guide document',
   resume: 'CV / résumé document',
   invoice: 'invoice or quote document',
@@ -39,6 +40,7 @@ export const SCREEN_TYPES = {
   instagram: 'Instagram post (image)',
   facebook: 'Facebook post (image)',
   linkedin: 'LinkedIn post (image)',
+  'app-store': 'App Store / Google Play screenshots: a row of five images, each a caption over the app drawn in a phone frame (iPhone 1320×2868 by default; iPad and Google Play sizes too)',
 }
 
 /**
@@ -71,6 +73,9 @@ export const PAGE_FORMATS = {
   'social-portrait': 'portrait 4:5, 1080×1350 (an Instagram post by default)',
   'social-story': 'story 9:16, 1080×1920',
   'social-landscape': 'landscape 1.91:1, 1200×628 (a Facebook or LinkedIn post by default)',
+  'store-iphone': 'App Store iPhone 6.9", 1320×2868 (App Store screenshots by default)',
+  'store-ipad': 'App Store iPad 13", 2064×2752',
+  'store-android': 'Google Play phone, 1080×1920',
 }
 
 /**

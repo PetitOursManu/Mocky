@@ -247,6 +247,14 @@ export const settings = {
     'settings.stockTitle': 'Vidéos et photos libres de droits',
     'settings.stockBlurb':
       'Pexels et Pixabay offrent des vidéos et des photos gratuites, utilisables librement. Collez la clé API gratuite de l’une ou des deux : la recherche apparaît alors dans Média (onglets Vidéos et Images), et le composeur peut remplacer les images générées par de vraies photos. Sans clé, rien ne s’affiche.',
+    'settings.generatedImagesTitle': 'Images générées par IA',
+    'settings.generatedImagesBlurb':
+      'Les images que fabriquent les trois modèles ci-dessus : référence de Muse, images des écrans, séries de Motion Ultra, variantes de film. Payantes à chaque appel. Un compte sans accès ne voit aucun modèle d’image et se rabat sur les photos libres.',
+    'settings.generatedImagesAccess': 'Qui peut générer des images',
+    'settings.generatedImagesAccessHelp': 'Le forfait gratuit les ferme de toute façon, quelle que soit la liste.',
+    'settings.generatedImagesAccessList': 'Comptes autorisés à générer des images',
+    'settings.generatedImagesNote':
+      'Un administrateur n’a pas accès d’office : cochez aussi votre propre compte si la liste est restreinte. Liste restreinte sans aucun compte coché = génération fermée à tous.',
     'settings.stockImagesTitle': 'Photos libres de droits',
     'settings.stockImagesBlurb':
       'Au lieu de générer les images de Muse et de Motion Ultra, le composeur peut aller chercher de vraies photos chez Pexels et Pixabay (choix « Images : Libres »). Aucun coût, rien de généré ; le crédit du photographe est conservé.',
@@ -636,6 +644,14 @@ export const settings = {
     'settings.stockTitle': 'Free stock videos and photos',
     'settings.stockBlurb':
       'Pexels and Pixabay offer free videos and photos anyone may reuse. Paste the free API key of one or both: search then appears in Media (Videos and Images tabs), and the composer can replace generated pictures with real photos. Without a key, nothing is shown.',
+    'settings.generatedImagesTitle': 'AI-generated images',
+    'settings.generatedImagesBlurb':
+      'The pictures the three models above make: Muse’s reference, the screens’ pictures, Motion Ultra’s series, a film’s variants. Paid on every call. An account without access sees no image model and falls back on free photos.',
+    'settings.generatedImagesAccess': 'Who may generate images',
+    'settings.generatedImagesAccessHelp': 'The free plan closes them anyway, whatever the list says.',
+    'settings.generatedImagesAccessList': 'Accounts allowed to generate images',
+    'settings.generatedImagesNote':
+      'An administrator has no access by right: tick your own account too if the list is restricted. A restricted list with no account ticked closes generation to everyone.',
     'settings.stockImagesTitle': 'Free stock photos',
     'settings.stockImagesBlurb':
       'Instead of generating Muse’s and Motion Ultra’s pictures, the composer can fetch real photos from Pexels and Pixabay (the “Images: Free” choice). No cost, nothing generated; the photographer’s credit is kept.',

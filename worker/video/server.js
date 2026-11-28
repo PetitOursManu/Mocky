@@ -20,7 +20,9 @@ import express from 'express'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { validateRenderRequest } from './validate.js'
-import { COMPOSITIONS, LOOP_BLEND_MS, compositionIdFor } from './remotion/composition.js'
+import { COMPOSITIONS, LOOP_BLEND_MS, compositionIdFor, filmMetadata } from './remotion/composition.js'
+import { checkFilm } from './qc.js'
+import { enginesFor, renderWithFallback, warmUpEngines } from './engine.js'
 
 const pkg = createRequire(import.meta.url)('./package.json')
 
@@ -92,25 +94,23 @@ function filmDurationMs(timeline) {
 /** Plain text, one line, no stack. See the note about the 300-character splice above. */
 const fail = (res, status, message) => res.status(status).type('text/plain').send(message)
 
-/** Loaded on demand so this module stays importable without Remotion installed. */
-async function loadRenderer() {
-  const { renderTimeline } = await import('./render.js')
-  return renderTimeline
-}
+
 
 /**
  * @param {object} [deps]
  * @param {string} [deps.version]
  * @param {(opts:{timeline:object, images:Array<object>, licenseKey:string|null, signal:AbortSignal})=>Promise<{buffer:Buffer, contentType:string}>} [deps.renderVideo]
  * @param {number} [deps.timeoutMs]  fixed deadline, overriding `renderBudgetMs`. Tests only.
+ * @param {(buffer:Buffer, film:object)=>Promise<object>} [deps.checkVideo]  the look at the finished file (`qc.js`)
  * @param {Console} [deps.log]
  */
-export function createApp({ version = VERSION, renderVideo, timeoutMs = null, log = console } = {}) {
+export function createApp({ version = VERSION, renderVideo, timeoutMs = null, checkVideo = checkFilm, log = console } = {}) {
   const app = express()
   app.disable('x-powered-by')
   app.use(express.json({ limit: MAX_BODY }))
 
-  const render = renderVideo || (async (opts) => (await loadRenderer())(opts))
+  // HyperFrames first, Remotion if it fails — `engine.js` has the order and why.
+  const render = renderVideo || ((opts) => renderWithFallback(opts, { log }))
 
   /*
    * One render at a time.
@@ -125,7 +125,7 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = null, lo
   let busy = false
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, version })
+    res.json({ ok: true, version, engines: enginesFor() })
   })
 
   app.post('/render', async (req, res) => {
@@ -197,7 +197,7 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = null, lo
         return fail(res, 504, `The render did not finish within ${Math.round(budgetMs / 1000)} seconds and was abandoned.`)
       }
 
-      const { buffer, contentType } = outcome.value || {}
+      const { buffer, contentType, engine } = outcome.value || {}
       if (!buffer || !buffer.length) {
         return fail(res, 500, 'The render produced no bytes.')
       }
@@ -217,6 +217,19 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = null, lo
       // than none at all, since the one question it is asked is which of the
       // five drew this.
       res.set('x-mocky-worker-composition', compositionIdFor(parsed.timeline.template))
+      // And which engine drew it, so a film that fell back to Remotion can be
+      // told apart in a network trace from one HyperFrames rendered.
+      if (engine) res.set('x-mocky-worker-engine', engine)
+      // What the finished file looks like (`qc.js`): a header, because the body
+      // is the film and the verdict is a few words about it. After the deadline
+      // race on purpose — the check has its own ceiling and never fails a render.
+      try {
+        const meta = filmMetadata(parsed.timeline)
+        const checks = await checkVideo(buffer, { format: parsed.timeline.outputFormat, width: meta.width, height: meta.height })
+        res.set('x-mocky-worker-checks', JSON.stringify(checks))
+      } catch (err) {
+        log.warn?.(`mocky-video-worker: the film could not be checked — ${err instanceof Error ? err.message : String(err)}`)
+      }
       res.send(buffer)
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
@@ -274,8 +287,7 @@ export async function start({ port = Number(process.env.PORT) || DEFAULT_PORT, l
   // failing every render is diagnosable; a container that exits on boot is a
   // restart loop and a log line nobody catches.
   try {
-    const { warmUp } = await import('./render.js')
-    await warmUp(log)
+    await warmUpEngines({ log })
     log.log?.('mocky-video-worker: ready')
   } catch (err) {
     log.error?.(

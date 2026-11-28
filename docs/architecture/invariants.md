@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are twelve series:
+There are thirteen series:
 
 - **I1 to I10**, the original invariants, reconstructed from the code, the
   privacy of a screen's notes, and whose copy a browser holds.
@@ -23,6 +23,7 @@ There are twelve series:
 - **P1 to P3**, introduced by folded leaflets and publications.
 - **A1 to A4**, introduced by what a model makes for itself.
 - **S1 to S5**, introduced by interactive sites.
+- **G1 to G4**, introduced by visuals.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1529,6 +1530,58 @@ never a prompt or an answer (D1). On a person's own key it keeps no numbers (F4)
 
 **What it protects.** Measuring "one prompt" in calls, seconds and money
 without becoming a second log of what people asked.
+
+---
+
+## Series G — visuals
+
+A text turned into a diagram by `<Visual>`. User doc: [Visuals](../visuals.md).
+
+### G1. The model names a family, it never draws a visual
+
+**The rule.** A visual is `<Visual family doc>`: a name out of the closed list
+of `lib/visuals/families.ts` and the content as plain data. The boxes, the
+connectors and the type sizes are computed by the hand-written layout in
+`snippets/Visual.ts`; the model's card tells it never to draw a diagram of its
+own.
+
+**What it protects.** A diagram the model improvises in SVG is right on one text
+and broken on the next, and nothing can measure it. The same reason the films
+are composed from named blocks.
+
+### G2. The content does not depend on the family
+
+**The rule.** Every family reads the same `VisualDoc`. Switching family or
+variant is one attribute written at parser offsets (`lib/visuals/read.ts`, I1),
+with no model call and nothing lost; a family that cannot draw a content says
+why (`familyRefusal`) rather than drawing it badly.
+
+**What it protects.** Trying another shape costs nothing, so the person tries it.
+A switch that regenerated would cost a call and could change the words.
+
+### G3. A figure shown is a figure of the text
+
+**The rule.** After the generation of a **Visual** screen, every `value` is looked
+for in the request (`lib/visuals/numbers.ts`); one that is not there is taken out of the code,
+its item kept, and a notice names it. No model is asked.
+
+**What it protects.** A visual reads as a fact. A plausible number the text never
+gave is the defect this kind of tool is known for. Not on a report or a post that
+draws one: their briefs ask for invented sample figures, and the check would
+empty every chart.
+
+### G4. One size per role, and the ink is measured
+
+**The rule.** Every box of a role shares one type size, the largest at which all
+of them fit; a detail is smaller than its label and a card never larger than the
+centre it hangs from; a word is never cut, the type comes down instead. Every
+run of text is measured against the surface it is painted on, the page's own
+colours tried before black or white.
+
+**What it protects.** Sized per box, a short label came back twice the size of
+its neighbour and the visual read as noise; a palette colour used as text on its
+own tint is the illegible headline the films already met.
+
 ---
 
 ## The two unnumbered rules

@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Img, Sequence, useCurrentFrame, useVideoConfig } from './clock.js'
 import {
   entranceStyle,
   overlayAlignment,

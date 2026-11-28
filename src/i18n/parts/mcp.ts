@@ -136,6 +136,11 @@ export const mcp = {
     'mcp.account.skillDownload': 'Télécharger le skill (.zip)',
     'mcp.account.skillStepClaude': 'Claude (web, bureau) : Personnaliser → Skills → importer le fichier .zip.',
     'mcp.account.skillStepCode': 'Claude Code : décompressez-le dans ~/.claude/skills/ (dossier mocky).',
+    'mcp.account.codex': 'Plugin pour Codex et ChatGPT (facultatif)',
+    'mcp.account.codexHelp':
+      'Le connecteur et le même guide, réunis en un plugin pour Codex et l’application de bureau ChatGPT : vous l’installez une fois, et la connexion à votre compte Mocky se fait à la première utilisation.',
+    'mcp.account.codexDownload': 'Télécharger le plugin (.zip)',
+    'mcp.account.codexStep': 'Décompressez-le, lancez codex plugin marketplace add sur le dossier mocky-codex, puis installez « Mocky » depuis le répertoire des plugins. Le README du .zip détaille les étapes.',
 
     // ---- a person's own assistant keys ----
     'mcp.keys.title': 'Clés d’assistant',
@@ -308,6 +313,11 @@ export const mcp = {
     'mcp.account.skillDownload': 'Download the skill (.zip)',
     'mcp.account.skillStepClaude': 'Claude (web, desktop): Customize → Skills → upload the .zip file.',
     'mcp.account.skillStepCode': 'Claude Code: unzip it into ~/.claude/skills/ (folder mocky).',
+    'mcp.account.codex': 'Plugin for Codex and ChatGPT (optional)',
+    'mcp.account.codexHelp':
+      'The connector and the same guide, together as a plugin for Codex and the ChatGPT desktop app: install it once, and it signs in to your Mocky account the first time it is used.',
+    'mcp.account.codexDownload': 'Download the plugin (.zip)',
+    'mcp.account.codexStep': 'Unzip it, run codex plugin marketplace add on the mocky-codex folder, then install “Mocky” from the Plugins Directory. The README in the .zip has the steps.',
 
     'mcp.keys.title': 'Assistant keys',
     'mcp.keys.blurb':

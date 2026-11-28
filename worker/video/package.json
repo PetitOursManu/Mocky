@@ -10,7 +10,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "ensure-browser": "node -e \"import('@remotion/renderer').then((m) => m.ensureBrowser())\""
+    "ensure-browser": "node -e \"import('@remotion/renderer').then((m) => m.ensureBrowser())\"",
+    "ensure-browser:hyperframes": "npx --yes @puppeteer/browsers@3.3.0 install chrome-headless-shell@158.0.8127.88 --path \"$HOME/.cache/puppeteer\""
   },
   "dependencies": {
     "@fontsource-variable/archivo": "5.3.0",
@@ -76,16 +77,19 @@
     "@fontsource/poppins": "5.3.0",
     "@fontsource/space-mono": "5.3.0",
     "@fontsource/young-serif": "5.3.0",
+    "@hyperframes/producer": "0.9.99",
     "@react-three/fiber": "8.18.0",
     "@remotion/bundler": "4.0.507",
     "@remotion/renderer": "4.0.507",
     "@remotion/three": "4.0.507",
+    "esbuild": "0.28.2",
     "express": "^4.22.2",
     "lottie-web": "5.13.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-useanimations": "2.10.0",
     "remotion": "4.0.507",
+    "tegaki": "1.1.0",
     "three": "0.185.1"
   }
 }

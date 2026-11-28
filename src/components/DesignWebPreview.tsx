@@ -376,7 +376,7 @@ function Legend({ spec }: { spec: ReturnType<typeof parseDesignSpec> }) {
  * there is one, registered in this document under its specimen alias so
  * Mocky's own interface — which asks for `Inter` by name — is left alone.
  */
-function useServedStack(declared: string | undefined): string {
+export function useServedStack(declared: string | undefined): string {
   const served = useMemo(() => findFontIn(declared), [declared])
   useMemo(() => served && registerSpecimens([served]), [served])
   return served ? specimenStack(served) : fontStack(declared)

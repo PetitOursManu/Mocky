@@ -153,6 +153,31 @@ export function stockImagesAccessFor(cfg, user) {
   return scope.mode !== 'allowlist' || onList(scope.userIds, user)
 }
 
+/**
+ * Generated PICTURES (the three image profiles above): who may ask for one.
+ *
+ * The images' twin of `video.access.generated`, and missing until an
+ * administrator went looking for it: the only per-account brake on a paid
+ * picture was the free plan, which also swaps the text model and counts a daily
+ * quota — too blunt to say "this account writes screens on our model, but its
+ * pictures come from the free libraries". Open by default for the reason every
+ * scope here is: an upgrade must not take away what accounts used yesterday.
+ */
+export function defaultGeneratedImages() {
+  return { access: { mode: 'all', userIds: [] } }
+}
+
+/**
+ * Whether this account may GENERATE a picture. The free plan still refuses
+ * whatever the list says (server/plan.js), and an administrator is not let
+ * through on their role alone — same rule as `videoAccessFor`.
+ */
+export function generatedImagesAccessFor(cfg, user) {
+  if (planOf(user) === 'free') return false
+  const scope = { ...defaultGeneratedImages().access, ...(cfg?.generatedImages?.access || {}) }
+  return scope.mode !== 'allowlist' || onList(scope.userIds, user)
+}
+
 export function defaultImagesConfig() {
   return {
     content: defaultImageProfile('pollinations'),
@@ -160,6 +185,7 @@ export function defaultImagesConfig() {
     edit: defaultImageProfile('', 'edit'),
     video: defaultVideoProfile(),
     stockImages: defaultStockImages(),
+    generatedImages: defaultGeneratedImages(),
   }
 }
 
@@ -343,6 +369,7 @@ export function mergeImagesConfig(current, patch) {
     edit: mergeProfile(base.edit, p.edit, { allowEmpty: true, ids: EDIT_PROVIDER_IDS, kind: 'edit' }),
     video: mergeVideo(base.video, p.video),
     stockImages: { access: mergeScope(p.stockImages?.access, base.stockImages?.access) },
+    generatedImages: { access: mergeScope(p.generatedImages?.access, base.generatedImages?.access) },
   }
 }
 
@@ -392,6 +419,7 @@ export function publicImagesConfig(cfg) {
       },
     },
     stockImages: { access: mergeScope(undefined, c.stockImages?.access) },
+    generatedImages: { access: mergeScope(undefined, c.generatedImages?.access) },
   }
 }
 
@@ -485,6 +513,11 @@ export class ImagesConfigStore {
   /** What this account may do with clips — see `videoAccessFor`. */
   videoAccessFor(user) {
     return videoAccessFor(this.config, user)
+  }
+
+  /** Whether this account may generate pictures — see `generatedImagesAccessFor`. */
+  generatedImagesAccessFor(user) {
+    return generatedImagesAccessFor(this.config, user)
   }
 
   /** Whether this account may use free stock photos — see `stockImagesAccessFor`. */

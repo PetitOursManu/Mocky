@@ -66,6 +66,7 @@ export const BLOCK_LIMITS = {
   highlight: 90,
   highlightMark: 40,
   typewriter: 120,
+  handwriting: 40,
   listItem: 60,
   listItems: 6,
   counterTo: 1000000,
@@ -238,6 +239,9 @@ export const KEN_BURNS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'stati
 
 /** The five `funTitle` looks. Skia was measured at 461 MB and refused; see the schema. */
 export const FUN_TITLE_TREATMENTS = ['arc', 'bounce', 'stretch', 'swap', 'stack']
+
+/** The five hands a `handwriting` block writes in — Tegaki's Latin fonts. See the schema. */
+export const HANDWRITING_HANDS = ['parisienne', 'caveat', 'italianno', 'ems-allure', 'hershey-script']
 
 /** The four solids a `solidScene` draws. No wireframe: it was measured at 2.7 s of render per second of film. */
 export const SOLIDS = ['cube', 'prism', 'sphere', 'torus']
@@ -724,6 +728,10 @@ const BLOCK_READERS = {
   typewriter: blockReader(['text', 'caret'], (v, w) => ({
     text: readText(v.text, BLOCK_LIMITS.typewriter, `${w}.text`),
     caret: readBool(v.caret, true, `${w}.caret`),
+  })),
+  handwriting: blockReader(['text', 'hand'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.handwriting, `${w}.text`),
+    hand: enumValue(v.hand, HANDWRITING_HANDS, 'parisienne', `${w}.hand`),
   })),
   animatedList: blockReader(['items', 'marker'], (v, w) => ({
     items: readTextArray(v.items, 1, BLOCK_LIMITS.listItems, BLOCK_LIMITS.listItem, `${w}.items`),

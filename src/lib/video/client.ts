@@ -36,6 +36,17 @@ export interface VideoJob {
   error: string | null
   videoHash: string | null
   timeline?: VideoTimeline
+  /**
+   * The render worker's look at the finished file (worker/video/qc.js): runs of
+   * seconds with no content, washed out, or the same frame. Absent when nobody
+   * looked — never read as "clean".
+   */
+  checks?: FilmChecks
+}
+
+export interface FilmChecks {
+  seconds: number
+  issues: { kind: 'blank' | 'faint' | 'frozen'; from: number; to: number }[]
 }
 
 export interface VideoWorkerState {

@@ -1,7 +1,7 @@
 ---
 description: Des prototypes qui marchent — formulaires qui modifient les données, connexion simulée, vrais filtres, panier partagé entre les écrans — avec les écrans suivants créés pour vous, et des scénarios de démonstration.
 badge: Nouveau
-source_hash: 5778a0b66196
+source_hash: e66379a81c95
 ---
 
 # Des prototypes qui fonctionnent
@@ -47,11 +47,33 @@ Quelques règles gardent la mesure :
 |---|---|
 | Combien | **3 écrans au plus** par génération, en suivant le parcours sur deux niveaux (un panier, son paiement, sa confirmation). |
 | Ce que ça coûte | Chaque écran créé est une **génération normale** avec votre modèle. Muse et Motion Ultra ne tournent pas pour eux : ils prennent la direction et l’apparence du projet. |
-| Quand | Seulement pour un **nouvel** écran avec `Parcours` activé — jamais pour une modification, jamais pour un document. |
+| Quand | Pour un **nouvel** écran avec `Parcours` activé, ou à la demande depuis un écran existant (ci-dessous) — jamais pour une modification, jamais pour un document. |
 | Noms | Les pages habituelles reçoivent un nom dans votre langue (`Panier`, `Mon compte`, `Confirmation`…). |
 
 Désactivez `Parcours` dans le composeur pour générer un écran seul, exactement
 comme avant.
+
+### Depuis un écran qui existe déjà
+
+Clic droit sur un écran → `Générer le parcours…` crée les pages auxquelles il
+mène, même s’il a été fait avec `Parcours` désactivé. Une fenêtre demande d’abord
+**combien d’écrans** créer, de 1 à 8 (3 par défaut, le nombre du composeur) : rien
+n’est dépensé avant ce choix. Au-delà de 3, le parcours est suivi un niveau plus
+loin, et l’écran de départ ouvre au plus 4 pages, les autres venant des pages
+auxquelles elles mènent. Il peut s’arrêter avant si l’écran mène à moins de pages.
+
+Quand l’écran n’ouvre encore aucune page, une première modification branche ce
+qu’un visiteur cliquerait — son menu, ses boutons, ses cartes, ses formulaires —
+et ne change rien d’autre (`Revenir à la version précédente` la défait) ; puis
+les pages manquantes sont créées comme ci-dessus. Un écran qui ouvre déjà des
+pages auxquelles personne ne répond passe directement à la deuxième étape.
+
+:::why
+Un écran fait avant qu’on pense au parcours en reste le point de départ naturel,
+et le régénérer pour obtenir ses pages jetterait l’écran qu’on a gardé. Les liens
+sont ajoutés par une modification à qui l’on dit de garder le design : l’écran
+choisi reste celui qu’on voit.
+:::
 
 ## L’essayer : le mode Démo
 

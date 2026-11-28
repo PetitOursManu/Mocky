@@ -41,9 +41,11 @@ import {
   loadComposerMode,
   offeredOptions,
   runOptionsFor,
+  museVideoFor,
   saveComposerMode,
   type AutoDecision,
   type AutoOption,
+  type AutoVideo,
   type ComposerMode,
   type RunOptions,
 } from '../lib/composerAuto'
@@ -58,7 +60,7 @@ import {
   hintForScreen,
   pageFormatName,
 } from '../lib/documentMode'
-import { getPageFormat, type PageFormatId } from '../lib/pageFormats'
+import { docFrameHeight, getPageFormat, type PageFormatId } from '../lib/pageFormats'
 import { fitFindings, fitVerdict, measureFit, pageExcessPx, type FitReport, type FitVerdict } from '../lib/docExport/fit'
 import DocumentDownloadDialog from './DocumentDownloadDialog'
 import { captureRegion } from '../lib/capture'
@@ -82,6 +84,7 @@ import TranslateDialog from './TranslateDialog'
 import FillDialog from './FillDialog'
 import BrandPicker from './BrandPicker'
 import RulesDialog, { ruleOfferOn, setRuleOfferOn } from './RulesDialog'
+import DirectionsDialog from './DirectionsDialog'
 import { appendRule, projectRulesSection, ruleList, suggestRule } from '../lib/rules'
 import { applyFill, type FillField, type FillRefusal } from '../lib/fillFields'
 import { downloadZip, downloadTsx } from '../lib/export'
@@ -100,6 +103,7 @@ import { EnhanceNotice, PromptEnhanceButton } from './PromptEnhancer'
 import { usePromptEnhancer } from '../lib/usePromptEnhancer'
 import {
   getScreenTheme,
+  isScreenThemeId,
   promptForThemeChange,
   projectScreenType,
   themeFolds,
@@ -119,7 +123,7 @@ import VersionsPanel from './VersionsPanel'
 import VersionCompare, { type CompareSource } from './VersionCompare'
 import ScreenHistoryDialog from './ScreenHistoryDialog'
 import { useVersions } from '../lib/useVersions'
-import type { AddScreenOptions } from '../lib/project'
+import type { AddScreenOptions, ProjectIllustration } from '../lib/project'
 import ReviewPanel from './ReviewPanel'
 import type { ProjectReviewState } from '../lib/review'
 import type { DemoScenario } from '../lib/flows'
@@ -138,6 +142,7 @@ import ImageLightbox from './ImageLightbox'
 import FilmLightbox from './FilmLightbox'
 import ScreenImagesDialog from './ScreenImagesDialog'
 import ScreenFramesDialog from './ScreenFramesDialog'
+import ScreenVisualDialog from './ScreenVisualDialog'
 import VideoExportDialog from './VideoExportDialog'
 import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
@@ -214,12 +219,17 @@ import {
   type NewScreenRequest,
 } from '../lib/pipeline/newScreen'
 import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
+import FlowCountDialog from './FlowCountDialog'
 import { readCampaignFacts, runCampaign, writePublicationPack } from '../lib/pipeline/campaign'
 import { updateCampaignPiece } from '../lib/pipeline/campaignUpdate'
 import { CAMPAIGN_FORMAT_IDS, type Campaign, type CampaignFormatId } from '../lib/campaign'
 import type { PackCaption, PackNetwork } from '../lib/publicationPack'
 import CampaignPanel, { type PieceResult } from './CampaignPanel'
-import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
+import { setDocFormat } from '../lib/visuals/read'
+import IllustratePanel from './IllustratePanel'
+import { blockName, type TextBlock } from '../lib/visuals/textBlocks'
+import { VISUAL_THEME, VISUALS_CAP, requestAsksForVisual, themeDrawsVisuals } from '../lib/visuals/families'
+import { flowFromScreenInstruction, flowScreenName, knownRoutes, loadFlowsOn, missingRoutes, readFlow, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Banner, Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 import { isLocked, setLocks } from '../lib/locks'
@@ -351,6 +361,7 @@ export default function ProjectView({
   onReviewChanged,
   onSetScenarios,
   onSetCampaign,
+  onSetIllustration,
   onSetPublication,
   onSetUseBrand,
   onSetCreative,
@@ -390,6 +401,8 @@ export default function ProjectView({
   onSetScenarios?: (scenarios: DemoScenario[]) => void
   /** Replace the project's campaign brief (lib/campaign.ts); undefined clears it. */
   onSetCampaign?: (campaign: Campaign | undefined) => void
+  /** The text "Illustrate a text" works from (IllustratePanel). */
+  onSetIllustration?: (illustration: ProjectIllustration | undefined) => void
   /** Add or replace one of this project's publications (lib/publication.ts). */
   onSetPublication?: (publication: Publication) => void
   /** Use the account's brand identity in this project, or stop (lib/brand.ts). */
@@ -458,6 +471,14 @@ export default function ProjectView({
   const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
   /** The composer's "Parcours": new screens are pages of a working prototype (lib/flows.ts). */
   const [flowsOn, setFlowsOnState] = useState<boolean>(() => loadFlowsOn())
+  /**
+   * The composer's "Schémas": the request's facts are drawn as diagrams on a
+   * document, whatever words it used. For this composer's session only — a
+   * diagram is a wish about one piece, not a project setting.
+   */
+  const [diagramsOn, setDiagramsOn] = useState(false)
+  /** The screen "Générer le parcours…" was asked of: its dialog asks how many screens. */
+  const [flowCountFor, setFlowCountFor] = useState<string | null>(null)
   const toggleFlows = useCallback(() => {
     setFlowsOnState((on) => {
       saveFlowsOn(!on)
@@ -643,6 +664,8 @@ export default function ProjectView({
    *  dialog must follow the record as it is rewritten, not a stale copy. */
   const [imagesForScreen, setImagesForScreen] = useState<string | null>(null)
   const [framesForScreen, setFramesForScreen] = useState<string | null>(null)
+  /** The screen whose "Visuel…" dialog is open (ScreenVisualDialog). */
+  const [visualForScreen, setVisualForScreen] = useState<string | null>(null)
   /** The screen whose "Traduire…" dialog is open, if any. */
   const [translateFor, setTranslateFor] = useState<string | null>(null)
   // The size comparison's screen (ResponsiveCompare).
@@ -650,6 +673,22 @@ export default function ProjectView({
   const [fillFor, setFillFor] = useState<string | null>(null)
   /** The project's rules dialog (lib/rules.ts). */
   const [rulesOpen, setRulesOpen] = useState(false)
+  /** Three art directions to choose from (DirectionsDialog). */
+  const [directionsOpen, setDirectionsOpen] = useState(false)
+  /**
+   * Auto suggested a PAID video clip: the run waits on the person's answer
+   * (`askAiVideo`). A paid clip is a choice a person makes, never a guess —
+   * the pictures' rule, said for a clip that costs more than a picture.
+   */
+  const [aiVideoAsk, setAiVideoAsk] = useState<((answer: 'ai' | 'motion' | 'none') => void) | null>(null)
+  function askAiVideo(): Promise<'ai' | 'motion' | 'none'> {
+    return new Promise((resolve) => {
+      setAiVideoAsk(() => (answer: 'ai' | 'motion' | 'none') => {
+        setAiVideoAsk(null)
+        resolve(answer)
+      })
+    })
+  }
   /**
    * "Retenir comme règle ?" after a correction: the rule as the person will
    * keep it (prefilled with the correction's words) and where.
@@ -771,8 +810,11 @@ export default function ProjectView({
   const showVersions = rightSlot === 'versions'
   const showReview = rightSlot === 'review'
   const showCampaign = rightSlot === 'campaign'
+  const showIllustrate = rightSlot === 'illustrate'
   /** What the campaign panel says while one of its runs is going. */
   const [campaignProgress, setCampaignProgress] = useState<string | null>(null)
+  /** What "Illustrate a text" is making, said in a line (IllustratePanel). */
+  const [illustrateProgress, setIllustrateProgress] = useState<string | null>(null)
   /** How each piece came out of the last campaign update, for the panel. */
   const [campaignResults, setCampaignResults] = useState<Record<string, PieceResult>>({})
   /*
@@ -784,6 +826,9 @@ export default function ProjectView({
   const onSetCampaignRef = useRef(onSetCampaign)
   onSetCampaignRef.current = onSetCampaign
   const saveCampaign = useCallback((c: Campaign) => onSetCampaignRef.current?.(c), [])
+  const onSetIllustrationRef = useRef(onSetIllustration)
+  onSetIllustrationRef.current = onSetIllustration
+  const saveIllustration = useCallback((i: ProjectIllustration | undefined) => onSetIllustrationRef.current?.(i), [])
   const [modifyMode, setModifyMode] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo; group?: PickInfo[] } | null>(null)
   /** Elements gathered with Shift or Ctrl in Modify mode, all on one screen. */
@@ -1001,9 +1046,20 @@ export default function ProjectView({
    * not take the composer down, and a control that is not drawn is the honest
    * outcome of not knowing.
    */
-  const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[] } | null>(null)
+  const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[]; threeD?: boolean } | null>(null)
   /** Motion Ultra's video background can be offered: a `background` film is renderable. */
   const ultraVideoAvailable = !!motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')
+  /**
+   * The hero-video sources Auto may choose between, for this account: a free
+   * clip where the free libraries are allowed and ffmpeg can cut one, Motion
+   * where the worker makes a background film, a paid clip where generating is
+   * on — that last one only ever SUGGESTED (askAiVideo).
+   */
+  const autoVideoChoices: Exclude<AutoVideo, 'none'>[] = [
+    ...(videoAvail?.access?.stock && videoAvail.ffmpeg?.available ? (['free'] as const) : []),
+    ...(ultraVideoAvailable && videoAvail?.ffmpeg?.available ? (['motion'] as const) : []),
+    ...(videoAvail?.available ? (['ai'] as const) : []),
+  ]
   useEffect(() => {
     // Asked once whatever Muse's state: the composer's animation switch can
     // impose a film without Muse, so whether one can be made is a question the
@@ -1016,6 +1072,8 @@ export default function ProjectView({
         setMotionAvail({
           available: Boolean(access.enabled && access.worker?.available),
           kinds: Array.isArray(access.motionKinds) ? access.motionKinds : [],
+          // `true` only when the server says so: a permission fails shut.
+          threeD: access.threeD === true,
         })
         if (Array.isArray(access.ultraCounts)) setUltraCountsAllowed(access.ultraCounts)
       })
@@ -1182,6 +1240,16 @@ export default function ProjectView({
    * document and the chips must not say it will be.
    */
   const composerPage = composerPageFormat(siteShots.length > 0 && siteMode === 'reproduce' ? null : themeId, pageFormatId)
+  // A document whose type draws diagrams only when asked: a report, a post or
+  // a visual already has the kit, and a web screen has the charts instead.
+  const diagramsOffered = !!composerPage && !themeDrawsVisuals(themeId)
+  // Always shown, greyed where it cannot apply, with the reason: hidden, it was
+  // looked for on a web page and read as missing. A report, a post or a visual
+  // draws diagrams already; a web page or an app screen has charts instead.
+  const diagramsIncluded = themeDrawsVisuals(themeId)
+  const diagramsUnavailable = diagramsOffered
+    ? null
+    : t(diagramsIncluded ? 'composer.diagramsIncluded' : 'composer.diagramsNeedsDocument')
   /** The folds the composer offers right now: none unless the type folds and the size can take one. */
   const composerFolds = composerPage && themeFolds(themeId) ? foldsFor(composerPage) : []
   const composerFold = foldId && composerFolds.includes(foldId) ? foldId : null
@@ -1523,6 +1591,14 @@ export default function ProjectView({
       // Muse writes a direction on this run if it is on: the rewrite must not
       // pre-empt it any more than it may contradict a DESIGN.md.
       directionDecided: !!directionMd || (museConfig.enabled && museAvail !== false),
+      // What this run will do, so the brief is written for it (enhancePrompt.ts).
+      document: !!composerPage,
+      muse: museConfig.enabled && museAvail !== false,
+      picturesOff: runPicturesOff,
+      ultra: ultraActive && !composerPage,
+      diagrams: diagramsOn && diagramsOffered,
+      flows: flowsOn && !composerPage,
+      creative: !!project.creative,
     })
   }
   /** A type chosen on an empty field brings its starter prompt; typed words are never replaced. */
@@ -1712,6 +1788,38 @@ export default function ProjectView({
       createdAt: Date.now(),
       links: [],
     })
+  }
+
+  /**
+   * A visual at another size: a COPY beside it whose `<Doc format>` says the
+   * new page (lib/visuals/read.ts). The visual measures its own box, so the
+   * layout follows with no model call; the original is untouched. Links and
+   * notes stay behind, as in a duplicate.
+   */
+  async function declineVisual(screenId: string, page: PageFormatId) {
+    const s = screensRef.current.find((x) => x.id === screenId)
+    if (!s) return
+    const code = await setDocFormat(s.code, page)
+    if (!code) {
+      setError(t('visuals.declineFailed'))
+      return
+    }
+    const format = getPageFormat(page)
+    const { id: _id, x: _x, y: _y, links: _links, userNotes: _notes, previousCode: _prev, ...rest } = s
+    addScreenAndShow(
+      {
+        ...rest,
+        id: newId(),
+        name: `${s.name} — ${t(`composer.pageFormat.${page}`)}`,
+        code,
+        page,
+        w: format.w,
+        h: docFrameHeight(format, 1),
+        createdAt: Date.now(),
+        links: [],
+      },
+      { beside: s.id },
+    )
   }
 
   /** The screen whose share dialog is open, if any. */
@@ -1962,6 +2070,7 @@ export default function ProjectView({
   // from under it.
   const imageSwapScreen = imagesForScreen ? screens.find((s) => s.id === imagesForScreen) ?? null : null
   const framesScreen = framesForScreen ? screens.find((s) => s.id === framesForScreen) ?? null : null
+  const visualScreen = visualForScreen ? screens.find((s) => s.id === visualForScreen) ?? null : null
 
   // Revert a screen to its previousCode (saved before the last edit).
   function onRevertScreen(screenId: string) {
@@ -2306,16 +2415,31 @@ export default function ProjectView({
           muse: museConfig.enabled,
           ultra: ultraActive,
           flows: flowsOn,
+          diagrams: diagramsOn,
         }
         let run = manual
+        /** Auto's answer for the hero video, once the person confirmed a paid one. */
+        let runVideo: AutoVideo | null = null
+        // The type this run is made as: the composer's, or the one Auto read
+        // the request as when the composer had none (and no screenshots, which
+        // decide the shape themselves). For THIS run only, like every Auto answer.
+        let runThemeId = themeId
         if (autoMode) {
-          const offered = offeredOptions({
-            document: !!composerPage,
-            hasDirection: !!designMd?.trim(),
-            ultraAllowed: ultraCounts.length > 0,
-            creative: !!onSetCreative,
-            creations: !!onSetCreations,
-          })
+          const chooseType = !themeId && !siteNew
+          const offeredFor = (theme: ScreenThemeId | null, document: boolean) =>
+            offeredOptions({
+              document,
+              hasDirection: !!designMd?.trim(),
+              ultraAllowed: ultraCounts.length > 0,
+              creative: !!onSetCreative,
+              creations: !!onSetCreations,
+              diagrams: document && !themeDrawsVisuals(theme),
+            })
+          // With the type still open, everything either shape could use is
+          // asked; what the chosen shape cannot use is dropped below.
+          const asked = chooseType
+            ? [...new Set([...offeredFor(null, false), ...offeredFor(null, true)])]
+            : offeredFor(themeId, !!composerPage)
           setPhase('auto')
           try {
             const decision = await decideComposerOptions(
@@ -2326,14 +2450,32 @@ export default function ProjectView({
                 document: !!composerPage,
                 site: siteNew ? site.mode : null,
                 project: { name: project.name, hasDirection: !!designMd?.trim(), screens: screens.length },
-                offered,
+                offered: asked,
+                ...(chooseType ? { chooseType: true } : {}),
+                // The hero's video, on a page (never a document) and only
+                // among the sources this account really has.
+                ...(!composerPage && autoVideoChoices.length ? { videoChoices: autoVideoChoices } : {}),
               },
               settings,
               ac.signal,
             )
+            if (chooseType && decision.screenType?.on && isScreenThemeId(decision.screenType.value)) runThemeId = decision.screenType.value
+            const offered = chooseType ? offeredFor(runThemeId, !!composerPageFormat(runThemeId, pageFormatId)) : asked
             run = runOptionsFor(decision, offered, manual)
             setAutoLast({ decision, offered })
+            if (decision.video) {
+              let choice = decision.video.value
+              if (choice === 'ai') {
+                setPhase(null)
+                const answer = await askAiVideo()
+                choice = answer === 'motion' && !autoVideoChoices.includes('motion') ? 'none' : answer
+                setPhase('auto')
+              }
+              runVideo = choice
+            }
             const on = offered.filter((o) => run[o]).map((o) => t(AUTO_OPTION_LABEL[o]))
+            if (runThemeId !== themeId && runThemeId) on.unshift(t('composer.autoType', { type: t(`composer.themes.${runThemeId}`) }))
+            if (runVideo && runVideo !== 'none') on.push(t(`project.autoVideo.${runVideo}`))
             setNotice(
               [
                 on.length ? t('project.autoChose', { list: on.join(', ') }) : t('project.autoChoseNone'),
@@ -2342,7 +2484,7 @@ export default function ProjectView({
             )
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
-            setAutoLast({ decision: null, offered })
+            setAutoLast({ decision: null, offered: asked })
             setNotice(t('project.autoFailed', { error: err instanceof Error ? err.message : String(err) }))
           }
         }
@@ -2373,10 +2515,13 @@ export default function ProjectView({
             site,
             globalMd,
             presetId,
-            themeId,
+            themeId: runThemeId,
             pageFormatId,
             redesign: run.redesign,
-            museConfig: run.muse === museConfig.enabled ? museConfig : { ...museConfig, enabled: run.muse },
+            museConfig: (() => {
+              const base = run.muse === museConfig.enabled ? museConfig : { ...museConfig, enabled: run.muse }
+              return runVideo ? museVideoFor(base, runVideo) : base
+            })(),
             museAvail,
             museVision,
             pinnedImages,
@@ -2391,6 +2536,7 @@ export default function ProjectView({
             // Absent rather than false when off, so the request is the one it
             // always was (snippets/Flow.ts).
             ...(run.flows ? { flows: true } : {}),
+            ...(run.diagrams ? { diagrams: true } : {}),
             ...(composerFold ? { foldId: composerFold } : {}),
             ...(projectBrand() ? { brand: projectBrand() } : {}),
             ...(run.creative ? { creative: true } : {}),
@@ -2425,6 +2571,8 @@ export default function ProjectView({
             screenWritten: () => setGeneratingIds(new Set()),
             motionStage,
             motionStageDone,
+            deferFilm,
+            filmPending: setFilmPendingFor,
           }
         /*
          * A magazine or a book is not one screen but a PUBLICATION: a plan of
@@ -2857,6 +3005,113 @@ export default function ProjectView({
    * choice, which the panel shows and sets), with no typed request of its own:
    * the brief is the words, each format brings its type.
    */
+  /**
+   * "Illustrate a text": one visual per block, in order, each an ordinary new
+   * screen of the Visual type (`runNewScreen`), carrying the digest of its
+   * block so the panel can show it as made. The composer's settings, like a
+   * campaign's — Muse does not run for a visual anyway (see newScreen.ts).
+   * Stops at the first failure and says how many were made; an abort stops
+   * quietly, keeping the ones already made.
+   */
+  async function illustrateBlocks(blocks: TextBlock[], page: PageFormatId) {
+    if (busy || !blocks.length) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    const globalDesign = loadDesign()
+    const hooks: NewScreenHooks = {
+      signal: ac.signal,
+      t,
+      setPhase,
+      setMuseStage,
+      setUltraStage,
+      replaceNotice: (line) => setNotice(line),
+      notice: (line) => setNotice((prev) => (prev ? `${prev} ${line}` : line)),
+      setMuseResult,
+      setMuseImages,
+      setMuseImageError,
+      setImageGenOk,
+      addScreen: addScreenAndShow,
+      updateScreen: onUpdateScreen,
+      removeScreen: onRemoveScreen,
+      currentScreens: () => screensRef.current,
+      renameProject: onRenameProject,
+      setDesign: onSetDesign,
+      rememberSiteRef: () => {},
+      screenStarted: (screenId) => {
+        setGeneratingIds(new Set([screenId]))
+        setSelectedIds([screenId])
+      },
+      screenWritten: () => setGeneratingIds(new Set()),
+      motionStage,
+      motionStageDone,
+    }
+    let made = 0
+    try {
+      for (const [i, block] of blocks.entries()) {
+        if (ac.signal.aborted) break
+        setIllustrateProgress(t('visuals.illustrate.making', { n: i + 1, total: blocks.length }))
+        const outcome = await runNewScreen(
+          {
+            text: block.text,
+            name: blockName(block),
+            illustrates: block.digest,
+            settings,
+            project: projectRef.current,
+            screens: screensRef.current,
+            images: [],
+            annotationCount: 0,
+            site: null,
+            globalMd: isDesignActive(globalDesign) ? globalDesign.markdown : undefined,
+            presetId,
+            themeId: VISUAL_THEME,
+            pageFormatId: page,
+            redesign: false,
+            museConfig,
+            museAvail,
+            museVision,
+            pinnedImages: [],
+            pinnedVideo: undefined,
+            videoAvail,
+            motionAvail,
+            ultraActive: false,
+            ultraCount,
+            effectiveImageSource,
+            picturesOff: true,
+            docPictureSource: null,
+            docImageChoice: 'none',
+            imageGenOk,
+            stockImagesUsable,
+          },
+          hooks,
+        )
+        if (outcome.error) {
+          setError(outcome.error)
+          break
+        }
+        made++
+      }
+      if (made) setNotice((prev) => [prev, t('visuals.illustrate.made', { count: made })].filter(Boolean).join(' '))
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(t('visuals.illustrate.failed', { count: made, error: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setPhase(null)
+      motionStageDone()
+      setGeneratingIds(new Set())
+      setIllustrateProgress(null)
+    }
+  }
+
   async function createCampaign(campaign: Campaign, formats: CampaignFormatId[]) {
     if (busy || !formats.length || !campaign.brief.trim()) return
     const settings = loadSettings()
@@ -3279,6 +3534,141 @@ export default function ProjectView({
   }
 
   /**
+   * "Générer le parcours…" on a screen that already exists: the pages it leads
+   * to, made the way Parcours makes them after a new screen.
+   *
+   * Two steps, the first only when needed. A screen generated with Parcours off
+   * opens no route, so the companions would have nothing to follow: one edit
+   * (`flowFromScreenInstruction`, the flow kit in scope) wires what a visitor
+   * clicks and changes nothing else, written back with `previousCode` so Revert
+   * undoes it. A screen that already opens routes nobody answers skips it. Then
+   * `runFlowCompanions` — the same function, the same bounds, Muse and Motion
+   * Ultra off — so the pages are the ones the composer would have made.
+   */
+  async function generateFlowFrom(screenId: string, count: number) {
+    if (busy) return
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen || screen.page || !screen.code.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const designMd = activeDirection()
+      let code = screen.code
+      if (!missingRoutes(screensRef.current, await readFlow(code)).length) {
+        setRegenLabel(t('flows.fromScreenWiring'))
+        setRegeneratingIds(new Set([screenId]))
+        const instruction = flowFromScreenInstruction(knownRoutes(screensRef.current), count)
+        const { capIds } = screenCapabilities(screen, instruction, designMd)
+        const res = await editScreen({
+          settings,
+          instruction,
+          screen: { ...screen, caps: capIds.includes('flow') ? capIds : [...capIds, 'flow'] },
+          designMd,
+          signal: ac.signal,
+        })
+        // Written meanwhile (a direct edit, a revert): this pass read the old one.
+        const now = screensRef.current.find((s) => s.id === screenId)
+        if (!now || now.code !== screen.code) {
+          setNotice(t('flows.fromScreenChanged'))
+          return
+        }
+        noteChange(screenId, t('versions.note.flow'))
+        onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: screen.code, caps: res.caps })
+        setRegeneratingIds(new Set())
+        code = res.code
+      }
+      const globalDesign = loadDesign()
+      const request: NewScreenRequest = {
+        text: screen.prompt || screen.name,
+        settings,
+        project: projectRef.current,
+        screens: screensRef.current,
+        images: [],
+        annotationCount: 0,
+        site: null,
+        globalMd: isDesignActive(globalDesign) ? globalDesign.markdown : undefined,
+        presetId,
+        themeId: null,
+        pageFormatId: null,
+        redesign: false,
+        museConfig: { ...museConfig, enabled: false },
+        museAvail,
+        museVision,
+        pinnedImages: [],
+        pinnedVideo: undefined,
+        videoAvail,
+        motionAvail,
+        ultraActive: false,
+        ultraCount,
+        effectiveImageSource,
+        picturesOff: runPicturesOff,
+        docPictureSource,
+        docImageChoice,
+        imageGenOk,
+        stockImagesUsable,
+        flows: true,
+        ...(projectBrand() ? { brand: projectBrand() } : {}),
+      }
+      // The composer's hooks, minus what belongs to a TYPED request: the prompt,
+      // its annotations and screenshots are the person's, and stay.
+      const hooks: NewScreenHooks = {
+        signal: ac.signal,
+        t,
+        setPhase,
+        setMuseStage,
+        setUltraStage,
+        replaceNotice: (line) => setNotice(line),
+        notice: (line) => setNotice(line),
+        setMuseResult,
+        setMuseImages,
+        setMuseImageError,
+        setImageGenOk,
+        addScreen: addScreenAndShow,
+        updateScreen: onUpdateScreen,
+        removeScreen: onRemoveScreen,
+        currentScreens: () => screensRef.current,
+        renameProject: onRenameProject,
+        setDesign: onSetDesign,
+        rememberSiteRef: (id, ref) => siteRefsByScreen.current.set(id, ref),
+        screenStarted: (id) => {
+          setGeneratingIds(new Set([id]))
+          setSelectedIds([id])
+        },
+        screenWritten: () => setGeneratingIds(new Set()),
+        motionStage,
+        motionStageDone,
+      }
+      const made = await runFlowCompanions(request, hooks, screenId, code, {
+        getProject: () => projectRef.current,
+        nameFor: (route) => flowScreenName(route, t),
+        count,
+      })
+      setNotice(
+        made.length
+          ? t('flows.created', { count: made.length, names: made.map((m) => flowScreenName(m.route, t)).join(', ') })
+          : t('flows.fromScreenNone'),
+      )
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(t('flows.failedFrom', { error: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setPhase(null)
+      setRegeneratingIds(new Set())
+      setGeneratingIds(new Set())
+    }
+  }
+
+  /**
    * A Motion failure, said where it can actually be read.
    *
    * All three of them used to go to `setMuseImageError` alone, which draws
@@ -3323,14 +3713,73 @@ export default function ProjectView({
     setMuseStage(label)
     setRegenLabel(label)
     setRegeneratingIds(new Set([screenId]))
-    holdNavigation('project.motionLeaveConfirm')
+    if (!motionHeld.current) {
+      motionHeld.current = true
+      claimNavigation()
+    }
+  }
+
+  /**
+   * The one claimant of the navigation hold, counted: a Motion stage and a film
+   * made after its screen can run at once, and the first to end must not
+   * release the hold the other still needs (tests/navigation-guard.test.js).
+   */
+  const navHolders = useRef(0)
+  const motionHeld = useRef(false)
+  function claimNavigation() {
+    navHolders.current += 1
+    if (navHolders.current === 1) holdNavigation('project.motionLeaveConfirm')
+  }
+  function dropNavigation() {
+    navHolders.current = Math.max(0, navHolders.current - 1)
+    if (navHolders.current === 0) releaseNavigation()
+  }
+
+  /**
+   * Motion Ultra's film, made AFTER the screen is given back (`deferFilm` in
+   * lib/pipeline/newScreen.ts). A film is a composition and minutes of render,
+   * and the page it belongs to is finished before it starts: holding the whole
+   * composer for it made every Ultra screen feel minutes slower than it was.
+   * The section shows the film coming, inside the frame (`filmPending`), and
+   * leaving the project still asks first — the render would be lost.
+   */
+  const filmTasks = useRef(new Set<AbortController>())
+  const [filmPending, setFilmPending] = useState<Map<string, string>>(() => new Map())
+  // Leaving the project stops them; the view's own unmount releases the hold.
+  useEffect(() => {
+    const tasks = filmTasks.current
+    return () => {
+      for (const c of tasks) c.abort()
+    }
+  }, [])
+  function deferFilm(task: (signal: AbortSignal) => Promise<void>) {
+    const ac = new AbortController()
+    filmTasks.current.add(ac)
+    claimNavigation()
+    void task(ac.signal)
+      .catch(() => {})
+      .finally(() => {
+        filmTasks.current.delete(ac)
+        dropNavigation()
+      })
+  }
+  function setFilmPendingFor(screenId: string, label: string | null) {
+    setFilmPending((prev) => {
+      const next = new Map(prev)
+      if (label) next.set(screenId, label)
+      else next.delete(screenId)
+      return next
+    })
   }
 
   function motionStageDone() {
     setMuseStage(null)
     setRegeneratingIds(new Set())
     setRegenLabel(t('canvas.regenerating'))
-    releaseNavigation()
+    if (motionHeld.current) {
+      motionHeld.current = false
+      dropNavigation()
+    }
   }
 
   /**
@@ -3830,9 +4279,12 @@ export default function ProjectView({
       const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
       const extraSystem = joinSystem([designPreamble, hintForScreen(screen)])
       // Identity off a document; on one, only what paper can hold is offered.
-      const capIds = documentPipeline(screen.page).caps(
+      const pipeEl = documentPipeline(screen.page)
+      let capIds = pipeEl.caps(
         screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd),
       )
+      // "Turn this block into a diagram" on a document: the kit, as in screenCapabilities.
+      if (pipeEl.document && requestAsksForVisual(change) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
       const instruction = group && group.length > 1
@@ -4244,10 +4696,10 @@ export default function ProjectView({
     setNotice(copies.length ? `${t('fill.series.done', { n: copies.length, name: screen.name })}${refused}` : `${t('fill.nothing')}${refused}`)
   }
 
-  function writeScreenFrames(screenId: string, nextCode: string) {
+  function writeScreenFrames(screenId: string, nextCode: string, note: TranslationKey = 'versions.note.frames') {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
-    noteChange(screenId, t('versions.note.frames'))
+    noteChange(screenId, t(note))
     onUpdateScreen(screenId, {
       code: nextCode,
       componentName: detectComponentName(nextCode),
@@ -4390,6 +4842,7 @@ export default function ProjectView({
     ultraAllowed: ultraCounts.length > 0,
     creative: !!onSetCreative,
     creations: !!onSetCreations,
+    diagrams: diagramsOffered,
   })
 
   // A rewrite is a NEW-screen brief. Selecting a screen mid-stream turns the
@@ -4537,6 +4990,57 @@ export default function ProjectView({
           onClose={() => setImagesForScreen(null)}
         />
       )}
+      {aiVideoAsk && (
+        <Modal
+          title={t('project.aiVideoTitle')}
+          onClose={() => aiVideoAsk('none')}
+          size="sm"
+          footer={
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="ghost" onClick={() => aiVideoAsk('none')}>
+                {t('project.aiVideoNo')}
+              </Button>
+              {autoVideoChoices.includes('motion') && (
+                <Button variant="ghost" onClick={() => aiVideoAsk('motion')}>
+                  {t('project.aiVideoMotion')}
+                </Button>
+              )}
+              <Button variant="primary" onClick={() => aiVideoAsk('ai')}>
+                <Icon name="film" size={16} />
+                {t('project.aiVideoYes')}
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex gap-3">
+            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muse/15 text-muse-ink" aria-hidden>
+              <Icon name="film" size={20} />
+            </span>
+            <div className="space-y-2">
+              <p className="text-body text-ink">{t('project.aiVideoBody')}</p>
+              <p className="text-caption text-ink-faint">{t('project.aiVideoCost')}</p>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {directionsOpen && (
+        <DirectionsDialog
+          brief={prompt}
+          projects={allProjects ?? [project]}
+          projectId={project.id}
+          hasDirection={!!project.design?.trim()}
+          creative={!!project.creative}
+          onChoose={(d) => {
+            onSetDesign(d.markdown)
+            // A primed "new direction" would replace the one just chosen with
+            // Muse's on the next screen.
+            setRedesign(false)
+            setDirectionsOpen(false)
+            setNotice(t('directions.chosen', { name: d.name }))
+          }}
+          onClose={() => setDirectionsOpen(false)}
+        />
+      )}
       {rulesOpen && (
         <RulesDialog
           rules={project.rules}
@@ -4649,6 +5153,17 @@ export default function ProjectView({
           onClose={() => setFramesForScreen(null)}
         />
       )}
+      {visualScreen && (
+        <ScreenVisualDialog
+          screenName={visualScreen.name}
+          code={visualScreen.code}
+          // The same write as a frame: an attribute at parser offsets, previousCode for Revert.
+          page={visualScreen.page}
+          onChange={(code) => writeScreenFrames(visualScreen.id, code, 'versions.note.visual')}
+          onDecline={(page) => void declineVisual(visualScreen.id, page)}
+          onClose={() => setVisualForScreen(null)}
+        />
+      )}
       {reviseFilmScreenId && (
         <MotionReviseDialog
           onClose={() => setReviseFilmScreenId(null)}
@@ -4706,6 +5221,24 @@ export default function ProjectView({
    * "Campaign" button does). Its draft is saved before the first piece is made,
    * so the remount when the canvas appears loses nothing.
    */
+  /* "Illustrate a text", in the same slot and on the same two surfaces as the campaign. */
+  const illustratePanel = showIllustrate ? (
+    <IllustratePanel
+      key={project.id}
+      project={project}
+      screens={screens}
+      busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+      progress={illustrateProgress}
+      onSave={saveIllustration}
+      onMake={(blocks, page) => void illustrateBlocks(blocks, page)}
+      onFocus={(id) => {
+        setSelectedIds([id])
+        setFocus({ screenId: id, nonce: Date.now() })
+      }}
+      onClose={() => setRightSlot((sl) => closeSlot(sl, 'illustrate'))}
+    />
+  ) : null
+
   const campaignPanel = showCampaign ? (
     <CampaignPanel
       key={project.id}
@@ -4780,14 +5313,20 @@ export default function ProjectView({
         onMuseChange={updateMuse}
         flowsOn={flowsOn}
         onToggleFlows={toggleFlows}
+        onToggleDiagrams={() => setDiagramsOn((v) => !v)}
+        diagramsOn={diagramsOffered ? diagramsOn : diagramsIncluded}
+        diagramsUnavailable={diagramsUnavailable}
         brandOn={!!project.useBrand}
         onToggleBrand={brandAvailable && onSetUseBrand ? toggleBrand : undefined}
         brandChoices={brands.length > 1 ? brands.map((b) => ({ id: b.id, name: b.name || b.id })) : undefined}
         brandId={chosenBrandId}
         onPickBrand={pickBrand}
         creativeOn={!!project.creative}
+        creationsOn={!!project.creations}
+        onToggleCreations={onSetCreations ? () => onSetCreations(!project.creations) : undefined}
         onToggleCreative={onSetCreative ? () => onSetCreative(!project.creative) : undefined}
         onOpenCampaign={() => setRightSlot('campaign')}
+        onOpenDirections={() => setDirectionsOpen(true)}
         museAvail={museAvail}
         museResult={museResult}
         museImages={museImages}
@@ -4845,6 +5384,7 @@ export default function ProjectView({
         onEnhance={startEnhance}
       />
       {campaignPanel && <div className="fixed inset-0 z-30 bg-black/10">{campaignPanel}</div>}
+      {illustratePanel && <div className="fixed inset-0 z-30 bg-black/10">{illustratePanel}</div>}
       {libraryModal}
       </>
     )
@@ -4934,6 +5474,14 @@ export default function ProjectView({
       title: t('campaign.toolbarTitle'),
       active: showCampaign,
       onClick: () => setRightSlot((sl) => toggleSlot(sl, 'campaign')),
+    },
+    {
+      id: 'illustrate',
+      icon: 'branch',
+      label: t('visuals.illustrate.toolbar'),
+      title: t('visuals.illustrate.toolbarTitle'),
+      active: showIllustrate,
+      onClick: () => setRightSlot((sl) => toggleSlot(sl, 'illustrate')),
     },
     {
       id: 'versions',
@@ -5425,6 +5973,7 @@ export default function ProjectView({
         onError={onScreenError}
         generatingIds={generatingIds}
         regeneratingIds={regeneratingIds}
+        filmPending={filmPending}
         fixingIds={fixingIds}
         regenLabel={regenLabel}
         // Under the tabs bar, which covers the top 44px from md.
@@ -5501,7 +6050,7 @@ export default function ProjectView({
 
       </main>
 
-      {/* The inspector — see Inspector.tsx: a rail of the six panels that is
+      {/* The inspector — see Inspector.tsx: a rail of the seven panels that is
           always there from md, and the one panel that is open. Which one is
           still the single RightSlot value (lib/rightSlot.ts); null folds the
           panel back into the rail. */}
@@ -5513,6 +6062,7 @@ export default function ProjectView({
             { id: 'audit', label: t('mode.audit'), icon: 'shield' },
             { id: 'review', label: t('review.toolbar'), icon: 'comment', badge: reviewState?.unread },
             { id: 'campaign', label: t('campaign.toolbar'), icon: 'formats' },
+            { id: 'illustrate', label: t('visuals.illustrate.toolbar'), icon: 'branch' },
             { id: 'links', label: t('project.links'), icon: 'link' },
           ]}
           active={rightSlot}
@@ -5578,6 +6128,7 @@ export default function ProjectView({
           )}
 
           {campaignPanel}
+          {illustratePanel}
 
           {showVersions && (
             <VersionsPanel
@@ -6181,6 +6732,7 @@ export default function ProjectView({
                     imageError={museImageError}
                     vision={museVision}
                     video={videoAvail}
+                    motion={!!motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')}
                   />
                 </div>
               )}
@@ -6261,7 +6813,13 @@ export default function ProjectView({
           {/* The buttons, right under the field, as a message box has them: in
               the column the options below can scroll, and Generate must not
               scroll away with them. */}
-          <div className="mt-2 flex items-center justify-between gap-2">
+          {/* Wraps rather than overflows: while a screen is written, Stop and a
+              label like "Image du document…" joined Generate on a row the
+              narrow column cannot hold, and the sheet cut them off. The right
+              group then takes a line of its own (`flex-auto`: its basis is its
+              content, so it wraps instead of squeezing), and the label shortens
+              last, with the whole of it in the tooltip. */}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
             {/* The fold of the sheet, below md only. */}
             <button
@@ -6293,7 +6851,7 @@ export default function ProjectView({
               <span />
             )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-auto items-center justify-end gap-2">
               {busy && (
                 <button
                   type="button"
@@ -6306,7 +6864,8 @@ export default function ProjectView({
               )}
               <button
                 type="button"
-                className="btn-primary flex shrink-0 items-center gap-2"
+                className="btn-primary flex min-w-0 items-center gap-2"
+                title={busy && busyLabel ? busyLabel : undefined}
                 onClick={() => {
                   // On a phone the sheet folds so the screen being written shows.
                   if (phone) setSheetOpen(false)
@@ -6322,7 +6881,7 @@ export default function ProjectView({
                         visible est masque aux lecteurs d'ecran pour que l'etat ne
                         soit pas annonce deux fois. Le libelle disparait sous sm. */}
                     <MockyLoader size={32} label={busyLabel} className="shrink-0" />
-                    <span aria-hidden className="hidden sm:inline">
+                    <span aria-hidden className="hidden min-w-0 truncate sm:inline">
                       {busyLabel}
                     </span>
                   </>
@@ -6384,6 +6943,11 @@ export default function ProjectView({
                     title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
                   />
                 )}
+                {/* Three directions side by side, before a screen: choosing one
+                    writes the project's direction, nothing is generated. */}
+                {!autoMode && (
+                  <OptionAction icon="sparkle" label={t('directions.option')} hint={t('directions.optionHint')} onClick={() => setDirectionsOpen(true)} />
+                )}
                 {/* The account's brand, for this project (lib/brand.ts): offered
                     once a brand exists, remembered on the project. */}
                 {brandAvailable && (
@@ -6403,6 +6967,19 @@ export default function ProjectView({
               </OptionGroup>
             )}
             <OptionGroup label={t('workspace.groupHelp')}>
+              {/* "Schémas": a document's facts drawn as diagrams, on a type that
+                  draws them only when asked. Auto decides it for itself. */}
+              {!editing && !autoMode && (
+                <OptionToggle
+                  icon="grid"
+                  label={t('composer.diagrams')}
+                  hint={diagramsUnavailable || t('composer.diagramsHint')}
+                  on={diagramsOffered ? diagramsOn : diagramsIncluded}
+                  disabled={!diagramsOffered}
+                  onClick={() => setDiagramsOn((v) => !v)}
+                  title={diagramsUnavailable || t(diagramsOn ? 'composer.diagramsOnTitle' : 'composer.diagramsOffTitle')}
+                />
+              )}
               {/* The project's rules (lib/rules.ts): for edits as much as for new screens. */}
               {onSetRules && (
                 <OptionAction
@@ -6524,6 +7101,14 @@ export default function ProjectView({
                   lit={showCampaign}
                   title={t('campaign.toolbarTitle')}
                   onClick={() => setRightSlot((sl) => toggleSlot(sl, 'campaign'))}
+                />
+                <OptionAction
+                  icon="branch"
+                  label={t('visuals.illustrate.also')}
+                  hint={t('visuals.illustrate.alsoHint')}
+                  lit={showIllustrate}
+                  title={t('visuals.illustrate.toolbarTitle')}
+                  onClick={() => setRightSlot((sl) => toggleSlot(sl, 'illustrate'))}
                 />
                 {/* A film is made from the media library, not from a screen —
                     which is why it lives here, with what this column makes, and
@@ -7074,6 +7659,10 @@ export default function ProjectView({
                       <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                       <MenuItem icon="library" label={t('project.changeImages')} onClick={() => { close(); setImagesForScreen(s.id) }} />
                       <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
+                      {/* Only where there is a visual to switch: the menu is long enough. */}
+                      {s.code.includes('<Visual') && (
+                        <MenuItem icon="branch" label={t('visuals.menu')} disabled={busy} onClick={() => { close(); setVisualForScreen(s.id) }} />
+                      )}
                       <MenuItem icon="translate" label={t('translate.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setTranslateFor(s.id) }} />
                       <MenuItem icon="list" label={t('fill.menu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setFillFor(s.id) }} />
                       <MenuItem icon="template" label={t('blocks.insertMenu')} disabled={busy || !s.code.trim()} onClick={() => { close(); setBlockInsert({ screenId: s.id }) }} />
@@ -7116,6 +7705,16 @@ export default function ProjectView({
                             />
                           ))}
                         </SubMenu>
+                      )}
+                      {/* A web screen only: a document's Parcours is its
+                          sequence of pages, chosen when it is made. */}
+                      {!s.page && (
+                        <MenuItem
+                          icon="branch"
+                          label={t('flows.fromScreenMenu')}
+                          disabled={busy || !s.code.trim() || writing}
+                          onClick={() => { close(); setFlowCountFor(s.id) }}
+                        />
                       )}
                       {/* Only on a screen that carries a film: the one place a
                           film made at the first prompt can still be changed rather
@@ -7256,6 +7855,21 @@ export default function ProjectView({
             </>
           )
         })()}
+
+      {flowCountFor && (() => {
+        const sc = screens.find((x) => x.id === flowCountFor)
+        if (!sc) return null
+        return (
+          <FlowCountDialog
+            screenName={sc.name}
+            onClose={() => setFlowCountFor(null)}
+            onGenerate={(count) => {
+              setFlowCountFor(null)
+              void generateFlowFrom(sc.id, count)
+            }}
+          />
+        )
+      })()}
 
       {/* Code viewer modal */}
       {/* The recorded design, full size. At canvas zoom the card beside a frame

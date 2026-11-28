@@ -52,6 +52,7 @@ export const ADMIN_SETTINGS: AdminSetting[] = [
   { id: 'text-models', section: 'providers', label: 'settings.textModelsTitle', detail: 'settings.textProfileGeneration', keywords: 'llm modèle texte text model génération generation inspiration muse openai anthropic claude ollama openrouter groq mistral gemini deepseek clé api key raisonnement reasoning fournisseur provider gratuit free' },
   { id: 'images', section: 'providers', label: 'settings.imagesSectionTitle', keywords: 'image images génération generation fal replicate cloudflare stable diffusion flux modèle model clé api key' },
   { id: 'stock-photos', section: 'providers', label: 'settings.stockTitle', keywords: 'pexels pixabay photos libres free stock clé api key' },
+  { id: 'generated-images', section: 'providers', label: 'settings.generatedImagesTitle', keywords: 'images ia ai générées generated génération accès access comptes accounts' },
   { id: 'stock-images', section: 'providers', label: 'settings.stockImagesTitle', keywords: 'images gratuites free photos accès access composer' },
   { id: 'videos', section: 'providers', label: 'settings.videosSectionTitle', keywords: 'vidéo video clip séquence sequence scroll frames images par seconde fps' },
   { id: 'muse-sources', section: 'providers', label: 'settings.museSources.title', keywords: 'galeries galleries sources inspiration sites muse références references' },

@@ -216,6 +216,19 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     expect((await fetch(`${base}/api/account/mcp-skill.zip`)).status).toBe(401)
   })
 
+  it('hands this person a Codex plugin that connects to this instance, with no secret in it', async () => {
+    const r = await fetch(`${base}/api/account/mcp-codex-plugin.zip`, { headers: { cookie } })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type')).toBe('application/zip')
+    const zip = Buffer.from(await r.arrayBuffer())
+    for (const path of ['mocky-codex/.agents/plugins/marketplace.json', 'mocky-codex/plugins/mocky/plugin.json', 'mocky-codex/plugins/mocky/mcp.json', 'mocky-codex/plugins/mocky/skills/mocky/SKILL.md']) {
+      expect(zip.includes(Buffer.from(path)), path).toBe(true)
+    }
+    expect(zip.includes(Buffer.from(`${base}/mcp`))).toBe(true)
+    expect(zip.includes(Buffer.from('mocky_ak_'))).toBe(false)
+    expect((await fetch(`${base}/api/account/mcp-codex-plugin.zip`)).status).toBe(401)
+  })
+
   it('hands the assistant its guide, as a tool and as a resource', async () => {
     const asTool = await mcp.callTool({ name: 'mocky_guide', arguments: {} })
     expect(asTool.content[0].text).toMatch(/^# Using Mocky/)

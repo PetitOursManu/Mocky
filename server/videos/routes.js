@@ -127,6 +127,19 @@ export function createVideosRouter({
     }
   })
 
+  // Body: { query, count? } — clips with their thumbnails, for a vision model to choose among.
+  router.post('/stock/candidates', async (req, res) => {
+    if (!stock?.candidates) return res.status(503).json({ error: 'Stock footage is not available.' })
+    if (!accessFor(req.user).stock) return refuse(res, 'stock')
+    const query = String(req.body?.query || '').trim().slice(0, 200)
+    if (!query) return res.status(400).json({ error: 'A "query" is required.' })
+    try {
+      res.json(await stock.candidates(query, { count: req.body?.count }))
+    } catch (err) {
+      res.status(err?.statusCode || 502).json({ error: err instanceof Error ? err.message : String(err), code: err?.code })
+    }
+  })
+
   // Body: { provider, id, project? }
   router.post('/stock/import', async (req, res) => {
     if (!stock) return res.status(503).json({ error: 'Stock footage is not available.' })

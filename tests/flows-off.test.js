@@ -47,7 +47,17 @@ describe('Parcours off leaves generation unchanged (V7)', () => {
     // from an earlier flyer while the type is now a web page used to skip the
     // companions of a screen that IS a page of a site.
     expect(composer).toContain('if (run.flows && !outcome.error && !composerPage) {')
-    expect(composer.match(/runFlowCompanions\(/g)).toHaveLength(1)
+    // Two calls: the composer's, behind the switch, and the menu's "Générer le
+    // parcours…" on an existing screen — asked for by name, so never a
+    // generation the switch did not allow.
+    expect(composer.match(/runFlowCompanions\(/g)).toHaveLength(2)
+    const fromScreen = composer.slice(composer.indexOf('async function generateFlowFrom('))
+    expect(fromScreen.indexOf('runFlowCompanions(')).toBeGreaterThan(0)
+    expect(fromScreen.indexOf('runFlowCompanions(')).toBeLessThan(fromScreen.indexOf('\n  }\n'))
+    // The menu asks how many screens first; only the dialog's answer runs it.
+    expect(composer).toContain('onClick={() => { close(); setFlowCountFor(s.id) }}')
+    expect(composer.match(/void generateFlowFrom\(/g)).toHaveLength(1)
+    expect(composer).toContain('void generateFlowFrom(sc.id, count)')
   })
 
   it('builds the frame of a screen outside a demo without any flow state', () => {

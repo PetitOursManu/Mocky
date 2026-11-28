@@ -8,7 +8,7 @@
 // GROUND, opened once per scene by `ComposedSceneVideo` exactly like the others.
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
-import { ThreeCanvas } from '@remotion/three'
+import { ThreeCanvas } from './clockCanvas.js'
 import * as THREE from 'three'
 import { FIELD_CAMERA_FOV, fieldCanvas } from './blocks/field.js'
 import { WORLD_FOG_DENSITY, WORLD_RULE_THICKNESS, shapeTurn, worldCamera, worldColors } from './world.js'

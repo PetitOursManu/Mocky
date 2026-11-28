@@ -49,6 +49,7 @@ export default function MusePanel({
   imageError,
   vision,
   video,
+  motion = false,
 }: {
   config: MuseConfig
   onChange: (c: MuseConfig) => void
@@ -71,6 +72,8 @@ export default function MusePanel({
   vision?: boolean | null
   /** null = not probed, or no backend. Carries WHY when unavailable. */
   video?: MuseVideoAvailability | null
+  /** This instance's Motion worker can make a background film: offer "Motion". */
+  motion?: boolean
 }) {
   const t = useT()
   const d = result?.dossier
@@ -95,23 +98,23 @@ export default function MusePanel({
     return () => ac.abort()
   }, [video, access.stock])
   const generateReady = Boolean(video?.available)
-  const source: 'off' | 'generate' | 'free' =
-    config.videoPin || picking ? 'free' : config.video && generateReady ? 'generate' : 'off'
+  const source: 'off' | 'generate' | 'free' | 'motion' =
+    config.videoPin || picking ? 'free' : config.videoMotion && motion ? 'motion' : config.video && generateReady ? 'generate' : 'off'
   // "Free" means the stock libraries when this account has them, and the
   // person's own clips either way; named for what it will actually offer.
   const stockReady = access.stock && stockOn
-  const chooseSource = (next: 'off' | 'generate' | 'free') => {
+  const chooseSource = (next: 'off' | 'generate' | 'free' | 'motion') => {
     haptic()
     if (next === 'free') {
       setPicking(true)
       if (!config.videoPin) {
-        onChange({ ...config, video: false })
+        onChange({ ...config, video: false, videoMotion: false })
         onOpenLibrary('videos')
       }
       return
     }
     setPicking(false)
-    onChange({ ...config, video: next === 'generate', videoPin: null })
+    onChange({ ...config, video: next === 'generate', videoMotion: next === 'motion', videoPin: null })
   }
   const sourceOptions = [
     { id: 'off' as const, label: t('muse.videoSourceOff'), hint: undefined, disabled: false },
@@ -135,6 +138,9 @@ export default function MusePanel({
       hint: t(stockReady ? 'muse.videoSourceFreeHint' : 'muse.videoSourceMineHint'),
       disabled: false,
     },
+    // Mocky's own film engine, rendered on this instance's worker: offered
+    // only where the worker can make a background film.
+    ...(motion ? [{ id: 'motion' as const, label: t('muse.videoSourceMotion'), hint: t('muse.videoSourceMotionHint'), disabled: false }] : []),
   ]
   /** Unticking the last box of a picture takes it out of the run. */
   const setUse = (p: PinnedImage, patch: { insert?: boolean; inspire?: boolean }) => {
@@ -294,6 +300,7 @@ export default function MusePanel({
             </span>
 
             {source === 'generate' && <p className="mt-1.5 text-caption text-ink-faint">{t('muse.videoCost')}</p>}
+            {source === 'motion' && <p className="mt-1.5 text-caption text-ink-faint">{t('muse.videoMotionCost')}</p>}
 
             {access.generate && !generateReady && source !== 'free' && video.reason !== 'no-access' && (
               <p className="mt-1.5 text-caption text-ink-faint">

@@ -1,5 +1,5 @@
 ---
-source_hash: 2554e1b23aa6
+source_hash: df4a9200b81e
 ---
 
 # Glossaire
@@ -43,6 +43,10 @@ Le genre de la prochaine génération — un tableau de bord, un planning, une p
 ## Document {#document}
 
 Un écran fait de pages de taille fixe — un flyer, un rapport, un CV, un post pour les réseaux — plutôt qu’une page mise en page pour une fenêtre. Il se télécharge en PDF à champs remplissables, en `.pptx` aux textes modifiables, ou en images PNG. Voir [Documents et posts pour les réseaux sociaux](documents.md).
+
+## Visuel {#visual}
+
+Un texte dessiné en un seul schéma — étapes, cycle, frise, comparaison, chiffres clés, graphique… Le modèle écrit le contenu et nomme une famille ; la mise en page de Mocky le dessine, donc la famille se change sans appel au modèle. Voir [Visuels](visuals.md).
 
 ## Campagne {#campaign}
 

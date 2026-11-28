@@ -34,6 +34,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { Button, ButtonLink, Icon, IconButton, Modal } from './ui'
 import { useT, type TranslationKey } from './i18n'
 import { navigationHold } from './lib/navigationHold'
+import { DOCS_URL } from './lib/docsUrl'
 
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'media'
 
@@ -119,15 +120,6 @@ function clearReconcileReloadMark(): void {
   }
 }
 
-/**
- * Where the documentation lives.
- *
- * Its own host, and deliberately so: the docs are a separate static resource
- * that serves Markdown read straight from the repository, with no build step
- * and nothing in common with this application's deployment.
- */
-const DOCS_URL = 'https://mocky-docs.emanuelvigreux.fr'
-
 export default function App() {
   /**
    * A share link short-circuits the whole application.
@@ -170,6 +162,7 @@ function MockyApp() {
     restoreProjectVersion,
     setProjectScenarios,
     setProjectCampaign,
+    setProjectIllustration,
     setProjectPublication,
     setProjectUseBrand,
     setProjectCreative,
@@ -942,6 +935,7 @@ function MockyApp() {
             onReviewChanged={() => void reviewStates.refresh()}
             onSetScenarios={(scenarios) => setProjectScenarios(activeProject.id, scenarios)}
             onSetCampaign={(campaign) => setProjectCampaign(activeProject.id, campaign)}
+            onSetIllustration={(illustration) => setProjectIllustration(activeProject.id, illustration)}
             onSetPublication={(publication) => setProjectPublication(activeProject.id, publication)}
             onSetUseBrand={(on, brandId) => setProjectUseBrand(activeProject.id, on, brandId)}
             onSetCreative={(on) => setProjectCreative(activeProject.id, on)}

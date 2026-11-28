@@ -129,6 +129,15 @@ export const ULTRA_CSS = [
   '.u-backdrop{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}',
   '.u-backdrop-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:u-kenburns 30s ease-in-out infinite alternate}',
   '.u-backdrop-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
+  // The film slot while its film is still being made (Preview's "film-pending"):
+  // a sheen over the section and, in a corner, what is happening. Never in a
+  // capture — the capture shell is never told.
+  '.u-backdrop-pending{position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.10) 50%,transparent 70%);background-size:250% 100%;animation:u-pending-sheen 2.4s linear infinite}',
+  '.u-backdrop-pending-card{position:absolute;right:24px;bottom:24px;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:rgba(10,10,14,.72);color:#fff;font:600 13px/1.3 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25)}',
+  '.u-backdrop-pending-card i{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:u-pending-spin .9s linear infinite}',
+  '@keyframes u-pending-sheen{from{background-position:120% 0}to{background-position:-120% 0}}',
+  '@keyframes u-pending-spin{to{transform:rotate(360deg)}}',
+  '.u-still .u-backdrop-pending,.u-still .u-backdrop-pending-card i{animation:none}',
   '.u-backdrop-layer{position:absolute;inset:0}',
   '.u-blob{position:absolute;width:60%;aspect-ratio:1;border-radius:50%;filter:blur(80px);opacity:.55;mix-blend-mode:screen;animation:u-drift 22s ease-in-out infinite alternate}',
   '.u-blob-1{background:var(--u-a);top:-20%;left:-10%}',
@@ -230,6 +239,23 @@ function Backdrop(props) {
     (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
   var ref = React.useRef(null);
 
+  /* A film slot whose film is still being made says so, in the slot itself:
+     the screen is finished and given back before its film is (newScreen.ts,
+     deferFilm), and the section must not read as a section without one. The
+     words come from the canvas, never from the code. */
+  var filmSlot = p.slot === 'film' && !video && !capture;
+  var pendingState = React.useState(function () {
+    return filmSlot && typeof window !== 'undefined' && typeof window.__mockyFilmPending === 'string' ? window.__mockyFilmPending : null;
+  });
+  var pending = pendingState[0], setPending = pendingState[1];
+  React.useEffect(function () {
+    if (!filmSlot) return undefined;
+    function read() { setPending(typeof window.__mockyFilmPending === 'string' && window.__mockyFilmPending ? window.__mockyFilmPending : null); }
+    read();
+    window.addEventListener('mocky-film-pending', read);
+    return function () { window.removeEventListener('mocky-film-pending', read); };
+  }, [filmSlot]);
+
   /* The spotlight follows the cursor, read from the window: in a hero the
      headline is on top of the backdrop, and a backdrop that only answered when
      hovered directly would never answer at all. */
@@ -270,6 +296,10 @@ function Backdrop(props) {
   }
   if (veil > 0) layers.push(React.createElement('div', { key: 'veil', className: 'u-backdrop-veil', style: { opacity: veil } }));
   if (p.grain !== false) layers.push(React.createElement('div', { key: 'grain', className: 'u-grain-layer' }));
+  if (filmSlot && pending) {
+    layers.push(React.createElement('div', { key: 'pending', className: 'u-backdrop-pending' }));
+    layers.push(React.createElement('div', { key: 'pending-card', className: 'u-backdrop-pending-card' }, React.createElement('i'), pending));
+  }
 
   return React.createElement(
     'div',
