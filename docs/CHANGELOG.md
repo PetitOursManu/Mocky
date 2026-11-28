@@ -36,6 +36,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 | — | délais d'attente par modèle (×3 pour le forfait gratuit) + liste des projets partagés entre comptes | `0d065ee` |
 | `text` | réflexion désactivée par défaut sur le profil du forfait gratuit | `32c0175` |
 | `admin` | liste par compte pour la génération d'images par IA | `b1e07c0` |
+| `sprixy` | les assets de jeu Sprixy de la personne dans ses designs | `c278e46` |
 | `composer` | mode Auto — Jev choisit les options de chaque nouvel écran | `3a1c0a7` |
 | `admin` | utilisateurs gérés par Kosmy Board (kosmy.board-users.v1) | `3ef804c` |
 | `fonts` | Noto Sans JP et Noto Serif SC, surcoût du brief annoncé au composeur | `7d965bb` |
