@@ -8,7 +8,7 @@
 // ready, so no frame is captured with an empty box where the icon should be.
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import lottie from 'lottie-web'
-import { continueRender, delayRender, useCurrentFrame, useVideoConfig } from 'remotion'
+import { continueRender, delayRender, useCurrentFrame, useVideoConfig } from './clock.js'
 import { iconFrame, recolourLottie } from './blocks/media.js'
 import { LOTTIE_ICONS } from './lottieIcons.js'
 

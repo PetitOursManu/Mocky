@@ -47,4 +47,20 @@ describe('a chosen level of thinking', () => {
     expect(publicTextConfig(cfg).generation.reasoning).toBe('high')
     expect(mergeTextConfig(cfg, { generation: { provider: 'openai' } }).generation.reasoning).toBe('high')
   })
+
+  it('the free profile starts with thinking off, and an administrator can still choose', () => {
+    const fresh = mergeTextConfig({}, {
+      generation: { provider: 'openai', openai: { apiKey: 'k' } },
+      free: { provider: 'ollama-cloud', 'ollama-cloud': { apiKey: 'k' } },
+    })
+    expect(resolveTextTarget(fresh, 'free').reasoning).toBe('off')
+    expect(publicTextConfig(fresh).free.reasoning).toBe('off')
+    // A profile saved before the level existed reads as the profile's default.
+    expect(resolveTextTarget({ free: { provider: 'ollama-cloud' } }, 'free').reasoning).toBe('off')
+    expect(resolveTextTarget(fresh).reasoning).toBeUndefined()
+    // `auto` is a choice like any other: stored, and kept.
+    const chosen = mergeTextConfig(fresh, { free: { reasoning: 'auto' } })
+    expect(resolveTextTarget(chosen, 'free').reasoning).toBeUndefined()
+    expect(mergeTextConfig(chosen, { free: { provider: 'ollama-cloud' } }).free.reasoning).toBe('auto')
+  })
 })

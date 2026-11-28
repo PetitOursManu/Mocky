@@ -82,14 +82,19 @@ describe('the hold is always released', () => {
 
   it('is dropped on success, failure and abort alike', () => {
     // `motionStageDone` is the single exit of the Motion path and runs from
-    // three finallys. If the release moves out of it, this fails.
-    expect(projectView).toMatch(/function motionStageDone\(\)[\s\S]{0,400}?releaseNavigation\(\)/)
+    // three finallys; a film made after its screen drops its claim in the
+    // task's own finally. If either release moves out, this fails.
+    expect(projectView).toMatch(/function motionStageDone\(\)[\s\S]{0,400}?dropNavigation\(\)/)
     expect((projectView.match(/motionStageDone\(\)/g) || []).length).toBeGreaterThanOrEqual(3)
+    expect(projectView).toMatch(/function deferFilm[\s\S]{0,400}?\.finally\([\s\S]{0,200}?dropNavigation\(\)/)
   })
 
   it('is taken only where the work actually starts', () => {
     // One claimant. Two would race, and the loser would release a hold the
-    // winner still needed.
+    // winner still needed — so there is ONE holdNavigation, behind a count that
+    // a Motion stage and a deferred film both go through.
     expect((projectView.match(/holdNavigation\(/g) || []).length).toBe(1)
+    expect(projectView).toMatch(/function claimNavigation\(\)[\s\S]{0,200}?navHolders\.current === 1\) holdNavigation\(/)
+    expect(projectView).toMatch(/function dropNavigation\(\)[\s\S]{0,200}?navHolders\.current === 0\) releaseNavigation\(\)/)
   })
 })

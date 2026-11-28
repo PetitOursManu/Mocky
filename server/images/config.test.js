@@ -11,6 +11,7 @@ import {
   resolveImageProfile,
   videoAccessFor,
   stockImagesAccessFor,
+  generatedImagesAccessFor,
   PROVIDER_IDS,
   IMAGE_PROFILES,
   EDIT_PROVIDER_IDS,
@@ -330,5 +331,25 @@ describe('free stock photos, per account', () => {
   it('an allowlist with nobody on it closes the feature to everyone', () => {
     const cfg = mergeImagesConfig(defaultImagesConfig(), { stockImages: { access: { mode: 'allowlist', userIds: [] } } })
     expect(stockImagesAccessFor(cfg, { id: 'alice' })).toBe(false)
+  })
+})
+
+describe('generated pictures, per account', () => {
+  it('is open by default, and an allowlist is kept across an unrelated patch', () => {
+    let cfg = defaultImagesConfig()
+    expect(generatedImagesAccessFor(cfg, { id: 'alice' })).toBe(true)
+    // A config saved before the list existed has no `generatedImages` at all.
+    expect(generatedImagesAccessFor({}, { id: 'alice' })).toBe(true)
+    cfg = mergeImagesConfig(cfg, { generatedImages: { access: { mode: 'allowlist', userIds: ['alice'] } } })
+    cfg = mergeImagesConfig(cfg, { stockImages: { access: { mode: 'all' } } })
+    expect(generatedImagesAccessFor(cfg, { id: 'alice' })).toBe(true)
+    expect(generatedImagesAccessFor(cfg, { id: 'bob' })).toBe(false)
+    expect(generatedImagesAccessFor(cfg, { id: 'root', role: 'admin' })).toBe(false)
+    expect(publicImagesConfig(cfg).generatedImages.access).toEqual({ mode: 'allowlist', userIds: ['alice'] })
+  })
+
+  it('the free plan refuses whatever the list says', () => {
+    const cfg = defaultImagesConfig()
+    expect(generatedImagesAccessFor(cfg, { id: 'alice', plan: 'free' })).toBe(false)
   })
 })

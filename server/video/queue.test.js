@@ -60,6 +60,19 @@ describe('running a job', () => {
     expect(journal().jobs[0]).toMatchObject({ id: job.id, status: 'done', timeline: TIMELINE })
   })
 
+  it('keeps the worker’s look at the film on the job, and in the journal', async () => {
+    const checks = { seconds: 6, issues: [{ kind: 'frozen', from: 2, to: 5 }] }
+    const q = new VideoQueue({ dataDir: dir, render: async () => ({ videoHash: 'f'.repeat(64), checks }) })
+    const job = q.enqueue({ userId: 'u1', timeline: TIMELINE })
+    await q.whenIdle()
+    expect(job.checks).toEqual(checks)
+    expect(journal().jobs[0].checks).toEqual(checks)
+    const plain = new VideoQueue({ dataDir: dir, render: async () => ({ videoHash: 'f'.repeat(64) }) })
+    const other = plain.enqueue({ userId: 'u1', timeline: TIMELINE })
+    await plain.whenIdle()
+    expect('checks' in other).toBe(false)
+  })
+
   /**
    * The defect: an export nothing could find.
    *

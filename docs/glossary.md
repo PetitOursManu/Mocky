@@ -40,6 +40,10 @@ What kind of screen the next generation is — a dashboard, a planning, a pricin
 
 A screen made of pages of a fixed size — a flyer, a report, a résumé, a social media post — rather than a page laid out for a viewport. It downloads as a PDF with fillable fields, a `.pptx` with editable text, or PNG images. See [Documents and social posts](documents.md).
 
+## Visual {#visual}
+
+A text drawn as one diagram — steps, a cycle, a timeline, a comparison, key figures, a chart… The model writes the content and names a family; Mocky's own layout draws it, so the family can be switched with no model call. See [Visuals](visuals.md).
+
 ## Campaign {#campaign}
 
 One brief made into several documents at once — a poster, a flyer, a post, a story — each composed for its own format, sharing the key facts, the art direction and the pictures. A project is a campaign; change a fact and you choose which pieces to update. See [Campaign Studio](campaign.md).

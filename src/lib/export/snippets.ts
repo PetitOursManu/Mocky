@@ -34,6 +34,8 @@ import { DocumentSource, DOCUMENT_EXPORTS } from '../capabilities/snippets/Docum
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from '../capabilities/snippets/ShapeFrame'
 import { FlowSource, FLOW_EXPORTS } from '../capabilities/snippets/Flow'
 import { OrnamentSource, ORNAMENT_EXPORTS } from '../capabilities/snippets/Ornament'
+import { HandwritingSource, HANDWRITING_EXPORTS, HANDWRITING_FONTS } from '../capabilities/snippets/Handwriting'
+import { VisualSource, VISUAL_EXPORTS } from '../capabilities/snippets/Visual'
 import { InteractSource, INTERACT_EXPORTS } from '../capabilities/snippets/Interact'
 import { Interact3DSource, INTERACT3D_EXPORTS } from '../capabilities/snippets/Interact3D'
 import { cnSource } from '../capabilities/snippets/cn'
@@ -143,6 +145,40 @@ export function scene3dJsx(withThree: boolean): string {
   return packJsx(Scene3DSource, SCENE3D_EXPORTS, head)
 }
 
+/**
+ * src/components/ui/handwriting.jsx — `<Handwriting text font>`.
+ *
+ * Same arrangement as `scene3dJsx`: the component reads `window.MockyTegaki`
+ * (in Mocky, one vendored script and a font file per font), so the export puts
+ * an equivalent there — `textToSvg` from the `tegaki` package and a `loadFont`
+ * that imports each font lazily, so a project pays for the fonts its screens
+ * write in. Without the package (no screen writes by hand) `MockyTegaki` is
+ * absent and the component sets its words in a cursive face, unanimated.
+ */
+export function handwritingJsx(withTegaki: boolean): string {
+  const loaders = HANDWRITING_FONTS.map((f) => `  ${JSON.stringify(f)}: () => import('tegaki/fonts/${f}'),`).join('\n')
+  const head = withTegaki
+    ? `import { textToSvg } from 'tegaki/core'
+
+/* The component reads window.MockyTegaki — in Mocky, a vendored script. Tegaki is MIT (https://github.com/gkurt/tegaki); its fonts are SIL OFL 1.1 (Hershey Script: the Hershey fonts' terms). */
+const FONTS = {
+${loaders}
+}
+if (typeof window !== 'undefined') {
+  window.MockyTegaki = {
+    textToSvg,
+    loadFont: (id) => (FONTS[id] ? FONTS[id]().then((m) => m.default) : Promise.reject(new Error('Unknown handwriting font: ' + id))),
+  }
+}
+`
+    : `
+/* No screen in this project writes by hand, so tegaki is not a dependency and
+   <Handwriting> sets its words in a cursive face. To turn it on: npm i tegaki,
+   then put textToSvg and a loadFont on window.MockyTegaki here. */
+`
+  return packJsx(HandwritingSource, HANDWRITING_EXPORTS, head)
+}
+
 /** src/components/ui/scrollvideo.jsx — `<ScrollSequence>`, a scroll-driven image sequence. */
 export function scrollVideoJsx(): string {
   return packJsx(ScrollVideoSource, SCROLLVIDEO_EXPORTS)
@@ -208,6 +244,15 @@ export function ornamentsJsx(): string {
 }
 
 /**
+ * src/components/ui/visuals.jsx — `<Visual family doc>`, a text as a diagram.
+ * Plain React and the same layout arithmetic as in Mocky; its icons are the
+ * exported icon pack's, imported here because in Mocky they are a global.
+ */
+export function visualsJsx(): string {
+  return packJsx(VisualSource, VISUAL_EXPORTS, "import { Icon } from './icons'")
+}
+
+/**
  * src/components/ui/flow.jsx — `useFlowState`, `MockyFlow`, `<FlowLink>`.
  *
  * In an exported project every screen is a component of ONE page, so the
@@ -244,7 +289,7 @@ export interface UiFile {
  * not exist. `project.test.ts` derives the expected list from `CAPABILITIES`
  * instead of trusting this one.
  */
-export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
+export function uiFiles(opts: { three?: boolean; tegaki?: boolean } = {}): UiFile[] {
   const pack = (id: string, content: string, exports: readonly string[]): UiFile[] => [
     { path: `src/components/ui/${id}.jsx`, content },
     { path: `src/components/ui/${id}.d.ts`, content: packDts(exports) },
@@ -263,6 +308,8 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('document', documentJsx(), DOCUMENT_EXPORTS),
     ...pack('frames', framesJsx(), SHAPEFRAME_EXPORTS),
     ...pack('ornaments', ornamentsJsx(), ORNAMENT_EXPORTS),
+    ...pack('handwriting', handwritingJsx(opts.tegaki === true), HANDWRITING_EXPORTS),
+    ...pack('visuals', visualsJsx(), VISUAL_EXPORTS),
     ...pack('flow', flowJsx(), FLOW_EXPORTS),
     ...pack('interact', interactJsx(), [...INTERACT_EXPORTS, ...INTERACT3D_EXPORTS]),
   ]

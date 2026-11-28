@@ -374,7 +374,8 @@ export class VideoQueue {
         })
       } else {
         const hash = outcome.value?.videoHash
-        this._finish(job, { videoHash: typeof hash === 'string' && hash ? hash : null })
+        const checks = outcome.value?.checks
+        this._finish(job, { videoHash: typeof hash === 'string' && hash ? hash : null, checks: checks && typeof checks === 'object' ? checks : null })
       }
     } catch (err) {
       this._finish(job, { error: err instanceof Error ? err.message : String(err) })
@@ -385,11 +386,14 @@ export class VideoQueue {
     }
   }
 
-  _finish(job, { videoHash = null, error = null }) {
+  _finish(job, { videoHash = null, error = null, checks = null }) {
     job.status = error ? 'error' : 'done'
     job.finishedAt = this.now()
     job.error = error
     job.videoHash = videoHash
+    // Only when there was a look to report: a job finished before this field,
+    // or by a worker that could not look, carries none.
+    if (checks) job.checks = checks
     this._trim()
     this._write()
   }

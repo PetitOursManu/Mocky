@@ -213,6 +213,7 @@ export const BLOCK_LIMITS = {
   highlight: 90,
   highlightMark: 40,
   typewriter: 120,
+  handwriting: 40,
   listItem: 60,
   listItems: 6,
   counterTo: 1000000,
@@ -420,7 +421,7 @@ export const ICON_NAMES = [
  */
 export const BLOCK_FAMILIES = {
   text: ['heading', 'kicker', 'quote', 'textHighlight', 'funTitle'],
-  animatedText: ['typewriter', 'animatedList', 'counter', 'logoType'],
+  animatedText: ['typewriter', 'handwriting', 'animatedList', 'counter', 'logoType'],
   interface: ['button', 'form', 'notification', 'lowerThird'],
   /**
    * `globe` and `solidChart` are here rather than in `setPiece`, and the choice
@@ -507,6 +508,18 @@ export const BLOCK_KINDS = [
  * offset. No path, no shader, no glyph outline.
  */
 export const FUN_TITLE_TREATMENTS = ['arc', 'bounce', 'stretch', 'swap', 'stack'] as const
+
+/**
+ * The hands a `handwriting` block writes in — Tegaki's Latin fonts, the same
+ * five a page's `<Handwriting>` offers (`snippets/Handwriting.ts`).
+ *
+ * A name and never a font file or a stroke: the strokes are Tegaki's, traced
+ * from the font, and the worker reveals them in the pen's order. Three of the
+ * five carry unaccented letters only, so a line one of them cannot write whole is
+ * written in `ems-allure` by the worker — the document is never refused for an
+ * accent, which a model writing French would hit on every second word.
+ */
+export const HANDWRITING_HANDS = ['parisienne', 'caveat', 'italianno', 'ems-allure', 'hershey-script'] as const
 
 /**
  * What a `solidScene` draws. Four solids, and no wireframe.
@@ -1090,6 +1103,11 @@ export const TypewriterBlockSchema = block('typewriter', {
   caret: z.boolean().default(true),
 })
 
+export const HandwritingBlockSchema = block('handwriting', {
+  text: line(BLOCK_LIMITS.handwriting),
+  hand: z.enum(HANDWRITING_HANDS).default('parisienne'),
+})
+
 export const AnimatedListBlockSchema = block('animatedList', {
   items: z.array(line(BLOCK_LIMITS.listItem)).min(1).max(BLOCK_LIMITS.listItems),
   marker: z.enum(['numeral', 'rule', 'dot']).default('numeral'),
@@ -1619,6 +1637,7 @@ export const BlockSchema = z.discriminatedUnion('kind', [
   TextHighlightBlockSchema,
   FunTitleBlockSchema,
   TypewriterBlockSchema,
+  HandwritingBlockSchema,
   AnimatedListBlockSchema,
   CounterBlockSchema,
   LogoTypeBlockSchema,

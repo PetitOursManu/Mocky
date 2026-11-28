@@ -10,6 +10,39 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `motion` | une sorte « ouverture » sans mots pour Vidéo · Motion, et Créations à l'accueil | `184d4f2` |
+| `composeur` | « Schémas » toujours visible, grisé avec la raison quand il ne s'applique pas | `9304d23` |
+| `composeur` | Schémas, Jev qui choisit type et vidéo, film en décalé, Améliorer qui connaît Mocky | `789b1e6` |
+| `documents` | les captures App Store et Google Play, aux tailles exactes | `c748a9c` |
+| `video` | le film est regardé une fois rendu — vide, délavé, figé | `be226ec` |
+| `muse` | trois directions artistiques au choix, avant le premier écran | `c69af54` |
+| `visuels` | une entrée animée dans l'ordre du contenu, et un flux le long des liens | `993c83f` |
+| `mcp` | un plugin Codex téléchargeable depuis les Réglages | `805f5db` |
+| `video` | un bloc handwriting écrit quelques mots à la main dans un film | `876505f` |
+| `écriture` | Tegaki écrit à la main dans les écrans et dans le chargement | `a0e1d33` |
+| `video` | HyperFrames devient le moteur des films, Remotion passe en repli | `6270905` |
+| `remerciements` | une page de remerciements dans les Réglages et dans la doc | `93ae2c8` |
+| `parcours` | choisir le nombre d'écrans à créer depuis un écran existant | `205c0e6` |
+| — | palette et pipette dans le panneau Style, parcours depuis un écran existant | `15e11dc` |
+| — | schémas sur demande dans les documents, composeur qui ne coupe plus ses boutons, palette de couleurs | `87fb422` |
+| `visuels` | route en lacets, de grands virages du haut au bas du cadre | `2a86616` |
+| `visuels` | le verre devient du glassmorphism, le néon une enseigne lumineuse | `74dbb9e` |
+| `visuels` | route sinueuse aux virages arrondis et rendu néon | `dbca5ed` |
+| `visuels` | rendus au choix — plat, relief, 3D CSS, verre, dégradé | `f6a1043` |
+| `visuels` | 24 familles de plus (44), choisies d'après Napkin, SmartArt, AntV et Mermaid | `e08d409` |
+| `visuels` | phase 3 — outils MCP, déclinaison sans modèle, liaisons modifiables | `694f4c3` |
+| `visuels` | phase 2 — illustrer un texte, six familles, visuels dans les autres types | `a9f088d` |
+| `visuels` | un texte mis en schéma, en 14 familles, sans dessin du modèle | `676fb78` |
+| `text` | réflexion désactivée par défaut sur le profil du forfait gratuit | `32c0175` |
+| `admin` | liste par compte pour la génération d'images par IA | `b1e07c0` |
+| `composer` | mode Auto — Jev choisit les options de chaque nouvel écran | `3a1c0a7` |
+| `admin` | utilisateurs gérés par Kosmy Board (kosmy.board-users.v1) | `3ef804c` |
+| `fonts` | Noto Sans JP et Noto Serif SC, surcoût du brief annoncé au composeur | `7d965bb` |
+| `interact` | passage de correction borné, documentation et invariants S1–S5 | `f73c952` |
+| `interact` | trace par génération, découpes signalées, retouches surveillées | `dc779b0` |
+| `interact` | objet qui voyage entre sections, contrôles après génération | `b1f7bb2` |
+| `interact` | 3D en CSS — pavés, caméra, murs en anneau | `d650a29` |
+| `interact` | socle des sites interactifs et médias imposés par le brief | `8317891` |
 | `admin` | barre de recherche dans tous les réglages | `af25a24` |
 | `muse` | Jev chez plusieurs fournisseurs | `1756add` |
 | `muse` | modèle de décision (Jev) et audit de projet | `2c92f9d` |
@@ -48,6 +81,11 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `video` | séquences chargées 6 images à la fois, films Motion plus riches | `4100ab9` |
+| `visuels` | les infos deviennent le schéma, à la taille de la page et dans la direction | `6970121` |
+| `visuels` | des étapes en colonne quand la largeur manque | `d5993aa` |
+| `visuels` | clôture de la phase 1 après essais dans l'application | `0cc9973` |
+| `sync` | la copie d'un navigateur ne se fusionne plus dans le compte d'un autre | `cbe6011` |
 | `capture` | le code généré ne partage plus l'origine de Mocky | `889884a` |
 | `animations` | « Ajouter des animations » n'utilise plus le pack retiré | `b5672cd` |
 | `muse` | la référence liée survit à un modèle sans vision et guide l'aspect | `7048753` |
@@ -61,6 +99,8 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `visuels` | README, index, interface et glossaire | `fa0d2cd` |
+| `admin` | documenter les utilisateurs gérés par Kosmy Board | `fe49407` |
 | `readme` | audit de projet, modèle de décision et recherche Admin | `eb7b45f` |
 | `auth` | documenter la connexion avec Kosmy Board | `7840c72` |
 | `readme` | présenter les fonctionnalités ajoutées depuis novembre | `11728f3` |

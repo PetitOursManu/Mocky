@@ -42,6 +42,8 @@ account makes for itself, read-only or read and write.
 | `translate_screen` | A [translated copy](interface.md#the-screen-context-menu) of a screen in `language` (fr, en, es, de, it, pt, nl, pl, sv, da, ca), placed right of it; the original does not change and only the words do. |
 | `fill_fields` | New values in a screen's [fields to fill](templates.md#screens-to-fill-in), by field name, in `rows`: one row is one filled copy beside the screen (`into: "here"` fills the screen itself, revertible), several rows a [series](templates.md#a-series-from-a-table), one copy each. No model is called; a picture field takes an `image_id` from `add_image`. A screen without fields is refused, with how to choose them. |
 | `write_publication_pack` | For a campaign project: the [publication pack](campaign.md#publication-pack) — a caption with hashtags for Instagram, Facebook and LinkedIn and a text alternative per piece, in one model call — kept in the campaign and handed back to the assistant. |
+| `create_visual` | A [visual](visuals.md) of a text — its ideas as steps, a timeline, a comparison, key figures, a chart… — in a new project. The text is passed as written; a figure it does not give is taken out. |
+| `list_visual_families` | The shapes a visual can take and what each is for. Changes nothing. |
 | `check_document` | The [pre-export check](documents.md#checking-before-you-export) of a document: picture sharpness, margins and safe zones, bleed, cut text, QR codes, what Canva flattens. Changes nothing, calls no model. |
 
 And seven prompts (the "/" menu in Claude), each a starting message that already
@@ -364,6 +366,19 @@ Import it in Claude under *Customize → Skills*, or unzip it into
 connector serves, so the two cannot teach different things; download it again
 after an update to get the newer one.
 
+**The Codex plugin, optional and free.** Below it, **Download the plugin (.zip)**
+gives the same guide AND the connector, as a plugin for Codex and the ChatGPT
+desktop app (`server/mcp/codex-plugin.js`). The zip is a small local marketplace
+(`mocky-codex/`): add it with `codex plugin marketplace add /path/to/mocky-codex`
+— or copy its `.agents` and `plugins` folders, side by side, into your home folder
+and restart the desktop app — then install **Mocky** from the Plugins Directory.
+It signs in to your account the first time it is used, through the same consent
+page as any other assistant; it carries this instance's address and no secret.
+It has both manifests OpenAI reads — the portable `plugin.json` with `mcp.json`,
+and the older `.codex-plugin/plugin.json` with `.mcp.json` — generated from one
+set of values. Offered only where the connector has a public HTTPS address: a
+plugin is that address.
+
 Then, in every case:
 
 1. Ask for a design. The first time, the assistant opens Mocky. Sign in if asked.
@@ -384,7 +399,7 @@ maintenance.
 
 | Level | What it reaches |
 |---|---|
-| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `audit_design`, `audit_project`, `search_free_images`, `search_sprixy_assets` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
+| **Read-only** | `mocky_guide`, `list_projects`, `get_project`, `get_design`, `get_screenshot`, `export_screen`, `check_document`, `list_templates`, `list_visual_families`, `audit_design`, `audit_project`, `search_free_images`, `search_sprixy_assets` — the tools that change nothing in the account. Every other tool is neither listed nor callable, `search_free_images`, `search_sprixy_assets` — the tools that change nothing in the account. Every other tool is neither listed nor callable, and no prompt is offered. |
 | **Read and write** | Every tool the account may use, as with an OAuth connection. |
 
 The read-only list is **closed**, in code (`server/mcp/levels.js`): a tool

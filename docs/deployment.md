@@ -676,6 +676,35 @@ send no CORS header and never redirect, and an administrator's action passes
 maintenance as it does in Admin. No password, key or client secret is ever
 returned; a password Mocky generates for an account is shown once.
 
+### Users managed by the Board
+
+The Board can also create, change and disable Mocky accounts (protocol
+`kosmy.board-users.v1`,
+[docs/users-api.md](https://github.com/PetitOursManu/Kosmy-Board/blob/main/docs/users-api.md)),
+with the same token and the same checks as the admin above — one `jti` store
+for both — and the same place in the chain (`server/board-admin/users.js`):
+
+```
+GET    /api/kosmy-board/users          roles, restrictions, linked accounts
+PUT    /api/kosmy-board/users/{sub}    create, link or update the account of {sub}
+DELETE /api/kosmy-board/users/{sub}    disable it
+```
+
+The roles are `admin` and `user`. The restrictions are only what Mocky already
+enforces per account: `plan` (`free` or `standard`, users only — read by every
+gate of the free plan) and, while the MCP access mode is the list,
+`assistants` (the account on that list or not). A `PUT` creates an account
+without a password, or links an unlinked one with the same e-mail, or updates
+it; an e-mail held by another Board-linked account is a `409`. A `DELETE` sets
+`disabled: true` on the account in `users.json` (no field means active, so no
+migration): its sessions and assistant connections and keys are revoked, and
+`sessionUser`, password sign-in, Dashy, Kosmy Board and the Board's admin all
+refuse it. A `PUT` clears it. Self-demotion, self-withdrawal and anything that
+would leave no active administrator are refused with a `409`. An ID token with
+`kosmy_board_access` is applied at sign-in like a `PUT`, without the e-mail link;
+a claim Mocky cannot apply refuses the sign-in (`reason=access`). The audit log
+records `user.provision` and `user.disable`.
+
 ---
 
 ## Coolify

@@ -844,6 +844,10 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       // scene somebody is looking at. A frame cannot arbitrate that — it sees
       // only itself — so the parent decides and this line is the whole of what
       // the frame does about it. <Scene3D> listens for the event.
+      if (d.__mockyCmd === 'film-pending') {
+        window.__mockyFilmPending = typeof d.label === 'string' && d.label ? d.label.slice(0, 120) : null;
+        try { window.dispatchEvent(new Event('mocky-film-pending')); } catch (e) {}
+      }
       if (d.__mockyCmd === 'gl') {
         window.__mockyGL = d.on !== false;
         try { window.dispatchEvent(new Event('mocky:gl')); } catch (_) {}
@@ -884,6 +888,7 @@ export default function Preview({
   onMarksInfo,
   pickStep,
   gl,
+  filmPending,
   retrying,
   onPick,
   onPickKey,
@@ -936,6 +941,13 @@ export default function Preview({
    * a test — is on its own and should simply work.
    */
   gl?: boolean
+  /**
+   * A Motion Ultra film is still being made for this screen: the words its
+   * film slot shows meanwhile (`<Backdrop slot="film">`, snippets/Ultra.ts).
+   * Posted to the frame, never written in the code — a capture or an export
+   * never shows it, and it is gone the moment the film is plugged in.
+   */
+  filmPending?: string | null
   /** Auto-fix is repairing a render error on this screen — show a calm "Repairing…" state instead of the red error banner. */
   retrying?: boolean
   onPick?: (info: PickInfo) => void
@@ -1364,7 +1376,8 @@ export default function Preview({
     // Undefined means granted — see the prop. The frame keeps the answer on
     // `window.__mockyGL` and `<Scene3D>` starts or stops on the event.
     win.postMessage({ __mockyCmd: 'gl', on: gl !== false }, '*')
-  }, [ready, pickMode, pickOutlineOnly, pickPrecise, pickMove, gl, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    win.postMessage({ __mockyCmd: 'film-pending', label: filmPending || null }, '*')
+  }, [ready, pickMode, pickOutlineOnly, pickPrecise, pickMove, gl, demoKey, filmPending]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const win = iframeRef.current?.contentWindow

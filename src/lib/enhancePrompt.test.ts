@@ -58,6 +58,36 @@ describe('buildEnhanceSystem', () => {
   })
 })
 
+describe('buildEnhanceSystem — what Mocky and this run can do', () => {
+  /** A festival flyer was briefed as an app screen: a navigation bar and "loading" states on paper. */
+  it('briefs a document as a document, with the facts as given and no app states', () => {
+    const sys = buildEnhanceSystem({ document: true })
+    expect(sys).toMatch(/printed or posted DOCUMENT/)
+    expect(sys).toMatch(/no loading or error states/)
+    expect(sys).toMatch(/Never invent a fact the request does not give/)
+    expect(sys).not.toMatch(/empty, loading, error, success/)
+  })
+
+  it('names what the generator can draw, and what it cannot', () => {
+    const sys = buildEnhanceSystem()
+    expect(sys).toMatch(/diagrams and infographics/)
+    expect(sys).toMatch(/cut into shapes/)
+    expect(sys).toMatch(/It cannot: play sound/)
+  })
+
+  it('leaves each part to the stage that makes it', () => {
+    const muse = buildEnhanceSystem({ muse: true })
+    expect(muse).toMatch(/writes the real copy/)
+    expect(muse).toMatch(/do not write the final slogans/)
+    expect(buildEnhanceSystem({ picturesOff: true })).toMatch(/never a photo/)
+    expect(buildEnhanceSystem({ diagrams: true })).toMatch(/DRAWN as diagrams/)
+    expect(buildEnhanceSystem({ ultra: true })).toMatch(/moving film background/)
+    expect(buildEnhanceSystem({ flows: true })).toMatch(/working prototype/)
+    expect(buildEnhanceSystem({ creative: true })).toMatch(/less expected composition/)
+    expect(buildEnhanceSystem()).not.toMatch(/THIS RUN:[\s\S]*research pass/)
+  })
+})
+
 describe('buildEnhanceUser', () => {
   it('fences the request as data', () => {
     const user = buildEnhanceUser('  un dashboard  ')

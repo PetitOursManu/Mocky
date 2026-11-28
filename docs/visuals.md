@@ -1,0 +1,297 @@
+---
+description: Paste a text, get a diagram of it — steps, a cycle, a timeline, a comparison, key figures or a chart — in your project's look, editable and exportable.
+badge: New
+---
+
+# Visuals
+
+A **visual** is a text turned into one diagram that shows its structure at a
+glance: the steps of a method, a cycle, the dates of a history, two options side
+by side, a few key figures, a chart. You write or paste the text; Mocky picks
+the shape and draws it in your project's colours and fonts.
+
+## Making one
+
+1. In the composer, choose the screen type **Visual** (in the documents).
+2. Paste or write your text. Nothing else is needed: no instruction on how to
+   draw it. You may still say "as a timeline" or "as a chart".
+3. Pick a size: 16:9 slide (the default), a square, portrait or landscape post,
+   or an A4 page.
+
+The generation reads the text for its structure, chooses a family, and writes
+the content once: a title, a subtitle, and one item per idea, with a short label
+and a sentence of detail. Muse does not run for a visual, even when it is on: a
+visual is drawn in the project's direction and needs no pictures, so the dossier
+would be a call for nothing.
+
+## The families
+
+| Family | For |
+|---|---|
+| Steps | A process done in order |
+| Cycle | A process that comes back to its start |
+| Timeline | Dates or phases |
+| Funnel | What narrows from stage to stage |
+| Pyramid | A hierarchy, top first |
+| Comparison | Two or three options, point by point |
+| Pros and cons | Advantages and drawbacks |
+| Matrix | A 2 × 2 grid and its two axes |
+| Hub | One central idea and what surrounds it |
+| Mind map | A topic, its branches and their points |
+| Flowchart | Paths, choices, loops |
+| Key figures | A few figures and what they measure |
+| Bars | Quantities to compare |
+| Donut | The shares of a whole |
+| Checklist | Things to do or to have |
+| Venn | Two or three sets and what they share |
+| SWOT | Strengths, weaknesses, opportunities, threats |
+| Before / after | A change from one state to another |
+| Tree | A hierarchy that branches (an org chart, a breakdown) |
+| Onion | Layers around a core |
+| Snake | A long process (six to twelve steps), in rows that turn back |
+| Staircase | A progression that climbs |
+| Converging | Several causes or inputs, one result |
+| Diverging | One source, several outcomes |
+| Equation | A few ingredients adding up to a result |
+| Decision tree | Yes/no questions down to their outcomes |
+| Customer journey | The stages, and how each one feels |
+| Fishbone | The causes of one problem (Ishikawa) |
+| Treemap | The parts of a whole, drawn to scale |
+| Layer stack | An architecture or a stack, layer by layer |
+| Concept map | Notions and their named links |
+| Force field | The forces for and against a change |
+| Positioning | Things placed on two axes (impact / effort…) |
+| Comparison table | Options × criteria, with ticks |
+| Radar | A profile scored on several axes |
+| Column chart | Quantities as columns |
+| Line chart | A trend over time |
+| Gauges | Rates of completion |
+| Pictogram | "7 out of 10" in icons |
+| Card grid | Equal points (benefits, features), with icons |
+| Gantt | A schedule with durations |
+| Roadmap | Milestones along a road |
+| Kanban | Work by status |
+| Zigzag list | Key points, left then right of a line |
+| Winding road | Milestones on a road that winds, every turn rounded |
+| Switchback road | A mountain road in wide bends, from the top of the frame to the bottom, the texts in the pockets it leaves |
+
+:::why
+The forty-six families were chosen from what the tools of this kind draw —
+Napkin, PowerPoint's SmartArt, the open-source AntV Infographic and Mermaid, the
+template galleries of draw.io and Miro — and kept where a business or teaching
+text actually takes that shape. Each is drawn by Mocky's own layout; none of
+their code is used.
+:::
+
+## Illustrating a long text
+
+:::why
+An article or a report section holds several ideas, and one diagram cannot say
+them all. Cutting it where the author already cut it — at the paragraphs — needs
+no model, and each piece then gets the visual that suits it.
+:::
+
+**Illustrate** in the canvas toolbar (or **Illustrate a text** under *Also make*)
+opens a panel. Paste the text or import a `.txt`, `.md` or `.docx` file: it is read
+in your browser and nothing is sent. The text is cut into blocks:
+
+- a paragraph is a block, and a heading (`# …` in Markdown, a Heading style in
+  Word) names the blocks under it rather than being one;
+- a list stays with the sentence that introduces it ("Three commitments:");
+- a fragment of a few words joins the block before it.
+
+Each block has **Make the visual**; **Illustrate all** makes the ones not made yet,
+in order, at the size you chose. Every visual is an ordinary screen of the
+project. A block already illustrated shows **Show**: the screen remembers the
+words it was made from, so adding a paragraph above does not mix them up. The
+text is kept with the project.
+
+## Visuals in other screens
+
+A report, a user guide, an article and the Instagram, LinkedIn and Facebook
+posts can also draw a visual for the part of their content that is a process, a
+comparison or a few key figures. Nothing to switch on: the generation is offered
+the same families and decides. **Visual…** works on those screens too.
+
+Every other printed or social document — a flyer, a poster, a menu, a magazine
+page — draws one **when you ask for it**: "un flyer avec un schéma des étapes",
+"a poster with a chart of the results", "add a diagram" in an edit. The words
+that count are *schéma*, *diagramme*, *infographie*, *graphique* (as a noun —
+"des graphiques", not "un style graphique"), *frise*, *organigramme*,
+*feuille de route*, and their English equivalents. Without them the brief stays
+as it was — or switch on **Diagrams** in the composer, which asks for them
+whatever the words; in Auto the decision model decides it.
+
+When you ask for diagrams, the information you give **becomes** the diagrams:
+the programme, the dates, the steps, the figures go into the visual instead of
+being written out as text beside it. A diagram never repeats what the page
+already says, is drawn only for information that has a structure (a sequence,
+parts of a whole, figures to compare), and gets a real share of the page — about
+a third of its height — rather than a strip at the foot.
+
+Inside a document, a visual never sets its type under the page's own floor: 14
+px for a line and 11 for a detail on paper, 28 and 24 on a post, 20 and 16 on a
+slide, 10 and 9 on a business card — the rule the page itself is written to.
+Short of room, it drops its details first and keeps its labels at that size.
+
+## Changing the shape without a new generation
+
+:::why
+The content does not depend on the family: the same items can be drawn as steps
+or as a cycle. So switching is writing one word in the screen's code, which costs
+nothing and keeps every word you had.
+:::
+
+Right-click the screen → **Visual…**. The families proposed for this content come
+first; the others follow. A family that cannot draw this content is greyed, with
+the reason: a chart needs a figure on every item, a matrix exactly four items, a
+comparison sub-points under each option. The same dialog switches the boxes
+between **Tinted**, **Filled** and **Outline**. **Undo** takes any change back.
+
+To change the words, edit the screen as usual: a sentence in the composer ("add a
+step after testing", "make it a timeline") rewrites the content like any other
+edit, or **Fill…** changes a value without a model.
+
+## Figures
+
+:::why
+A visual looks like a fact. A plausible figure the text never gave — a chart of
+a text that had no numbers — is worse there than in a paragraph.
+:::
+
+A visual shows only the figures your text gives. After the generation of a
+**Visual** screen, every
+figure in the visual is looked for in your text, under the forms a writer uses
+for it (1 200 and 1,2 k, 12 % and 0.12). One that cannot be found is taken out of
+the visual, its item kept, and a notice names it. Figures written in words
+("twelve") are not recognised: write them in digits.
+
+Positions are not figures: the score of a thing on a positioning chart, how a
+stage of a journey feels, the week a Gantt bar starts are read by the family and
+not checked against your text.
+
+This check is not run on a report or a post that draws a visual, nor after an
+edit: those pages are asked to invent realistic sample figures when you give
+none, and emptying their charts would be the wrong answer.
+
+## How it is drawn
+
+The model never draws the diagram. It names a family and writes the content;
+Mocky's own layout computes the boxes, the connectors and the type sizes, the
+same for every visual of a family:
+
+- every box of a visual uses one label size, the largest at which all of them
+  fit, and a detail is always smaller than its label;
+- a word is never cut in half: the type gets smaller instead, and the details go
+  before the labels when space runs out;
+- every text is measured against the colour it sits on and kept readable, with
+  your palette's colours tried first.
+
+## Exporting
+
+A visual is a document: it downloads as PNG, PDF, SVG or PowerPoint like any
+other ([Downloading](documents.md#downloading)). Its boxes are drawn as page
+elements, not as one picture, so **Everything as separate elements** in the
+PowerPoint export gives each box back as a shape and each label as a text box.
+A straight connector (a step's arrow, a timeline's axis, a tree's branches) is a
+thin shape too; only curved connectors, arrow tips and the donut come out as
+pictures.
+
+## Colours and rendering
+
+:::why
+A diagram for a playful brand, a dark slide and a sober report should not look
+alike. The family says the structure; the colours and the rendering say the
+tone, and both are separate from it, so neither costs the content anything.
+:::
+
+The colours are your project's, or the ones your request names ("in blue and
+orange", "on a dark background"): the generation passes them to the visual, and
+every text is then measured against its surface and kept readable.
+
+The **rendering** is chosen the same way, from the request and the project's
+direction, and can be switched in **Visual…** → **Rendering** at no cost:
+
+| Rendering | What it draws |
+|---|---|
+| Flat | Plain boxes — sober, the default |
+| Raised | Boxes lifted on a solid edge, like keys |
+| 3D | Fake 3D in CSS: boxes with a top and a side face, columns as cylinders, dots as spheres, a roadmap as a road with pins |
+| Glass | Glassmorphism: translucent panes lit from their edges, the background blurred through them, a soft glow of the colour |
+| Gradient | Soft gradients, always running away from the text's colour |
+| Neon | A neon sign: outlines and words glowing in saturated colours, connectors as tubes of light — on a dark background |
+
+A rendering moves nothing: the boxes keep their places and their text, which
+stays flat, readable and editable in PowerPoint. The faces of the 3D and the
+glass come out as pictures there.
+
+A visual also follows your direction's **corners** and **display typeface**:
+square boxes and bars under a direction that says `rounded-none`, its title,
+labels and figures in the direction's heading face. Mocky writes both on the
+visual after the generation (`radius`, `headingFont`) rather than asking the
+model to, and leaves alone a value already written there.
+
+In a project set to **Creative**, a diagram is asked not to look like an
+office-software chart: the most expressive family the content allows (a road for
+a plan, a staircase or a snake for steps, a funnel or a pyramid for levels, a hub
+for parts around a centre) rather than a row of boxes, a rendering that is not
+flat, strong colour fields and a real share of the page. A diagram the
+generation still leaves flat is given **3D** by Mocky — or **Glass** on a dark
+background. The palette, the typefaces and the figures do not change, and a
+rendering switched in **Visual…** afterwards stays yours.
+
+## Animation
+
+:::why
+On a web page, a diagram that builds itself in the order it is read says the
+order without a word — and a printed one has to be the finished diagram. So the
+movement is an entrance that ends on the still frame, and every path that makes
+a picture of a page simply never plays it.
+:::
+
+A visual on a **web page** (a landing page, an article, documentation) can move,
+switched in **Visual…** → **Animation** at no cost:
+
+| Animation | What it does |
+|---|---|
+| None | The visual is drawn as it is — the default |
+| Reveal | When the visual scrolls into view, the boxes arrive in the order of the content and each connector draws itself out of the box it leaves; bars grow out of their baseline |
+| Flow | The same entrance, then a short pulse keeps running along the connectors, to show which way a process, a cycle or a flowchart goes |
+
+The generation chooses it the same way as the rendering, and only on a web page:
+a document, a post or a slide is printed or exported, so it stays still. An
+entrance takes about a second and a half whatever the number of boxes.
+
+Nothing moves in a capture, an export, a screen held still (**Still** on the
+canvas), or on a device asking for reduced motion: they draw exactly the visual with no animation
+— the suite checks that the finished entrance and the still visual are the same
+boxes at the same places. The movement is CSS only (opacity, a small rise, a
+line growing), so it costs no script and no WebGL.
+
+## In another size
+
+:::why
+A visual measures the box it is given and lays itself out again, so the same
+content at another size is not a new design: it needs no model.
+:::
+
+**Visual…** → **Make it in another size** puts a copy beside the visual, in the
+size you pick (a square post, a portrait, A4…). The original does not change; the
+copy is an ordinary screen, to switch, edit or export on its own.
+
+## From an assistant
+
+With Mocky connected to Claude, ChatGPT or another assistant ([Mocky in your
+assistant](mcp.md)), `create_visual` makes a visual of a text in a new project,
+and `add_screen` with the type `visual` adds one to an existing project.
+`list_visual_families` tells the assistant what each family is for.
+
+## Limits
+
+- One visual per screen is the intended use; a screen may hold several, and the
+  dialog lists them.
+- The figures check reads the request you typed. A figure that came only from a
+  picture or a PDF you attached is not in that text, and is taken out.
+- A family draws at most a fixed number of items (twenty on a line chart, ten or
+  twelve on a timeline, a bar chart or a snake, eight in most others); the rest
+  are not drawn.

@@ -17,6 +17,7 @@ import ChimeSetting from './ChimeSetting'
 import BrandSection from './BrandSection'
 import KosmyBoardLink from './KosmyBoardLink'
 import SprixyLink from './SprixyLink'
+import CreditsSection from './CreditsSection'
 
 type TestState =
   | { status: 'idle' }
@@ -513,6 +514,8 @@ export default function SettingsPanel() {
 
         <ChimeSetting />
       </div>
+
+      <CreditsSection />
 
       <p className="mt-8 border-t border-line-soft pt-3 text-body-sm text-ink-muted">
         {t('settings.footerNote')}

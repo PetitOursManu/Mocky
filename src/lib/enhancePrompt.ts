@@ -30,24 +30,85 @@ export interface EnhanceContext {
   theme?: Pick<ScreenTheme, 'name'>
   /** A DESIGN.md direction is active, or Muse will write one: the look is not ours to describe. */
   directionDecided?: boolean
+  /*
+   * What the composer will run with. The brief is read by THAT pipeline, so it
+   * is written for it: a flyer briefed as an app screen asked for "loading and
+   * error states" and a navigation bar, and a brief that dictated headlines
+   * while Muse was about to write the real copy argued with it.
+   */
+  /** A fixed-size document to print or post (a flyer, a poster, a post…), not an app or a site. */
+  document?: boolean
+  /** Muse runs first: web research, the art direction, the real copy and the pictures. */
+  muse?: boolean
+  /** No new pictures will be made or found for this screen. */
+  picturesOff?: boolean
+  /** Motion Ultra: a storyboarded, picture-led page, a series of art-directed pictures. */
+  ultra?: boolean
+  /** The information is to be drawn as diagrams (the composer's "Schémas"). */
+  diagrams?: boolean
+  /** A working prototype: the pages the flow leads to are made too. */
+  flows?: boolean
+  /** Créatif: a bolder composition is wanted. */
+  creative?: boolean
 }
+
+/**
+ * What the generator can draw, said once so a brief asks for what exists, by
+ * what it shows — and never for what it cannot (sound, a live map, a real
+ * back-end), which comes back as a grey box.
+ */
+const CAN_DO = [
+  'What the generator can draw — ask for these by what they show, never by a library name:',
+  '- diagrams and infographics drawn from content: steps, a cycle, a timeline, a roadmap, a funnel, a pyramid, a comparison, pros and cons, a mind map, a hub, key figures, a bar or donut chart, a Gantt chart;',
+  '- charts for app data (line, bar, area, donut) on dashboards;',
+  '- pictures (provided by the generator: say what each picture SHOWS and where it goes, never a URL), also cut into shapes (an arch, a circle, a blob, a stamp);',
+  '- entrance and scroll animations, a moving background, a 3D object or field (a globe, waves, particles), a few words written by hand;',
+  '- interactive page elements: tabs, accordions, carousels, a draggable shelf, a product that follows the scroll;',
+  '- icons, a QR code placeholder, fillable form fields on a document.',
+  'It cannot: play sound, embed a third-party widget (a live map, a YouTube player, a social feed), or run a real back-end — describe a static stand-in instead.',
+].join('\n')
 
 /** Bounds of the rewrite, in words. Stated to the model; never enforced by cutting. */
 export const ENHANCE_MIN_WORDS = 120
 export const ENHANCE_MAX_WORDS = 220
 
 export function buildEnhanceSystem(ctx: EnhanceContext = {}): string {
-  const lines = [
-    'You rewrite a short request for ONE user-interface screen into a complete, specific brief. A UI generator will build the screen from your brief, so everything it needs must be in it.',
+  const lines = ctx.document
+    ? [
+        'You rewrite a short request for ONE printed or posted DOCUMENT — a flyer, a poster, a menu, a social media post, a set of store screenshots… — into a complete, specific brief. A document generator will lay it out on fixed-size pages from your brief, so everything it needs must be in it.',
+        '',
+        'Write the brief in the SAME language as the request (a French request gets a French brief).',
+        'Cover, in this order, whatever applies: what the document is for and who reads it; the blocks of each page from top to bottom and which one dominates; the facts exactly as the request gives them (dates, times, place, prices, names); the call to action as words; what each picture shows.',
+        'It is paper or an image, not an app: no navigation, no buttons to click, no hover, no loading or error states, no forms unless the request is a sign-up or a coupon.',
+        'Keep everything the request states and never change its subject. Never invent a fact the request does not give — a date, an address, a price, a figure: name the slot instead ("the date", "the address").',
+        'Never invent a brand, product or company name the request does not give. When it needs a name, refer to it generically ("the festival", "the restaurant").',
+      ]
+    : [
+        'You rewrite a short request for ONE user-interface screen into a complete, specific brief. A UI generator will build the screen from your brief, so everything it needs must be in it.',
+        '',
+        'Write the brief in the SAME language as the request (a French request gets a French brief).',
+        'Cover, in this order, whatever applies: the purpose of the screen and who uses it; the sections from top to bottom; the key components in each; realistic sample content (plausible names, figures, dates and labels — never lorem ipsum, never "Item 1"); the states worth showing (empty, loading, error, success) when the screen shows data or has a form; the main interactions.',
+        'Keep everything the request states and never change its subject. Add only what a competent product designer would assume for this kind of screen.',
+        'Never invent a brand, product or company name the request does not give. When the product needs a name, refer to it generically ("the app", "the shop").',
+      ]
+  lines.push(
     '',
-    'Write the brief in the SAME language as the request (a French request gets a French brief).',
-    'Cover, in this order, whatever applies: the purpose of the screen and who uses it; the sections from top to bottom; the key components in each; realistic sample content (plausible names, figures, dates and labels — never lorem ipsum, never "Item 1"); the states worth showing (empty, loading, error, success) when the screen shows data or has a form; the main interactions.',
-    'Keep everything the request states and never change its subject. Add only what a competent product designer would assume for this kind of screen.',
-    'Never invent a brand, product or company name the request does not give. When the product needs a name, refer to it generically ("the app", "the shop").',
+    CAN_DO,
+    '',
     `Length: ${ENHANCE_MIN_WORDS} to ${ENHANCE_MAX_WORDS} words.`,
     'Format: plain prose, or a short list with one item per line starting with "- ". No title, no markdown headings, no bold, no code, no code fences.',
     'Start directly with the brief itself. No preamble ("Here is…", "Voici…"), no quotation marks around it, no closing remark, no question to the user.',
-  ]
+  )
+  // What this run will do, so the brief leaves each part to the stage that makes it.
+  const run: string[] = []
+  if (ctx.muse) run.push('A research pass runs before the generator: it finds inspiration, writes the real copy (headlines, slogans) and plans the pictures. Give the facts and the role of each block; do not write the final slogans or headline wording, and do not describe the visual style.')
+  if (ctx.picturesOff) run.push('No pictures will be made or found: plan the layout with typography, colour blocks, shapes and icons, never a photo.')
+  else if (!ctx.muse) run.push('Pictures are made or found by the generator: say what each one shows and where it goes.')
+  if (ctx.diagrams) run.push('The information is to be DRAWN as diagrams: say which facts become which diagram (a programme as a timeline, steps as a process, figures as key numbers or a chart, a comparison) — the facts go in the diagram, not also as text beside it. Never invent a figure.')
+  if (ctx.ultra) run.push('This is a cinematic, picture-led page: a storyboard of full-bleed sections, each with an art-directed picture, and one section may carry a moving film background. Describe the sections and what each picture shows.')
+  if (ctx.flows) run.push('This is the first page of a working prototype: name the pages its links and forms lead to (an account, a cart, a confirmation…); they are made too.')
+  if (ctx.creative) run.push('A bold, less expected composition is wanted: describe a structure that allows it (an oversized headline, a full-bleed picture, an asymmetric layout), never a look.')
+  if (run.length) lines.push('', 'THIS RUN:', ...run.map((r) => `- ${r}`))
   if (ctx.formFactor) {
     lines.push('', `Form factor: ${ctx.formFactor}. Describe the layout for that device only; do not propose another one.`)
   }

@@ -49,6 +49,8 @@ export const READ_TOOLS = Object.freeze([
   'list_templates',
   // The pre-export check measures a document and writes nothing.
   'check_document',
+  // The catalogue of a visual's shapes: a constant, nothing of the account.
+  'list_visual_families',
 ])
 const readTools = new Set(READ_TOOLS)
 

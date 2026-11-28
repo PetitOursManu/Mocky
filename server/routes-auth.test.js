@@ -96,6 +96,8 @@ const GUARDED = [
   ['GET', '/api/images/deadbeef', 'a short hash is not a capability URL'],
   ['GET', '/api/mcp/status', ''],
   ['POST', '/api/muse/dossier', 'spends model tokens and can launch Chromium'],
+  ['POST', '/api/muse/directions', 'spends model tokens'],
+  ['POST', '/api/videos/from-film', 'cuts a film into the clip library: disk and ffmpeg'],
   ['POST', '/api/muse/audit', 'the judged half of the SEO/a11y report spends model tokens'],
   ['POST', '/api/text/vision', 'server-side fetch of a caller-supplied base URL'],
   ['GET', '/api/data', ''],

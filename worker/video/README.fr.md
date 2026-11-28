@@ -1,6 +1,14 @@
-# Mocky — worker de rendu Remotion
+# Mocky — worker de rendu vidéo
 
-> ### ⚠️ À lire avant de construire l'image
+Ce service rend les films avec **[HyperFrames](https://github.com/heygen-com/hyperframes)**
+(HeyGen, Apache-2.0), et garde **Remotion** en repli pour un film que HyperFrames
+n'a pas pu rendre (`engine.js` ; le raisonnement et les mesures sont dans
+`docs/fr/video-export.md`, « Deux moteurs »). Remotion est dans l'image par
+défaut. Construite avec `WITH_REMOTION=false` (un argument de build dans
+`docker-compose.yml`), elle ne le contient pas, le repli est coupé, et
+**l'avertissement ci-dessous ne vous concerne pas**.
+
+> ### ⚠️ À lire avant de construire une image AVEC Remotion (le cas par défaut)
 >
 > Ce service produit de la vidéo avec **[Remotion](https://www.remotion.dev/)**,
 > et Remotion **n'est pas gratuit pour tout le monde**.
@@ -254,15 +262,20 @@ Pour n'arrêter que le worker :
 docker compose --profile video-export stop video-worker
 ```
 
-En local, sans Docker (Node 22.12+ requis ; un build de Chrome est téléchargé au
-premier lancement) :
+En local, sans Docker (Node 22.12+, ffmpeg dans le PATH, et Linux pour la
+capture d'images de HyperFrames) :
 
 ```bash
 cd worker/video
 npm install
-npm run ensure-browser   # facultatif : server.js le fait au démarrage
-npm start                # écoute sur :3030
+npm run ensure-browser:hyperframes   # le navigateur auquel HyperFrames est épinglé
+npm start                            # écoute sur :3030
 ```
+
+`MOCKY_VIDEO_ENGINE=remotion` place Remotion en premier, et
+`MOCKY_VIDEO_FALLBACK=none` coupe le repli. Sans `PRODUCER_HEADLESS_SHELL_PATH`,
+Remotion télécharge son propre navigateur à la première utilisation, comme
+avant.
 
 Vérification :
 
@@ -289,8 +302,11 @@ ses attentes sont la spécification.
 ### `GET /health`
 
 ```json
-{ "ok": true, "version": "0.1.0" }
+{ "ok": true, "version": "0.1.0", "engines": ["hyperframes", "remotion"] }
 ```
+
+`engines` est l'ordre dans lequel un rendu les essaie ; un seul moteur, c'est un
+worker sans repli.
 
 Tout ce qui n'est pas un 200 signifie « indisponible » pour le panneau
 d'administration de Mocky. `version` est la version de ce paquet, et elle est
@@ -307,7 +323,9 @@ affichée à l'administrateur.
 ```
 
 Répond `200` avec les octets de la vidéo, un content-type vidéo, et
-`x-mocky-worker-composition` qui nomme la composition qui les a produits — c'est
+`x-mocky-worker-engine` qui nomme le moteur qui les a produits (`remotion` veut
+dire que HyperFrames a échoué et que le repli a rendu le film ; le journal du
+worker dit pourquoi), et `x-mocky-worker-composition` qui nomme la composition — c'est
 aussi ainsi qu'un conteneur resté sur une image plus ancienne se trahit dans une
 trace réseau. Les corps sont acceptés jusqu'à 80 Mo, parce que les images
 voyagent dans la requête plutôt que sous forme d'URL vers Mocky : ce conteneur
@@ -399,7 +417,10 @@ worker/video/
                        typographies, épinglés exactement. Jamais fusionnés dans ceux de Mocky
   Dockerfile           node:22-bookworm-slim + les bibliothèques de Chromium + ffmpeg
   .dockerignore        ce répertoire est son propre contexte de build
-  server.js            Express : GET /health, POST /render. N'importe aucun paquet Remotion
+  server.js            Express : GET /health, POST /render. N'importe aucun paquet de moteur
+  engine.js            le moteur essayé en premier, et le repli — jamais après un abandon
+  render.hyperframes.js  HyperFrames : esbuild assemble les compositions avec l'horloge
+                       de hyperframes/ à la place, le producer les rend
   server.test.js       le contrat HTTP, exécuté par la suite vitest de Mocky
   validate.js          ce que ce worker accepte de rendre, sans faire confiance à l'appelant
   validate.test.js     ce contrôle, et son accord avec server/video/timeline.js
@@ -407,6 +428,9 @@ worker/video/
   encoding.js          le tableau des codecs, et ce qu'on dit à chacun sur la qualité
   encoding.test.js     cet objet d'options — la seule part d'un rendu qu'un test vérifie
   remotion/
+    clock.js, clockCanvas.js   les deux seules portes entre une composition et un moteur
+    hyperframes/           le côté HyperFrames de ces portes, et l'entrée de la page
+    compositions.jsx       les compositions enveloppées, montées par les deux moteurs
     index.js               registerRoot — bundlé, jamais exécuté par Node
     Root.jsx               la liste des compositions ; six entrées, un calculateMetadata
     ImageSequenceVideo.jsx     slideshow  ⎫
@@ -452,3 +476,11 @@ que deux constructions du même commit embarquent le même moteur de rendu.
 
 Mettre à jour est un geste délibéré : passer les trois à la même version,
 reconstruire, et relire les termes de la licence pour cette version.
+
+`@hyperframes/producer` est lui aussi épinglé exactement, et il bouge avec le
+navigateur headless de `ensure-browser:hyperframes` dans `package.json` et de
+`PRODUCER_HEADLESS_SHELL_PATH` dans le Dockerfile : le moteur n'accepte que le
+build de Chrome avec lequel il a été publié. Le mettre à jour, c'est lire
+`PINNED_SHELL_DIGESTS` dans `@hyperframes/engine` pour la nouvelle version,
+changer les trois ensemble, et rendre de nouveau le corpus avec les deux moteurs
+avant de s'y fier.

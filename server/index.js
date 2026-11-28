@@ -42,7 +42,7 @@ import { SprixyStore, sprixyRouter, createSprixyClient } from './sprixy.js'
 import { cleanProjectId, costOf, createSpendLedger, dayOf, priceKey } from './admin/spend.js'
 import { fetchPrices } from './admin/prices.js'
 import { createLockout } from './auth-lockout.js'
-import { createDiskBudget } from './storage-quota.js'
+import { createDiskBudget, quotaError } from './storage-quota.js'
 import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
 import { createVersionStore } from './versions.js'
@@ -74,7 +74,8 @@ import { describeUserAgent, sessionId } from './admin/sessions.js'
 import { liveAnnouncement } from './admin/announcement.js'
 import { createDashboardRouter } from './admin/routes.js'
 import { adminView as kosmyBoardAdminView, createKosmyBoardRoutes, createOidcClient, settingsOf as kosmyBoardSettings } from './kosmy-board.js'
-import { BOARD_ADMIN_PATH, createBoardAdmin } from './board-admin/index.js'
+import { BOARD_ADMIN_PATH, createBoardAdmin, createJtiStore as createBoardJtiStore } from './board-admin/index.js'
+import { BOARD_USERS_PATH, createBoardUsers } from './board-admin/users.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -227,7 +228,10 @@ const videoQueue = new VideoQueue({
         durationMs: totalDurationMs(job.timeline),
       })
       activity.end(tracked, { status: 200 })
-      return { videoHash: stored.hash }
+      // The worker's look at the file (worker/video/qc.js), kept on the job so
+      // the panel can say before the download what a person would otherwise
+      // find after posting it.
+      return { videoHash: stored.hash, checks: out.checks ?? null }
     } catch (err) {
       activity.end(tracked, signal?.aborted ? { aborted: true } : { status: 502 })
       throw err
@@ -521,6 +525,9 @@ function setPassword(user, password) {
   user.passwordChangedAt = Date.now()
 }
 const publicUser = (u) => ({
+  // The account's own id, shown to the account itself: the browser marks its
+  // copy of the projects with it (src/lib/localOwner.ts).
+  id: u.id,
   username: u.username,
   role: u.role || 'user',
   // Which plan the account is on, so the composer can offer only what the
@@ -602,6 +609,9 @@ app.use((req, res, next) => {
 // every path under it, so nothing below (the SPA fallback included) ever does.
 // `boardAdmin` is created at the end of this file, once the stores it reads exist.
 app.use(BOARD_ADMIN_PATH, (req, res) => boardAdmin.handle(req, res))
+// The users the Board manages (server/board-admin/users.js, kosmy.board-users.v1):
+// the same token, the same place in the chain, for the same reasons.
+app.use(BOARD_USERS_PATH, (req, res) => boardUsers.handle(req, res))
 
 // ---- maintenance mode ----
 // Mounted before every route, the provider proxy included, so the rule is one
@@ -748,7 +758,7 @@ function providerFor({ kind, action }, req) {
     case 'mocky':
       return textProviderFor(req, profileFromRequest(req))
     case 'muse':
-      return textProviderFor(req, action === 'dossier' || action === 'project-audit' ? 'inspiration' : 'generation')
+      return textProviderFor(req, action === 'dossier' || action === 'project-audit' || action === 'composer-auto' ? 'inspiration' : 'generation')
     case 'image': {
       const p = req.body?.profile === 'inspiration' || req.body?.profile === 'edit' ? req.body.profile : 'content'
       return { provider: images.configStore.profile(p)?.provider || images.configStore.profile('content')?.provider }
@@ -861,12 +871,32 @@ app.get('/api/images/providers', requireUser, (req, res, next) => {
 })
 
 /*
+ * The administrator's list of who may generate pictures (Admin → Images,
+ * `generatedImagesAccessFor`). Same two doors as the free plan above, for the
+ * same reasons: refused by name at the routes that make a picture — a film's
+ * variants are pictures too — and told "no image model" where the client asks
+ * whether any exists, so the composer offers the free libraries instead of a
+ * button whose only outcome is a 403.
+ */
+app.post(['/api/images/generate', '/api/video/variants'], requireUser, (req, res, next) => {
+  if (images.configStore.generatedImagesAccessFor(req.user)) return next()
+  res.status(403).json({
+    code: 'no-access',
+    error: "Votre compte n'a pas accès à la génération d'images par IA — un administrateur peut l'ouvrir dans Admin → Images.",
+  })
+})
+app.get('/api/images/providers', requireUser, (req, res, next) => {
+  if (images.configStore.generatedImagesAccessFor(req.user)) return next()
+  res.json({ providers: [] })
+})
+
+/*
  * The server-side model routes spend the free model too — a Muse dossier is
  * several calls, a film composition one. They count against the same day as the
  * proxy, as calls rather than generations: they serve a screen, they are not one.
  * Only when the free model is configured, for the reason the proxy gives.
  */
-app.post(['/api/muse/dossier', '/api/muse/quality', '/api/muse/audit', '/api/video/compose'], requireUser, (req, res, next) => {
+app.post(['/api/muse/dossier', '/api/muse/directions', '/api/muse/quality', '/api/muse/audit', '/api/video/compose'], requireUser, (req, res, next) => {
   if (planOf(req.user) !== 'free' || !textTargetFor(req.user)) return next()
   const verdict = freeQuota.take(req.user.id, freePlanSettings(loadConfig()).dailyLimit)
   if (verdict.ok) return next()
@@ -922,7 +952,7 @@ function sessionUser(req) {
     const run = runnerAuth.resolve(req.headers?.['x-mocky-runner'], req.originalUrl || req.url)
     if (!run) return null
     req.mockyRunner = run
-    return loadUsers().find((u) => u.id === run.userId) || null
+    return activeUser(loadUsers().find((u) => u.id === run.userId))
   }
   const sessions = loadSessions()
   const sess = sessions[token]
@@ -943,7 +973,18 @@ function sessionUser(req) {
     sess.t = Date.now()
     saveSessions(sessions)
   }
-  return loadUsers().find((u) => u.id === sess.u) || null
+  return activeUser(loadUsers().find((u) => u.id === sess.u))
+}
+
+/**
+ * An account that may act, or null. `disabled` is set when Kosmy Board withdraws
+ * the person's access (server/board-admin/users.js): the sessions are revoked at
+ * that moment, and this is the second lock — every route asks `sessionUser`, so
+ * a session that escaped the revocation (a copy of sessions.json restored, a
+ * write that failed) still opens nothing. The account and its projects stay.
+ */
+function activeUser(user) {
+  return user && !user.disabled ? user : null
 }
 
 /** Drop expired sessions at boot so the store does not accumulate forever. */
@@ -1173,6 +1214,20 @@ app.post('/api/register', authRateLimit(8, 60_000, 'register'), (req, res) => {
   res.json({ user: publicUser(user) })
 })
 
+/**
+ * The refusal of an account whose access Kosmy Board withdrew, in the language
+ * the browser asked for: the sign-in box shows `error` as it is.
+ */
+function disabledRefusal(req) {
+  const en = /^en\b/i.test(String(req?.headers?.['accept-language'] || ''))
+  return {
+    code: 'disabled',
+    error: en
+      ? 'This account is disabled: its access was withdrawn in Kosmy Board. Ask an administrator.'
+      : 'Ce compte est désactivé : son accès a été retiré dans Kosmy Board. Adressez-vous à un administrateur.',
+  }
+}
+
 app.post('/api/login', authRateLimit(8, 60_000, 'login'), (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase()
   const password = String(req.body?.password || '')
@@ -1198,6 +1253,13 @@ app.post('/api/login', authRateLimit(8, 60_000, 'login'), (req, res) => {
     return res.status(401).json({ error: 'Invalid username or password.' })
   }
   clearAuthFailures(username)
+  // Access withdrawn from Kosmy Board. Said only to whoever knows the password —
+  // before it, a disabled account answers like any other wrong guess.
+  if (user.disabled) {
+    logAuth('failure', req, username)
+    audit.record({ action: 'auth.login-failed', target: auditActor(user), detail: { disabled: true }, ip: clientIp(req) })
+    return res.status(403).json(disabledRefusal(req))
+  }
   logAuth('success', req, username)
   audit.record({ action: 'auth.login', actor: auditActor(user), ip: clientIp(req) })
   setSession(res, user.id, req)
@@ -1415,6 +1477,13 @@ app.get('/sso/dashy/callback', (req, res, next) => {
     u.searchParams.set('reason', 'maintenance')
     return res.redirect(302, u.toString())
   }
+  // Access withdrawn from Kosmy Board closes every door, Dashy's included.
+  if (loadUsers().some((u) => u.dashySub === claims.sub && u.disabled)) {
+    const u = new URL(MOCKY_ORIGIN)
+    u.searchParams.set('sso', 'error')
+    u.searchParams.set('reason', 'disabled')
+    return res.redirect(302, u.toString())
+  }
   const user = findOrCreateSsoUser(claims)
   audit.record({ action: 'auth.sso', actor: auditActor(user), ip: clientIp(req) })
   setSession(res, user.id, req)
@@ -1461,6 +1530,9 @@ app.use(
     isHttps,
     baseUrl: kosmyBaseUrl,
     originSet: () => Boolean(MOCKY_ORIGIN),
+    // `kosmy_board_access` in the ID token (server/board-admin/users.js).
+    // `boardUsers` is created at the end of this file; sign-in only runs later.
+    applyBoardAccess: (claims, req) => boardUsers.provisionAtLogin(claims, req),
     oidc: kosmyOidc,
   }),
 )
@@ -1672,6 +1744,8 @@ function adminUserList() {
     // Linked to Kosmy Board (server/kosmy-board.js).
     kosmyBoard: Boolean(u.kosmySub),
     hasPassword: Boolean(u.salt && u.hash),
+    // Access withdrawn from Kosmy Board: kept, signed out, and unable to sign in.
+    disabled: Boolean(u.disabled),
     // "API perso": the provider and model this account declared for its own
     // key — never the key, which the server does not have.
     ownText: ownTextView(u, cfg),
@@ -2633,7 +2707,10 @@ app.delete('/api/reviews/:token', requireUser, (req, res) => {
 app.get('/api/data', (req, res) => {
   const user = currentUser(req)
   if (!user) return res.status(401).json({ error: 'Not signed in.' })
-  res.json(readJson(userDataFile(user.id), { projects: null, design: null }))
+  // `account`: which account answered — a tab checks it against the one whose
+  // copy it holds, because the session cookie is shared by every tab and may be
+  // somebody else's by now (src/lib/localOwner.ts).
+  res.json({ ...readJson(userDataFile(user.id), { projects: null, design: null }), account: user.id })
 })
 
 /*
@@ -2649,6 +2726,11 @@ app.get('/api/data', (req, res) => {
 app.put('/api/data', (req, res) => {
   const user = currentUser(req)
   if (!user) return res.status(401).json({ error: 'Not signed in.' })
+  // A copy written for ANOTHER account: a tab left open while somebody else
+  // signed in on the same browser. Merging it is how one person's projects
+  // reached another's account (src/lib/localOwner.ts). Absent = an older tab.
+  const claimed = req.get('x-mocky-account')
+  if (claimed && claimed !== user.id) return res.status(409).json({ error: 'This copy belongs to another account.' })
   const body = req.body || {}
   const file = userDataFile(user.id)
   const stored = readJson(file, { projects: null, design: null })
@@ -2712,6 +2794,8 @@ app.use('/api/muse', requireUser)
 // Chromium instance, and a handful of model round-trips. It was the only
 // expensive route with no ceiling at all, while image generation had one.
 app.use('/api/muse/dossier', authRateLimit(10, 60_000, 'muse-dossier'))
+// Three directions are one model call, asked again by a click: the dossier's ceiling.
+app.use('/api/muse/directions', authRateLimit(10, 60_000, 'muse-directions'))
 // One GET of a remote picture per call, on a link the person typed. Generous for
 // a field edited by hand, and still a ceiling on a server fetching for a browser.
 app.use('/api/muse/linked-image', authRateLimit(30, 60_000, 'muse-linked-image'))
@@ -2733,6 +2817,8 @@ app.use(
 // The audit of a project (server/decision/): a grid, one decision per page, a
 // synthesis. Ten a minute — each is up to thirty pages' worth of calls.
 app.use('/api/muse/project-audit', authRateLimit(10, 60_000, 'muse-project-audit'))
+// The composer's Auto mode: one decision before each new screen, typed by hand.
+app.use('/api/muse/composer-auto', authRateLimit(30, 60_000, 'muse-composer-auto'))
 app.use(
   '/api',
   createDecisionRouter({
@@ -2782,6 +2868,59 @@ app.use(
   },
   images.router,
 )
+
+/*
+ * POST /api/videos/from-film — a Motion film this account rendered, cut into a
+ * scroll sequence like a clip (the composer's Vidéo · Motion).
+ *
+ * The one door from the film store to the clip library, and it is an explicit
+ * one: rule 5 of the video export keeps films OUT of server/videos because a
+ * film has no stills and filing it would lie to every reader of that list. A
+ * film asked for AS a scroll sequence is the exception that rule was not about:
+ * it is cut here, gets its stills, and stays in its own store besides. Owner
+ * only — the hash of somebody else's film is not a way into it.
+ */
+/** The most stills a Motion film is cut into for the scroll. */
+const MOTION_SEQUENCE_FRAMES = 180
+
+app.post('/api/videos/from-film', requireUser, authRateLimit(20, 60_000, 'video-from-film'), async (req, res) => {
+  const hash = String(req.body?.hash || '')
+  if (!/^[a-f0-9]{64}$/.test(hash)) return res.status(400).json({ error: 'Bad hash' })
+  if (!videoExports.meta(hash)) return res.status(404).json({ error: 'No such film.' })
+  if (!videoExports.ownedBy(hash, req.user.id)) return res.status(403).json({ error: 'Not your film.' })
+  try {
+    const state = await videos.availability()
+    if (!state.ffmpeg.available) {
+      return res.status(503).json({ code: 'no-ffmpeg', error: "ffmpeg n'est pas disponible dans ce conteneur — le film ne peut pas être découpé." })
+    }
+    const buffer = fs.readFileSync(videoExports.filePath(hash))
+    if (diskBudget.wouldExceed(buffer.length * 3)) return res.status(507).json({ error: quotaError(diskBudget.usage()) })
+    const out = await videos.library.ingest(
+      buffer,
+      {
+        prompt: 'Motion film',
+        provider: 'motion',
+        model: '',
+        project: typeof req.body?.project === 'string' ? req.body.project.slice(0, 64) : '',
+        slot: 'hero',
+        owner: req.user.id,
+      },
+      // Capped below a clip's own ceiling: a film runs longer than a generated
+      // clip, and 478 stills — one real film — were 478 requests a page made at
+      // once. A scroll scrubs through 180 as smoothly.
+      { ...(images.configStore.videoProfile().frames || {}), max: Math.min(Number(images.configStore.videoProfile().frames?.max) || MOTION_SEQUENCE_FRAMES, MOTION_SEQUENCE_FRAMES) },
+    )
+    res.json({
+      hash: out.hash,
+      frames: out.meta.frames,
+      fromCache: Boolean(out.fromCache),
+      base: `/api/videos/${out.hash}`,
+      poster: `/api/videos/${out.hash}/poster.jpg`,
+    })
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
 
 // Same posture as /api/images: the picture bytes of a known sequence are public
 // so a null-origin preview can fetch them; everything else needs a session, and
@@ -3301,7 +3440,10 @@ const mcpServer = createMcpServerRoutes({
     get: (userId, id) => templates.get(userId, id),
     replace: (userId, id, content) => templates.replace(userId, id, content),
   },
-  findUser: (id) => loadUsers().find((u) => u.id === id),
+  // A disabled account (access withdrawn from Kosmy Board) is nobody to the MCP
+  // server: its connections and keys are revoked when it is disabled, and one
+  // that slipped through is refused — and revoked — at its next call.
+  findUser: (id) => activeUser(loadUsers().find((u) => u.id === id)),
   listUsers: () => loadUsers(),
   sessionUser,
   requireUser,
@@ -3330,10 +3472,13 @@ mcpServer.mount(app)
 // Functions only — the same ones Admin's routes call (see server/board-admin/
 // sections.js) — so an action taken from the Board is checked, applied and
 // audited exactly as the same click in Admin.
+// One jti store for the admin and the users APIs: a Board token is spent once, wherever.
+const boardJtis = createBoardJtiStore()
 const boardAdmin = createBoardAdmin({
   loadConfig,
   loadUsers,
   oidc: kosmyOidc,
+  jtis: boardJtis,
   clientIp,
   auditActor,
   audit,
@@ -3380,6 +3525,27 @@ const boardAdmin = createBoardAdmin({
       worker: Boolean(vc.enabled && vc.workerUrl),
     }
   },
+})
+
+// ---- the users Kosmy Board manages (server/board-admin/users.js) ----
+// Created here because it reaches the MCP server's access list; mounted at the
+// top of the file, next to the Board's admin, and called by sign-in.
+const boardUsers = createBoardUsers({
+  loadConfig,
+  loadUsers,
+  saveUsers,
+  oidc: kosmyOidc,
+  jtis: boardJtis,
+  assignNewcomerPlan,
+  revokeSessions,
+  forgetPresence: (id) => presence.forget(id),
+  mcpAccess: () => mcpServer.accessList(),
+  setMcpAccess: (userId, allowed, by) => mcpServer.setUserAccess(userId, allowed, by),
+  mcpDisabled: (userId) => mcpServer.onUserDisabled(userId),
+  isMaintenance: () => maintenance.on,
+  audit,
+  auditActor,
+  clientIp,
 })
 
 // ---- the typefaces generated screens are set in (src/lib/fonts) ----

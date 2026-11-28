@@ -30,6 +30,8 @@ describe('the screen type an assistant picks', () => {
     expect(inferScreenType('Un flyer pour la fête du quartier samedi')).toBe('flyer')
     expect(inferScreenType('Un post Instagram pour annoncer les soldes')).toBe('instagram')
     expect(inferScreenType('Mon CV de développeur')).toBe('resume')
+    expect(inferScreenType('des captures App Store pour mon app de recettes')).toBe('app-store')
+    expect(inferScreenType('Google Play screenshots for a fitness app')).toBe('app-store')
     expect(inferScreenType('Un tableau de bord des ventes')).toBe('dashboard')
     expect(inferScreenType('La page de connexion de mon appli')).toBe('auth')
     expect(inferScreenType('La page d’accueil d’une boulangerie')).toBe('landing')

@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import * as Babel from '@babel/standalone'
 import { CAPABILITIES } from './registry'
 import { capabilitiesUsedBy, resolveCapabilities } from './select'
@@ -66,5 +68,40 @@ describe('the Ultra kit', () => {
     expect(capabilitiesUsedBy('<h1 className={"u-display"}>')).toContain('ultra')
     expect(capabilitiesUsedBy('<Backdrop preset="mesh" />')).toContain('ultra')
     expect(capabilitiesUsedBy('<div className="menu-glass u-glassy">')).not.toContain('ultra')
+  })
+})
+
+describe('a film slot whose film is still being made', () => {
+  // The kit's top-level code touches `document`; a server render has none.
+  const Backdrop = () => {
+    const doc = (globalThis as any).document
+    ;(globalThis as any).document = { documentElement: { classList: { add() {} } }, getElementById: () => ({}), createElement: () => ({}), head: { appendChild() {} } }
+    try {
+      return new Function('React', `${UltraSource}
+return Backdrop`)(React) as React.FC<Record<string, unknown>>
+    } finally {
+      ;(globalThis as any).document = doc
+    }
+  }
+  const html = (props: Record<string, unknown>) => renderToStaticMarkup(React.createElement(Backdrop(), props))
+  afterEach(() => {
+    delete (globalThis as any).window
+  })
+
+  it('says so in the slot, with the words the canvas sent', () => {
+    ;(globalThis as any).window = { __mockyFilmPending: 'Motion Ultra : rendu du film…' }
+    const out = html({ slot: 'film', preset: 'aurora' })
+    expect(out).toContain('u-backdrop-pending-card')
+    expect(out).toContain('Motion Ultra : rendu du film…')
+  })
+
+  it('says nothing once the film is there, in a capture, or in any other slot', () => {
+    ;(globalThis as any).window = { __mockyFilmPending: 'rendu…' }
+    expect(html({ slot: 'film', video: '/api/video/abc' })).not.toContain('u-backdrop-pending')
+    expect(html({ preset: 'aurora' })).not.toContain('u-backdrop-pending')
+    ;(globalThis as any).window = { __mockyFilmPending: 'rendu…', __mockyStill: true }
+    expect(html({ slot: 'film' })).not.toContain('u-backdrop-pending')
+    ;(globalThis as any).window = {}
+    expect(html({ slot: 'film' })).not.toContain('u-backdrop-pending')
   })
 })

@@ -124,6 +124,36 @@ Full details are in the [inspiration engine](inspiration-engine.md) page.
 
 ---
 
+## Three directions to choose from
+
+:::why
+A dossier is one answer, and someone who does not yet know what they want
+learns it by comparing. Three directions from three schools, side by side, give
+them something to compare before a single screen is spent.
+:::
+
+**Three directions** (a tile on an empty project, an option under **Style** in
+the project's composer) asks Muse for three art directions for the request, each
+from a different school of design, shown side by side: the mock-up every saved
+design gets, the two typefaces drawn in themselves, the palette. Nothing is
+generated until one is chosen; choosing makes it the project's direction, exactly
+as a dossier would be, and the next screens follow it.
+
+- **They are made to differ.** Muse is asked for a dark ground and a light one,
+  three accents and three display faces, and the server measures the result: a
+  proposal that looks like another one (same ground, a close accent, the same
+  face) is dropped and the model asked again, rather than offered as a choice
+  that is not one.
+- **They avoid your other projects.** The palettes and typefaces of your other
+  projects' directions are sent along, as the record of what your work already
+  looks like, and Muse is asked for something else. Read from the projects
+  themselves, never stored a second time.
+- **They always come.** With no model, or a model that fails, the three come
+  from Muse's style library — the best match for the request and the two styles
+  furthest from it — and the dialog says so.
+
+One model call, counted like a dossier (and on the free plan's daily quota).
+
 ## How the dossier drives generation
 
 `buildMusePreamble()` in `src/lib/muse.ts` turns the dossier into a preamble.
@@ -359,6 +389,21 @@ It is **off by default** and asked for explicitly every time. Unlike every other
 Muse option, this one has a per-use price and adds minutes to a generation.
 Nobody should discover that by leaving a box ticked.
 
+The **Video** row of the Muse panel says where the clip comes from:
+
+| Source | What it is | Cost |
+|---|---|---|
+| None | No clip: the hero is a still picture | — |
+| AI generated | A clip made for this screen by the configured video provider | paid, 30 s to 3 min |
+| Free | A free stock clip (Pexels, Pixabay) or one of yours, chosen in Media | free |
+| Motion | A film made by Mocky's own engine from the screen's pictures — several scenes with depth, camera movement, a set piece and transitions, in 3D when your account may use it, and no words in it (the page's headline sits over it) — rendered by your machine (the Motion Ultra worker) and cut into 180 stills at most for the scroll | free, 1 to 3 min |
+
+In **Auto**, the decision model chooses among None, Free and Motion. A free clip
+is then found by Mocky itself: searched from the hero's words, **looked at** by
+the vision model among the thumbnails — or refused when none fits, the free
+photos' rule — then imported. An AI clip is only ever **suggested**: a dialog
+asks you first, with its price, and offers a Motion film or no video instead.
+
 ### The clip is never played as a video
 
 `ffmpeg` cuts it into a JPEG sequence — 12 fps, 960 px wide, capped at 150
@@ -447,7 +492,8 @@ found are shown to the model that writes the page instead, and the page is
 designed around the pictures it embeds rather than around a dossier written
 before they were found. A library picture you ticked `Inspiration` takes that
 place when there is one. Who
-may use this is its own list, in Admin → Images → Free stock photos.
+may use this is its own list, in Admin → Images → Free stock photos; who may
+generate pictures at all is another, Admin → Images → AI-generated images.
 
 ---
 

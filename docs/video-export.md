@@ -2,8 +2,9 @@
 
 Mocky turns a list of images from the media library into an `.mp4`. Not a screen,
 not a scroll sequence: a film, cut from pictures the user picked, rendered by
-[Remotion](https://www.remotion.dev/) in a container that is absent from a
-default install.
+[HyperFrames](https://github.com/heygen-com/hyperframes) — with
+[Remotion](https://www.remotion.dev/) as the fallback — in a container that is
+absent from a default install ([Two engines](#two-engines)).
 
 **The feature is called Motion Ultra; the code is called `video`.** It shipped as
 "Video export", which named a file format rather than the thing on offer, then
@@ -169,7 +170,7 @@ than cards — not permission to describe its own rendering.
 | Family | Blocks |
 |---|---|
 | Text | `heading`, `kicker`, `quote`, `textHighlight`, `funTitle` |
-| Animated text | `typewriter`, `animatedList`, `counter`, `logoType` |
+| Animated text | `typewriter`, `handwriting`, `animatedList`, `counter`, `logoType` |
 | Interface | `button`, `form`, `notification`, `lowerThird` |
 | Data | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map`, `globe`, `solidChart` |
 | Media and time | `imageFrame`, `gallery`, `carousel`, `clock`, `dateStamp` |
@@ -836,6 +837,35 @@ whole legibility section exists to have prevented. And `blocks/canvases.js` is a
 new file: which blocks need a GL canvas, how big it is and what camera looks into
 it used to be a branch inside `ComposedSceneVideo`, which is one branch per 3D
 block in a file every block author would then have to edit.
+
+#### A line written by hand
+
+`handwriting` writes a few words stroke by stroke, in the order a pen takes, in
+one of five hands — `parisienne` (the default), `caveat`, `italianno`,
+`ems-allure`, `hershey-script` — the same Tegaki fonts (MIT; fonts SIL OFL 1.1) a
+page's `<Handwriting>` writes in ([Fonts](fonts.md#handwriting)).
+
+**Tegaki is asked for the finished words, never for the animation.** It can write
+them itself, with CSS keyframes or a canvas on its own clock, and neither belongs
+in a film: the frame arrives as `progress` and `life`, and the two engines must
+draw the same frame for the same number. So `blocks/hand.js` takes Tegaki's
+static SVG — every stroke as a run of short segments, each with the pen's width
+there — and reveals that list by the length the pen has travelled, cutting the
+segment it is in the middle of. Pure arithmetic on numbers Tegaki wrote:
+`hand.test.js` proves the line starts empty, ends on every mark and never
+un-writes, and the same film rendered by both engines came out within an SSIM of
+0.991 on every frame. The pen spends two thirds of the scene, `typewriter`'s
+share, for `typewriter`'s reason: a line finished at the cut was never read.
+
+**A word is never written with a hole in it.** Three of the hands carry
+unaccented letters only, so a line one of them cannot write whole is written in
+`ems-allure`, which has Latin-1 and Latin Extended-A — the document is never
+refused for an accent, which a model writing French would hit on every second
+word. A line no hand can write is set as plain type in the heading face.
+
+It is one line in a headline's role (`display`, `nowrap`), held inside its box by
+the ink's own proportions, because a script runs wider than the type the scale
+estimates. Forty characters: handwriting is read slowly and written slower still.
 
 #### A zone, and a rank
 
@@ -2563,7 +2593,108 @@ told.
 
 ---
 
+## Two engines: HyperFrames draws, Remotion is the fallback {#two-engines}
+
+Since 2026-11 the worker renders with **HyperFrames** (HeyGen, Apache-2.0) and
+keeps **Remotion** for the films HyperFrames could not render. The compositions
+were not translated: every file under `worker/video/remotion/` reaches an engine
+through two doors only, `clock.js` (the frame, `Sequence`, `Freeze`, `Img`,
+`delayRender`) and `clockCanvas.js` (the GL canvas). The Remotion bundle compiles
+them as they are; `render.hyperframes.js` compiles the same files with esbuild,
+puts `remotion/hyperframes/` behind those two doors, and refuses a bundle that
+still reaches a Remotion package. `tests/video-engine-clock.test.js` holds the
+doors: the same names on both sides, and no other file importing Remotion.
+
+**Why switch at all.** Remotion's licence is the one thing in this image that is
+not Apache or MIT, and the only reason the worker needs a permission of its own
+in `NOTICE` (next section). HyperFrames removes the question for an image built
+without Remotion, and it renders HTML seeked frame by frame, which is what the
+compositions already were.
+
+**Why keep Remotion.** HyperFrames was at 0.9.x when it was adopted. A film it
+fails on — a composition nobody tried yet, a regression in a release — should
+cost a retry, not an export. `engine.js` tries the engines in order; any failure
+falls back to the next one with what is left of the deadline, **except** an
+aborted render: that is the deadline itself, and a second engine started after it
+renders a film nobody is waiting for. The response names the engine that drew the
+film (`x-mocky-worker-engine`), and `/health` lists the order.
+
+**What decided it was measured.** A corpus of nine films — composed scenes, data
+blocks, a lit solid, a photograph on a 3D stage, the continuous world, a mirrored
+loop, a slideshow, titles, a WebM — rendered by both engines within the
+container's own limits (2 CPUs, 4 GB): every frame of every film within an SSIM
+of 0.986 of Remotion's, at the same speed (±15 % either way, film by film). That
+comparison found three differences, now fixed, and each is a rule:
+
+- **The page has Remotion's box model.** Remotion's render page sets
+  `* { box-sizing: border-box }`; without it a padded fill measured its padding
+  outside its width and the titles' rule ran to the frame's edge.
+- **A GL canvas is created at its given size.** react-three-fiber's `<Canvas>`
+  waits for a ResizeObserver to measure it, and an observer reports during a
+  rendered frame — which the capture was holding back for that very canvas. The
+  second scene of a `world` ground waited for itself until the deadline. So
+  `clockCanvas.jsx` calls `createRoot` on a canvas of its own, sized by the block.
+- **A GL canvas is drawn on every render, not every frame.** A texture that
+  decodes on frame 0 re-renders frame 0; a draw keyed on the frame number skipped
+  it, and the first frame of a photo stage came out black.
+
+**One browser, one encoder setting.** The image installs the headless shell
+HyperFrames is pinned to (it checks the build's digest) and names it in
+`PRODUCER_HEADLESS_SHELL_PATH`; Remotion is handed the same binary rather than
+downloading its own, and rendered the corpus on it byte for byte identical —
+230 MB less image. HyperFrames encodes with the system's ffmpeg, so that layer is
+no longer optional, and it is given `encoding.js`'s CRF and rate cap
+(`encoderSettingsFor`), because `worstCaseBytes` is the bound the disk budget is
+sized against and it holds only if every engine is capped at it. One exception:
+a WebM. HyperFrames encodes it with VP9 and refuses a rate cap for it, so a WebM
+gets the average rate and no ceiling — the bound holds there on average, not by
+construction — and it carries an alpha channel the opaque ground fills.
+
+**Settings.**
+
+| Setting | Where | Effect |
+|---|---|---|
+| `MOCKY_VIDEO_ENGINE` | worker environment | The engine tried first: `hyperframes` (default) or `remotion` |
+| `MOCKY_VIDEO_FALLBACK=none` | worker environment | No fallback: a film the first engine fails is a failed export |
+| `WITH_REMOTION=false` | build argument (`docker-compose.yml`) | The image is built without Remotion, and the fallback is off |
+
+---
+
+## The film is looked at once it exists
+
+:::why
+Everything upstream is arithmetic on a document: legibility, motion, the safe
+area. None of it can see what an engine did with the document — a 3D scene that
+never drew, a page that stopped answering and repeated one frame, a picture that
+failed to decode. Those are in the file, so the file is what gets looked at.
+:::
+
+After every render, the worker decodes the film at one frame a second, 96 pixels
+wide and in grey (ffmpeg, already in its image), and asks three questions
+(`worker/video/qc.js`):
+
+| Finding | What it means | Reported from |
+|---|---|---|
+| Empty | Every pixel within a hair of the same value: black, white or the bare ground | 2 seconds in a row — one second is a fade from black |
+| Washed out | Content, but nothing on the frame stands out from anything else | 3 seconds in a row |
+| Frozen | The same frame, second after second | 3 seconds — near equality, not "little movement": an overlay's slow drift is a scene, not a freeze |
+
+The verdict travels back in a header (`x-mocky-worker-checks`), is read on
+Mocky's side as data (a closed list of kinds, bounded numbers, eight findings at
+most) and kept on the job. The panel then says, above the download button, which
+seconds to look at before posting the film.
+
+**It never fails a render.** A film with a frozen passage is still a film the
+person may want; what they are owed is to be told. A worker that cannot look
+(no ffmpeg, a file it cannot decode, a look that takes over 30 seconds) says
+nothing, and the panel says nothing either — it never claims a film is clean
+when nobody looked.
+
 ## The Remotion licence, and the separate service
+
+**This section applies to an image built with Remotion**, which is the default,
+for the fallback. Built with `WITH_REMOTION=false`, the worker carries
+HyperFrames (Apache-2.0) and nothing below applies to it.
 
 Remotion is free for individuals, for non-profit organisations, and for
 companies with up to three employees. Past that threshold it requires a paid
@@ -3541,7 +3672,9 @@ renderer.
 | `server/video/store.js` | The finished file, kept whole. **Not** `server/videos/` |
 | `server/video/routes.js` | `/api/video`, the pending guard, and the admin router |
 | `src/components/VideoExportDialog.tsx` | The Motion Ultra panel. Opened from the toolbar, never from a screen |
-| `worker/video/` | The Remotion worker: separate sub-project, separate image, separate README |
+| `worker/video/` | The render worker (HyperFrames, Remotion as the fallback): separate sub-project, separate image, separate README |
+| `worker/video/engine.js` | Which engine renders first, and the fallback — never after an abort |
+| `worker/video/remotion/clock.js`, `clockCanvas.js` | The only two doors from a composition to an engine; `remotion/hyperframes/` is HyperFrames’ side of them |
 | `worker/video/encoding.js` | The codec table and what each codec is told about quality. No Remotion import, so the one testable part of a render can be tested |
 | `worker/video/remotion/composition.js` | Every composition's shared arithmetic, their theme, and their palettes. No React, no Remotion, so a test can reach it |
 | `worker/video/remotion/ComposedSceneVideo.jsx` | The layout engine for the composable variant: the ground, the nine cells, and the stack that drifts |

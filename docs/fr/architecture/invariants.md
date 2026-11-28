@@ -1,5 +1,5 @@
 ---
-source_hash: bfc238064b09
+source_hash: 26f5a93b59de
 ---
 
 # Invariants
@@ -12,10 +12,11 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a douze séries :
+Il y a treize séries :
 
-- **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
-  confidentialité des notes d'un écran.
+- **I1 à I10**, les invariants d'origine, reconstitués à partir du code, la
+  confidentialité des notes d'un écran, et à qui appartient la copie d'un
+  navigateur.
 - **M1 à M8**, apportés par Muse.
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
@@ -27,6 +28,7 @@ Il y a douze séries :
 - **P1 à P3**, apportés par les dépliants et les publications.
 - **A1 à A4**, introduites par ce qu’un modèle fabrique lui-même.
 - **S1 à S5**, apportées par les sites interactifs.
+- **G1 à G4**, apportées par les visuels.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -331,6 +333,33 @@ canevas, la vue projet — et échoue sur toute mention ailleurs dans `src/`,
 `server/` ou `worker/`. Les notes voyagent bien dans le blob de projets que le
 serveur stocke pour la synchronisation, qu'il garde comme une chaîne opaque et
 ne parse jamais.
+
+---
+
+### I10. La copie d'un navigateur ne se fusionne que dans le compte à qui elle appartient
+
+**La règle.** Les projets, le DESIGN.md et les dossiers qu'un navigateur garde
+portent l'identifiant du compte auquel ils appartiennent (`mocky.owner.v1`,
+`src/lib/localOwner.ts`). La connexion ne fusionne cette copie dans le compte que
+si elle est la sienne ; celle d'un autre compte est oubliée, et une copie que
+personne n'a réclamée ne garde que les projets que le serveur détient déjà pour
+ce compte. La déconnexion envoie ce qui reste, oublie la copie — la clé
+personnelle avec — et recharge la page.
+
+**Ce qu'elle protège.** La déconnexion laissait la copie en place (« vos projets
+restent sur cet appareil ») et la connexion fusionnait ce qui s'y trouvait dans
+le compte qui se connectait, puis l'envoyait : sur un ordinateur partagé par deux
+personnes, chaque compte finissait par détenir les projets de l'autre, sur le
+serveur, pour de bon. Le cookie de session est commun à tous les onglets, si bien
+qu'un onglet resté ouvert pendant que quelqu'un d'autre se connecte est la même
+fuite par un autre chemin : un envoi porte `x-mocky-account` et `PUT /api/data`
+le refuse avec `409` sur la session d'un autre compte, et `GET /api/data` dit
+quel compte a répondu pour qu'une relecture puisse le refuser aussi.
+
+**Ce qui la tient.** `src/lib/sync.test.ts` (« a browser shared by two
+accounts ») et `tests/data-merge-e2e.test.js`. Les copies fusionnées avant cette
+règle sont déjà dans les fichiers du serveur : oublier la copie du navigateur ne
+les retire pas d'un compte.
 
 ---
 
@@ -1618,6 +1647,61 @@ elle ne garde aucun chiffre (F4).
 
 **Ce qu’elle protège.** Mesurer « un prompt » en appels, en secondes et en argent
 sans devenir un second journal de ce que les gens ont demandé.
+
+---
+
+## Série G — les visuels
+
+Un texte mis en schéma par `<Visual>`. Doc utilisateur : [Visuels](../visuals.md).
+
+### G1. Le modèle nomme une famille, il ne dessine jamais un visuel
+
+**La règle.** Un visuel est `<Visual family doc>` : un nom pris dans la liste
+fermée de `lib/visuals/families.ts` et le contenu en données simples. Les cases,
+les liaisons et les tailles de texte sont calculées par la mise en page écrite à
+la main dans `snippets/Visual.ts` ; la fiche du modèle lui interdit de dessiner
+un schéma lui-même.
+
+**Ce qu’elle protège.** Un schéma improvisé en SVG par le modèle est juste sur un
+texte et cassé sur le suivant, et rien ne peut le mesurer. La raison même pour
+laquelle les films sont composés de blocs nommés.
+
+### G2. Le contenu ne dépend pas de la famille
+
+**La règle.** Toutes les familles lisent le même `VisualDoc`. Changer de famille
+ou de style, c’est un attribut écrit aux positions du parseur
+(`lib/visuals/read.ts`, I1), sans appel au modèle et sans rien perdre ; une
+famille qui ne peut pas dessiner un contenu dit pourquoi (`familyRefusal`) au lieu
+de le dessiner mal.
+
+**Ce qu’elle protège.** Essayer une autre forme ne coûte rien, donc on l’essaie.
+Un changement qui régénérerait coûterait un appel et pourrait changer les mots.
+
+### G3. Un chiffre affiché est un chiffre du texte
+
+**La règle.** Après la génération d’un écran **Visuel**, chaque `value` est
+cherchée dans la demande (`lib/visuals/numbers.ts`) ; celle qui n’y est pas est retirée du code,
+son élément gardé, et un avis la nomme. Aucun modèle n’est interrogé.
+
+**Ce qu’elle protège.** Un visuel se lit comme un fait. Un nombre plausible que le
+texte n’a jamais donné est le défaut connu de ce genre d’outil. Pas sur un rapport
+ou un post qui en dessine un : leurs briefs demandent des chiffres d’exemple
+inventés, et la vérification viderait chaque graphique.
+
+### G4. Une taille par rôle, et l’encre est mesurée
+
+**La règle.** Toutes les cases d’un rôle partagent une taille de texte, la plus
+grande à laquelle elles tiennent toutes ; un détail est plus petit que son
+libellé et une carte jamais plus grande que le centre auquel elle se rattache ; un
+mot n’est jamais coupé, le texte rapetisse plutôt. Chaque texte est mesuré contre
+la surface sur laquelle il est peint, les couleurs de la page essayées avant le
+noir ou le blanc.
+
+**Ce qu’elle protège.** Dimensionné case par case, un libellé court revenait deux
+fois plus grand que son voisin et le visuel devenait du bruit ; une couleur de la
+palette posée en texte sur sa propre teinte, c’est le titre illisible que les
+films ont déjà connu.
+
 ---
 
 ## Les deux règles sans numéro

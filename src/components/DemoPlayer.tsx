@@ -230,7 +230,9 @@ export default function DemoPlayer({
   const isDoc = !!current.page
   const docKind = current.page ? getPageFormat(current.page).kind : null
   const heldInHand = framed && docKind === 'print'
-  const inPhone = framed && docKind === 'social'
+  // A store screenshot is made like a post and is never seen in a feed: it is
+  // shown bare, as the store shows it.
+  const inPhone = framed && docKind === 'social' && !(current.page && getPageFormat(current.page).store)
   const frame = framed && !isDoc ? deviceFrame(frameKindFor(current.device, bodyW, bodyH), bodyW, bodyH) : null
   const frameScale = frame && size.w > 0 ? fitFrameScale(size.w, size.h, frame) : 0
 

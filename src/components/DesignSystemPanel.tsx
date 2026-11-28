@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { parseDesignSystem, type DesignToken } from '../lib/designTokens'
 import { Button, Icon, IconButton, usePanelDock } from '../ui'
 import { useT } from '../i18n'
+import ColorPalette from './ColorPalette'
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
@@ -189,6 +190,19 @@ export default function DesignSystemPanel({
               <div className="mb-3 rounded-lg border border-line bg-ink/5 p-2">
                 <div className="mb-1.5 text-caption text-ink-muted">
                   {t('design.recolor')} <span className="font-medium text-ink">{editing.label}</span>
+                </div>
+                {/* The same palette as the DESIGN.md sheet, so a colour is
+                    chosen the same way wherever it is changed. */}
+                <div className="mb-2">
+                  <ColorPalette
+                    value={hex}
+                    onPick={setHex}
+                    onApply={(h) => {
+                      onRecolor(editing, h)
+                      setEditing(null)
+                    }}
+                    designColors={ds.colors.filter((o) => o.index !== editing.index).map((o) => o.hex)}
+                  />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="h-7 w-7 shrink-0 rounded-md border border-ink/20" style={{ background: HEX_RE.test(hex.trim()) ? hex.trim() : 'transparent' }} />

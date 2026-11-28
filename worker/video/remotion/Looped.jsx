@@ -10,7 +10,7 @@
 // every frame: it sets the timeline context its children read, so every
 // Sequence, every cue and every GL canvas inside sees the film frame this file
 // names. Nothing in the compositions knows a loop exists.
-import { AbsoluteFill, Freeze, useCurrentFrame } from 'remotion'
+import { AbsoluteFill, Freeze, useCurrentFrame } from './clock.js'
 import { loopBlend, loopBlendFrames, loopModeOf, mirrorFrame, planTimeline } from './composition.js'
 
 export const withLoop = (Component) => {

@@ -62,6 +62,7 @@ import { SolidScene } from './solidScene.jsx'
 import { SoundWave } from './soundWave.jsx'
 import { TextHighlight } from './textHighlight.jsx'
 import { Typewriter } from './typewriter.jsx'
+import { Handwriting } from './handwriting.jsx'
 import { WaveMesh } from './waveMesh.jsx'
 
 /**
@@ -89,6 +90,7 @@ export const BLOCKS = {
   textHighlight: TextHighlight,
   funTitle: FunTitle,
   typewriter: Typewriter,
+  handwriting: Handwriting,
   animatedList: AnimatedList,
   counter: Counter,
   logoType: LogoType,

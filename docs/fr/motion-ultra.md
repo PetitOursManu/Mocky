@@ -1,5 +1,5 @@
 ---
-source_hash: b0a1558f20da
+source_hash: 35f3b53fe5c3
 ---
 
 # Motion Ultra — pages
@@ -118,8 +118,12 @@ Allumé, une section de chaque nouvel écran reçoit un fond qui bouge :
   CSS vivant dès la première seconde.
 - Un film Motion Ultra est ensuite composé à partir des images de la série et **rendu
   par votre propre machine** (le module Motion Ultra) — aucune vidéo n'est facturée ;
-  le coût est un appel au modèle de texte et une à trois minutes. Le badge de
-  l'écran dit où on en est.
+  le coût est un appel au modèle de texte et une à trois minutes. **Le film est
+  fait après l'écran** : le composeur vous est rendu dès que la page est écrite,
+  et la section montre que le film arrive — un reflet et, dans un coin, où il en
+  est (composition, rendu). Cette mention n'est jamais dans le code, une capture
+  ou un export. Quitter le projet avant la fin demande confirmation : le film
+  serait perdu.
 - Le film est branché sur ce fond — un attribut, sans appel au modèle, sans
   réécrire la page. Il joue par-dessus les couches CSS, qui restent dessous pour
   la miniature, pour le mouvement réduit et si le film n'arrive jamais.

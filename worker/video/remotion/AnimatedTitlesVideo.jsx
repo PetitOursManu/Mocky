@@ -1,4 +1,4 @@
-import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig } from './clock.js'
 import {
   KICKER_SIZE,
   KICKER_TRACKING,

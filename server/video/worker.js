@@ -181,6 +181,7 @@ export function createVideoWorker({ config, fetchImpl = fetch, guard = assertWor
       buffer,
       contentType: res.headers?.get?.('content-type') || 'video/mp4',
       bytes: buffer.length,
+      checks: readFilmChecks(res.headers?.get?.('x-mocky-worker-checks')),
     }
   }
 
@@ -256,4 +257,31 @@ export function collectImages(library, timeline) {
     }
     return { id, mime: library.mimeFor(id), base64: fs.readFileSync(file).toString('base64') }
   })
+}
+
+/** What the worker's look at a finished film may report (`worker/video/qc.js`). */
+export const FILM_CHECK_KINDS = ['blank', 'faint', 'frozen']
+
+/**
+ * The worker's verdict on the file, read as data: a closed list of kinds and
+ * bounded numbers, eight issues at most, or null. The worker is a service on a
+ * network and its header ends up in a job a browser reads — nothing it says is
+ * passed on as it was written. A worker on an older image sends nothing, and
+ * null is what "not looked at" has always meant.
+ */
+export function readFilmChecks(header) {
+  if (typeof header !== 'string' || !header || header.length > 4000) return null
+  let raw
+  try {
+    raw = JSON.parse(header)
+  } catch {
+    return null
+  }
+  if (!raw || raw.checked !== true) return null
+  const secs = (v) => (Number.isFinite(Number(v)) ? Math.max(0, Math.min(3600, Math.round(Number(v) * 10) / 10)) : null)
+  const issues = (Array.isArray(raw.issues) ? raw.issues : [])
+    .filter((i) => i && FILM_CHECK_KINDS.includes(i.kind) && secs(i.from) !== null && secs(i.to) !== null)
+    .slice(0, 8)
+    .map((i) => ({ kind: i.kind, from: secs(i.from), to: secs(i.to) }))
+  return { seconds: secs(raw.seconds) ?? 0, issues }
 }

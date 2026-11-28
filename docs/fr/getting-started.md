@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: a91f02946c1d
+source_hash: aaa95a25524c
 ---
 
 # Démarrage
@@ -408,7 +408,11 @@ personnelle d’une personne, le niveau de ses Réglages. Une personne ne peut p
 monter le niveau d’un modèle payé par l’administrateur.
 
 `Auto` est ce que Mocky faisait avant que le choix existe, et le réglage par
-défaut. Tout autre niveau remplace celui du modèle là où le fournisseur documente
+défaut — sauf sur le profil du **forfait gratuit**, qui démarre à `Désactivé` :
+un modèle qui ne coûte rien est le plus souvent lent, et sa réflexion faisait
+attendre chaque écran. Ce n’est qu’une valeur de départ : une instance qui avait
+déjà enregistré son profil gratuit garde le niveau enregistré, choisissez donc
+`Désactivé` une fois. Tout autre niveau remplace celui du modèle là où le fournisseur documente
 un paramètre pour cela — Ollama (`think`), OpenRouter (`reasoning`), et
 `reasoning_effort` sur gpt-5 et la série o d’OpenAI, Gemini, Kimi K3 et gpt-oss
 chez Groq — et ne fait rien ailleurs : un paramètre inconnu d’un fournisseur est

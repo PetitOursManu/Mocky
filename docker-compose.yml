@@ -72,6 +72,12 @@ services:
     profiles: ["video-export"]
     build:
       context: ./worker/video
+      args:
+        # HyperFrames (Apache-2.0) draws every film; Remotion is kept only as
+        # the fallback for a film HyperFrames fails. "false" builds the image
+        # WITHOUT Remotion, and the licence question in worker/video/README.md
+        # with it — at the price of that fallback.
+        WITH_REMOTION: "true"
     image: mocky-video-worker:latest
     container_name: mocky-video-worker
     networks:
@@ -87,6 +93,9 @@ services:
       # mask — so the container reads the HOST's core count and opens eight
       # Chromium tabs to share two cores. Raise them together or not at all.
       RENDER_CONCURRENCY: 2
+      # The engine tried first: hyperframes (the default) or remotion. The other
+      # one is the fallback unless MOCKY_VIDEO_FALLBACK is "none".
+      # MOCKY_VIDEO_ENGINE: hyperframes
     restart: unless-stopped
     # A render is one Chromium plus one encoder, and neither is a polite guest.
     # Unbounded, a stuck render takes the host down with it — on the small VPS

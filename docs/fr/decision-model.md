@@ -1,7 +1,7 @@
 ---
 description: Auditer toutes les pages d’un projet selon une même grille tirée de son objectif. Un modèle de décision note les pages ; Muse explique ce que disent les notes.
 badge: Nouveau
-source_hash: cb1da804d3a1
+source_hash: 052d78738c2a
 ---
 
 # Audit de projet et modèle de décision
@@ -131,6 +131,55 @@ Qui y a accès :
   prix catalogue : ses appels sont comptés sans prix.
 - **Les images sont désactivées.** TypeSafe présente encore la lecture d’images
   comme non prête pour la production, et l’audit n’en envoie pas.
+
+## Le mode Auto du composeur
+
+Quand l’instance a un modèle de décision, le composeur affiche deux modes
+au-dessus de ses options : **Manuel** et **Auto**. Manuel est le composeur tel
+qu’il a toujours été : vous réglez chaque option. En Auto, avant chaque nouvel
+écran, le modèle de décision lit votre demande et choisit les options du
+passage :
+
+- **Muse**, **Motion Ultra**, **Créatif**, **Créations** et **Parcours** ;
+- **Schémas**, sur un document qui n’en dessine que sur demande (un flyer, une
+  affiche, un menu…) : si ses informations doivent être dessinées en schémas ;
+- **la vidéo au défilement** du visuel principal, sur une page : aucune, un clip
+  gratuit ou un film Motion — et un clip IA seulement comme une suggestion que
+  vous confirmez (voir [Muse](muse/overview.md#la-vidéo-au-défilement)) ;
+- **Nouvelle direction**, seulement quand le projet en a déjà une ;
+- **le type d’écran**, quand vous n’en avez pas choisi : un flyer, une landing
+  page, un post Instagram… — la liste du composeur. Il est retenu à partir de
+  50 % ; en dessous, l’écran est fait sans type, comme en Manuel. Un type que
+  vous avez choisi n’est jamais remis en question, pas plus que lorsque des
+  captures d’un site décident de la forme.
+
+Seules les options que le composeur pourrait activer sont posées : un document
+n’a ni Motion Ultra ni parcours — et quand le type reste ouvert, tout ce que
+l’une ou l’autre forme pourrait utiliser est posé, et ce que la forme choisie ne
+peut pas utiliser est écarté. Chaque réponse est une probabilité du « oui » ;
+une option est activée à partir de 50 %, ou de 60 % pour celles qui coûtent
+plusieurs appels de plus (Motion Ultra, Créations, Parcours) ou qui réécrivent
+la direction. Le composeur affiche chaque décision et sa probabilité, et une
+ligne sous l’écran dit ce qui a été activé.
+
+Trois choses restent les vôtres :
+
+- **Les images.** En Auto, elles partent des banques libres, et vous pouvez
+  choisir **IA** (ou aucune) sans repasser en Manuel. Une image payante n’est
+  jamais devinée.
+- **La marque et les règles.** Elles sont celles du projet, pas une façon
+  d’écrire un écran.
+- **Vos réglages manuels.** Auto décide pour une génération et n’en modifie
+  aucun : en revenant en Manuel, vous les retrouvez tels que vous les aviez
+  laissés.
+
+Auto concerne les nouveaux écrans. Quand des écrans sont sélectionnés, le
+composeur affiche les options du mode Manuel : une modification garde celles de
+son écran. Si le modèle de décision ne répond pas, le modèle de texte de Muse
+choisit à sa place et la ligne le dit ; si aucun ne répond, l’écran est fait
+avec vos réglages manuels. Les comptes du plan gratuit ou sur leur propre clé
+ne voient pas Auto. Le mode est retenu par le navigateur ; Manuel est le mode
+par défaut.
 
 ## Depuis un assistant
 

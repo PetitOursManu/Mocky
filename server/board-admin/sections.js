@@ -200,7 +200,8 @@ export function createSections(d) {
       if (u.hasPassword) ways.push(t('users.signIn.password'))
       if (u.kosmyBoard) ways.push(t('users.signIn.kosmy'))
       if (u.sso) ways.push(t('users.signIn.dashy'))
-      const state = people.get(u.id)?.state || 'offline'
+      // Access withdrawn from the Board (./users.js) outranks being online: it cannot be.
+      const state = u.disabled ? 'disabled' : people.get(u.id)?.state || 'offline'
       const actions = []
       // As Admin → Users offers them: the plan for non-admins, sign-out and a
       // new password for everybody, deletion for everybody but yourself.
@@ -216,7 +217,7 @@ export function createSections(d) {
           signIn: u.mustChangePassword
             ? cell(`${ways.join(', ') || t('none')} · ${t('users.signIn.mustChange')}`, 'warning')
             : ways.join(', ') || t('none'),
-          state: cell(t(`users.state.${state}`), state === 'active' ? 'success' : state === 'idle' ? 'warning' : 'muted'),
+          state: cell(t(`users.state.${state}`), state === 'active' ? 'success' : state === 'idle' ? 'warning' : state === 'disabled' ? 'danger' : 'muted'),
           created: f.day(u.createdAt) || t('none'),
         },
         actions,

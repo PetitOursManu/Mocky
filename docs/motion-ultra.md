@@ -106,7 +106,11 @@ section of each new screen gets a moving background:
   background from the first second.
 - A Motion Ultra film is then composed from the series' pictures and **rendered by
   your own machine** (the Motion Ultra worker) — no video is billed; the cost is one
-  text-model call and one to three minutes. The screen's badge says where it is.
+  text-model call and one to three minutes. **The film is made after the
+  screen**: the composer is yours again as soon as the page is written, and the
+  section shows the film coming — a sheen and, in a corner, where it is
+  (composed, rendering). That notice is never in the code, a capture or an
+  export. Leaving the project before it ends asks first: the film would be lost.
 - The film is plugged into that background — one attribute, no model call, no
   rewrite of the page. It plays over the CSS layers, which stay underneath for
   the thumbnail, for reduced motion and if the film never arrives.
