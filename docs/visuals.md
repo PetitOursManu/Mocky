@@ -119,7 +119,20 @@ page — draws one **when you ask for it**: "un flyer avec un schéma des étape
 that count are *schéma*, *diagramme*, *infographie*, *graphique* (as a noun —
 "des graphiques", not "un style graphique"), *frise*, *organigramme*,
 *feuille de route*, and their English equivalents. Without them the brief stays
-as it was.
+as it was — or switch on **Diagrams** in the composer, which asks for them
+whatever the words; in Auto the decision model decides it.
+
+When you ask for diagrams, the information you give **becomes** the diagrams:
+the programme, the dates, the steps, the figures go into the visual instead of
+being written out as text beside it. A diagram never repeats what the page
+already says, is drawn only for information that has a structure (a sequence,
+parts of a whole, figures to compare), and gets a real share of the page — about
+a third of its height — rather than a strip at the foot.
+
+Inside a document, a visual never sets its type under the page's own floor: 14
+px for a line and 11 for a detail on paper, 28 and 24 on a post, 20 and 16 on a
+slide, 10 and 9 on a business card — the rule the page itself is written to.
+Short of room, it drops its details first and keeps its labels at that size.
 
 ## Changing the shape without a new generation
 
@@ -211,6 +224,49 @@ direction, and can be switched in **Visual…** → **Rendering** at no cost:
 A rendering moves nothing: the boxes keep their places and their text, which
 stays flat, readable and editable in PowerPoint. The faces of the 3D and the
 glass come out as pictures there.
+
+A visual also follows your direction's **corners** and **display typeface**:
+square boxes and bars under a direction that says `rounded-none`, its title,
+labels and figures in the direction's heading face. Mocky writes both on the
+visual after the generation (`radius`, `headingFont`) rather than asking the
+model to, and leaves alone a value already written there.
+
+In a project set to **Creative**, a diagram is asked not to look like an
+office-software chart: the most expressive family the content allows (a road for
+a plan, a staircase or a snake for steps, a funnel or a pyramid for levels, a hub
+for parts around a centre) rather than a row of boxes, a rendering that is not
+flat, strong colour fields and a real share of the page. A diagram the
+generation still leaves flat is given **3D** by Mocky — or **Glass** on a dark
+background. The palette, the typefaces and the figures do not change, and a
+rendering switched in **Visual…** afterwards stays yours.
+
+## Animation
+
+:::why
+On a web page, a diagram that builds itself in the order it is read says the
+order without a word — and a printed one has to be the finished diagram. So the
+movement is an entrance that ends on the still frame, and every path that makes
+a picture of a page simply never plays it.
+:::
+
+A visual on a **web page** (a landing page, an article, documentation) can move,
+switched in **Visual…** → **Animation** at no cost:
+
+| Animation | What it does |
+|---|---|
+| None | The visual is drawn as it is — the default |
+| Reveal | When the visual scrolls into view, the boxes arrive in the order of the content and each connector draws itself out of the box it leaves; bars grow out of their baseline |
+| Flow | The same entrance, then a short pulse keeps running along the connectors, to show which way a process, a cycle or a flowchart goes |
+
+The generation chooses it the same way as the rendering, and only on a web page:
+a document, a post or a slide is printed or exported, so it stays still. An
+entrance takes about a second and a half whatever the number of boxes.
+
+Nothing moves in a capture, an export, a screen held still (**Still** on the
+canvas), or on a device asking for reduced motion: they draw exactly the visual with no animation
+— the suite checks that the finished entrance and the still visual are the same
+boxes at the same places. The movement is CSS only (opacity, a small rise, a
+line growing), so it costs no script and no WebGL.
 
 ## In another size
 

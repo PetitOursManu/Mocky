@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Img, Sequence, useCurrentFrame, useVideoConfig } from './clock.js'
 import {
   VERTICAL_SAFE_BOTTOM_PERCENT,
   VERTICAL_SAFE_SIDE_PERCENT,

@@ -1,7 +1,7 @@
 ---
 description: Collez un texte, obtenez-en le schéma — étapes, cycle, frise, comparaison, chiffres clés ou graphique — dans le style du projet, modifiable et exportable.
 badge: Nouveau
-source_hash: 350c231e31e3
+source_hash: 0c8ce469bc15
 ---
 
 # Visuels
@@ -126,7 +126,22 @@ avec un schéma des étapes », « une affiche avec un graphique des résultats 
 « ajoute un schéma » dans une modification. Les mots qui comptent sont *schéma*,
 *diagramme*, *infographie*, *graphique* (comme nom — « des graphiques », pas
 « un style graphique »), *frise*, *organigramme*, *feuille de route*, et leurs
-équivalents anglais. Sans eux, la consigne reste celle d’avant.
+équivalents anglais. Sans eux, la consigne reste celle d’avant — ou activez
+**Schémas** dans le composeur, qui les demande quels que soient les mots ; en
+Auto, le modèle de décision le décide.
+
+Quand vous demandez des schémas, les informations que vous donnez **deviennent**
+les schémas : le programme, les dates, les étapes, les chiffres vont dans le
+visuel au lieu d’être écrits en texte à côté. Un schéma ne répète jamais ce que
+la page dit déjà, n’est dessiné que pour une information qui a une structure
+(une suite, les parties d’un tout, des chiffres à comparer), et reçoit une vraie
+part de la page — environ un tiers de sa hauteur — plutôt qu’une bande en bas.
+
+Dans un document, un visuel ne descend jamais sous le plancher de texte de la
+page : 14 px pour une ligne et 11 pour un détail sur papier, 28 et 24 sur un
+post, 20 et 16 sur une diapositive, 10 et 9 sur une carte de visite — la règle
+d’après laquelle la page elle-même est écrite. Faute de place, il retire d’abord
+ses détails et garde ses libellés à cette taille.
 
 ## Changer de forme sans nouvelle génération
 
@@ -223,6 +238,54 @@ projet, et se change dans **Visuel…** → **Rendu** sans frais :
 Un rendu ne déplace rien : les cases gardent leur place et leur texte, qui reste
 à plat, lisible et modifiable dans PowerPoint. Les faces de la 3D et le verre y
 sortent en images.
+
+Un visuel suit aussi les **angles** et la **police de titre** de votre
+direction : des cases et des barres à angles droits sous une direction qui dit
+`rounded-none`, son titre, ses libellés et ses chiffres dans la police de titre
+de la direction. Mocky les écrit sur le visuel après la génération (`radius`,
+`headingFont`) au lieu de le demander au modèle, et ne touche pas à une valeur
+déjà écrite.
+
+Dans un projet en **Créatif**, un schéma ne doit pas ressembler à un graphique
+de bureautique : la famille la plus expressive que le contenu permet (une route
+pour un plan, un escalier ou un serpentin pour des étapes, un entonnoir ou une
+pyramide pour des niveaux, un moyeu pour des parties autour d’un centre) plutôt
+qu’une rangée de cases, un rendu qui n’est pas plat, des aplats de couleur francs
+et une vraie part de la page. Un schéma que la génération laisse quand même plat
+reçoit la **3D** de Mocky — ou le **Verre** sur fond sombre. La palette, les
+polices et les chiffres ne changent pas, et un rendu choisi ensuite dans
+**Visuel…** reste le vôtre.
+
+## Animation
+
+:::why
+Sur une page web, un schéma qui se construit dans l’ordre où on le lit dit cet
+ordre sans un mot — et un schéma imprimé doit être le schéma fini. Le mouvement
+est donc une entrée qui finit sur l’image figée, et chaque chemin qui fait une
+image d’une page ne la joue tout simplement pas.
+:::
+
+Un visuel sur une **page web** (une page d’accueil, un article, une
+documentation) peut bouger, à régler dans **Visuel…** → **Animation**, sans
+coût :
+
+| Animation | Ce qu’elle fait |
+|---|---|
+| Aucune | Le visuel est dessiné tel quel — par défaut |
+| Apparition | Quand le visuel arrive à l’écran, les cases entrent dans l’ordre du contenu et chaque liaison se trace depuis la case qu’elle quitte ; les barres poussent depuis leur base |
+| Flux | La même entrée, puis une courte impulsion court le long des liaisons, pour montrer le sens d’un processus, d’un cycle ou d’un logigramme |
+
+La génération la choisit comme le rendu, et seulement sur une page web : un
+document, une publication ou une diapositive est imprimé ou exporté, il reste
+donc immobile. Une entrée dure environ une seconde et demie, quel que soit le
+nombre de cases.
+
+Rien ne bouge dans une capture, un export, un écran figé (**Figé** sur la
+toile), ni sur un appareil qui demande moins de mouvement : ils dessinent
+exactement le visuel sans animation — les tests vérifient que l’entrée terminée
+et le visuel figé sont les mêmes cases aux mêmes places. Le mouvement est en CSS
+seulement (opacité, une légère montée, une ligne qui pousse) : ni script, ni
+WebGL.
 
 ## Dans un autre format
 

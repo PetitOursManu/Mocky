@@ -3,7 +3,8 @@ import { HOME_BAR_H, PHONE_SCREEN, STATUS_BAR_H, platformOf, socialLayout, type 
 import { PAGE_FORMATS } from './pageFormats'
 import { deviceFrame, type PhoneFrame } from './deviceFrames'
 
-const SOCIAL = PAGE_FORMATS.filter((f) => f.kind === 'social')
+// The store screenshots are made like posts and never drawn in a feed (DemoPlayer).
+const SOCIAL = PAGE_FORMATS.filter((f) => f.kind === 'social' && !f.store)
 const PLATFORMS: (SocialPlatform | null)[] = ['instagram', 'facebook', 'linkedin', null]
 
 // Where the phone drawn around the screen puts its island, in screen px.

@@ -174,7 +174,9 @@ const MAX_DIRECTION_CHARS = 900
  * data (Q5), and both are bounded here for the reason every length above is.
  */
 const SECTION_NAME = /^[a-z][a-z-]{0,23}$/
-const MAX_PLACEMENT_WHY_CHARS = 200
+// 400: Muse's Vidéo · Motion says what the opening film must be in three
+// sentences, and 200 cut the third in half.
+const MAX_PLACEMENT_WHY_CHARS = 400
 
 function placementOf(value) {
   if (!value || typeof value !== 'object') return null
@@ -1001,6 +1003,11 @@ const BLOCK_NOTES = {
     what: 'a title that plays with its own letters — an arc, a bounce, a stretch, one word swapped into the accent, or a shadowed stack.',
     right: 'the film wants some warmth and the title can carry it: an opening card, a name, a punchline.',
     wrong: 'on a sentence that has to be READ. The treatment is the point, and a line bent into an arc is a line somebody spends a moment decoding.',
+  },
+  handwriting: {
+    what: 'a few words written by hand, stroke by stroke in the order a pen takes, in one of five hands — parisienne, caveat, italianno, ems-allure, hershey-script.',
+    right: 'a signature, a name, a thank-you, one warm word: something a person would write rather than type or print.',
+    wrong: 'on a sentence. Handwriting is read slowly and written slower still, so a line longer than a few words is a scene spent watching a pen.',
   },
   typewriter: {
     what: 'a line typed out character by character, with an optional caret.',

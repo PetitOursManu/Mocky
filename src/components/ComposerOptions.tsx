@@ -139,6 +139,7 @@ export function OptionTile({
   onClick,
   title,
   sweep = false,
+  disabled = false,
   children,
 }: {
   icon: IconName
@@ -149,6 +150,12 @@ export function OptionTile({
   title?: string
   sweep?: boolean
   /**
+   * Shown and greyed rather than hidden: an option that appears only on some
+   * types was looked for on the others and read as missing. The tile's
+   * sentence then says why it cannot be used here.
+   */
+  disabled?: boolean
+  /**
    * Settings shown once the option is on (Motion Ultra's), IN PLACE of the
    * sentence: appended under it they made the tile taller, and a taller tile
    * could give the page a scrollbar that narrowed the whole composer.
@@ -156,8 +163,15 @@ export function OptionTile({
   children?: ReactNode
 }) {
   return (
-    <div className={`${OPTION_TILE} ${tileLook(on)}`}>
-      <button type="button" onClick={tapped(onClick)} title={title} aria-pressed={on} className="flex min-w-0 flex-1 flex-col gap-1.5 text-left">
+    <div className={`${OPTION_TILE} ${tileLook(on)} ${disabled ? 'opacity-50' : ''}`}>
+      <button
+        type="button"
+        onClick={tapped(onClick)}
+        title={title}
+        aria-pressed={on}
+        disabled={disabled}
+        className="flex min-w-0 flex-1 flex-col gap-1.5 text-left disabled:cursor-not-allowed"
+      >
         <span className="flex w-full items-center justify-between">
           <Icon name={icon} size={18} className={on ? 'text-accent-ink' : sweep ? 'muse-sweep-icon' : 'text-ink-faint'} />
           <Switch on={on} />
@@ -311,6 +325,7 @@ export const AUTO_OPTION_LABEL: Record<AutoOption, TranslationKey> = {
   muse: 'muse.title',
   ultra: 'project.ultraChip',
   flows: 'flows.toggle',
+  diagrams: 'composer.diagrams',
 }
 export const AUTO_OPTION_ICON: Record<AutoOption, IconName> = {
   redesign: 'wand',
@@ -319,6 +334,7 @@ export const AUTO_OPTION_ICON: Record<AutoOption, IconName> = {
   muse: 'muse',
   ultra: 'film',
   flows: 'cable',
+  diagrams: 'grid',
 }
 
 /** What Auto said about one option on the last run, as its row shows it. */

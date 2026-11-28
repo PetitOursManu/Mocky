@@ -263,6 +263,7 @@ export default function Canvas({
   onError,
   generatingIds,
   regeneratingIds,
+  filmPending,
   fixingIds,
   regenLabel,
   referenceScreenId,
@@ -328,6 +329,8 @@ export default function Canvas({
   generatingIds?: Set<string>
   /** Screens with an in-place op running: keep the existing render, show a small badge only. */
   regeneratingIds?: Set<string>
+  /** A Motion Ultra film still being made after its screen, by screen: what its slot says meanwhile. */
+  filmPending?: Map<string, string>
   /** Screens whose render error is currently being auto-repaired — shows a calm "Repairing…" state instead of the red error. */
   fixingIds?: Set<string>
   /** Badge label for regeneratingIds frames (e.g. "Regenerating…", "Updating…"). */
@@ -1380,6 +1383,7 @@ export default function Canvas({
                       animations={s.animations ?? animations}
                       visionFilter={visionCss}
                       gl={glGranted.has(s.id)}
+                    filmPending={filmPending?.get(s.id) ?? null}
                       onContentHeight={(h) => onContentHeight?.(s.id, h)}
                     />
                   </DeviceChrome>
@@ -1421,6 +1425,7 @@ export default function Canvas({
                     animations={s.animations ?? animations}
                     visionFilter={visionCss}
                     gl={glGranted.has(s.id)}
+                    filmPending={filmPending?.get(s.id) ?? null}
                   />
                   </div>
                 )}

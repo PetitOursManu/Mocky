@@ -41,7 +41,7 @@ import { CalendyStore, calendyRouter } from './calendy.js'
 import { cleanProjectId, costOf, createSpendLedger, dayOf, priceKey } from './admin/spend.js'
 import { fetchPrices } from './admin/prices.js'
 import { createLockout } from './auth-lockout.js'
-import { createDiskBudget } from './storage-quota.js'
+import { createDiskBudget, quotaError } from './storage-quota.js'
 import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
 import { createVersionStore } from './versions.js'
@@ -227,7 +227,10 @@ const videoQueue = new VideoQueue({
         durationMs: totalDurationMs(job.timeline),
       })
       activity.end(tracked, { status: 200 })
-      return { videoHash: stored.hash }
+      // The worker's look at the file (worker/video/qc.js), kept on the job so
+      // the panel can say before the download what a person would otherwise
+      // find after posting it.
+      return { videoHash: stored.hash, checks: out.checks ?? null }
     } catch (err) {
       activity.end(tracked, signal?.aborted ? { aborted: true } : { status: 502 })
       throw err
@@ -889,7 +892,7 @@ app.get('/api/images/providers', requireUser, (req, res, next) => {
  * proxy, as calls rather than generations: they serve a screen, they are not one.
  * Only when the free model is configured, for the reason the proxy gives.
  */
-app.post(['/api/muse/dossier', '/api/muse/quality', '/api/muse/audit', '/api/video/compose'], requireUser, (req, res, next) => {
+app.post(['/api/muse/dossier', '/api/muse/directions', '/api/muse/quality', '/api/muse/audit', '/api/video/compose'], requireUser, (req, res, next) => {
   if (planOf(req.user) !== 'free' || !textTargetFor(req.user)) return next()
   const verdict = freeQuota.take(req.user.id, freePlanSettings(loadConfig()).dailyLimit)
   if (verdict.ok) return next()
@@ -2784,6 +2787,8 @@ app.use('/api/muse', requireUser)
 // Chromium instance, and a handful of model round-trips. It was the only
 // expensive route with no ceiling at all, while image generation had one.
 app.use('/api/muse/dossier', authRateLimit(10, 60_000, 'muse-dossier'))
+// Three directions are one model call, asked again by a click: the dossier's ceiling.
+app.use('/api/muse/directions', authRateLimit(10, 60_000, 'muse-directions'))
 // One GET of a remote picture per call, on a link the person typed. Generous for
 // a field edited by hand, and still a ceiling on a server fetching for a browser.
 app.use('/api/muse/linked-image', authRateLimit(30, 60_000, 'muse-linked-image'))
@@ -2856,6 +2861,59 @@ app.use(
   },
   images.router,
 )
+
+/*
+ * POST /api/videos/from-film — a Motion film this account rendered, cut into a
+ * scroll sequence like a clip (the composer's Vidéo · Motion).
+ *
+ * The one door from the film store to the clip library, and it is an explicit
+ * one: rule 5 of the video export keeps films OUT of server/videos because a
+ * film has no stills and filing it would lie to every reader of that list. A
+ * film asked for AS a scroll sequence is the exception that rule was not about:
+ * it is cut here, gets its stills, and stays in its own store besides. Owner
+ * only — the hash of somebody else's film is not a way into it.
+ */
+/** The most stills a Motion film is cut into for the scroll. */
+const MOTION_SEQUENCE_FRAMES = 180
+
+app.post('/api/videos/from-film', requireUser, authRateLimit(20, 60_000, 'video-from-film'), async (req, res) => {
+  const hash = String(req.body?.hash || '')
+  if (!/^[a-f0-9]{64}$/.test(hash)) return res.status(400).json({ error: 'Bad hash' })
+  if (!videoExports.meta(hash)) return res.status(404).json({ error: 'No such film.' })
+  if (!videoExports.ownedBy(hash, req.user.id)) return res.status(403).json({ error: 'Not your film.' })
+  try {
+    const state = await videos.availability()
+    if (!state.ffmpeg.available) {
+      return res.status(503).json({ code: 'no-ffmpeg', error: "ffmpeg n'est pas disponible dans ce conteneur — le film ne peut pas être découpé." })
+    }
+    const buffer = fs.readFileSync(videoExports.filePath(hash))
+    if (diskBudget.wouldExceed(buffer.length * 3)) return res.status(507).json({ error: quotaError(diskBudget.usage()) })
+    const out = await videos.library.ingest(
+      buffer,
+      {
+        prompt: 'Motion film',
+        provider: 'motion',
+        model: '',
+        project: typeof req.body?.project === 'string' ? req.body.project.slice(0, 64) : '',
+        slot: 'hero',
+        owner: req.user.id,
+      },
+      // Capped below a clip's own ceiling: a film runs longer than a generated
+      // clip, and 478 stills — one real film — were 478 requests a page made at
+      // once. A scroll scrubs through 180 as smoothly.
+      { ...(images.configStore.videoProfile().frames || {}), max: Math.min(Number(images.configStore.videoProfile().frames?.max) || MOTION_SEQUENCE_FRAMES, MOTION_SEQUENCE_FRAMES) },
+    )
+    res.json({
+      hash: out.hash,
+      frames: out.meta.frames,
+      fromCache: Boolean(out.fromCache),
+      base: `/api/videos/${out.hash}`,
+      poster: `/api/videos/${out.hash}/poster.jpg`,
+    })
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
 
 // Same posture as /api/images: the picture bytes of a known sequence are public
 // so a null-origin preview can fetch them; everything else needs a session, and

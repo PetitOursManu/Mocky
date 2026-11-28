@@ -365,6 +365,19 @@ Import it in Claude under *Customize → Skills*, or unzip it into
 connector serves, so the two cannot teach different things; download it again
 after an update to get the newer one.
 
+**The Codex plugin, optional and free.** Below it, **Download the plugin (.zip)**
+gives the same guide AND the connector, as a plugin for Codex and the ChatGPT
+desktop app (`server/mcp/codex-plugin.js`). The zip is a small local marketplace
+(`mocky-codex/`): add it with `codex plugin marketplace add /path/to/mocky-codex`
+— or copy its `.agents` and `plugins` folders, side by side, into your home folder
+and restart the desktop app — then install **Mocky** from the Plugins Directory.
+It signs in to your account the first time it is used, through the same consent
+page as any other assistant; it carries this instance's address and no secret.
+It has both manifests OpenAI reads — the portable `plugin.json` with `mcp.json`,
+and the older `.codex-plugin/plugin.json` with `.mcp.json` — generated from one
+set of values. Offered only where the connector has a public HTTPS address: a
+plugin is that address.
+
 Then, in every case:
 
 1. Ask for a design. The first time, the assistant opens Mocky. Sign in if asked.

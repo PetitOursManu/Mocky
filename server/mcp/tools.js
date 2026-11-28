@@ -116,6 +116,7 @@ const TYPE_WORDS = [
   ['instagram', /instagram/],
   ['facebook', /facebook/],
   ['linkedin', /linkedin/],
+  ['app-store', /app ?store|google play|captures? (?:de l['’])?(?:app|application)|(?:app|store) screenshots?/],
   ['business-card', /cartes? de visite|business cards?/],
   ['flyer', /\bflyers?\b|\bprospectus\b|\btracts?\b/],
   ['poster', /\baffiches?\b|\bposters?\b/],

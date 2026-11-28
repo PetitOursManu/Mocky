@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeScreenVisual, dropVisualValues, findScreenVisuals, setDocFormat } from './read'
+import { changeScreenVisual, dropVisualValues, findScreenVisuals, setDocFormat, setVisualDirection } from './read'
 import { checkVisualFigures } from './check'
 
 const SCREEN = `export default function App() {
@@ -59,6 +59,15 @@ describe('switching a visual without a model', () => {
     expect((await findScreenVisuals(next!))[0].variant).toBe('outline')
   })
 
+  it('switches the motion like the look, and reads it back', async () => {
+    const next = await changeScreenVisual(SCREEN, 0, { motion: 'flow' })
+    expect(next).toContain('<Visual motion="flow"')
+    expect((await findScreenVisuals(next!))[0].motion).toBe('flow')
+    const off = await changeScreenVisual(next!, 0, { motion: 'none' })
+    expect((await findScreenVisuals(off!))[0].motion).toBe('none')
+    expect(await changeScreenVisual(SCREEN, 0, { motion: 'spin' as never })).toBeNull()
+  })
+
   it('refuses an unknown family, an unknown visual or a change that changes nothing', async () => {
     expect(await changeScreenVisual(SCREEN, 0, { family: 'pie' as never })).toBeNull()
     expect(await changeScreenVisual(SCREEN, 3, { family: 'bars' })).toBeNull()
@@ -96,5 +105,46 @@ describe('making a visual in another size', () => {
     expect(await setDocFormat(SCREEN, 'slides')).toBeNull()
     expect(await setDocFormat('export default () => <div />', 'a4')).toBeNull()
     expect(await setDocFormat(SCREEN, 'x" onClick="')).toBeNull()
+  })
+})
+
+describe('the direction, written on the visuals', () => {
+  it('writes the corners and the display face on a visual that does not say them', async () => {
+    const next = await setVisualDirection(SCREEN, { radius: '0px', headingFont: 'Archivo Black' })
+    expect(next).toContain('<Visual radius="0px" headingFont="Archivo Black"')
+    // The rest of the screen is untouched.
+    expect(next!.replace(' radius="0px" headingFont="Archivo Black"', '')).toBe(SCREEN)
+  })
+
+  it('leaves alone what the visual already says, and writes nothing twice', async () => {
+    const once = await setVisualDirection(SCREEN, { radius: '0px', headingFont: 'Archivo Black' })
+    expect(await setVisualDirection(once!, { radius: '14px', headingFont: 'Inter' })).toBeNull()
+  })
+
+  it('writes only a length and a face name, never what a document could smuggle', async () => {
+    expect(await setVisualDirection(SCREEN, { radius: '0px" onClick={alert(1)}', headingFont: 'x" style={{}}' })).toBeNull()
+    expect(await setVisualDirection(SCREEN, {})).toBeNull()
+  })
+})
+
+describe('Créatif, on the visuals', () => {
+  it('gives a bolder look to a visual with none, by the ground it sits on', async () => {
+    const light = await setVisualDirection(SCREEN, { creative: true })
+    expect(light).toContain('<Visual look="block"')
+    const dark = SCREEN.replace('<Visual', '<Visual ground="#0b0d12"')
+    expect(await setVisualDirection(dark, { creative: true })).toContain('look="glass"')
+  })
+
+  it('replaces the flat look, and leaves any other look alone', async () => {
+    const flat = SCREEN.replace('<Visual', '<Visual look="flat"')
+    const next = await setVisualDirection(flat, { creative: true })
+    expect(next).toContain('look="block"')
+    expect(next).not.toContain('look="flat"')
+    const neon = SCREEN.replace('<Visual', '<Visual look="neon"')
+    expect(await setVisualDirection(neon, { creative: true })).toBeNull()
+  })
+
+  it('changes nothing about the look in Normal mode', async () => {
+    expect(await setVisualDirection(SCREEN, { creative: false })).toBeNull()
   })
 })

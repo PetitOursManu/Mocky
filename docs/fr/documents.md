@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 7ec245bbd615
+source_hash: 7c6b47a6b252
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -89,6 +89,7 @@ l’emportent en cas de conflit, et le style reste celui de votre direction.
 | `Post Instagram` | 4:5 | Une grande idée par image ; un carrousel quand il y a plus à dire (la première image accroche, la dernière appelle à l’action). |
 | `Post Facebook` | 1,91:1 | Le visuel d’une annonce ou d’un événement, peu de texte — le texte du post porte le détail. |
 | `Post LinkedIn` | 1:1 | Une idée ou un résultat professionnel ; un carrousel exporté en PDF est le post document de LinkedIn. |
+| `Captures App Store` | iPhone 6,9 pouces (iPad 13 pouces, Google Play) | La rangée de captures de la page d’une app dans le store : cinq par défaut, chacune une légende de quelques mots au-dessus de l’app dessinée dans un cadre de téléphone. Voir [Captures App Store](#captures-app-store). |
 
 ---
 
@@ -119,6 +120,9 @@ post Instagram tapé ensuite.
 | Réseaux | `Portrait 4:5` | 1 080 × 1 350 px, le plus haut qu’un fil affiche en entier |
 | Réseaux | `Story 9:16` | 1 080 × 1 920 px |
 | Réseaux | `Paysage 1,91:1` | 1 200 × 628 px, lien partagé, Facebook, LinkedIn |
+| Store | `iPhone` | 1 320 × 2 868 px, App Store, iPhone 6,9 pouces — Apple la réduit pour les autres iPhone |
+| Store | `iPad` | 2 064 × 2 752 px, App Store, iPad 13 pouces |
+| Store | `Google Play` | 1 080 × 1 920 px, un téléphone en 9:16 |
 
 Les tailles papier sont en pixels CSS à 96 par pouce, qui correspondent
 exactement aux points PDF : une page s’exporte à sa vraie taille de papier. Les
@@ -424,6 +428,31 @@ téléchargement PDF est un post document tout prêt.
 
 Une story fait 9:16, et le modèle garde le texte hors des bandes que l’application
 couvre en haut (progression, nom) et en bas (champ de réponse).
+
+## Captures App Store
+
+:::why
+Un store vérifie les pixels de chaque capture et refuse toute autre taille, et
+c’est la rangée de captures qui décide d’une installation. Les tailles sont donc
+celles des stores, tenues à part de celles des posts, et chaque capture doit
+vendre une seule chose.
+:::
+
+Le type `Captures App Store` fait la rangée de captures d’une app pour son
+store : cinq pages par défaut (dix au plus), chacune un bénéfice — une légende de
+trois à six mots en très grand, au-dessus de l’écran de l’app dessiné dans un
+cadre de téléphone, le même cadre sur chaque page, un même fond qui court sur
+toute la rangée. La première est la vitrine ; rien d’inventé (pas de prix, pas de
+note que la demande n’a pas donnée, pas de badge de store).
+
+Il démarre sur la taille **iPhone 6,9 pouces**, celle qu’App Store Connect
+demande et réduit pour tous les iPhone plus petits ; les puces proposent à la
+place l’**iPad 13 pouces** et la taille **Google Play** d’un téléphone. Une
+rangée pour un autre store est une nouvelle génération avec cette puce : une
+page iPad n’est pas une page iPhone agrandie, son cadre et ses proportions lui
+sont propres. Le téléchargement `Images PNG` donne les pages numérotées, exactement à la taille
+du store. Ces tailles ne sont jamais proposées pour un post, ni les tailles de
+post pour des captures.
 
 ### Des images dans une forme
 

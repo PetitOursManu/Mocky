@@ -34,6 +34,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { Button, ButtonLink, Icon, IconButton, Modal } from './ui'
 import { useT, type TranslationKey } from './i18n'
 import { navigationHold } from './lib/navigationHold'
+import { DOCS_URL } from './lib/docsUrl'
 
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'media'
 
@@ -118,15 +119,6 @@ function clearReconcileReloadMark(): void {
     /* ignore */
   }
 }
-
-/**
- * Where the documentation lives.
- *
- * Its own host, and deliberately so: the docs are a separate static resource
- * that serves Markdown read straight from the repository, with no build step
- * and nothing in common with this application's deployment.
- */
-const DOCS_URL = 'https://mocky-docs.emanuelvigreux.fr'
 
 export default function App() {
   /**

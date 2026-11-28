@@ -132,6 +132,15 @@ that fails with the picture is retried without it, the fallback under a
 reference is its measured colours, the palette is `extractReferencePalette`
 (backdrop out, ink kept), and on the LOOK the picture outranks the dossier.
 
+**Three directions** (`server/muse/inspire/directions.js`, `lib/directions.ts`,
+`DirectionsDialog.tsx`, `POST /api/muse/directions`) proposes three art
+directions before a screen exists; the pick is written as the project's
+direction through `onSetDesign`, in the dossier's markdown, and nothing else
+knows it was chosen. Contrast is MEASURED (`directionDistance`), never trusted to
+the prompt: asked for "three different directions" a model returns three beiges.
+The account's other projects travel as data (`avoidFrom`, read off their
+directions, never stored), and with no model the pattern library answers (M3).
+
 **An .html or .zip of the site becomes a screenshot** (`lib/siteSource.ts`,
 `lib/siteSourceRender.ts`, `lib/zipRead.ts`) and nothing downstream knows it was
 a file. Two frames, and do not merge them: the page's scripts run in an
@@ -269,7 +278,12 @@ option the composer could switch on, for ONE new screen; nothing it decides is
 written back to a preference or the project (`runOptionsFor`, and Motion Ultra
 reaches the run through a copy of the project). The pictures are never asked:
 Auto starts on the free libraries and the person may still pick "AI" — the
-user's rule. In Manual the request is byte-identical to what it was.
+user's rule. In Manual the request is byte-identical to what it was. Auto also
+answers `diagrams` (a document's facts drawn as diagrams, the composer's
+"Schémas" in Manual) and, when the composer has NO type, the screen type itself:
+one `choice` over `SCREEN_TYPES` plus `none`, taken from `AUTO_TYPE_THRESHOLD` —
+with the type open, every option either shape could use is asked and the
+shape's own `offeredOptions` filters the answers.
 
 ## Motion Ultra
 
@@ -303,6 +317,12 @@ Four things that will bite you:
 4. **No free `<style>` from the model.** Decided with the user: a missing effect
    goes into the kit, tested against reduced motion, "Sans animation" and the
    capture shell (html2canvas throws on computed colours).
+
+**The video background's film is made AFTER its screen** (`deferFilm` /
+`filmPending` in `NewScreenHooks`): the composer is given back when the page is
+written, the slot shows the film coming (Preview's `film-pending` command,
+never in the code), and the navigation hold is ONE counted claimant
+(`claimNavigation`). The MCP runner passes neither hook and still waits.
 
 **The video background (v2) is a film PLANNED for, not placed.** The storyboard
 picks one section (`filmSectionOf`), the page writes `<Backdrop slot="film">`
@@ -365,7 +385,12 @@ server/video/queue.js       in-memory queue + atomic JSON journal. No Redis, eve
 server/video/worker.js      HTTP client for the render worker
 server/video/store.js       the finished file, kept whole. NOT server/videos/
 server/video/text-budget.js how much a page film may SAY, counted off the schema
-worker/video/               the Remotion worker: separate sub-project, separate image
+worker/video/               the render worker: separate sub-project, separate image
+worker/video/engine.js      HyperFrames first, Remotion as the fallback — never after an abort
+worker/video/qc.js          the finished file looked at, 1 fps grey: blank, faint, frozen —
+                            a warning on the job, never a failed render
+worker/video/remotion/clock.js, clockCanvas.js   the ONLY doors from a composition
+                            to an engine; remotion/hyperframes/ is HyperFrames' side
 worker/video/remotion/blocks/   one component per block kind, plus the registry
 worker/video/remotion/world.js  the continuous 3D world as arithmetic; the GL
                             scene that reads it is WorldGround.jsx beside it
@@ -373,6 +398,21 @@ worker/video/remotion/lottieIcons.js  the animated icons, by the name a film
                             writes; LottieIcon.jsx is the player they reach
                             through React context, never an import in blocks/
 ```
+
+**Two engines draw the same compositions** (since 2026-11, `docs/video-export.md`,
+"Two engines"): HyperFrames (Apache-2.0) by default, Remotion as the fallback,
+and `WITH_REMOTION=false` builds an image without Remotion at all. A composition
+imports `./clock.js` and `./clockCanvas.js`, never `remotion` —
+`tests/video-engine-clock.test.js` refuses anything else, and a name added to one
+side of a door must be added to `remotion/hyperframes/` too. Three things the
+corpus comparison taught, each easy to undo: the HyperFrames page needs Remotion's
+`* { box-sizing: border-box }`; a GL canvas is `createRoot` at its given size,
+never a `<Canvas>` waiting for a ResizeObserver that cannot fire while the capture
+holds the frame; and it redraws on every RENDER, not every frame, or a texture
+decoded on frame 0 leaves frame 0 black. One browser serves both
+(`PRODUCER_HEADLESS_SHELL_PATH`, the build HyperFrames checks by digest), and
+HyperFrames gets `encoding.js`'s rate cap — except on WebM, which it refuses. A
+change to a composition is checked by rendering the corpus with BOTH engines.
 
 Ten things, and the first one is not negotiable.
 
@@ -416,6 +456,14 @@ Ten things, and the first one is not negotiable.
    callers. The export store is content-addressed and atomic like its neighbours,
    shares the same `diskBudget`, and refuses **before** writing: a full volume
    fails writes silently everywhere in this repository.
+
+   The ONE door the other way is `POST /api/videos/from-film` (Muse's Vidéo ·
+   Motion): a film this account rendered, cut into a scroll sequence ON PURPOSE —
+   it then has stills, and it stays in its own store besides. Owner only. Muse's
+   hero video has four sources (none, AI, free, Motion); Auto may choose none,
+   free — Mocky then searches, a vision model picks among the thumbnails
+   (`/api/videos/stock/candidates`) or refuses — or Motion, and only SUGGESTS
+   AI: the person confirms a paid clip in a dialog (`askAiVideo`).
 
    The corollary, learned the hard way: **a separate store still has to be
    findable.** The hash says what a file contains and nothing about who wanted
@@ -866,8 +914,9 @@ Ten things, and the first one is not negotiable.
       both directions. `blocks/index.js` is a map and nothing else, so
       twenty-seven people can each own one file without touching the same line.
 11. **A Motion Ultra KIND is a doorway into that catalogue, never a sixth template.**
-    `server/video/kinds.js` — eight of them (`hero`, `background`, `banner`,
-    `showcase`, `figure`, `globe`, `mark`, `story`), and each resolves to nothing
+    `server/video/kinds.js` — nine of them (`hero`, `background`, `opening`,
+    `banner`, `showcase`, `figure`, `globe`, `mark`, `story`; `opening` is Muse's
+    Vidéo · Motion: rich and wordless, scrubbed at the top of a page), and each resolves to nothing
     but a subset of `BLOCK_KINDS`, a subset of `BACKGROUND_KINDS`, one
     `ASPECT_RATIOS` value and a window inside `TEMPLATE_LIMITS.composed`. What
     comes out is an ordinary `composed` document: the worker never learns a kind
@@ -1191,6 +1240,25 @@ gave and never moves one (a test holds that), except the room a roadmap's pins
 need; a box in relief gives its `depth` to its edge and the text is fitted in
 the face that is left.
 
+A visual follows its PAGE and its DIRECTION without the model's help: inside a
+`<Doc>` it reads the format from `MockyDocContext` and never sets type under
+`typeFloorFor` (pageFormats.ts — the same numbers the document prompt states),
+and `runNewScreen` writes the direction's `radius` and `headingFont` on every
+`<Visual>` that lacks them (`setVisualDirection`). A festival flyer is why: a
+diagram of rounded boxes under `rounded-none`, details at 9 px on paper, and the
+flyer's own slogans drawn again — `VISUAL_ASKED_SECTION` now says the facts ARE
+the diagram's content and a diagram never repeats the page. In Créatif the model also
+gets `VISUAL_CREATIVE_SECTION`, and a `<Visual>` it left flat is given
+`creativeLookFor` (block, glass on a dark ground) by the same write.
+
+`motion` (`reveal`, `flow`) is the one movement a visual has, for a web page:
+an entrance in the order of the content (`mockyVisualTimeline`, pure), then for
+`flow` a pulse along the connectors. It animates `opacity`, `translate` and
+`scale`, never `transform` (pins and 3D faces use it); every still path renders
+the markup with no motion at all, and once the entrance has played the markup
+goes BACK to that one — a finished animation left Edge drawing the type and the
+bars a shade apart from the still visual, 5,000 pixels of a slide.
+
 ## Fonts in a generated page
 
 ~200 self-hosted families (`src/lib/fonts`, user doc `docs/fonts.md`), Latin
@@ -1217,6 +1285,21 @@ things that will bite you:
    `specimenFamily` aliases, or the interface (which asks for `Inter`) would
    switch to the webfont. Muse's dossier picks from the list and
    `settleTypography` (server/fonts) maps anything else onto it.
+
+**Handwriting is a pack, not a font** (`snippets/Handwriting.ts`, user doc
+`docs/fonts.md#handwriting`): `<Handwriting text font>` asks Tegaki (MIT,
+`public/vendor/tegaki.js`, built by `npm run vendor:tegaki`) for a self-drawing
+SVG. Four things: each font is a vendor file of its OWN, loaded on first use
+(five in one file was a megabyte); three fonts are ASCII-only, so a text one of
+them cannot write whole is written in `HANDWRITING_FALLBACK` (EMS Allure) —
+never with a hole; every `tk-` name in the SVG is renamed per instance, because
+inline SVG shares the page's namespace and two signatures animated each other;
+and the still paths (capture, "Sans animation", reduced motion) get the
+finished words, the capture waiting on `__mockyStillPending`. The loader's
+"Mocky" is the same library run at BUILD time (`npm run build:loader-word` →
+`src/ui/mockyLoaderWord.ts`, a lazily loaded chunk): the app ships the drawing,
+and under reduced motion the static word, since the app's rule collapses a loop
+onto its last keyframe — the word faded out.
 
 ## The pre-export check
 
@@ -1471,6 +1554,8 @@ server/mcp/guide.js        the guide FOR THE ASSISTANT (mocky_guide, mocky://gui
 server/mcp/prompts.js      the prompts a person picks in their client's menu — starting messages
                            that name tools; `prompts.test.js` holds them to the real tool list
 server/mcp/skill.js        the downloadable Claude skill: the guide + the prompts as one SKILL.md
+server/mcp/codex-plugin.js the Codex / ChatGPT plugin: that skill + the connector, as a local
+                           marketplace; both OpenAI manifests from one set of values, no secret
 src/runner/main.tsx        runner.html: runNewScreen (from a template when the job carries one), or one
                            pass on an existing screen, + the preview (X5) and exportScreen
 server/mcp/project-edits.js what an assistant changes with no model: a project's name, direction and

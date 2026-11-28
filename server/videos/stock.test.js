@@ -219,3 +219,34 @@ describe('the credit kept with the clip', () => {
     expect(cleanCredit(null)).toBeNull()
   })
 })
+
+describe('candidates for a vision model', () => {
+  const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0])
+
+  it('hands back clips with their thumbnails as data URLs, fetched by the server', async () => {
+    const { stock, calls } = stockWith([
+      ['https://api.pexels.com/v1/videos/search', json({ videos: [PEXELS_VIDEO], total_results: 1 })],
+      ['https://pixabay.com/api/videos/', json({ hits: [PIXABAY_HIT], totalHits: 1 })],
+      ['https://images.pexels.com/', new Response(JPEG, { status: 200 })],
+      ['https://cdn.pixabay.com/', new Response(JPEG, { status: 200 })],
+    ])
+    const out = await stock.candidates('plage au coucher du soleil')
+    expect(out.candidates.map((c) => c.provider)).toEqual(['pexels', 'pixabay'])
+    for (const c of out.candidates) {
+      expect(c.thumb).toMatch(/^data:image\/jpeg;base64,/)
+      expect(c.files).toBeUndefined()
+    }
+    // Every thumbnail went through the guard, and no key travelled with it.
+    expect(calls.filter((c) => c.url.includes('images.pexels.com')).every((c) => !JSON.stringify(c.headers).includes('KEY'))).toBe(true)
+  })
+
+  it('leaves out a thumbnail that is not a picture, or from a host the library does not use', async () => {
+    const odd = { ...PEXELS_VIDEO, id: 2, image: 'https://evil.example/x.jpg' }
+    const { stock } = stockWith([
+      ['https://api.pexels.com/v1/videos/search', json({ videos: [PEXELS_VIDEO, odd], total_results: 2 })],
+      ['https://pixabay.com/api/videos/', json({ hits: [], totalHits: 0 })],
+      ['https://images.pexels.com/', new Response('<html>', { status: 200 })],
+    ])
+    expect((await stock.candidates('x')).candidates).toEqual([])
+  })
+})

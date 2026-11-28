@@ -132,6 +132,18 @@ export interface MuseConfig {
    * the checkbox it would otherwise contradict.
    */
   videoPin: MuseVideoPin | null
+  /**
+   * The hero's sequence is a MOTION film: composed by Mocky's own film engine,
+   * rendered by the local worker (no clip is billed), then cut for the scroll
+   * like any clip (`filmToScrollSequence`). Excludes `video` and `videoPin`.
+   */
+  videoMotion?: boolean
+  /**
+   * For ONE run, set by Auto only and never saved: Mocky finds a free stock
+   * clip itself — searched from the hero's words, chosen by a vision model
+   * among the thumbnails, or refused — instead of opening Media.
+   */
+  videoFind?: boolean
 }
 
 /**
@@ -263,6 +275,25 @@ export interface MotionFilmRef {
  * around a component with nothing to play. The caller decides what to do, and
  * currently degrades to a still image.
  */
+/** A Motion film this account rendered, cut into a scroll sequence (POST /api/videos/from-film). */
+export async function filmToScrollSequence(filmHash: string, project: string, signal?: AbortSignal): Promise<GeneratedVideo> {
+  const res = await fetch('/api/videos/from-film', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ hash: filmHash, project }),
+    signal,
+  })
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(j?.error ? String(j.error) : `HTTP ${res.status}`)
+  return {
+    hash: String(j.hash),
+    base: absoluteUrl(String(j.base)),
+    poster: absoluteUrl(String(j.poster)),
+    frames: Number(j.frames) || 0,
+    fromCache: Boolean(j.fromCache),
+  }
+}
+
 export async function generateScrollVideo(
   prompt: string,
   project: string,

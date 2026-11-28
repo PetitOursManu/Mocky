@@ -31,6 +31,12 @@ script tag reappears in the preview pipeline.
 | `daisyui.min.css` | daisyui | 4.12.10 | `36e28efcf6c4993c482e465b2cae3d63b2066f90ff91455d78bf3e9388af2925` | yes |
 | `motion.js` | motion | 12.43.0 | `be2986aae4824690b4b1b451725e811a08ac44d1100ea269a4692f49f1a0f4ad` | built |
 | `three.js` | three | 0.185.1 | `01940a583232ff8f1681548adbdeff74bb0e0ce83293cd9b5d1803cf8bace8bf` | built |
+| `tegaki.js` | tegaki | 1.1.0 | `46b533b17993f9029be9c9c5654e1e69e926f2de74b9ea68ea7095db19353bbf` | built |
+| `tegaki-caveat.js` | tegaki | 1.1.0 | `6b525a59a296892e7df7bc32d96ddd52ffcffd34889f2b4df16880c7c26017ff` | built |
+| `tegaki-parisienne.js` | tegaki | 1.1.0 | `ad9ae0793beeaa0ea249f6f5d51c6196de83e6d6d0837ad15362318b8e70f1b2` | built |
+| `tegaki-italianno.js` | tegaki | 1.1.0 | `cb654e0aefec89a4fa7665a307f601a7c0eb9c6c85c21f280a9b4468562cdf61` | built |
+| `tegaki-ems-allure.js` | tegaki | 1.1.0 | `2bcfa642cde62fb60c96130ca0849d358e7393a3e0ec52a9d26b09ced4c52e4a` | built |
+| `tegaki-hershey-script.js` | tegaki | 1.1.0 | `80c179751842bc6bc900ac132a6c9c96176b474d6c5c29ba136d6404aebbf2e8` | built |
 
 ### The two patches
 
@@ -81,6 +87,26 @@ the point: every byte the sandbox executes is a byte somebody chose.
 `connect-src 'none'`, so a glTF or an HDRI could not be fetched at all. Every
 scene in the catalogue is procedural for that reason, and that is a constraint
 the catalogue was designed around rather than one it works against.
+### `tegaki.js` and its fonts are built too, and split
+
+Tegaki (MIT) writes text by hand: `<Handwriting>` (`snippets/Handwriting.ts`)
+asks it for a self-drawing SVG — paths and CSS keyframes — which every renderer
+of a page copies as it is. Tegaki publishes ESM only, so it is bundled here:
+
+```bash
+node scripts/build-vendor-tegaki.mjs   # or: npm run vendor:tegaki
+```
+
+`tegaki.js` is the renderer (`textToSvg` and nothing else, 68 KB) plus a loader,
+and each font is a file of its own beside it, 94 to 269 KB, fetched the first
+time a screen names it: five fonts in one file would be a megabyte for a screen
+that writes one word in one of them. The renderer keeps Tegaki's MIT notice at
+its top; each font file names its licence (SIL OFL 1.1, or the Hershey fonts'
+terms). Not bundled: the DOM engine, the harfbuzz shaper — WebAssembly, which
+the preview CSP would have to be widened for — and the font files, which only
+the shaper and the engine read. It is loaded only by a screen whose
+capabilities include `tegaki-lib`.
+
 ### `motion.js` is built, not copied
 
 Every other file here is copied out of `node_modules` because it already ships a

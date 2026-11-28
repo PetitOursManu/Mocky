@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { createVideoWorker, collectImages, payloadBytesFor, MAX_WORKER_PAYLOAD_BYTES } from './worker.js'
+import { createVideoWorker, collectImages, payloadBytesFor, readFilmChecks, MAX_WORKER_PAYLOAD_BYTES } from './worker.js'
 import { assertSafeTargetResolved } from '../provider-proxy.js'
 
 const TIMELINE = {
@@ -396,5 +396,25 @@ describe('payloadBytesFor', () => {
     expect(payloadBytesFor(20 * 300 * 1024)).toBeLessThan(MAX_WORKER_PAYLOAD_BYTES)
     // Twenty 8 MB photographs straight off a camera.
     expect(payloadBytesFor(20 * 8 * 1024 * 1024)).toBeGreaterThan(MAX_WORKER_PAYLOAD_BYTES)
+  })
+})
+
+describe('the worker’s look at the film', () => {
+  it('reads a closed list of kinds and bounded numbers, and nothing else', () => {
+    const header = JSON.stringify({
+      checked: true,
+      seconds: 12,
+      issues: [
+        { kind: 'blank', from: 0, to: 2.04, note: '<b>x</b>' },
+        { kind: 'rm -rf', from: 1, to: 2 },
+        { kind: 'frozen', from: 'x', to: 3 },
+        { kind: 'faint', from: 4, to: 99999 },
+      ],
+    })
+    expect(readFilmChecks(header)).toEqual({ seconds: 12, issues: [{ kind: 'blank', from: 0, to: 2 }, { kind: 'faint', from: 4, to: 3600 }] })
+  })
+
+  it('answers null for a worker that did not look, or said nothing readable', () => {
+    for (const h of [null, '', 'not json', JSON.stringify({ checked: false, detail: 'no ffmpeg' }), 'x'.repeat(5000)]) expect(readFilmChecks(h)).toBeNull()
   })
 })

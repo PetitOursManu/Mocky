@@ -1,4 +1,8 @@
 import { VISUAL_BOUNDS, VISUAL_FAMILIES } from '../../visuals/families'
+import { PAGE_FORMAT_IDS, typeFloorFor } from '../../pageFormats'
+
+/** The type floor of every page format, by id: the document's own rule (pageFormats.ts). */
+const FLOORS = Object.fromEntries(PAGE_FORMAT_IDS.map((id) => [id, typeFloorFor(id)]))
 
 /**
  * `<Visual family="cycle" doc={…} colors={[…]} />` — a text's ideas laid out
@@ -23,8 +27,16 @@ import { VISUAL_BOUNDS, VISUAL_FAMILIES } from '../../visuals/families'
  *    chosen among the page's own colours before black or white — the rule
  *    `legibleOn` applies to films.
  *
- * Nothing moves: a visual is read, printed and exported, and a still frame of
- * it must be the visual itself.
+ * A visual is read, printed and exported, and a still frame of it must be the
+ * visual itself — so the only movement is `motion`, asked for on a web page:
+ * `reveal` is an ENTRANCE that ends on exactly the frame a still draws (boxes
+ * arrive in the order of the content, each connector draws itself out of the
+ * box it leaves), and `flow` adds a pulse travelling along the connectors once
+ * everything has arrived. It animates `opacity`, `translate` and `scale` — the
+ * individual properties, never `transform`, which the pins and the 3D faces
+ * already use — and on every still path (a capture, "Sans animation", reduced
+ * motion) the markup is the one with no `motion` at all: nothing to settle,
+ * nothing an export could catch halfway.
  *
  * Exported as a STRING, prepended to the generated component before Babel like
  * every snippet pack. Every top-level name is prefixed: the screen's own code
@@ -36,6 +48,7 @@ export const VISUAL_EXPORTS = ['Visual'] as const
 export const VisualSource = `// --- Visual (snippets/Visual.ts) ---
 var MOCKY_VISUAL_BOUNDS = ${JSON.stringify(VISUAL_BOUNDS)};
 var MOCKY_VISUAL_FAMILIES = ${JSON.stringify(VISUAL_FAMILIES)};
+var MOCKY_VISUAL_FLOORS = ${JSON.stringify(FLOORS)};
 var MOCKY_VISUAL_DEFAULT_COLORS = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed'];
 var mockyVisualSeq = 0;
 
@@ -157,8 +170,8 @@ function mockyVisualStackH(n, s, showDetail) {
  * group fits, the detail always smaller. Details are given up before labels go
  * under the floor, and what still does not fit is drawn at the floor.
  */
-function mockyVisualFitGroup(nodes, maxL, minL, valueScale) {
-  var minD = Math.max(9, minL * 0.82);
+function mockyVisualFitGroup(nodes, maxL, minL, valueScale, floorD) {
+  var minD = floorD ? Math.max(9, floorD) : Math.max(9, minL * 0.82);
   function sizes(L) { return { L: L, D: Math.max(minD, Math.min(L * 0.78, L - 2)), V: L * valueScale }; }
   function fits(s, showDetail) {
     for (var i = 0; i < nodes.length; i++) if (mockyVisualStackH(nodes[i], s, showDetail) > (nodes[i].vertical ? nodes[i].w : nodes[i].h) - (nodes[i].depth || 0) + 0.5) return false;
@@ -299,6 +312,12 @@ function mockyVisualSquarify(values, x, y, w, h) {
 function mockyVisualLayout(family, rawDoc, W, H, opts) {
   var doc = mockyVisualClean(rawDoc);
   var lookOpt = opts && opts.look;
+  // The page's own type floor when the visual sits in a document (a flyer is
+  // read at 14px, a post at 28): labels never under its line size, details
+  // never under its small size — they are given up first instead.
+  var fl = opts && opts.floor;
+  var minLabel = Math.max(11, fl && fl.line ? fl.line : 0);
+  var minDetail = Math.max(9, fl && fl.small ? fl.small : 0);
   var fam = MOCKY_VISUAL_FAMILIES.indexOf(family) >= 0 ? family : 'steps';
   var bounds = MOCKY_VISUAL_BOUNDS[fam];
   var u = Math.max(6, Math.min(W, H) / 40);
@@ -317,18 +336,18 @@ function mockyVisualLayout(family, rawDoc, W, H, opts) {
   var title = titleIsCentre ? '' : doc.title;
   var T = 0, tl = 0, S = 0, sl = 0, headerH = 0;
   if (title) {
-    for (T = Math.min(u * 3, 64); T > 16; T *= 0.94) { tl = mockyVisualLines(title, T, W, 1.08); if (tl <= 2) break; }
+    for (T = Math.max(minLabel, Math.min(u * 3, 64)); T > Math.max(16, minLabel); T *= 0.94) { tl = mockyVisualLines(title, T, W, 1.08); if (tl <= 2) break; }
     if (!(tl <= 2)) tl = Math.min(3, isFinite(tl) ? tl : 3);
     headerH += tl * T * 1.12;
   }
   if (doc.subtitle) {
-    S = Math.max(12, T ? Math.min(T * 0.6, Math.max(u * 1.35, T * 0.46)) : u * 1.35);
-    for (; S > 11; S *= 0.94) { sl = mockyVisualLines(doc.subtitle, S, W * 0.9, 1); if (sl <= 2) break; }
+    S = Math.max(12, minLabel, T ? Math.min(T * 0.6, Math.max(u * 1.35, T * 0.46)) : u * 1.35);
+    for (; S > minLabel; S *= 0.94) { sl = mockyVisualLines(doc.subtitle, S, W * 0.9, 1); if (sl <= 2) break; }
     if (!(sl <= 3)) sl = 3;
     headerH += (title ? u * 0.5 : 0) + sl * S * 1.35;
   }
   if (headerH) headerH += u * 1.6;
-  var F = Math.max(10, u * 0.7);
+  var F = Math.max(10, minDetail, u * 0.7);
   var footH = doc.source ? F * 1.5 + u * 0.6 : 0;
   var box = { x: 0, y: headerH, w: W, h: Math.max(H * 0.35, H - headerH - footH) };
   var bx = box.x, by = box.y, bw = box.w, bh = box.h;
@@ -1171,19 +1190,19 @@ function mockyVisualLayout(family, rawDoc, W, H, opts) {
   Object.keys(groups).forEach(function (gk) {
     var list = groups[gk];
     var vs = list[0].valueScale || 1.6;
-    type[gk] = mockyVisualFitGroup(list, Math.max(11, maxByRole[gk] || u * 1.4), 11, vs);
+    type[gk] = mockyVisualFitGroup(list, Math.max(minLabel, maxByRole[gk] || u * 1.4), minLabel, vs, minDetail);
   });
   // A detail is never as large as a label of a superior role, and a row of a
   // comparison is never as large as its column's head.
   if (type.row && type.head && type.row.s.L > type.head.s.L * 0.86) {
-    type.row.s.L = Math.max(11, type.head.s.L * 0.86);
+    type.row.s.L = Math.max(minLabel, type.head.s.L * 0.86);
     type.row.s.D = Math.min(type.row.s.D, type.row.s.L * 0.76);
   }
   // The ORDER: a centre is never set smaller than what hangs off it. When the
   // centre cannot grow, the cards come down to it rather than invert it.
   if (type.card && type.centre && type.card.s.L > type.centre.s.L) {
     type.card.s.L = type.centre.s.L;
-    type.card.s.D = Math.min(type.card.s.D, Math.max(9, type.card.s.L * 0.78));
+    type.card.s.D = Math.min(type.card.s.D, Math.max(minDetail, type.card.s.L * 0.78));
     type.card.s.V = type.card.s.L * (groups.card[0].valueScale || 1.6);
   }
 
@@ -1200,11 +1219,123 @@ function mockyVisualDonutPath(cx, cy, r0, r1, a0, a1) {
   return 'M' + p(r1, a0) + ' A' + r1 + ' ' + r1 + ' 0 ' + large + ' 1 ' + p(r1, a1) + ' L' + p(r0, a1) + ' A' + r0 + ' ' + r0 + ' 0 ' + large + ' 0 ' + p(r0, a0) + ' Z';
 }
 
+// ---- motion ----------------------------------------------------------------
+var MOCKY_VZ_NODE_MS = 480;
+var MOCKY_VZ_LINK_MS = 520;
+/** The whole entrance spreads over about this long, whatever the item count. */
+var MOCKY_VZ_SPREAD = 1100;
+var MOCKY_VZ_STEP_MAX = 130;
+var MOCKY_VZ_EASE = 'cubic-bezier(0.2, 0.7, 0.2, 1)';
+var MOCKY_VZ_KEYFRAMES = '@keyframes mocky-vz-in{from{opacity:0;translate:0 var(--mocky-vz-rise,12px)}to{opacity:1;translate:0 0}}'
+  + '@keyframes mocky-vz-grow{from{scale:var(--mocky-vz-sx,1) var(--mocky-vz-sy,1)}to{scale:1 1}}'
+  + '@keyframes mocky-vz-draw{from{stroke-dashoffset:1;opacity:0.25}to{stroke-dashoffset:0;opacity:1}}'
+  + '@keyframes mocky-vz-fade{from{opacity:0}to{opacity:1}}'
+  + '@keyframes mocky-vz-flow{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}';
+
+var mockyVisualStill = function () {
+  try {
+    if (window.__mockyAnimations === false || window.__mockyStill) return true;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+  } catch (err) { return true; }
+  return false;
+};
+
+/**
+ * When each part of a layout arrives, in ms. Pure, like the layout.
+ *
+ * Boxes in the order the layout gave them, which is the order of the content;
+ * a connector when the box it LEAVES has arrived — its source is the node
+ * nearest its first point, which is how a flowchart reads its arrows without
+ * this file knowing which family drew them. The step shrinks with the count so
+ * a forty-cell chart takes as long as a four-step process: an entrance is
+ * something read past, never waited for.
+ */
+function mockyVisualTimeline(lay) {
+  var nodes = (lay && lay.nodes) || [], links = (lay && lay.links) || [];
+  var n = nodes.length;
+  var step = n ? Math.min(MOCKY_VZ_STEP_MAX, MOCKY_VZ_SPREAD / n) : 0;
+  var start = lay && lay.header && lay.header.h ? 160 : 0;
+  var nd = nodes.map(function (_, i) { return Math.round(start + i * step); });
+  var lk = links.map(function (l) {
+    if (!n || !l || !l.points || l.points.length < 2) return start;
+    var p0 = l.points[0], best = 0, bd = Infinity;
+    for (var i = 0; i < n; i++) {
+      var r = nodes[i];
+      var dx = Math.max(r.x - p0[0], 0, p0[0] - (r.x + r.w));
+      var dy = Math.max(r.y - p0[1], 0, p0[1] - (r.y + r.h));
+      var d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    }
+    return Math.round(nd[best] + MOCKY_VZ_NODE_MS * 0.5);
+  });
+  var end = start;
+  nd.forEach(function (d) { end = Math.max(end, d + MOCKY_VZ_NODE_MS); });
+  lk.forEach(function (d) { end = Math.max(end, d + MOCKY_VZ_LINK_MS); });
+  var footer = n ? nd[n - 1] + Math.round(step) : start;
+  end = Math.max(end, footer + MOCKY_VZ_NODE_MS);
+  return { header: 0, nodes: nd, links: lk, footer: footer, total: end };
+}
+
+/**
+ * A corner radius the direction STATES, in px: a length, or the Tailwind class
+ * a DESIGN.md writes (the table readRadius reads, in designTokens.ts). Null
+ * when nothing usable was given — the visual then keeps its own corners.
+ */
+var MOCKY_VISUAL_RADII = { 'rounded-none': 0, none: 0, 'rounded-sm': 2, rounded: 6, 'rounded-md': 8, 'rounded-lg': 10, 'rounded-xl': 14, 'rounded-2xl': 18, 'rounded-3xl': 26, 'rounded-full': 9999, full: 9999 };
+function mockyVisualRadiusPx(v) {
+  if (typeof v === 'number') return isFinite(v) && v >= 0 ? v : null;
+  if (typeof v !== 'string') return null;
+  var t = v.trim();
+  if (Object.prototype.hasOwnProperty.call(MOCKY_VISUAL_RADII, t)) return MOCKY_VISUAL_RADII[t];
+  var m = /^(\\d+(?:\\.\\d+)?)(px|rem)?$/.exec(t);
+  return m ? Number(m[1]) * (m[2] === 'rem' ? 16 : 1) : null;
+}
+/** A face NAME and nothing else: a document's typography line cannot write CSS here. */
+function mockyVisualFace(v) {
+  return typeof v === 'string' && /^[\\p{L}\\p{N} -]{1,48}$/u.test(v.trim()) ? '"' + v.trim() + '", ui-sans-serif, system-ui, sans-serif' : undefined;
+}
+
 function Visual(props) {
   var p = props || {};
   var e = React.createElement;
   var ref = React.useRef(null);
   var id = React.useState(function () { return 'mocky-visual-' + (++mockyVisualSeq); })[0];
+  // The document around it, when there is one (snippets/Document.ts): its
+  // format decides the smallest type the visual may set.
+  var docCtx = typeof MockyDocContext !== 'undefined' ? React.useContext(MockyDocContext) : null;
+  var floor = docCtx && Object.prototype.hasOwnProperty.call(MOCKY_VISUAL_FLOORS, docCtx.id) ? MOCKY_VISUAL_FLOORS[docCtx.id] : null;
+  var motion = p.motion === 'reveal' || p.motion === 'flow' ? p.motion : 'none';
+  /* Read once, at mount, like <Handwriting>: a still path decided later would
+     leave an entrance half played in a capture. */
+  var stillRef = React.useRef(null);
+  if (stillRef.current === null) stillRef.current = mockyVisualStill();
+  var moving = motion !== 'none' && !stillRef.current;
+  var shownSt = React.useState(!moving);
+  var shown = shownSt[0], setShown = shownSt[1];
+  /* Played when it scrolls into view: an entrance at the foot of a page that
+     ran before anyone got there was never seen. */
+  React.useEffect(function () {
+    if (shown) return undefined;
+    var node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') { setShown(true); return undefined; }
+    var io = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) if (entries[i].isIntersecting) { setShown(true); io.disconnect(); return; }
+    }, { rootMargin: '0px 0px -10% 0px' });
+    io.observe(node);
+    return function () { io.disconnect(); };
+  }, [shown]);
+  /* Once the entrance is over, the markup goes back to the still one. A
+     finished animation still holds each part on a compositing layer of its own,
+     and in Edge that redraws the edges of the type and the bars a shade apart
+     from the visual it ended on — 5,000 pixels of a slide, measured. */
+  var settledSt = React.useState(false);
+  var settled = settledSt[0], setSettled = settledSt[1];
+  var entranceMs = React.useRef(0);
+  React.useEffect(function () {
+    if (!moving || !shown || settled) return undefined;
+    var t = setTimeout(function () { setSettled(true); }, entranceMs.current + 80);
+    return function () { clearTimeout(t); };
+  }, [moving, shown, settled]);
   var st = React.useState([p.width || 1200, p.height || 675, false]);
   var size = st[0], setSize = st[1];
   React.useLayoutEffect(function () {
@@ -1227,7 +1358,13 @@ function Visual(props) {
 
   var W = size[0], H = size[1];
   var look = ['raised', 'block', 'glass', 'gradient', 'neon'].indexOf(p.look) >= 0 ? p.look : 'flat';
-  var lay = mockyVisualLayout(p.family, p.doc, W, H, { look: look });
+  var lay = mockyVisualLayout(p.family, p.doc, W, H, { look: look, floor: floor });
+  // The direction's corners and display face, written on the element by Mocky
+  // after the generation (lib/visuals/read.ts, setVisualDirection) — never
+  // left to the model, which drew rounded boxes on a square-cornered poster.
+  var rpx = mockyVisualRadiusPx(p.radius);
+  var corner = function (r) { return rpx == null ? r : Math.min(rpx, r); };
+  var headFace = mockyVisualFace(p.headingFont);
   var u = lay.u;
   var variant = p.variant === 'solid' || p.variant === 'outline' ? p.variant : 'soft';
   var ground = mockyVisualRgb(p.ground) ? p.ground : '#ffffff';
@@ -1238,6 +1375,20 @@ function Visual(props) {
   var muted = mockyVisualMix(ink, ground, 0.35);
   var line = mockyVisualMix(ink, ground, 0.55);
   var stroke = Math.max(1.5, u * 0.14);
+  var timing = moving ? mockyVisualTimeline(lay) : null;
+  if (timing) entranceMs.current = timing.total;
+  /* The entrance's own timing, gone once it has played; the pulse keeps \`timing\`. */
+  var tl = timing && !settled ? timing : null;
+  var play = shown ? 'running' : 'paused';
+  /* An animation, as the style properties to merge. 'both': before its delay a
+     part is held at its first frame, so nothing shows ahead of its turn. */
+  function anim(name, ms, delay, extra) {
+    return Object.assign({ animation: name + ' ' + ms + 'ms ' + MOCKY_VZ_EASE + ' ' + Math.max(0, Math.round(delay)) + 'ms both', animationPlayState: play }, extra || {});
+  }
+  function withStyle(el, add) {
+    return React.cloneElement(el, { style: Object.assign({}, el.props.style, add) });
+  }
+  var rise = { '--mocky-vz-rise': Math.max(6, u * 0.6).toFixed(1) + 'px' };
 
   function paint(nd) {
     var c = tone(Math.max(0, nd.tone));
@@ -1274,8 +1425,9 @@ function Visual(props) {
     return 'linear-gradient(160deg, ' + end + ', ' + face + ' 75%)';
   };
   function radius(nd) {
-    if (nd.shape === 'circle' || nd.shape === 'pill') return Math.min(nd.w, nd.h) / 2;
-    return Math.min(u * 0.8, nd.h / 4, nd.w / 4);
+    if (nd.shape === 'circle') return Math.min(nd.w, nd.h) / 2;
+    if (nd.shape === 'pill') return corner(Math.min(nd.w, nd.h) / 2);
+    return rpx == null ? Math.min(u * 0.8, nd.h / 4, nd.w / 4) : Math.min(rpx, nd.h / 2, nd.w / 2);
   }
   function iconOf(name, sz, color) {
     var Ico = typeof Icon !== 'undefined' && Icon && name ? Icon[name] : null;
@@ -1285,8 +1437,9 @@ function Visual(props) {
   var children = [];
   if (lay.header.h) {
     children.push(e('div', { key: 'h', style: { position: 'absolute', left: 0, top: 0, width: W, textAlign: 'left' } },
-      lay.header.title ? e('div', { style: { fontSize: lay.header.T, lineHeight: 1.12, fontWeight: 800, color: ink, letterSpacing: '-0.01em', textShadow: look === 'neon' ? '0 0 ' + u * 0.8 + 'px ' + tone(0) : undefined } }, lay.header.title) : null,
+      lay.header.title ? e('div', { style: { fontSize: lay.header.T, lineHeight: 1.12, fontWeight: 800, fontFamily: headFace, color: ink, letterSpacing: '-0.01em', textShadow: look === 'neon' ? '0 0 ' + u * 0.8 + 'px ' + tone(0) : undefined } }, lay.header.title) : null,
       lay.header.subtitle ? e('div', { style: { fontSize: lay.header.S, lineHeight: 1.35, color: muted, marginTop: lay.header.title ? u * 0.5 : 0, maxWidth: W * 0.9 } }, lay.header.subtitle) : null));
+    if (tl) children[children.length - 1] = withStyle(children[children.length - 1], anim('mocky-vz-in', MOCKY_VZ_NODE_MS, tl.header, rise));
   }
 
   // Connectors first, so every box is painted over them.
@@ -1319,15 +1472,23 @@ function Visual(props) {
     var shaft = l.arrow ? Math.max(0, len - strokeW * 2.2) : len;
     var fromEnd = l.arrow && (st.h ? st.b[0] < st.a[0] : st.b[1] < st.a[1]);
     var lineStyle = st.h
-      ? { position: 'absolute', left: x0 + (fromEnd ? len - shaft : 0), top: st.a[1] - strokeW / 2, width: shaft, height: strokeW, background: col, borderRadius: strokeW / 2, pointerEvents: 'none' }
-      : { position: 'absolute', left: st.a[0] - strokeW / 2, top: y0 + (fromEnd ? len - shaft : 0), width: strokeW, height: shaft, background: col, borderRadius: strokeW / 2, pointerEvents: 'none' };
+      ? { position: 'absolute', left: x0 + (fromEnd ? len - shaft : 0), top: st.a[1] - strokeW / 2, width: shaft, height: strokeW, background: col, borderRadius: corner(strokeW / 2), pointerEvents: 'none' }
+      : { position: 'absolute', left: st.a[0] - strokeW / 2, top: y0 + (fromEnd ? len - shaft : 0), width: strokeW, height: shaft, background: col, borderRadius: corner(strokeW / 2), pointerEvents: 'none' };
     // Under neon a connector is a tube of light too.
     if (look === 'neon') lineStyle.boxShadow = '0 0 ' + u * 0.5 + 'px ' + col + ', 0 0 ' + u * 1.2 + 'px ' + rgba(tone(l.tone != null ? l.tone : 0), 0.6);
+    if (tl) {
+      // Grows out of the end it leaves.
+      var back = st.h ? st.b[0] < st.a[0] : st.b[1] < st.a[1];
+      Object.assign(lineStyle, anim('mocky-vz-grow', MOCKY_VZ_LINK_MS, tl.links[lay.links.indexOf(l)], st.h
+        ? { transformOrigin: back ? '100% 50%' : '0 50%', '--mocky-vz-sx': 0 }
+        : { transformOrigin: back ? '50% 100%' : '50% 0', '--mocky-vz-sy': 0 }));
+    }
     children.push(e('div', { key: 'sl' + i, 'aria-hidden': 'true', style: lineStyle }));
   });
   children.push(e('svg', { key: 'links', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none', filter: look === 'neon' ? 'drop-shadow(0 0 ' + u * 0.4 + 'px ' + tone(0) + ')' : undefined } },
     e('defs', null, e('marker', { id: marker, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, e('path', { d: 'M0 0 L10 5 L0 10 z', fill: line }))),
     drawn.map(function (l, i) {
+      var drew = (function () {
       var col = linkCol(l), sw = linkW(l);
       if (l.asphalt || (l.road && (look === 'raised' || look === 'block'))) {
         // Asphalt with a dashed centre line: the roadmap as a road. Under neon
@@ -1353,15 +1514,38 @@ function Visual(props) {
         return e('path', { key: i, d: 'M' + (b[0] - dx).toFixed(2) + ' ' + (b[1] - dy).toFixed(2) + ' L' + b[0].toFixed(2) + ' ' + b[1].toFixed(2), fill: 'none', stroke: col, strokeWidth: sw, markerEnd: 'url(#' + marker + ')' });
       }
       return e('path', { key: i, d: mockyVisualPath(l.points), fill: 'none', stroke: col, strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round', markerEnd: l.arrow ? 'url(#' + marker + ')' : undefined });
+      })();
+      if (!drew || !tl) return drew;
+      var at = tl.links[lay.links.indexOf(l)];
+      // A plain curve draws itself along its length (and its tip fades in with
+      // it); a road, a filled area or a lone tip fades in, because their dashes
+      // and their fill are not a length to draw.
+      if (drew.type === 'path' && !l.fill && !straightOf(l)) return React.cloneElement(drew, { pathLength: 1, strokeDasharray: '1 1', style: anim('mocky-vz-draw', MOCKY_VZ_LINK_MS, at) });
+      return straightOf(l) ? withStyle(drew, anim('mocky-vz-fade', 240, at + MOCKY_VZ_LINK_MS * 0.8)) : withStyle(drew, anim('mocky-vz-fade', MOCKY_VZ_LINK_MS, at));
     })));
   lay.links.forEach(function (l, i) {
     if (!l.label || !l.points || l.points.length < 2) return;
     var mid = l.points[Math.floor(l.points.length / 2)];
     var fs = Math.max(11, u * 1.05);
-    children.push(e('div', { key: 'll' + i, style: { position: 'absolute', left: mid[0], top: mid[1], transform: 'translate(-50%, -50%)', fontSize: fs, lineHeight: 1.2, padding: '1px ' + (fs * 0.4) + 'px', background: ground, color: muted, whiteSpace: 'nowrap', borderRadius: fs } }, l.label));
+    var lst = { position: 'absolute', left: mid[0], top: mid[1], transform: 'translate(-50%, -50%)', fontSize: fs, lineHeight: 1.2, padding: '1px ' + (fs * 0.4) + 'px', background: ground, color: muted, whiteSpace: 'nowrap', borderRadius: fs };
+    if (tl) Object.assign(lst, anim('mocky-vz-fade', MOCKY_VZ_NODE_MS, tl.links[i] + MOCKY_VZ_LINK_MS * 0.5));
+    children.push(e('div', { key: 'll' + i, style: lst }, l.label));
   });
 
+  var nodesAt = children.length;
   lay.nodes.forEach(function (nd, i) {
+    var first = children.length;
+    drawNode(nd, i);
+    if (!tl) return;
+    // Every element the node drew moves as one: a 3D box's faces, a pin's head.
+    // A bar grows out of its baseline; the rest rises into place.
+    var bar = nd.kind === 'bar' && look !== 'block';
+    var how = bar
+      ? anim('mocky-vz-grow', MOCKY_VZ_NODE_MS, tl.nodes[i], nd.col ? { transformOrigin: '50% 100%', '--mocky-vz-sy': 0 } : { transformOrigin: '0 50%', '--mocky-vz-sx': 0 })
+      : anim('mocky-vz-in', MOCKY_VZ_NODE_MS, tl.nodes[i], rise);
+    for (var j = first; j < children.length; j++) children[j] = withStyle(children[j], how);
+  });
+  function drawNode(nd, i) {
     var key = 'n' + i;
     var base = { position: 'absolute', left: nd.x, top: nd.y, width: nd.w, height: nd.h, boxSizing: 'border-box' };
     var c = tone(Math.max(0, nd.tone));
@@ -1411,7 +1595,7 @@ function Visual(props) {
       children.push(e('div', { key: key, style: Object.assign(base, { fontSize: Math.max(10, u * 0.95), lineHeight: 1.2, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: muted, overflow: 'hidden' }) }, nd.t.label));
       return;
     }
-    if (nd.kind === 'track') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.h / 2, background: mockyVisualMix(ground, c, 0.12) }) })); return; }
+    if (nd.kind === 'track') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: corner(nd.h / 2), background: mockyVisualMix(ground, c, 0.12) }) })); return; }
     if (nd.kind === 'bar' && nd.col && look === 'block') {
       // A column as a cylinder: a lit body and the ellipse of its top.
       var eh = Math.min(nd.w * 0.32, u * 1.6, nd.h);
@@ -1421,16 +1605,16 @@ function Visual(props) {
     }
     if (nd.kind === 'bar' && (look === 'glass' || look === 'neon')) {
       var neonBar = look === 'neon';
-      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : nd.h / 2, background: neonBar ? light(c, 0.15) : 'linear-gradient(' + (nd.col ? '180deg' : '90deg') + ', ' + rgba(c, 0.85) + ', ' + rgba(c, 0.35) + ')', border: neonBar ? undefined : '1px solid ' + light(c, 0.45), boxShadow: neonBar ? '0 0 ' + u * 0.5 + 'px ' + c + ', 0 0 ' + u * 1.6 + 'px ' + rgba(c, 0.75) : '0 0 ' + u * 1.1 + 'px ' + rgba(c, 0.6) }) }));
+      children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? corner(Math.min(nd.w / 4, u * 0.5)) + 'px ' + corner(Math.min(nd.w / 4, u * 0.5)) + 'px 0 0' : corner(nd.h / 2), background: neonBar ? light(c, 0.15) : 'linear-gradient(' + (nd.col ? '180deg' : '90deg') + ', ' + rgba(c, 0.85) + ', ' + rgba(c, 0.35) + ')', border: neonBar ? undefined : '1px solid ' + light(c, 0.45), boxShadow: neonBar ? '0 0 ' + u * 0.5 + 'px ' + c + ', 0 0 ' + u * 1.6 + 'px ' + rgba(c, 0.75) : '0 0 ' + u * 1.1 + 'px ' + rgba(c, 0.6) }) }));
       return;
     }
     if (nd.kind === 'bar' && (look === 'raised' || look === 'block' || look === 'gradient')) {
       var bd = look === 'gradient' ? 0 : Math.min(nd.h * 0.28, u * 0.5);
       var barBg = look === 'gradient' ? 'linear-gradient(90deg, ' + c + ', ' + light(c, 0.3) + ')' : nd.col ? 'linear-gradient(90deg, ' + c + ', ' + light(c, 0.18) + ')' : 'linear-gradient(180deg, ' + light(c, 0.18) + ', ' + c + ')';
-      children.push(e('div', { key: key, style: Object.assign(base, { height: nd.col ? nd.h : nd.h - bd, borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : (nd.h - bd) / 2, background: barBg, boxShadow: bd ? '0 ' + bd + 'px 0 0 ' + dark(c, 0.3) : undefined }) }));
+      children.push(e('div', { key: key, style: Object.assign(base, { height: nd.col ? nd.h : nd.h - bd, borderRadius: nd.col ? corner(Math.min(nd.w / 4, u * 0.5)) + 'px ' + corner(Math.min(nd.w / 4, u * 0.5)) + 'px 0 0' : corner((nd.h - bd) / 2), background: barBg, boxShadow: bd ? '0 ' + bd + 'px 0 0 ' + dark(c, 0.3) : undefined }) }));
       return;
     }
-    if (nd.kind === 'bar' || nd.kind === 'swatch') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? Math.min(nd.w / 4, u * 0.5) + 'px ' + Math.min(nd.w / 4, u * 0.5) + 'px 0 0' : nd.kind === 'bar' ? nd.h / 2 : nd.h * 0.25, background: c }) })); return; }
+    if (nd.kind === 'bar' || nd.kind === 'swatch') { children.push(e('div', { key: key, style: Object.assign(base, { borderRadius: nd.col ? corner(Math.min(nd.w / 4, u * 0.5)) + 'px ' + corner(Math.min(nd.w / 4, u * 0.5)) + 'px 0 0' : corner(nd.kind === 'bar' ? nd.h / 2 : nd.h * 0.25), background: c }) })); return; }
     if (nd.kind === 'donut') {
       var total = nd.t.parts.reduce(function (a, v) { return a + v.v; }, 0) || 1;
       var a0 = -Math.PI / 2, cx = nd.w / 2, r1 = nd.w / 2, r0 = r1 * 0.58, gapA = nd.t.parts.length > 1 ? 0.012 : 0;
@@ -1454,7 +1638,7 @@ function Visual(props) {
     var runsOut = [];
     var align = nd.align === 'left' ? 'flex-start' : nd.align === 'right' ? 'flex-end' : 'center';
     if (nd.t.icon) { var ic = iconOf(nd.t.icon, s.L * 1.15, pnt.mark); if (ic) runsOut.push(e('div', { key: 'i', style: { marginBottom: s.L * 0.3 } }, ic)); }
-    if (nd.t.value && !nd.inline) runsOut.push(e('div', { key: 'v', style: { fontSize: s.V, lineHeight: 1.08, fontWeight: 800, color: pnt.mark, letterSpacing: '-0.02em' } }, nd.t.value));
+    if (nd.t.value && !nd.inline) runsOut.push(e('div', { key: 'v', style: { fontSize: s.V, lineHeight: 1.08, fontWeight: 800, fontFamily: headFace, color: pnt.mark, letterSpacing: '-0.02em' } }, nd.t.value));
     if (nd.t.label) {
       var labelColor = nd.t.kicker ? pnt.mark : pnt.text;
       if (nd.inline) {
@@ -1462,7 +1646,7 @@ function Visual(props) {
           nd.t.value ? e('span', { style: { fontWeight: 800, color: pnt.text, marginRight: s.L * 0.5 } }, nd.t.value) : null,
           e('span', { style: { fontWeight: 500 } }, nd.t.label)));
       } else {
-        runsOut.push(e('div', { key: 'l', style: { fontSize: s.L, lineHeight: 1.2, fontWeight: nd.g === 'axis' || nd.g === 'barlabel' || nd.g === 'row' ? 600 : 700, color: nd.g === 'axis' ? muted : labelColor, marginTop: runsOut.length ? s.L * 0.35 : 0 } },
+        runsOut.push(e('div', { key: 'l', style: { fontSize: s.L, lineHeight: 1.2, fontWeight: nd.g === 'axis' || nd.g === 'barlabel' || nd.g === 'row' ? 600 : 700, fontFamily: nd.g === 'axis' || nd.g === 'barlabel' || nd.g === 'row' ? undefined : headFace, color: nd.g === 'axis' ? muted : labelColor, marginTop: runsOut.length ? s.L * 0.35 : 0 } },
           nd.t.mark ? e('span', { style: { fontWeight: 800, color: pnt.mark, marginRight: s.L * 0.45 } }, nd.t.mark) : null, nd.t.label));
       }
     }
@@ -1526,15 +1710,45 @@ function Visual(props) {
     }
     children.push(e('div', { key: key, style: style }, runsOut));
     if (nd.neonStreaks) children.push.apply(children, nd.neonStreaks);
-  });
+  }
 
   if (lay.footer) {
-    children.push(e('div', { key: 'f', style: { position: 'absolute', left: 0, top: lay.footer.y, width: W, fontSize: lay.footer.F, lineHeight: 1.5, color: muted, textAlign: 'left' } }, lay.footer.text));
+    var fst = { position: 'absolute', left: 0, top: lay.footer.y, width: W, fontSize: lay.footer.F, lineHeight: 1.5, color: muted, textAlign: 'left' };
+    if (tl) Object.assign(fst, anim('mocky-vz-fade', MOCKY_VZ_NODE_MS, tl.footer));
+    children.push(e('div', { key: 'f', style: fst }, lay.footer.text));
+  }
+
+  if (timing) {
+    if (motion === 'flow') {
+      /*
+       * The pulse: a short dash running along every connector, once all of them
+       * have arrived. Laid OVER the connectors and UNDER the boxes, so it leaves
+       * one box and enters the next. Its speed is in pixels, not in laps, so a
+       * long arrow does not race a short one; roads and filled areas carry none.
+       */
+      var pulseLinks = drawn.filter(function (l) { return !l.fill && !l.road && !l.asphalt && !l.faint; });
+      if (pulseLinks.length) {
+        var pulses = pulseLinks.map(function (l, k) {
+          var len = 0;
+          for (var q = 1; q < l.points.length; q++) len += Math.hypot(l.points[q][0] - l.points[q - 1][0], l.points[q][1] - l.points[q - 1][1]);
+          if (!(len > 1)) return null;
+          var dash = Math.min(0.35, (u * 2.4) / len);
+          var secs = Math.max(1.1, len / (u * 12));
+          var pc = look === 'neon' ? light(tone(l.tone != null ? l.tone : 0), 0.5) : mockyVisualMark(tone(l.tone != null ? l.tone : 0), ground, ink, 3);
+          return e('path', { key: k, d: mockyVisualPath(l.points), fill: 'none', stroke: pc, strokeWidth: linkW(l) * 1.8, strokeLinecap: 'round', pathLength: 1, strokeDasharray: dash.toFixed(3) + ' ' + (1 - dash).toFixed(3),
+            style: { animation: 'mocky-vz-flow ' + secs.toFixed(2) + 's linear ' + timing.total + 'ms infinite, mocky-vz-fade 400ms ease ' + timing.total + 'ms both', animationPlayState: play } });
+        });
+        var firstNode = nodesAt;
+        var pulseSvg = e('svg', { key: 'pulse', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', 'data-mocky-visual-pulse': '', style: { position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' } }, pulses);
+        children.splice(firstNode, 0, pulseSvg);
+      }
+    }
+    if (tl || motion === 'flow') children.unshift(e('style', { key: 'kf' }, MOCKY_VZ_KEYFRAMES));
   }
 
   var label = lay.doc.title || lay.doc.subtitle || undefined;
   return e('div', {
-    ref: ref, role: 'group', 'aria-label': label, 'data-mocky-visual': lay.family, className: p.className,
+    ref: ref, role: 'group', 'aria-label': label, 'data-mocky-visual': lay.family, 'data-mocky-visual-motion': timing ? motion : undefined, className: p.className,
     style: Object.assign({ position: 'relative', width: p.width ? p.width : '100%', height: p.height ? p.height : '100%', minHeight: size[2] ? H : undefined, color: ink, overflow: 'visible' }, p.style || {}),
   }, children);
 }

@@ -1,5 +1,5 @@
 ---
-source_hash: 6f23c19b284d
+source_hash: 8c6e226348ef
 ---
 
 # Vue d'ensemble de Muse
@@ -138,6 +138,38 @@ Le détail complet est dans la page
 [moteur d'inspiration](inspiration-engine.md).
 
 ---
+
+## Trois directions au choix
+
+:::why
+Un dossier est une réponse, et quelqu’un qui ne sait pas encore ce qu’il veut
+l’apprend en comparant. Trois directions de trois écoles, côte à côte, lui
+donnent de quoi comparer avant de dépenser un seul écran.
+:::
+
+**Trois directions** (une tuile sur un projet vide, une option sous **Style**
+dans le compositeur du projet) demande à Muse trois directions artistiques pour
+la demande, chacune d’une école de design différente, montrées côte à côte : la
+maquette qu’a chaque design enregistré, les deux polices dessinées en
+elles-mêmes, la palette. Rien n’est généré tant qu’aucune n’est choisie ;
+choisir en fait la direction du projet, exactement comme un dossier, et les
+écrans suivants la suivent.
+
+- **Elles sont faites pour différer.** Muse doit proposer un fond sombre et un
+  fond clair, trois accents et trois polices de titre, et le serveur mesure le
+  résultat : une proposition qui ressemble à une autre (même fond, accent
+  proche, même police) est écartée et le modèle interrogé à nouveau, plutôt que
+  présentée comme un choix qui n’en est pas un.
+- **Elles évitent vos autres projets.** Les palettes et les polices des
+  directions de vos autres projets sont envoyées avec la demande, comme le
+  relevé de ce à quoi votre travail ressemble déjà, et Muse doit proposer autre
+  chose. Lues dans les projets eux-mêmes, jamais enregistrées une deuxième fois.
+- **Elles arrivent toujours.** Sans modèle, ou si le modèle échoue, les trois
+  viennent de la bibliothèque de styles de Muse — le style le plus proche de la
+  demande et les deux plus éloignés de lui — et le dialogue le dit.
+
+Un appel au modèle, compté comme un dossier (et sur le quota quotidien de
+l’offre gratuite).
 
 ## Comment le dossier pilote la génération
 
@@ -389,6 +421,22 @@ hauteur, et repart en arrière quand on remonte.
 C'est **désactivé par défaut** et redemandé à chaque fois. Contrairement à toutes
 les autres options de Muse, celle-ci a un prix à l'usage et ajoute des minutes à
 une génération. Personne ne doit le découvrir en ayant laissé une case cochée.
+
+La ligne **Vidéo** du panneau Muse dit d'où vient le clip :
+
+| Source | Ce que c'est | Coût |
+|---|---|---|
+| Aucune | Pas de clip : le visuel principal est une image fixe | — |
+| Générée par IA | Un clip fait pour cet écran par le fournisseur vidéo configuré | payant, 30 s à 3 min |
+| Gratuite | Un clip libre de droits (Pexels, Pixabay) ou l'un des vôtres, choisi dans Média | gratuit |
+| Motion | Un film fait par le moteur de Mocky à partir des images de l'écran — plusieurs scènes avec de la profondeur, des mouvements de caméra, une pièce maîtresse et des transitions, en 3D quand votre compte y a droit, et sans aucun mot (le titre de la page passe par-dessus) — rendu par votre machine (le module Motion Ultra) et découpé en 180 images au plus pour le défilement | gratuit, 1 à 3 min |
+
+En **Auto**, le modèle de décision choisit entre Aucune, Gratuite et Motion. Un
+clip gratuit est alors trouvé par Mocky lui-même : cherché d'après les mots du
+visuel principal, **regardé** par le modèle de vision parmi les vignettes — ou
+refusé quand aucun ne convient, la règle des photos libres — puis importé. Un
+clip IA n'est jamais que **suggéré** : une fenêtre vous le demande d'abord, avec
+son prix, et propose à la place un film Motion ou pas de vidéo.
 
 ### Le clip n'est jamais lu comme une vidéo
 

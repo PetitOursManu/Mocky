@@ -8,6 +8,7 @@ import express from 'express'
 import { makeLlm, credsFromReq } from './llm.js'
 import { runInspiration } from './inspire/engine.js'
 import { readMotionRequest } from './inspire/film.js'
+import { proposeDirections, sanitizeAvoid } from './inspire/directions.js'
 import { runQuality } from './quality/index.js'
 import { judgeAudit } from './quality/audit-judge.js'
 import { USER_AGENT } from './fetch/fetcher.js'
@@ -225,6 +226,42 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
         },
         { fetcher, llm, patterns, blacklist, sources: sources ? () => sources.active() : undefined },
       )
+      res.json(result)
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+    }
+  })
+
+  /*
+   * POST /api/muse/directions — three art directions to choose from, before a
+   * screen exists (`inspire/directions.js`). Same credentials as the dossier,
+   * on the same profile and metered the same way: it IS a dossier, three times
+   * shorter and three times over. Answers 200 with the pattern library's three
+   * when there is no model, and says so in `source`.
+   */
+  router.post('/muse/directions', async (req, res) => {
+    const body = req.body || {}
+    const brief = typeof body.brief === 'string' ? body.brief.trim().slice(0, 4000) : ''
+    if (!brief) return res.status(400).json({ error: 'A "brief" is required.' })
+    let admin = null
+    try {
+      admin = resolveTarget ? resolveTarget('inspiration', req) : null
+    } catch {
+      admin = null
+    }
+    const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
+    if (creds && meter) creds.onUsage = meter(req, 'inspiration')
+    try {
+      const result = await proposeDirections(creds ? makeLlm(creds) : null, {
+        brief,
+        language:
+          typeof body.language === 'string'
+            ? body.language.replace(/[^\p{L} \-]/gu, '').trim().slice(0, 30) || undefined
+            : undefined,
+        avoid: sanitizeAvoid(body.avoid),
+        patterns,
+        creative: body.creative === true,
+      })
       res.json(result)
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) })

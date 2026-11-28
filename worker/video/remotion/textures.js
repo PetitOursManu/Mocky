@@ -35,7 +35,7 @@
 // `total === 0` branch is what keeps a scene with no pictures from waiting for
 // nothing.
 import { useEffect, useMemo, useState } from 'react'
-import { continueRender, delayRender } from 'remotion'
+import { continueRender, delayRender } from './clock.js'
 import { LinearFilter, LinearMipmapLinearFilter, SRGBColorSpace, TextureLoader } from 'three'
 
 /**

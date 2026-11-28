@@ -44,6 +44,19 @@ const FILE_HOSTS = {
 const MAX_SOURCE_WIDTH = 1920
 
 /**
+ * Where a clip's THUMBNAIL may be fetched from, for a vision model to look at
+ * (`candidates`). Pixabay's come from Vimeo's picture CDN as often as its own.
+ */
+const THUMB_HOSTS = {
+  pexels: /(^|\.)pexels\.com$/i,
+  pixabay: /(^|\.)(pixabay\.com|vimeocdn\.com)$/i,
+}
+const THUMB_MAX_BYTES = 600 * 1024
+const THUMB_TIMEOUT_MS = 15_000
+/** How many clips a vision model is shown to choose the hero's from. */
+export const VIDEO_CANDIDATES = 6
+
+/**
  * Pixabay's terms ask for search results to be cached for 24 hours, and the two
  * free tiers are small (Pexels: 200 an hour). One cache serves both: the same
  * search typed twice while browsing costs nothing the second time.
@@ -278,7 +291,54 @@ export function createStock({ keys, fetchImpl = fetch, guard = assertSafeTargetR
     }
   }
 
-  return { status, search, lookup, fetchClip }
+  /**
+   * Clips to LOOK at before one is imported, each with its thumbnail as a data
+   * URL — the free photos' rule (server/images/stock.js, `candidates`): a
+   * vision model chooses, or refuses them all, and choosing on words alone put
+   * a gas mask on a space page. Fetched here because the libraries' CDNs owe a
+   * browser no CORS header. The providers that have a key are asked in turn.
+   */
+  async function candidates(query, { count = VIDEO_CANDIDATES } = {}) {
+    const q = String(query || '').trim().slice(0, 200)
+    const limit = Math.max(1, Math.min(12, Math.floor(Number(count) || VIDEO_CANDIDATES)))
+    const found = []
+    let lastError = null
+    for (const provider of STOCK_PROVIDERS) {
+      if (!keyOf(provider)) continue
+      try {
+        const { results } = await search(provider, q)
+        for (const r of results) if (found.length < limit && r.thumbnail) found.push(r)
+      } catch (err) {
+        lastError = err
+      }
+      if (found.length >= limit) break
+    }
+    if (!found.length && lastError) throw lastError
+    const withThumbs = await Promise.all(
+      found.map(async (item) => {
+        try {
+          const buf = await downloadStockFile(item.provider, item.thumbnail, {
+            maxBytes: THUMB_MAX_BYTES,
+            hosts: THUMB_HOSTS,
+            fetchImpl,
+            guard,
+            timeoutMs: THUMB_TIMEOUT_MS,
+          })
+          const jpeg = buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8
+          const png = buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50
+          const webp = buf.length > 12 && buf.toString('latin1', 8, 12) === 'WEBP'
+          const mime = jpeg ? 'image/jpeg' : png ? 'image/png' : webp ? 'image/webp' : null
+          if (!mime) return null
+          return { ...item, thumb: `data:${mime};base64,${buf.toString('base64')}` }
+        } catch {
+          return null
+        }
+      }),
+    )
+    return { query: q, candidates: withThumbs.filter(Boolean) }
+  }
+
+  return { status, search, lookup, fetchClip, candidates }
 }
 
 /**

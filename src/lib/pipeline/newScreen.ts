@@ -62,7 +62,7 @@ import {
   imageGenerationAvailable,
   type DocumentImageChoice,
 } from '../documentPictures'
-import { createStockFinder, photoReferenceNote, pickStockSlotImages, PHOTO_REFERENCES_MAX, type ImageSource } from '../stockImages'
+import { cleanQuery, createStockFinder, judgeStockCandidates, photoReferenceNote, pickStockSlotImages, stockQuery, PHOTO_REFERENCES_MAX, type ImageSource, type StockCandidate } from '../stockImages'
 import {
   runMuseDossier,
   generateSlotImages,
@@ -71,6 +71,7 @@ import {
   MUSE_LOOK_FAILED,
   absoluteUrl,
   checkVision,
+  filmToScrollSequence,
   generateScrollVideo,
   buildVideoPrompt,
   describeUserMedia,
@@ -89,7 +90,7 @@ import {
 } from '../muse'
 import { buildDesignPreamble, extractDesignColors } from '../design'
 import { imageUrl, listLibrary, pinInserts, pinInspires, type LibraryImage, type PinnedImage } from '../imageLibrary'
-import { videoBase, type PinnedVideo } from '../videoLibrary'
+import { importStock, stockVideoCandidates, videoBase, type PinnedVideo } from '../videoLibrary'
 import { awaitVideoJob, motionNotices, proposeVideoTimeline, startVideoRender, type MotionKindOffer } from '../video/client'
 import { toRenderInputFrom } from '../video/draft'
 import { themeFromDesign } from '../video/theme'
@@ -103,8 +104,11 @@ import { buildBriefMediaSection, extractBriefMedia } from '../briefMedia'
 import { currentUsageRun, setUsageRun } from '../proxy'
 import { briefFixInstruction, briefImageCount, interactUnused, missingBriefImages } from '../briefCheck'
 import type { TranslationKey } from '../../i18n'
-import { VISUAL_THEME, VISUALS_CAP, VISUAL_ASKED_SECTION, requestAsksForVisual, screenDrawsVisuals, themeDrawsVisuals } from '../visuals/families'
+import { VISUAL_THEME, VISUALS_CAP, VISUAL_ASKED_SECTION, VISUAL_CREATIVE_SECTION, requestAsksForVisual, screenDrawsVisuals, themeDrawsVisuals } from '../visuals/families'
 import { checkVisualFigures } from '../visuals/check'
+import { setVisualDirection } from '../visuals/read'
+import { readRadius } from '../designTokens'
+import { parseDesignSpec } from '../designSpec'
 
 /** What the run is busy with, for the composer's progress line. */
 export type NewScreenPhase = 'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | 'docPicture'
@@ -168,7 +172,8 @@ export interface NewScreenRequest {
   pinnedImages: PinnedImage[]
   pinnedVideo: PinnedVideo | null | undefined
   videoAvail: MuseVideoAvailability | null
-  motionAvail: { available: boolean; kinds: MotionKindOffer[] } | null
+  /** `threeD`: this account may spend a 3D render (GET /api/video/status). */
+  motionAvail: { available: boolean; kinds: MotionKindOffer[]; threeD?: boolean } | null
   /** The project's Motion Ultra setting, unpaused and allowed for this account. */
   ultraActive: boolean
   ultraCount: number
@@ -209,6 +214,12 @@ export interface NewScreenRequest {
    * always built.
    */
   flows?: boolean
+  /**
+   * The composer's "Schémas" (or Auto's answer for it): the request's facts are
+   * to be SHOWN as diagrams, whatever words it used. The same as a request that
+   * says "schéma" in so many words; absent, the words alone decide, as before.
+   */
+  diagrams?: boolean
   /** A companion screen's place in the flow (`companionSection`), appended to the plan. */
   flowContext?: string
   /** The route this screen answers to, for a companion screen. */
@@ -306,6 +317,16 @@ export interface NewScreenHooks {
   /** Motion Ultra's film is being made for this screen. */
   motionStage(screenId: string, label: string): void
   motionStageDone(): void
+  /**
+   * Take Motion Ultra's film OUT of the run: the screen is finished for the
+   * person as soon as its page is, and the film — a composition and minutes of
+   * render — is made after, the section showing that it is coming. Given the
+   * task, the caller runs it with a signal of its own. Absent (the MCP runner,
+   * whose job ends when the film does), the run waits for it as it always did.
+   */
+  deferFilm?(task: (signal: AbortSignal) => Promise<void>): void
+  /** A deferred film's progress for one screen, shown IN its slot; null when it is over. */
+  filmPending?(screenId: string, label: string | null): void
 }
 
 export interface NewScreenOutcome {
@@ -873,6 +894,83 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
             fromCache: true,
             drive: runPin.drive,
           }
+        } else if (museConfig.videoMotion && pipe.scrollVideo && motionAvail?.available) {
+          /*
+           * Vidéo · Motion: a film made by Mocky's own engine on the local
+           * worker — no clip is billed — then cut for the scroll like any clip.
+           *
+           * Composed from the WHOLE catalogue, not the `background` kind: that
+           * kind is one scene of surfaces and no words, made to sit under a
+           * section's own text, and as the opening of a page it came back as a
+           * near-blank pale field. The opening of a page is a showpiece —
+           * several scenes, depth, the page's pictures, 3D where this account
+           * may have it. Same failure rule as a generated clip: the screen is
+           * built without the sequence, and the reason is said.
+           */
+          hooks.setMuseStage(t('project.museStageMotion'))
+          try {
+            const theme = themeFromDesign(res.markdown)
+            const proposal = await proposeVideoTimeline(text, imgs.map((i) => i.id), {
+              settings,
+              theme,
+              // A kind of its own (server/video/kinds.js): rich, and WORDLESS — a
+              // free composition burnt a giant title behind the page's headline.
+              motionKind: 'opening',
+              placement: {
+                section: 'hero',
+                why: 'The opening of the page, scrubbed by the visitor\'s scroll: a cinematic film of several scenes with depth and real camera movement, built from the page\'s pictures, with a set piece and varied transitions — the most striking film this subject allows. Not one word in it: the page sets its own headline over it.',
+              },
+              ...(motionAvail.threeD ? { forceThreeD: true } : {}),
+              signal,
+            })
+            if (!proposal.timeline) throw new Error(motionNotices(proposal.notices) || '—')
+            const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
+            const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal })
+            const finished = await awaitVideoJob(job.id, signal)
+            if (finished.status !== 'done' || !finished.videoHash) throw new Error(finished.error || '—')
+            museVideo = await filmToScrollSequence(finished.videoHash, project.id, signal)
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            hooks.setMuseImageError(t('project.museMotionFailed', { detail: err instanceof Error ? err.message : String(err) }))
+          }
+        } else if (museConfig.videoFind && pipe.scrollVideo) {
+          /*
+           * Auto chose a FREE clip: found here rather than in Media. Searched
+           * from the hero's own words, LOOKED at by the vision model — the
+           * free photos' rule — and refused when none fits: an empty hero
+           * beats a wrong clip. Blind, the search engine's first answer.
+           */
+          hooks.setMuseStage(t('project.museStageVideoFind'))
+          try {
+            const heroSlot = plan[0]
+            const query = cleanQuery(heroSlot?.searchQuery) || stockQuery(heroSlot?.subject || text)
+            const found = await stockVideoCandidates(query, signal)
+            if (!found.length) throw new Error(t('project.museVideoNoneFound'))
+            const eyes = (museVision ?? (await checkVision(signal)).vision) === true
+            const verdict = eyes
+              ? await judgeStockCandidates(
+                  settings,
+                  { subject: heroSlot?.subject || text, role: 'hero', brief: text },
+                  found as unknown as StockCandidate[],
+                  [],
+                  signal,
+                )
+              : null
+            const pick = verdict ? verdict.pick : 1
+            if (pick === 0) throw new Error(t('project.museVideoNoneFits'))
+            const chosen = found[pick - 1]
+            const imported = await importStock(chosen.provider, chosen.id, { project: project.id, signal })
+            museVideo = {
+              hash: imported.hash,
+              base: absoluteUrl(videoBase(imported.hash)),
+              poster: absoluteUrl(imported.poster),
+              frames: imported.frames,
+              fromCache: false,
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            hooks.setMuseImageError(t('project.museVideoFindFailed', { detail: err instanceof Error ? err.message : String(err) }))
+          }
         } else if (museConfig.video && videoAvail?.available && pipe.scrollVideo) {
           const heroSlot = plan[0]
           const heroPrompt = heroSlot?.prompt || heroSlot?.subject || text
@@ -1245,11 +1343,17 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
     capIds = pipe.caps(capIds)
     // A visual: the component that draws it, whatever the shortlist said (the
     // pack is never a guess — `forcedOnly`, see the registry).
-    if (screenDrawsVisuals(runTheme, pipe.document, text) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
+    const diagramsAsked = req.diagrams === true || requestAsksForVisual(text)
+    if (screenDrawsVisuals(runTheme, pipe.document, text, diagramsAsked) && !capIds.includes(VISUALS_CAP)) capIds = [...capIds, VISUALS_CAP]
     // A flyer, a poster, a post… asked for a diagram: its brief does not say
     // when to use the kit, so the request's own wish is said here.
-    if (!themeDrawsVisuals(runTheme) && pipe.document && requestAsksForVisual(text)) {
+    if (!themeDrawsVisuals(runTheme) && pipe.document && diagramsAsked) {
       planSection = [planSection, VISUAL_ASKED_SECTION].filter(Boolean).join('\n\n')
+    }
+    // Créatif and a diagram to draw: an expressive family, a look that is not
+    // flat (lib/visuals/families.ts). Normal mode's request is unchanged.
+    if (creative && capIds.includes(VISUALS_CAP)) {
+      planSection = [planSection, VISUAL_CREATIVE_SECTION].filter(Boolean).join('\n\n')
     }
     // A working prototype: the kit and its rules, on a screen (never a page of
     // a document — paper has no next page to open).
@@ -1392,6 +1496,25 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
         // Q1: a check that cannot run is not a finding.
       }
     }
+    // A diagram follows the direction's corners and display face, written on
+    // the element by Mocky rather than asked of the model (lib/visuals/read.ts):
+    // on any screen that drew one, the assistant's code included.
+    if ((dir.markdown || creative) && result.code.includes('<Visual') && !result.truncated) {
+      try {
+        const next = await setVisualDirection(result.code, {
+          radius: dir.markdown ? readRadius(dir.markdown) : null,
+          headingFont: dir.markdown ? parseDesignSpec(dir.markdown).typography.display : null,
+          // Créatif: a diagram left flat is given a bolder look.
+          creative,
+        })
+        if (next) {
+          result.code = next
+          hooks.updateScreen(screenId, { code: result.code })
+        }
+      } catch {
+        // Q1: the visual keeps its own look.
+      }
+    }
     // Every picture of the series was paid for; one the page left out is
     // worth a sentence (see lib/ultra/check.ts).
     // What the brief imposed and the code left out (lib/briefCheck.ts), and
@@ -1506,8 +1629,14 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
       hooks.notice(t(ultraVideo ? 'project.ultraFilmNoSection' : 'project.ultraFilmUnavailable'))
     }
     if (ultraFilmSection && ultraRecord) {
+      // The film is a task of its own: run here, or handed to a caller that
+      // runs it once the screen is given back (`deferFilm`).
+      const deferred = !!(hooks.deferFilm && hooks.filmPending)
+      const stage = (label: string) => (deferred ? hooks.filmPending!(screenId, label) : hooks.motionStage(screenId, label))
+      const stageDone = () => (deferred ? hooks.filmPending!(screenId, null) : hooks.motionStageDone())
+      const filmTask = async (signal: AbortSignal) => {
       try {
-        hooks.motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmCompose') }))
+        stage(t('project.ultraFilmStage', { step: t('project.ultraFilmCompose') }))
         const theme = themeFromDesign(dir.markdown)
         const proposal = await proposeVideoTimeline(text, ultraRecord.images, {
           settings,
@@ -1524,7 +1653,7 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
         if (!proposal.timeline) {
           hooks.notice(t('project.ultraFilmFailed', { detail: motionNotices(proposal.notices) }))
         } else {
-          hooks.motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmRender') }))
+          stage(t('project.ultraFilmStage', { step: t('project.ultraFilmRender') }))
           const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
           const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal: signal })
           const finished = await awaitVideoJob(job.id, signal)
@@ -1547,11 +1676,19 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
           }
         }
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') throw err
+        if (err instanceof Error && err.name === 'AbortError') {
+          // A deferred film stopped by its caller (the view closed) is not a
+          // failure to report; one inside the run aborts the run, as before.
+          if (deferred) return
+          throw err
+        }
         hooks.notice(t('project.ultraFilmFailed', { detail: err instanceof Error ? err.message : String(err) }))
       } finally {
-        hooks.motionStageDone()
+        stageDone()
       }
+      }
+      if (deferred) hooks.deferFilm!(filmTask)
+      else await filmTask(signal)
     }
 
     /*

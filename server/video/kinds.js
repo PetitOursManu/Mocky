@@ -69,6 +69,7 @@ export const MOTION_KIND_SPECS = {
       'kicker',
       'funTitle',
       'typewriter',
+      'handwriting',
       'logoType',
       'quote',
       'textHighlight',
@@ -125,6 +126,47 @@ export const MOTION_KIND_SPECS = {
     loops: true,
   },
 
+  /*
+   * Muse's Vidéo · Motion: the film a visitor SCRUBS at the top of a page, cut
+   * into stills (POST /api/videos/from-film). It exists because neither
+   * neighbour fits. `background` is one scene of surfaces made to sit under a
+   * section's text, and as the opening of a page it came back a near-blank pale
+   * field; composed freely, the next film was rich and burnt an enormous title
+   * into itself, right behind the page's own headline card. So: `background`'s
+   * rule about words, and a showpiece's means.
+   */
+  opening: {
+    what: 'the opening of a page that the visitor drives with the scroll: several moments of depth and movement, under the page\'s own headline.',
+    right: 'a landing page, a product or an event opens on a film somebody scrubs through, built from real space and the page\'s own pictures.',
+    wrong: 'the moment it carries a word. The page sets its headline over this film, and a title burnt into it is a second headline under the first that nobody can edit.',
+    blocks: [
+      'particleField',
+      'waveMesh',
+      'depthGrid',
+      'solidScene',
+      'globe',
+      'equalizer',
+      'soundWave',
+      'imageFrame',
+      'gallery',
+      'carousel',
+      'photoStage',
+      'photoRing',
+      'separator',
+      'progressBar',
+      'animatedIcon',
+    ],
+    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image'],
+    // Wide on purpose: an account without 3D and a page with no pictures still
+    // has the two flat fields, so the kind degrades rather than starves (Q1).
+    signature: ['particleField', 'waveMesh', 'depthGrid', 'solidScene', 'photoStage', 'gallery', 'equalizer', 'soundWave'],
+    aspectRatio: '16:9',
+    // Several moments, each long enough to be scrubbed through.
+    scenes: { min: 2, max: 5 },
+    sceneMs: { min: 2500, max: 6000 },
+    words: 0,
+  },
+
   banner: {
     what: 'a wide strip of the page, beside or behind its own words: a short title at most, and movement doing the rest.',
     right: 'the page has a rail or a header band that should feel alive — a launch, a name, a mood.',
@@ -141,6 +183,7 @@ export const MOTION_KIND_SPECS = {
       'kicker',
       'logoType',
       'funTitle',
+      'handwriting',
       'separator',
       'soundWave',
       'equalizer',
@@ -254,6 +297,7 @@ export const MOTION_KIND_SPECS = {
       'kicker',
       'quote',
       'typewriter',
+      'handwriting',
       'animatedList',
       'counter',
       'logoType',

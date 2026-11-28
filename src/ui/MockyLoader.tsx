@@ -1,29 +1,57 @@
-import { useId } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useT } from '../i18n'
 
 /**
- * The generation loader: the word "Mocky", written out, over and over.
+ * The generation loader: the word "Mocky", written by hand, over and over.
  *
- * ── Why this is real text and not a drawn path ───────────────────────────────
- * The first attempt hand-drew "Mocky" as one cursive stroke and animated it the
- * way the supplied Lottie does. It came out reading "Mookn": authoring joined
- * letterforms blind, by typing bezier control points, does not work — the
- * geometry was sound (right length, right direction, inside the box) and the
- * word was still wrong.
+ * ── Written, not wiped ────────────────────────────────────────────────────────
+ * Two earlier versions are why this one is generated. The first hand-drew
+ * "Mocky" as one cursive stroke and came out reading "Mookn": authoring joined
+ * letterforms blind, by typing bezier control points, does not work. The second
+ * set real text in whatever script the system had (Segoe Script, Snell
+ * Roundhand…) and swept a clip across it — legible, but a wipe, and a different
+ * face on every machine.
  *
- * So the letters are a `<text>` element set in the masthead's serif. It cannot
- * be misspelled, it matches the wordmark elsewhere in the app, and it follows
- * the theme through `currentColor`. The writing effect comes from a clip that
- * sweeps left to right — the same idea as the Lottie's Trim Path, applied to
- * real glyphs instead of a drawing of them.
+ * Now Tegaki (MIT) traces the letters of a real handwriting font, Parisienne,
+ * stroke by stroke in a pen's order, and `scripts/build-loader-word.mjs` keeps
+ * the result: a self-drawing SVG, paths and CSS keyframes, no font and no
+ * script. It cannot be misspelled, it looks the same everywhere, and it follows
+ * the theme through `currentColor`.
  *
- * ── Why not the Lottie file itself ───────────────────────────────────────────
- *  1. It spells someone else's name — its layers are "Gosia Signature", and the
- *     paths are that signature's letterforms.
- *  2. Playing it needs lottie-web, ~250 KB of runtime. The preview pipeline was
- *     just cleaned of every CDN script and pinned to vendored bundles so it
- *     works offline under a strict CSP; adding a player would undo that.
+ * ── Loaded beside the app, not in it ─────────────────────────────────────────
+ * The two versions weigh about 150 KB of SVG, which the first screen of the app
+ * has no use for. So they are a chunk of their own, asked for as soon as this
+ * module is evaluated — long before anything is generated — and the box keeps
+ * the word's proportions until it arrives, so nothing jumps.
  */
+
+type Word = typeof import('./mockyLoaderWord')
+let word: Word | null = null
+const wordReady: Promise<Word> = import('./mockyLoaderWord').then((m) => (word = m))
+
+/** The word's own box (its viewBox), so the space is held before it arrives. */
+const ASPECT = '301.13 / 139.32'
+
+/**
+ * One SVG per loader, with names of its own.
+ *
+ * The SVG's keyframes, classes and mask ids all start with `tk-`, and inline SVG
+ * shares the page's namespace: two loaders on one page — a screen generating
+ * while the composer shows its own — would animate each other's strokes and
+ * mask each other's letters. Renaming them per instance is what keeps them two.
+ */
+export function scopeTegakiSvg(svg: string, scope: string): string {
+  return svg.replace(/\btk-/g, `tk-${scope}-`)
+}
+
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    return false
+  }
+}
+
 export function MockyLoader({
   size = 132,
   /**
@@ -34,14 +62,28 @@ export function MockyLoader({
   label,
   className = '',
 }: {
-  /** Width in px. The height follows the 200×62 viewBox. */
+  /** Width in px. The height follows the word's proportions. */
   size?: number
   label?: string
   className?: string
 }) {
   const t = useT()
-  // Two instances on one page would otherwise share a clip path id.
-  const clipId = `mocky-write-${useId().replace(/:/g, '')}`
+  const scope = useId().replace(/[^a-zA-Z0-9]/g, '')
+  const [loaded, setLoaded] = useState<Word | null>(word)
+  useEffect(() => {
+    if (loaded) return
+    let live = true
+    void wordReady.then((m) => live && setLoaded(m))
+    return () => {
+      live = false
+    }
+  }, [loaded])
+
+  // Read once per mount: under reduced motion the app collapses every animation
+  // onto its last keyframe, and the last keyframe of the loop is the word faded
+  // out — so that visitor gets the finished word instead.
+  const [reduced] = useState(prefersReducedMotion)
+  const svg = loaded ? scopeTegakiSvg(reduced ? loaded.MOCKY_WORD_STILL : loaded.MOCKY_WORD_LOOP, scope) : ''
 
   return (
     <span
@@ -50,23 +92,12 @@ export function MockyLoader({
       className={`mocky-loader inline-block ${className}`}
       style={{ width: size }}
     >
-      <svg viewBox="0 -6 200 82" width="100%" aria-hidden focusable="false">
-        <defs>
-          <clipPath id={clipId}>
-            {/* Swept by CSS: scaleX 0 → 1 from the left edge. */}
-            <rect className="mocky-loader__wipe" x="0" y="-6" width="200" height="82" />
-          </clipPath>
-        </defs>
-        <text
-          x="2"
-          y="46"
-          clipPath={`url(#${clipId})`}
-          className="mocky-loader__word"
-          fill="currentColor"
-        >
-          Mocky
-        </text>
-      </svg>
+      <span
+        aria-hidden
+        className="mocky-loader__word block"
+        style={{ aspectRatio: ASPECT }}
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
     </span>
   )
 }

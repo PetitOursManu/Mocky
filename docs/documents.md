@@ -85,6 +85,7 @@ any conflict, and the look stays your direction's.
 | `Instagram post` | 4:5 | One big idea per image; a carousel when there is more to say (the first image is the hook, the last the call to action). |
 | `Facebook post` | 1.91:1 | The visual of an announcement or an event, little text — the post's own text carries the detail. |
 | `LinkedIn post` | 1:1 | A professional insight or result; a carousel exported as a PDF is LinkedIn's document post. |
+| `App Store screenshots` | iPhone 6.9" (iPad 13", Google Play) | The row of screenshots on an app's store page: five by default, each a caption of a few words over the app drawn in a phone frame. See [App Store screenshots](#app-store-screenshots). |
 
 ---
 
@@ -114,6 +115,9 @@ a report does not follow you to the Instagram post typed next.
 | Social | `Portrait 4:5` | 1 080 × 1 350 px, the tallest a feed shows whole |
 | Social | `Story 9:16` | 1 080 × 1 920 px |
 | Social | `Landscape 1.91:1` | 1 200 × 628 px, a shared link, Facebook, LinkedIn |
+| Store | `iPhone` | 1 320 × 2 868 px, App Store, iPhone 6.9" — Apple scales it down for the other iPhones |
+| Store | `iPad` | 2 064 × 2 752 px, App Store, iPad 13" |
+| Store | `Google Play` | 1 080 × 1 920 px, a phone in 9:16 |
 
 Paper sizes are in CSS pixels at 96 per inch, which map exactly to PDF points,
 so a page exports at its real paper size. Social sizes are the platforms' own
@@ -410,6 +414,29 @@ ready-made document post.
 
 A story is sized 9:16, and the model keeps text out of the bands the app covers
 at the top (progress, name) and at the bottom (reply field).
+
+## App Store screenshots
+
+:::why
+A store checks the pixels of every screenshot and refuses any other size, and
+the row of screenshots is what decides an install. So the sizes are the stores'
+own, kept apart from the posts', and each screenshot is asked to sell one thing.
+:::
+
+The `App Store screenshots` type makes an app's row of store screenshots: five
+pages by default (ten at most), each one benefit — a caption of three to six
+words set very large, over the app's own screen drawn in a phone frame, the same
+frame on every page, one background running through the row. The first is the
+hero; nothing invented (no price, no rating the request did not give, no store
+badge).
+
+It starts on the **iPhone 6.9"** size, the one App Store Connect asks for and
+scales down for every smaller iPhone; the chips offer the **iPad 13"** and the
+**Google Play** phone size instead. A set for another store is a new generation
+with that chip: an iPad page is not an iPhone page made larger, its frame and its
+proportions are its own. The `PNG images` download gives the pages numbered,
+at exactly the store's size. These sizes are never offered for a post, nor post
+sizes for a set of screenshots.
 
 ### Pictures in a shape
 

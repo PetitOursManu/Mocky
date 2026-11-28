@@ -130,6 +130,7 @@ describe('the Flyer, the first DOCUMENT type', () => {
       'instagram',
       'facebook',
       'linkedin',
+      'app-store',
     ])
   })
 

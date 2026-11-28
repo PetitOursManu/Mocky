@@ -16,6 +16,17 @@ import { compositionIdFor } from './remotion/composition.js'
 import { stageImages, unstage } from './staging.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
+
+/*
+ * The headless shell HyperFrames is pinned to, when the image names one.
+ *
+ * Since HyperFrames became the default engine, Remotion is the fallback, and a
+ * fallback does not earn a second 230 MB browser: the Dockerfile installs ONE
+ * Chrome (the build HyperFrames checks by digest) and names it in
+ * `PRODUCER_HEADLESS_SHELL_PATH`, which both engines read. Unset — a checkout
+ * run by hand — and Remotion downloads its own, as it always did.
+ */
+const browserExecutable = process.env.PRODUCER_HEADLESS_SHELL_PATH || null
 const ENTRY_POINT = path.join(HERE, 'remotion', 'index.js')
 
 /*
@@ -87,7 +98,7 @@ function servedBundle() {
  */
 export async function warmUp(log = console) {
   try {
-    await ensureBrowser()
+    await ensureBrowser({ browserExecutable })
     await servedBundle()
     return { warm: true }
   } catch (err) {
@@ -108,7 +119,7 @@ export async function warmUp(log = console) {
  * @returns {Promise<{buffer: Buffer, contentType: string}>}
  */
 export async function renderTimeline({ timeline, images = [], licenseKey = null, signal } = {}) {
-  await ensureBrowser()
+  await ensureBrowser({ browserExecutable })
   const serveUrl = await servedBundle()
   const staged = await stageImages(serveUrl, images)
   const { imageSrc } = staged
@@ -140,6 +151,7 @@ export async function renderTimeline({ timeline, images = [], licenseKey = null,
       serveUrl,
       id: compositionIdFor(timeline.template),
       inputProps,
+      browserExecutable,
       logLevel: 'error',
     })
 
@@ -170,6 +182,7 @@ export async function renderTimeline({ timeline, images = [], licenseKey = null,
       // the 80 MB request that carried the images in, and is the number the
       // disk budget has to be sized against.
       outputLocation: null,
+      browserExecutable,
       cancelSignal,
       logLevel: 'error',
       // Stated, because the default is derived from a core count this container

@@ -28,6 +28,7 @@ import { createOAuthStore } from './oauth-store.js'
 import { createMcpOAuthProvider } from './provider.js'
 import { buildMcpServer } from './tools.js'
 import { buildSkillZip } from './skill.js'
+import { buildCodexPluginZip } from './codex-plugin.js'
 import { createKeyStore, KeyError, KEY_EXPIRY_DAYS, MAX_KEYS_PER_ACCOUNT, KEY_NAME_MAX } from './keys.js'
 import { createKeyAuth } from './key-auth.js'
 import { KEY_LEVELS } from './levels.js'
@@ -419,6 +420,19 @@ export function createMcpServerRoutes(d) {
       const zip = buildSkillZip({ mcpUrl: originOk ? resource() : null, client: Boolean(config.get().engines?.client) })
       res.setHeader('content-type', 'application/zip')
       res.setHeader('content-disposition', 'attachment; filename="mocky-skill.zip"')
+      res.setHeader('cache-control', 'no-store')
+      res.end(zip)
+    })
+
+    // The Codex plugin (codex-plugin.js): the same guide, plus the connector
+    // itself, as a local marketplace for Codex and the ChatGPT desktop app. Only
+    // where the connector exists for this person AND has a public address — a
+    // plugin is the address, and one without it would install nothing.
+    app.get('/api/account/mcp-codex-plugin.zip', d.requireUser, (req, res) => {
+      if (!active() || !scopeAllows(config.get().access, req.user) || !originOk) return res.status(404).json({ error: 'Not found.' })
+      const zip = buildCodexPluginZip({ origin, mcpUrl: resource(), client: Boolean(config.get().engines?.client) })
+      res.setHeader('content-type', 'application/zip')
+      res.setHeader('content-disposition', 'attachment; filename="mocky-codex-plugin.zip"')
       res.setHeader('cache-control', 'no-store')
       res.end(zip)
     })

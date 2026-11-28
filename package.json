@@ -29,7 +29,9 @@
     "backup": "node scripts/backup.mjs",
     "docs": "lumy dev --root docs-site --port 4173",
     "docs:build": "lumy build --root docs-site",
-    "docs:check": "lumy check --root docs-site"
+    "docs:check": "lumy check --root docs-site",
+    "build:loader-word": "node scripts/build-loader-word.mjs",
+    "vendor:tegaki": "node scripts/build-vendor-tegaki.mjs"
   },
   "overrides": {
     "@hono/node-server": "^2.0.5"
@@ -268,6 +270,7 @@
     "pdfjs-dist": "5.4.624",
     "postcss": "^8.5.25",
     "tailwindcss": "^4.3.3",
+    "tegaki": "1.1.0",
     "three": "^0.185.1",
     "typescript": "^5.7.2",
     "vite": "^7.3.6",

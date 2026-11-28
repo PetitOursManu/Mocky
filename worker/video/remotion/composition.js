@@ -2694,6 +2694,10 @@ export const BLOCK_APPETITE = {
 
   // ── ANIMATED TEXT ──
   typewriter: { fixed: 0.4, fills: 'either', runs: (b) => [{ role: 'title', text: b?.text }] },
+  // One line, a headline's role: a hand that wrapped would be two signatures.
+  // `hand.js` then holds the ink inside the box by its own proportions, because a
+  // script runs wider than the type this row estimates.
+  handwriting: { fixed: 0.4, fills: 'either', runs: (b) => [{ role: 'display', text: b?.text, nowrap: true }] },
   animatedList: { fixed: 0.4, fills: 'either', runs: (b) => runs(b?.items).map((text) => ({ role: 'body', text })) },
   counter: {
     fixed: 0.3,
@@ -5982,6 +5986,26 @@ export function loopedFrames(totalFrames, mode) {
   if (mode === 'mirror') return Math.max(1, 2 * film - 2)
   if (mode === 'blend') return Math.max(1, film - loopBlendFrames(film))
   return film
+}
+
+/**
+ * The geometry and the length of a film, which both engines must agree on.
+ *
+ * Remotion reads it through `calculateMetadata` (`Root.jsx`); HyperFrames reads
+ * it off the root element `render.hyperframes.js` writes, and the page's clock
+ * (`hyperframes/entry.jsx`) reads the same answer back. One function, because a
+ * film whose length was computed twice is a film one engine cuts short.
+ */
+export function filmMetadata(timeline) {
+  const plan = planTimeline(timeline)
+  return {
+    // Through the loop: a mirrored film is twice as many frames to draw, and a
+    // blended one is shorter by its own dissolve.
+    durationInFrames: loopedFrames(plan.totalFrames, loopModeOf(timeline)),
+    width: plan.width,
+    height: plan.height,
+    fps: plan.fps,
+  }
 }
 
 /**

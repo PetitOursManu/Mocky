@@ -85,6 +85,9 @@ export const SHARE_PAGE_FORMATS = [
   'social-portrait',
   'social-story',
   'social-landscape',
+  'store-iphone',
+  'store-ipad',
+  'store-android',
 ]
 const isPageFormat = (v) => typeof v === 'string' && SHARE_PAGE_FORMATS.includes(v)
 

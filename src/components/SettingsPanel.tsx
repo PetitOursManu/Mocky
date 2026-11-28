@@ -16,6 +16,7 @@ import { readReasoning } from '../lib/reasoning'
 import ChimeSetting from './ChimeSetting'
 import BrandSection from './BrandSection'
 import KosmyBoardLink from './KosmyBoardLink'
+import CreditsSection from './CreditsSection'
 
 type TestState =
   | { status: 'idle' }
@@ -511,6 +512,8 @@ export default function SettingsPanel() {
 
         <ChimeSetting />
       </div>
+
+      <CreditsSection />
 
       <p className="mt-8 border-t border-line-soft pt-3 text-body-sm text-ink-muted">
         {t('settings.footerNote')}
