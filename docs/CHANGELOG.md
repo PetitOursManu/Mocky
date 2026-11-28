@@ -33,6 +33,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 | `visuels` | phase 3 — outils MCP, déclinaison sans modèle, liaisons modifiables | `694f4c3` |
 | `visuels` | phase 2 — illustrer un texte, six familles, visuels dans les autres types | `a9f088d` |
 | `visuels` | un texte mis en schéma, en 14 familles, sans dessin du modèle | `676fb78` |
+| — | délais d'attente par modèle (×3 pour le forfait gratuit) + liste des projets partagés entre comptes | `0d065ee` |
 | `text` | réflexion désactivée par défaut sur le profil du forfait gratuit | `32c0175` |
 | `admin` | liste par compte pour la génération d'images par IA | `b1e07c0` |
 | `composer` | mode Auto — Jev choisit les options de chaque nouvel écran | `3a1c0a7` |
