@@ -172,7 +172,8 @@ export interface NewScreenRequest {
   pinnedImages: PinnedImage[]
   pinnedVideo: PinnedVideo | null | undefined
   videoAvail: MuseVideoAvailability | null
-  motionAvail: { available: boolean; kinds: MotionKindOffer[] } | null
+  /** `threeD`: this account may spend a 3D render (GET /api/video/status). */
+  motionAvail: { available: boolean; kinds: MotionKindOffer[]; threeD?: boolean } | null
   /** The project's Motion Ultra setting, unpaused and allowed for this account. */
   ultraActive: boolean
   ultraCount: number
@@ -893,13 +894,18 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
             fromCache: true,
             drive: runPin.drive,
           }
-        } else if (museConfig.videoMotion && pipe.scrollVideo && motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')) {
+        } else if (museConfig.videoMotion && pipe.scrollVideo && motionAvail?.available) {
           /*
            * Vidéo · Motion: a film made by Mocky's own engine on the local
-           * worker — no clip is billed — composed from this run's pictures as
-           * a wordless `background`, then cut for the scroll like any clip.
-           * Same failure rule as a generated clip: the screen is built without
-           * the sequence, and the reason is said.
+           * worker — no clip is billed — then cut for the scroll like any clip.
+           *
+           * Composed from the WHOLE catalogue, not the `background` kind: that
+           * kind is one scene of surfaces and no words, made to sit under a
+           * section's own text, and as the opening of a page it came back as a
+           * near-blank pale field. The opening of a page is a showpiece —
+           * several scenes, depth, the page's pictures, 3D where this account
+           * may have it. Same failure rule as a generated clip: the screen is
+           * built without the sequence, and the reason is said.
            */
           hooks.setMuseStage(t('project.museStageMotion'))
           try {
@@ -907,11 +913,11 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
             const proposal = await proposeVideoTimeline(text, imgs.map((i) => i.id), {
               settings,
               theme,
-              motionKind: 'background',
               placement: {
                 section: 'hero',
-                why: 'Scrubbed by the scroll behind the top of the page, as a sequence of stills: it carries no words of its own.',
+                why: 'The opening of the page, scrubbed by the visitor\'s scroll: a cinematic film of three to five scenes with depth and real camera movement, built from the page\'s pictures, with a set piece and varied transitions between scenes — the most striking film the catalogue can compose for this subject. A few words at most: the page sets its own headline.',
               },
+              ...(motionAvail.threeD ? { forceThreeD: true } : {}),
               signal,
             })
             if (!proposal.timeline) throw new Error(motionNotices(proposal.notices) || '—')

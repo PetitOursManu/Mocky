@@ -1,5 +1,5 @@
 ---
-source_hash: af44b47db8d6
+source_hash: d2a6be6cf447
 ---
 
 # Vue d'ensemble de Muse
@@ -429,7 +429,7 @@ La ligne **Vidéo** du panneau Muse dit d'où vient le clip :
 | Aucune | Pas de clip : le visuel principal est une image fixe | — |
 | Générée par IA | Un clip fait pour cet écran par le fournisseur vidéo configuré | payant, 30 s à 3 min |
 | Gratuite | Un clip libre de droits (Pexels, Pixabay) ou l'un des vôtres, choisi dans Média | gratuit |
-| Motion | Un film fait par le moteur de Mocky à partir des images de l'écran, rendu par votre machine (le module Motion Ultra) et découpé pour le défilement comme tout clip — sans texte | gratuit, 1 à 3 min |
+| Motion | Un film fait par le moteur de Mocky à partir des images de l'écran — plusieurs scènes avec de la profondeur, des mouvements de caméra, une pièce maîtresse et des transitions, en 3D quand votre compte y a droit, quelques mots au plus — rendu par votre machine (le module Motion Ultra) et découpé en 180 images au plus pour le défilement | gratuit, 1 à 3 min |
 
 En **Auto**, le modèle de décision choisit entre Aucune, Gratuite et Motion. Un
 clip gratuit est alors trouvé par Mocky lui-même : cherché d'après les mots du

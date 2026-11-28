@@ -63,26 +63,53 @@ function mockySeqPaint(canvas, img, fit) {
   ctx.drawImage(img, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
 }
 
-/* Starts every frame loading at once and calls onFrame as each one lands:
-   the first fills the empty canvas, later ones replace whatever neighbour was
-   standing in for them. cancel() silences a set a newer clip has replaced. */
+/* The order frames are asked for: coarse to fine. Every 16th frame first, then
+   the ones between them, then between those — so a sequence is usable from end
+   to end after a dozen requests and only sharpens after that. Pure, so a test
+   reads it. */
+function mockySeqOrder(total) {
+  var seen = new Array(total), out = [];
+  for (var stride = 16; stride >= 1; stride = stride >> 1) {
+    for (var i = 0; i < total; i += stride) if (!seen[i]) { seen[i] = true; out.push(i); }
+  }
+  if (total > 0 && !seen[total - 1]) out.push(total - 1);
+  return out;
+}
+
+/* How many frames are in flight at once. It was ALL of them: a Motion film cut
+   to 478 stills asked for 478 pictures in the same instant, every one from the
+   instance, and the scripts of the canvas's other previews — the same host —
+   queued behind them until one gave up at its 20-second deadline ("l'aperçu
+   n'a pas répondu"). Six is a browser's own connection budget per host. */
+var MOCKY_SEQ_PARALLEL = 6;
+
+/* Loads the frames coarse to fine, a few at a time, and calls onFrame as each
+   one lands: the first fills the empty canvas, later ones replace whatever
+   neighbour was standing in for them. cancel() stops asking and silences a set
+   a newer clip has replaced. */
 function mockySeqLoad(base, total, onFrame) {
   var cancelled = false;
   var images = new Array(total);
   var loaded = new Array(total);
-  for (var i = 0; i < total; i++) {
-    (function (slot) {
-      var im = new Image();
-      im.decoding = 'async';
-      im.onload = function () {
-        if (cancelled) return;
-        loaded[slot] = true;
-        onFrame(slot);
-      };
-      im.src = base + '/f/' + (slot + 1) + '.jpg';
-      images[slot] = im;
-    })(i);
+  var queue = mockySeqOrder(total);
+  var next = 0;
+  function more() {
+    if (cancelled || next >= queue.length) return;
+    var slot = queue[next++];
+    var im = new Image();
+    im.decoding = 'async';
+    im.onload = function () {
+      if (cancelled) return;
+      loaded[slot] = true;
+      onFrame(slot);
+      more();
+    };
+    // A frame that fails is skipped, never a stalled queue: its neighbours stand in.
+    im.onerror = function () { if (!cancelled) more(); };
+    im.src = base + '/f/' + (slot + 1) + '.jpg';
+    images[slot] = im;
   }
+  for (var k = 0; k < MOCKY_SEQ_PARALLEL; k++) more();
   return { images: images, loaded: loaded, cancel: function () { cancelled = true; } };
 }
 

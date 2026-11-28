@@ -48,16 +48,17 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     const plugs = indexesOf(view, 'plugFilmIntoSlot(')
     expect(plugs.length).toBeGreaterThan(0)
     for (const at of plugs) expect(view.lastIndexOf('if (ultraFilmSection && ultraRecord) {', at)).toBeGreaterThan(0)
-    // A background film is composed in two places only: Motion Ultra's planned
-    // slot, and Muse's hero sequence when the person chose Vidéo · Motion —
-    // never on a run that asked for neither.
-    const films = indexesOf(view, "motionKind: 'background'")
+    // A film is composed in two places only: Motion Ultra's planned slot (a
+    // background), and Muse's hero sequence when the person chose Vidéo ·
+    // Motion — never on a run that asked for neither.
+    const films = indexesOf(view, 'proposeVideoTimeline(text')
     expect(films.length).toBe(2)
     for (const at of films) {
       const ultra = view.lastIndexOf('if (ultraFilmSection && ultraRecord) {', at)
       const motion = view.lastIndexOf('} else if (museConfig.videoMotion && pipe.scrollVideo', at)
       expect(Math.max(ultra, motion), String(at)).toBeGreaterThan(0)
     }
+    expect(indexesOf(view, "motionKind: 'background'")).toHaveLength(1)
     // Off, ultraFilmSection stays null and no film is made.
     expect(view).toContain('let ultraFilmSection: string | null = null')
   })

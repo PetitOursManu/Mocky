@@ -2873,6 +2873,9 @@ app.use(
  * it is cut here, gets its stills, and stays in its own store besides. Owner
  * only — the hash of somebody else's film is not a way into it.
  */
+/** The most stills a Motion film is cut into for the scroll. */
+const MOTION_SEQUENCE_FRAMES = 180
+
 app.post('/api/videos/from-film', requireUser, authRateLimit(20, 60_000, 'video-from-film'), async (req, res) => {
   const hash = String(req.body?.hash || '')
   if (!/^[a-f0-9]{64}$/.test(hash)) return res.status(400).json({ error: 'Bad hash' })
@@ -2895,7 +2898,10 @@ app.post('/api/videos/from-film', requireUser, authRateLimit(20, 60_000, 'video-
         slot: 'hero',
         owner: req.user.id,
       },
-      images.configStore.videoProfile().frames || {},
+      // Capped below a clip's own ceiling: a film runs longer than a generated
+      // clip, and 478 stills — one real film — were 478 requests a page made at
+      // once. A scroll scrubs through 180 as smoothly.
+      { ...(images.configStore.videoProfile().frames || {}), max: Math.min(Number(images.configStore.videoProfile().frames?.max) || MOTION_SEQUENCE_FRAMES, MOTION_SEQUENCE_FRAMES) },
     )
     res.json({
       hash: out.hash,

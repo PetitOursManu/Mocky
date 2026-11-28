@@ -174,7 +174,9 @@ const MAX_DIRECTION_CHARS = 900
  * data (Q5), and both are bounded here for the reason every length above is.
  */
 const SECTION_NAME = /^[a-z][a-z-]{0,23}$/
-const MAX_PLACEMENT_WHY_CHARS = 200
+// 400: Muse's Vidéo · Motion says what the opening film must be in three
+// sentences, and 200 cut the third in half.
+const MAX_PLACEMENT_WHY_CHARS = 400
 
 function placementOf(value) {
   if (!value || typeof value !== 'object') return null

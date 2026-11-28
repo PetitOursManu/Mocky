@@ -60,7 +60,9 @@ describe('looking at a real file', () => {
     const out = await checkFilm(Buffer.from('not a film'), { format: 'mp4', width: 1920, height: 1080 })
     expect(out.checked).toBe(false)
     expect(typeof out.detail).toBe('string')
-  })
+    // ffmpeg is spawned even on bytes that are not a film, and a loaded machine
+    // starts it slowly: the default 5 s made this flaky in the full suite.
+  }, 30_000)
 
   it.skipIf(!hasFfmpeg)('finds the black hole and the freeze ffmpeg was asked to make', async () => {
     // Three seconds of black, three of a moving test card, four of one frame held.

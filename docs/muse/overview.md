@@ -396,7 +396,7 @@ The **Video** row of the Muse panel says where the clip comes from:
 | None | No clip: the hero is a still picture | — |
 | AI generated | A clip made for this screen by the configured video provider | paid, 30 s to 3 min |
 | Free | A free stock clip (Pexels, Pixabay) or one of yours, chosen in Media | free |
-| Motion | A film made by Mocky's own engine from the screen's pictures, rendered by your machine (the Motion Ultra worker) and cut for the scroll like any clip — no words in it | free, 1 to 3 min |
+| Motion | A film made by Mocky's own engine from the screen's pictures — several scenes with depth, camera movement, a set piece and transitions, in 3D when your account may use it, a few words at most — rendered by your machine (the Motion Ultra worker) and cut into 180 stills at most for the scroll | free, 1 to 3 min |
 
 In **Auto**, the decision model chooses among None, Free and Motion. A free clip
 is then found by Mocky itself: searched from the hero's words, **looked at** by

@@ -1046,7 +1046,7 @@ export default function ProjectView({
    * not take the composer down, and a control that is not drawn is the honest
    * outcome of not knowing.
    */
-  const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[] } | null>(null)
+  const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[]; threeD?: boolean } | null>(null)
   /** Motion Ultra's video background can be offered: a `background` film is renderable. */
   const ultraVideoAvailable = !!motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')
   /**
@@ -1072,6 +1072,8 @@ export default function ProjectView({
         setMotionAvail({
           available: Boolean(access.enabled && access.worker?.available),
           kinds: Array.isArray(access.motionKinds) ? access.motionKinds : [],
+          // `true` only when the server says so: a permission fails shut.
+          threeD: access.threeD === true,
         })
         if (Array.isArray(access.ultraCounts)) setUltraCountsAllowed(access.ultraCounts)
       })
