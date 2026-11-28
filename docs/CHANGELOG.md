@@ -10,6 +10,18 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `motion` | une sorte « ouverture » sans mots pour Vidéo · Motion, et Créations à l'accueil | `184d4f2` |
+| `composeur` | « Schémas » toujours visible, grisé avec la raison quand il ne s'applique pas | `9304d23` |
+| `composeur` | Schémas, Jev qui choisit type et vidéo, film en décalé, Améliorer qui connaît Mocky | `789b1e6` |
+| `documents` | les captures App Store et Google Play, aux tailles exactes | `c748a9c` |
+| `video` | le film est regardé une fois rendu — vide, délavé, figé | `be226ec` |
+| `muse` | trois directions artistiques au choix, avant le premier écran | `c69af54` |
+| `visuels` | une entrée animée dans l'ordre du contenu, et un flux le long des liens | `993c83f` |
+| `mcp` | un plugin Codex téléchargeable depuis les Réglages | `805f5db` |
+| `video` | un bloc handwriting écrit quelques mots à la main dans un film | `876505f` |
+| `écriture` | Tegaki écrit à la main dans les écrans et dans le chargement | `a0e1d33` |
+| `video` | HyperFrames devient le moteur des films, Remotion passe en repli | `6270905` |
+| `remerciements` | une page de remerciements dans les Réglages et dans la doc | `93ae2c8` |
 | `parcours` | choisir le nombre d'écrans à créer depuis un écran existant | `205c0e6` |
 | — | palette et pipette dans le panneau Style, parcours depuis un écran existant | `15e11dc` |
 | — | schémas sur demande dans les documents, composeur qui ne coupe plus ses boutons, palette de couleurs | `87fb422` |
@@ -69,6 +81,8 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `video` | séquences chargées 6 images à la fois, films Motion plus riches | `4100ab9` |
+| `visuels` | les infos deviennent le schéma, à la taille de la page et dans la direction | `6970121` |
 | `visuels` | des étapes en colonne quand la largeur manque | `d5993aa` |
 | `visuels` | clôture de la phase 1 après essais dans l'application | `0cc9973` |
 | `sync` | la copie d'un navigateur ne se fusionne plus dans le compte d'un autre | `cbe6011` |
