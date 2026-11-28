@@ -92,8 +92,10 @@ export const muse = {
     'muse.motionKind.hero': 'Héro',
     'muse.motionKindHelp.hero': 'L’ouverture de la page : une seule idée, avant tout défilement.',
     'muse.motionKind.background': 'Fond de section',
+    'muse.motionKind.opening': 'Ouverture au défilement',
     'muse.motionKindHelp.background':
       'Une surface en mouvement, sous du texte que la page compose elle-même. Aucun mot dans le film.',
+    'muse.motionKindHelp.opening': 'L’ouverture d’une page, que le visiteur fait défiler : plusieurs scènes de profondeur et de mouvement, à partir des images de la page, sans aucun mot — le titre de la page passe par-dessus.',
     'muse.motionKind.banner': 'Bandeau',
     'muse.motionKindHelp.banner': 'Une bande large qui annonce une chose : un lancement, une date, un nom.',
     'muse.motionKind.showcase': 'Produit',
@@ -203,8 +205,10 @@ export const muse = {
     'muse.motionKind.hero': 'Hero',
     'muse.motionKindHelp.hero': 'The opening of the page: one idea, before anything is scrolled.',
     'muse.motionKind.background': 'Section background',
+    'muse.motionKind.opening': 'Scroll opening',
     'muse.motionKindHelp.background':
       'A moving surface, under type the page sets itself. No words inside the film.',
+    'muse.motionKindHelp.opening': 'The opening of a page that the visitor scrubs with the scroll: several scenes of depth and movement, from the page’s pictures, with no words at all — the page’s headline sits over it.',
     'muse.motionKind.banner': 'Banner',
     'muse.motionKindHelp.banner': 'A wide strip announcing one thing: a launch, a date, a name.',
     'muse.motionKind.showcase': 'Product',

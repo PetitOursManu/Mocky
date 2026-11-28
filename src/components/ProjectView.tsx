@@ -5322,6 +5322,8 @@ export default function ProjectView({
         brandId={chosenBrandId}
         onPickBrand={pickBrand}
         creativeOn={!!project.creative}
+        creationsOn={!!project.creations}
+        onToggleCreations={onSetCreations ? () => onSetCreations(!project.creations) : undefined}
         onToggleCreative={onSetCreative ? () => onSetCreative(!project.creative) : undefined}
         onOpenCampaign={() => setRightSlot('campaign')}
         onOpenDirections={() => setDirectionsOpen(true)}

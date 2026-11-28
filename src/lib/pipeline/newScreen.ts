@@ -913,9 +913,12 @@ async function runNewScreenStages(req: NewScreenRequest, hooks: NewScreenHooks):
             const proposal = await proposeVideoTimeline(text, imgs.map((i) => i.id), {
               settings,
               theme,
+              // A kind of its own (server/video/kinds.js): rich, and WORDLESS — a
+              // free composition burnt a giant title behind the page's headline.
+              motionKind: 'opening',
               placement: {
                 section: 'hero',
-                why: 'The opening of the page, scrubbed by the visitor\'s scroll: a cinematic film of three to five scenes with depth and real camera movement, built from the page\'s pictures, with a set piece and varied transitions between scenes — the most striking film the catalogue can compose for this subject. A few words at most: the page sets its own headline.',
+                why: 'The opening of the page, scrubbed by the visitor\'s scroll: a cinematic film of several scenes with depth and real camera movement, built from the page\'s pictures, with a set piece and varied transitions — the most striking film this subject allows. Not one word in it: the page sets its own headline over it.',
               },
               ...(motionAvail.threeD ? { forceThreeD: true } : {}),
               signal,

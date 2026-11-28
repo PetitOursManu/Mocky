@@ -68,6 +68,9 @@ type Props = {
   onPickBrand?: (id: string) => void
   creativeOn?: boolean
   onToggleCreative?: () => void
+  /** "Créations": the model may invent a missing frame, animation, transition or element (docs/creations.md). */
+  creationsOn?: boolean
+  onToggleCreations?: () => void
   /** Open Campaign Studio: a brief made into several formats at once (lib/campaign.ts). */
   onOpenCampaign?: () => void
   /** Three art directions to choose from before the first screen (DirectionsDialog). */
@@ -163,6 +166,8 @@ export default function Welcome({
   onPickBrand,
   creativeOn,
   onToggleCreative,
+  creationsOn,
+  onToggleCreations,
   onOpenCampaign,
   onOpenDirections,
   museAvail,
@@ -228,6 +233,7 @@ export default function Welcome({
       (ultraCounts === undefined || ultraCounts.length > 0 ? 1 : 0) +
       (onToggleBrand ? 1 : 0) +
       (onToggleCreative ? 1 : 0) +
+      (onToggleCreations ? 1 : 0) +
       (onToggleFlows ? 1 : 0) +
       (onToggleDiagrams ? 1 : 0) +
       (onOpenDirections ? 1 : 0) +
@@ -414,6 +420,18 @@ export default function Welcome({
                 on={!!creativeOn}
                 onClick={onToggleCreative}
                 title={t(creativeOn ? 'workspace.creative.onTitle' : 'workspace.creative.offTitle')}
+              />
+            )}
+            {/* The first screen is where a missing element is most often asked
+                for: the project composer had this switch, the first one did not. */}
+            {!autoOn && onToggleCreations && (
+              <OptionTile
+                icon="wand"
+                label={t('workspace.creations.toggle')}
+                hint={t('workspace.creations.hint')}
+                on={!!creationsOn}
+                onClick={onToggleCreations}
+                title={t(creationsOn ? 'workspace.creations.onTitle' : 'workspace.creations.offTitle')}
               />
             )}
             {!autoOn && (

@@ -914,8 +914,9 @@ Ten things, and the first one is not negotiable.
       both directions. `blocks/index.js` is a map and nothing else, so
       twenty-seven people can each own one file without touching the same line.
 11. **A Motion Ultra KIND is a doorway into that catalogue, never a sixth template.**
-    `server/video/kinds.js` — eight of them (`hero`, `background`, `banner`,
-    `showcase`, `figure`, `globe`, `mark`, `story`), and each resolves to nothing
+    `server/video/kinds.js` — nine of them (`hero`, `background`, `opening`,
+    `banner`, `showcase`, `figure`, `globe`, `mark`, `story`; `opening` is Muse's
+    Vidéo · Motion: rich and wordless, scrubbed at the top of a page), and each resolves to nothing
     but a subset of `BLOCK_KINDS`, a subset of `BACKGROUND_KINDS`, one
     `ASPECT_RATIOS` value and a window inside `TEMPLATE_LIMITS.composed`. What
     comes out is an ordinary `composed` document: the worker never learns a kind
