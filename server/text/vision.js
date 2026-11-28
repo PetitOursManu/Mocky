@@ -109,7 +109,7 @@ export async function probeVision(target, opts = {}) {
   )
 
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000)
+  const timer = setTimeout(() => ctrl.abort(), (opts.timeoutMs ?? 30000) * (target.patience || 1))
   let result
   let status = 0
   try {

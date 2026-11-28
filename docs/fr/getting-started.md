@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: aaa95a25524c
+source_hash: 55e01828a81e
 ---
 
 # Démarrage
@@ -421,6 +421,22 @@ pas (Gemini Pro, la série o), `Désactivé` demande le minimum que le modèle
 accepte. **Anthropic n’est pas encore géré** : son API compatible ignore
 `reasoning_effort`, donc Claude garde son réglage par défaut. La traduction est
 `applyReasoning` dans `server/text/dialect.js`.
+
+### Délais d’attente
+
+Chaque profil a aussi des **Délais d’attente** : `×1`, `×2`, `×3`, `×5` ou `×10`.
+Le facteur allonge chaque délai que Mocky fixe à ce modèle avant d’abandonner une
+étape et de se rabattre sur une solution de repli — le dossier de Muse, le
+planificateur, le storyboard de Motion Ultra, le choix des photos, les appels de
+décision, la vérification de la vision. Ces délais avaient été fixés pour un
+modèle payant qui écrit des centaines de tokens par seconde ; un modèle gratuit
+en écrit quelques dizaines, et ses réponses arrivaient après que l’étape s’était
+déjà rabattue. Le profil du **forfait gratuit** démarre à `×3`, les autres à
+`×1` ; comme le niveau de réflexion, ce n’est qu’une valeur de départ. Il ne
+touche ni aux limites du fournisseur, ni aux cinq minutes que le `fetch` de Node
+accorde entre deux octets d’une réponse. `PATIENCE_FACTORS` dans
+`server/text/config.js` ; le navigateur lit le facteur du modèle qui le sert dans
+`/api/config` (`src/lib/patience.ts`).
 
 ## Configurer la génération d'images
 

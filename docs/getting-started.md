@@ -402,6 +402,20 @@ o-series), `Off` asks for the least the model accepts. **Anthropic is not
 handled yet**: its compatible API ignores `reasoning_effort`, so Claude keeps its
 own default. The translation is `applyReasoning` in `server/text/dialect.js`.
 
+### Waiting time
+
+Each profile also has a **Waiting time**: `×1`, `×2`, `×3`, `×5` or `×10`. It
+stretches every deadline Mocky sets for that model before it gives a stage up
+and falls back — Muse's dossier, the planner, the Motion Ultra storyboard, the
+photo choice, the decision calls, the vision check. Those deadlines were set
+for a paid model writing hundreds of tokens a second; a free one writes a few
+dozen, and its answers arrived after the stage had already fallen back. The
+**free plan** profile starts at `×3`, the others at `×1`; like the thinking
+level, it is only a starting value. It does not touch the provider's own
+limits, nor the five minutes Node's `fetch` allows between two bytes of an
+answer. `PATIENCE_FACTORS` in `server/text/config.js`; the browser reads the
+factor of the model that serves it from `/api/config` (`src/lib/patience.ts`).
+
 ## Configure image generation
 
 Go to **Admin → Image generation (Muse)**. Keys are stored on the server and

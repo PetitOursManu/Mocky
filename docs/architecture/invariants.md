@@ -334,7 +334,9 @@ which account answered so a read-back can refuse it too.
 **How it is held.** `src/lib/sync.test.ts` ("a browser shared by two accounts")
 and `tests/data-merge-e2e.test.js`. Copies merged before this rule existed are
 already in the server files: forgetting the browser's copy does not take them
-back out of an account.
+back out of an account. `node server/tools/shared-projects.js` lists every
+project id held by more than one account, with each copy's last edit — it reads
+and writes nothing else, and who owns a copy is for a person to decide.
 
 ---
 

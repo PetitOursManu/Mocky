@@ -1160,6 +1160,9 @@ app.get('/api/config', (req, res) => {
         provider: t ? t.id : null,
         // Only advertise a distinct inspiration model when it really differs.
         inspirationModel: insp && (!t || insp.model !== t.model) ? insp.model : null,
+        // How much longer the browser's own stages wait for this model
+        // (server/text/config.js, PATIENCE_FACTORS): 1 on a person's own key.
+        patience: t?.patience || 1,
         plan: planOf(user),
         // The account's own key over the instance's model (server/own-text.js):
         // whether it is on, whether the administrator allows it, and what the

@@ -1,5 +1,5 @@
 ---
-source_hash: 26f5a93b59de
+source_hash: 189c1ff3bffb
 ---
 
 # Invariants
@@ -359,7 +359,10 @@ quel compte a répondu pour qu'une relecture puisse le refuser aussi.
 **Ce qui la tient.** `src/lib/sync.test.ts` (« a browser shared by two
 accounts ») et `tests/data-merge-e2e.test.js`. Les copies fusionnées avant cette
 règle sont déjà dans les fichiers du serveur : oublier la copie du navigateur ne
-les retire pas d'un compte.
+les retire pas d'un compte. `node server/tools/shared-projects.js` liste chaque
+identifiant de projet présent dans plusieurs comptes, avec la dernière
+modification de chaque copie — il ne fait que lire, et décider à qui appartient
+une copie revient à une personne.
 
 ---
 

@@ -63,4 +63,21 @@ describe('a chosen level of thinking', () => {
     expect(resolveTextTarget(chosen, 'free').reasoning).toBeUndefined()
     expect(mergeTextConfig(chosen, { free: { provider: 'ollama-cloud' } }).free.reasoning).toBe('auto')
   })
+
+  it('patience: the free profile waits three times longer, a choice is kept, and ×1 adds nothing to a target', () => {
+    const fresh = mergeTextConfig({}, {
+      generation: { provider: 'openai', openai: { apiKey: 'k' } },
+      free: { provider: 'ollama-cloud', 'ollama-cloud': { apiKey: 'k' } },
+    })
+    expect(resolveTextTarget(fresh, 'free').patience).toBe(3)
+    expect(resolveTextTarget(fresh).patience).toBeUndefined()
+    expect(publicTextConfig(fresh).free.patience).toBe(3)
+    expect(publicTextConfig(fresh).patienceFactors).toEqual([1, 2, 3, 5, 10])
+    const chosen = mergeTextConfig(fresh, { free: { patience: 10 }, generation: { patience: 2 } })
+    expect(resolveTextTarget(chosen, 'free').patience).toBe(10)
+    expect(resolveTextTarget(chosen).patience).toBe(2)
+    // A value off the list is not a deadline: the stored one stands.
+    expect(mergeTextConfig(chosen, { free: { patience: 9999 } }).free.patience).toBe(10)
+  })
 })
+

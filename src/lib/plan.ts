@@ -1,4 +1,5 @@
 import type { Settings } from './settings'
+import { patient } from './patience'
 import { CAPABILITY_MAP, CAPABILITIES } from './capabilities/registry'
 import { proxyFetch } from './proxy'
 
@@ -176,7 +177,7 @@ export async function planScreen(
   opts?: { design?: string; presetHint?: string; timeoutMs?: number },
   signal?: AbortSignal,
 ): Promise<Plan | null> {
-  const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const timeoutMs = opts?.timeoutMs ?? patient(DEFAULT_TIMEOUT_MS)
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   const onExternalAbort = () => ctrl.abort()
