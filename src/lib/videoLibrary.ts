@@ -27,6 +27,9 @@ export interface LibraryVideo {
 export type StockProvider = 'pexels' | 'pixabay'
 export const STOCK_PROVIDERS: StockProvider[] = ['pexels', 'pixabay']
 export const STOCK_LABELS: Record<StockProvider, string> = { pexels: 'Pexels', pixabay: 'Pixabay' }
+/** Where a credited picture comes from: a stock library, or the person's own Sprixy (server/sprixy.js). */
+export type CreditSource = StockProvider | 'sprixy'
+export const CREDIT_LABELS: Record<CreditSource, string> = { ...STOCK_LABELS, sprixy: 'Sprixy' }
 /** The libraries' own home pages, for the "provided by" link both ask for. */
 export const STOCK_HOME: Record<StockProvider, string> = {
   pexels: 'https://www.pexels.com',
@@ -34,7 +37,7 @@ export const STOCK_HOME: Record<StockProvider, string> = {
 }
 
 export interface StockCredit {
-  source: StockProvider
+  source: CreditSource
   id: string
   author: string
   authorUrl: string

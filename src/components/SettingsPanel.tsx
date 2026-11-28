@@ -16,6 +16,7 @@ import { readReasoning } from '../lib/reasoning'
 import ChimeSetting from './ChimeSetting'
 import BrandSection from './BrandSection'
 import KosmyBoardLink from './KosmyBoardLink'
+import SprixyLink from './SprixyLink'
 import CreditsSection from './CreditsSection'
 
 type TestState =
@@ -492,6 +493,7 @@ export default function SettingsPanel() {
         <PasswordSection account={account} onChanged={setAccount} />
         <KosmyBoardLink account={account} onChanged={setAccount} />
         {account && <AssistantConnections />}
+        {account && <SprixyLink />}
 
         <section>
           <div className="section-head">

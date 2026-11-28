@@ -55,8 +55,9 @@ export function normalizeBase(raw) {
 }
 
 export class CalendyStore {
-  constructor(dataDir) {
-    this.file = path.join(dataDir, 'calendy.json')
+  /** `fileName`: Sprixy keeps its links the same way, in its own file (server/sprixy.js). */
+  constructor(dataDir, fileName = 'calendy.json') {
+    this.file = path.join(dataDir, fileName)
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8'))
       this.links = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}

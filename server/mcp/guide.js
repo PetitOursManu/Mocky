@@ -32,6 +32,7 @@ export const GUIDED_TOOLS = [
   'export_screen',
   'list_templates',
   'search_free_images',
+  'search_sprixy_assets',
   'add_image',
   'edit_design',
   'polish_design',
@@ -117,6 +118,7 @@ write access. Talk to the person in THEIR language.
 | \`get_design\` | The answer of work still running for this account — an audit, or a design started elsewhere. |
 | \`list_visual_families\` | The shapes a Mocky visual can take, and what each is for. |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at — to suggest, not to add. |
+| \`search_sprixy_assets\` | Game assets (pixel-art sprites, icons, tiles) from the person's own Sprixy, as thumbnails to look at — to suggest, not to add. |
 
 ## Never
 
@@ -158,6 +160,11 @@ language, except free-photo searches, which work best in English.
    person asks for an image:
    - \`search_free_images\` with a few English words → look at the thumbnails →
      \`add_image\` with the chosen \`free_image_id\`;
+   - for a game, retro or pixel-art screen, or when the person mentions their
+     Sprixy: \`search_sprixy_assets\` → look → \`add_image\` with the chosen
+     \`sprixy_asset_id\`. Mocky shows these sprites whole and with crisp pixels;
+     if the search says Sprixy is not connected, tell the person (Settings →
+     Sprixy in Mocky) rather than inventing a sprite;
    - or a picture from this conversation (one you generated, one the person
      attached) → \`add_image\` with \`image_file\`;
    - or a public address → \`add_image\` with \`image_url\`.
@@ -364,6 +371,7 @@ a rule.
 | \`export_screen\` | A screen as a file to download: \`png\`, \`pptx\`, \`pptx-edit\` (Canva, taken apart) or \`pdf\`. |
 | \`list_templates\` | The account's project templates, to start a new project from one (\`template_id\`) or to change one (\`edit_template\`). |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at. |
+| \`search_sprixy_assets\` | Game assets (pixel-art sprites, icons, tiles) from the person's own Sprixy, as thumbnails to look at. |
 | \`add_image\` | Put one picture in the account's library, to pass to a design. |
 | \`edit_design\` | Change an existing screen as the person asks. |
 | \`polish_design\` | Mocky's quality pass on a screen: corrections and a score out of 20. |

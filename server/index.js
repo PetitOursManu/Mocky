@@ -38,6 +38,7 @@ import {
 } from './plan.js'
 import { cleanOwnText, ownKeysAllowed, ownTextView, usesOwnText } from './own-text.js'
 import { CalendyStore, calendyRouter } from './calendy.js'
+import { SprixyStore, sprixyRouter, createSprixyClient } from './sprixy.js'
 import { cleanProjectId, costOf, createSpendLedger, dayOf, priceKey } from './admin/spend.js'
 import { fetchPrices } from './admin/prices.js'
 import { createLockout } from './auth-lockout.js'
@@ -293,6 +294,9 @@ const blocks = createBlockStore(DATA_DIR, { budget: diskBudget })
 const reviews = createReviewStore(DATA_DIR)
 // Each account's link to its Calendy (server/calendy.js): the token stays here.
 const calendy = new CalendyStore(DATA_DIR)
+// Each account's link to its own Sprixy (server/sprixy.js): a read-only catalog token, kept here.
+const sprixy = new SprixyStore(DATA_DIR)
+const sprixyClient = createSprixyClient()
 const dataEvents = createDataEvents()
 const runnerAuth = createRunnerAuth()
 
@@ -2290,6 +2294,7 @@ function deleteUserAccount(by, id) {
   saveSessions(sessions)
   presence.forget(id)
   calendy.forget(id)
+  sprixy.forget(id)
   const gone = users.find((u) => u.id === id)
   audit.record({ action: 'user.delete', actor: auditActor(by.user), target: auditActor(gone), detail: auditDetail(by, null), ip: by.ip })
   // Their share links go too. A capability URL outlives the account that minted
@@ -2784,6 +2789,8 @@ app.get('/api/data/events', (req, res) => {
 // Campaign pieces sent to Calendy as ideas (server/calendy.js). Server-side
 // because Calendy refuses a browser's foreign Origin, and the token stays here.
 app.use('/api/calendy', calendyRouter({ store: calendy, requireUser }))
+// The person's Sprixy game assets (server/sprixy.js): connected in Settings, used by the MCP tools.
+app.use('/api/sprixy', sprixyRouter({ store: sprixy, requireUser, client: sprixyClient }))
 app.use('/api/mcp', requireUser)
 app.use('/api/muse', requireUser)
 // A dossier is the most expensive verb in the app — up to six page fetches, a
@@ -3424,6 +3431,7 @@ const mcpServer = createMcpServerRoutes({
     budget: diskBudget,
     stockAccessFor: (user) => images.configStore.stockImagesAccessFor(user),
     guard: assertSafeTargetResolved,
+    sprixy: { store: sprixy, client: sprixyClient },
   }),
   dataDir: DATA_DIR,
   origin: MOCKY_ORIGIN,

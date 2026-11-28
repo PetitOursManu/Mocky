@@ -29,7 +29,9 @@ const HASH_RE = /^[a-f0-9]{64}$/
  */
 export function cleanCredit(raw) {
   if (!raw || typeof raw !== 'object') return null
-  const source = raw.source === 'pexels' || raw.source === 'pixabay' ? raw.source : null
+  // Sprixy: the person's own game assets (server/sprixy.js). Its pages need the
+  // owner's sign-in, so a Sprixy credit carries a name and never a link.
+  const source = raw.source === 'pexels' || raw.source === 'pixabay' || raw.source === 'sprixy' ? raw.source : null
   if (!source) return null
   const link = (v) => {
     try {

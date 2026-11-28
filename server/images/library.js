@@ -374,6 +374,41 @@ export class ImageLibrary {
   }
 
   /**
+   * Store a game asset from the person's Sprixy (server/sprixy.js).
+   *
+   * Like a stock photo, an upload whose download the server did, with the
+   * source kept as the provider and its credit. Two things more: a PNG only —
+   * Sprixy serves nothing else, and a sprite's transparency is the point — and
+   * the `pixel-art` tag, which is how a design learns to show it with crisp
+   * pixels rather than smoothed (src/lib/providedPictures.ts).
+   */
+  ingestSprixy(buffer, spec = {}) {
+    if (sniffImageMime(buffer) !== 'image/png') {
+      const err = new Error('Sprixy returned a file that is not a PNG.')
+      err.statusCode = 502
+      throw err
+    }
+    const out = this.ingestUpload(buffer, {
+      ...spec,
+      mime: 'image/png',
+      tags: ['sprixy', 'pixel-art', ...(Array.isArray(spec.tags) ? spec.tags : [])],
+    })
+    if (!out.fromCache) {
+      out.meta.provider = 'sprixy'
+      out.meta.tags = out.meta.tags.filter((t) => t !== 'upload')
+      const credit = cleanCredit({ ...spec.credit, source: 'sprixy' })
+      if (credit) out.meta.credit = credit
+      this._persist()
+    }
+    return out
+  }
+
+  /** Whether a picture is pixel art: it must be shown with crisp pixels, never cropped. */
+  isPixelArt(hash) {
+    return Boolean(this.state.byHash[hash]?.tags?.includes('pixel-art'))
+  }
+
+  /**
    * Record that `owner` put this image here.
    *
    * A set rather than a field, because the library is content-addressed: two

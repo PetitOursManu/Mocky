@@ -20,6 +20,7 @@
  */
 import { sniffImageMime } from '../images/library.js'
 import { downloadPicture, MAX_PICTURE_BYTES } from '../images/remote.js'
+import { SPRIXY_ID_RE } from '../sprixy.js'
 
 /** Same ceiling as an upload from the interface. */
 export { MAX_PICTURE_BYTES }
@@ -32,6 +33,8 @@ export { MAX_PICTURE_BYTES }
  * @param {(user) => boolean} d.stockAccessFor
  * @param {(url: string) => Promise<unknown>} d.guard  throws for an address the server must not reach
  * @param {typeof fetch} [d.fetchImpl]
+ * @param {{ store: import('../sprixy.js').SprixyStore, client: ReturnType<typeof import('../sprixy.js').createSprixyClient> }|null} [d.sprixy]
+ *        the person's own Sprixy: game assets from the projects they shared with apps
  */
 export function createMcpPictures(d) {
   function store(buffer, ingest) {
@@ -82,6 +85,65 @@ export function createMcpPictures(d) {
       const mime = sniffImageMime(buffer)
       if (!mime) throw Object.assign(new Error('That address is not a JPEG, PNG or WebP picture.'), { code: 'not-image' })
       return store(buffer, () => d.library.ingestUpload(buffer, { name: String(use || 'image from an assistant').slice(0, 200), owner: user.id, mime, tags: ['mcp'] }))
+    },
+
+    /** Whether this account connected its Sprixy (Settings → Sprixy). */
+    sprixyAvailable(user) {
+      return Boolean(d.sprixy?.store.get(user.id))
+    },
+
+    /**
+     * Assets of the person's Sprixy, with small thumbnails for the assistant to
+     * LOOK at. Nothing is stored. Thumbnails are fetched here, with the token,
+     * because a Sprixy serves nothing without one.
+     */
+    async searchSprixy(user, query, { kind, count = 8 } = {}) {
+      const link = d.sprixy?.store.get(user.id)
+      if (!link) throw Object.assign(new Error('Sprixy is not connected.'), { code: 'not-connected' })
+      const out = await d.sprixy.client.search(link, { query, kind, limit: count })
+      const items = Array.isArray(out?.items) ? out.items : []
+      const thumbs = await Promise.all(
+        items.map((a) => d.sprixy.client.image(link, a.id, { size: 128 }).then((b) => `data:image/png;base64,${b.toString('base64')}`, () => '')),
+      )
+      return {
+        total: Number(out?.total) || items.length,
+        candidates: items.map((a, i) => ({
+          id: `sprixy:${a.id}`,
+          title: String(a.name || '').slice(0, 120),
+          kind: String(a.kind || ''),
+          project: String(a.projectName || '').slice(0, 120),
+          width: Number(a.width) || 0,
+          height: Number(a.height) || 0,
+          frames: Number(a.frames) || 1,
+          tags: Array.isArray(a.tags) ? a.tags.slice(0, 12).map(String) : [],
+          thumb: thumbs[i],
+        })),
+      }
+    },
+
+    /** Import a Sprixy asset the assistant chose (`sprixy:ast_…`). Returns its library hash. */
+    async importSprixy(user, sprixyId, use) {
+      const m = SPRIXY_ID_RE.exec(String(sprixyId || ''))
+      if (!m) throw Object.assign(new Error('A Sprixy asset id looks like "sprixy:ast_…", from search_sprixy_assets.'), { code: 'bad-id' })
+      const link = d.sprixy?.store.get(user.id)
+      if (!link) throw Object.assign(new Error('Sprixy is not connected.'), { code: 'not-connected' })
+      const asset = await d.sprixy.client.asset(link, m[1])
+      const buffer = await d.sprixy.client.image(link, m[1], { size: 512 })
+      return store(buffer, () =>
+        d.library.ingestSprixy(buffer, {
+          name: String(use || asset.name || 'Sprixy asset').slice(0, 200),
+          owner: user.id,
+          width: Number(asset.image?.width) || 0,
+          height: Number(asset.image?.height) || 0,
+          tags: ['mcp'],
+          credit: { id: m[1], author: asset.credit?.author || '' },
+        }),
+      )
+    },
+
+    /** Whether a library picture is pixel art (from Sprixy): shown crisp, never cropped. */
+    isPixelArt(hash) {
+      return Boolean(d.library.isPixelArt?.(hash))
     },
 
     /** Whether `hash` is a picture of this account's — the only pictures a design may be given. */
